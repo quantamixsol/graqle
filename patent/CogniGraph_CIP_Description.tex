@@ -1,0 +1,292 @@
+\documentclass[a4paper,12pt]{article}
+
+%% ── Geometry (EPO A4 standard margins) ──
+\usepackage[a4paper,top=25mm,bottom=25mm,left=25mm,right=25mm]{geometry}
+
+%% ── Fonts and Encoding ──
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+%% ── Mathematics ──
+\usepackage{amsmath,amssymb}
+
+%% ── Graphics ──
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+
+%% ── Tables ──
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+
+%% ── Hyperlinks ──
+\usepackage[colorlinks=false]{hyperref}
+
+%% ── Headers/Footers ──
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{COGNIGRAPH-CIP-2026 --- Description}}
+\fancyhead[R]{\small\textit{Quantamix Solutions B.V.}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.2pt}
+
+%% ── Compact lists ──
+\usepackage{enumitem}
+
+%% ── Line spacing ──
+\usepackage{setspace}
+\setstretch{1.15}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries DESCRIPTION}\\[3mm]
+{\normalsize European Patent Application --- Continuation-in-Part}\\[1mm]
+{\normalsize Parent: EP26162901.8 (filed 2026-03-06)}\\[1mm]
+{\normalsize Reference: COGNIGRAPH-CIP-NL-2026-001}\\[1mm]
+{\normalsize Applicant: Quantamix Solutions B.V.}\\[3mm]
+{\large\bfseries CogniGraph: Graph-of-Agents Distributed Reasoning\\[2mm]
+over Knowledge Graph Topologies with Prize-Collecting\\[2mm]
+Steiner Tree Activation and Convergent Message Passing}
+\end{center}
+
+\vspace{8mm}
+
+%% =============================================================================
+%% SECTION 1: TECHNICAL FIELD
+%% =============================================================================
+
+\section*{Technical Field}
+
+\noindent The present invention relates to the field of artificial intelligence and knowledge graph reasoning, and more particularly to a system and method for distributed multi-agent reasoning over knowledge graph topologies using graph-theoretic subgraph activation, convergent message passing, and hierarchical aggregation.
+
+\vspace{4mm}
+
+%% =============================================================================
+%% SECTION 2: RELATIONSHIP TO PARENT APPLICATION
+%% =============================================================================
+
+\section*{Relationship to Parent Application}
+
+\noindent This application is a Continuation-in-Part (CIP) of European Patent Application EP26162901.8, entitled ``TAMR+: Trust-Aware Multi-Signal Document Retrieval with Graph-Based Compliance Scoring and Gap Attribution for Regulatory AI Systems,'' filed on 6~March~2026 by Quantamix Solutions B.V.
+
+\vspace{2mm}
+
+\noindent The parent application EP26162901.8 discloses a document retrieval and compliance scoring system (TAMR+) that uses Prize-Collecting Steiner Tree (PCST) optimization for knowledge graph traversal in the context of regulatory document retrieval. The present CIP application extends the PCST activation concept from document retrieval to \textbf{distributed multi-agent reasoning}, introducing five novel innovations:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item \textbf{PCST-Activated Multi-Agent Reasoning} --- using PCST subgraph activation to determine agent deployment topology (parent: PCST for retrieval subgraph selection);
+\item \textbf{MasterObserver Transparency Monitoring} --- a non-participant observer that monitors inter-agent reasoning traffic for transparency and auditability;
+\item \textbf{Convergent Message Passing} --- similarity-based convergence detection with early termination and token compression;
+\item \textbf{Backend Fallback Chain with Cost Budget} --- resilient inference across heterogeneous model backends with per-query cost enforcement;
+\item \textbf{Graph-Topology-Aware Hierarchical Aggregation} --- centrality-based aggregation tree construction for synthesizing distributed reasoning results.
+\end{enumerate}
+
+\vspace{2mm}
+
+\noindent \textbf{Shared subject matter} (inheriting parent priority date): The PCST optimization algorithm for subgraph selection on knowledge graphs is common to both applications. Claims 1--3 of this CIP extend the PCST activation from the parent's retrieval context to the novel reasoning context.
+
+\noindent \textbf{New matter} (receiving CIP filing date): Innovation Groups B--E (Claims 4--15) constitute new matter not disclosed in the parent application, covering multi-agent monitoring, convergent message passing, backend resilience, and hierarchical aggregation.
+
+\vspace{4mm}
+
+%% =============================================================================
+%% SECTION 3: BACKGROUND OF THE INVENTION
+%% =============================================================================
+
+\section*{Background of the Invention}
+
+\noindent Knowledge graphs encode structured domain knowledge as nodes (entities) connected by typed edges (relationships). Reasoning over knowledge graphs has traditionally been performed by (a)~graph traversal algorithms that follow edges to find relevant paths, (b)~embedding-based methods that project entities and relations into vector spaces, or (c)~retrieval-augmented generation (RAG) that extracts subgraph context and feeds it to a single language model.
+
+\vspace{2mm}
+
+\noindent These approaches share a fundamental limitation: reasoning is \textbf{centralized}. A single model receives all relevant context and must reason over it in one pass. This creates three problems:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item \textbf{Context window saturation}: Large knowledge graphs produce context that exceeds model capacity;
+\item \textbf{Loss of graph structure}: Concatenating node content destroys the topological relationships that encode domain semantics;
+\item \textbf{No transparency}: A single model's reasoning is opaque --- there is no mechanism to trace which knowledge sources contributed to which parts of the answer.
+\end{enumerate}
+
+\vspace{2mm}
+
+\noindent The parent application (TAMR+) addresses the retrieval component of this pipeline by using PCST to select relevant subgraphs for document retrieval and compliance scoring. However, TAMR+ feeds retrieved content to a single language model for final reasoning, inheriting the centralization limitations above.
+
+\vspace{2mm}
+
+\noindent CogniGraph addresses the reasoning component by transforming the knowledge graph itself into a \textbf{reasoning topology}: each node becomes an autonomous language model agent that reasons about its local knowledge and communicates with neighbor agents through the graph's edge structure. This Graph-of-Agents architecture preserves graph topology during reasoning, distributes context across multiple agents, and provides full transparency through the MasterObserver.
+
+\vspace{4mm}
+
+%% =============================================================================
+%% SECTION 4: SUMMARY OF THE INVENTION
+%% =============================================================================
+
+\section*{Summary of the Invention}
+
+\noindent The present invention provides a system and method for distributed reasoning over knowledge graphs, called CogniGraph, comprising:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item \textbf{Graph-of-Agents Architecture}: Each node $v_i$ in a knowledge graph $G = (V, E, W)$ hosts an autonomous language model agent $a_i$ that has access to the node's knowledge content, entity type, and local graph neighborhood.
+
+\item \textbf{PCST Subgraph Activation}: For each query $q$, a Prize-Collecting Steiner Tree optimization selects a compact subgraph $G^* \subseteq G$ of 4--$K_{\max}$ nodes, achieving sublinear scaling with graph size.
+
+\item \textbf{Convergent Message Passing}: Agents conduct $R$ rounds of message-passing reasoning, where each agent generates responses conditioned on the query, its node knowledge, and messages from graph-adjacent agents. Convergence is detected via inter-message similarity, enabling early termination.
+
+\item \textbf{MasterObserver}: A non-reasoning observer module intercepts all inter-agent traffic, providing complete transparency, health monitoring, and contribution attribution without affecting reasoning outcomes.
+
+\item \textbf{Backend Fallback Chain}: Agents can use heterogeneous inference backends (cloud APIs, local GPU models, adapter-augmented models) with automatic failover and per-query cost budget enforcement.
+
+\item \textbf{Hierarchical Aggregation}: Final-round messages are aggregated using a centrality-based tree structure (leaves $\to$ hubs $\to$ root) that preserves the graph's topological hierarchy in the synthesis.
+\end{enumerate}
+
+\vspace{4mm}
+
+%% =============================================================================
+%% SECTION 5: DETAILED DESCRIPTION
+%% =============================================================================
+
+\section*{Detailed Description of the Invention}
+
+\subsection*{5.1 System Architecture}
+
+\noindent The CogniGraph system comprises five principal components:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item \textbf{Knowledge Graph Layer}: Accepts graph data from NetworkX, Neo4j, or JSON/node-link format. Each node stores: unique identifier, label, entity type, description (knowledge content), and typed properties. Edges store: source/target identifiers, relationship type, and weight.
+
+\item \textbf{Activation Layer}: Implements PCST subgraph selection. Given query $q$, computes node prizes $\pi_i = \alpha \cdot \mathrm{sim}(\mathbf{e}_q, \mathbf{e}_{v_i})$ using sentence embeddings, and edge costs $c_e = \beta / w_e$. The PCST solver (Goemans--Williamson primal-dual) returns the activated subgraph $G^*$.
+
+\item \textbf{Orchestration Layer}: Manages message-passing rounds, convergence detection, and cost tracking. For each round $r$, agents generate responses in parallel; the orchestrator collects messages, checks convergence ($\sigma^{(r)} \geq \tau$), and decides whether to continue or terminate.
+
+\item \textbf{Observation Layer}: The MasterObserver intercepts all messages via an event bus, recording trace data without modifying the reasoning flow. Computes health scores, contribution metrics, and anomaly alerts.
+
+\item \textbf{Backend Layer}: Provides a unified interface to heterogeneous language model backends. Implements the fallback chain $(b_1, b_2, \ldots, b_k)$ with retry logic, exponential backoff, and cost tracking.
+\end{enumerate}
+
+\subsection*{5.2 PCST Activation for Agent Deployment}
+
+\noindent Unlike the parent application where PCST selects document nodes for retrieval, CogniGraph uses PCST to determine the \textbf{reasoning topology} --- which nodes should host active agents and which edges should carry messages. This is a fundamentally different use of the same optimization:
+
+\begin{itemize}[nosep,leftmargin=2em]
+\item \textbf{TAMR+ (parent)}: PCST selects nodes whose content should be retrieved and concatenated into a prompt for a single model.
+\item \textbf{CogniGraph (this CIP)}: PCST selects nodes that become active reasoning agents, preserving the edge structure as communication channels between agents.
+\end{itemize}
+
+\noindent The prize function and cost function use the same mathematical formulation as the parent application, but the output is interpreted differently: instead of a retrieval set, it defines an agent deployment topology.
+
+\subsection*{5.3 Message-Passing Reasoning Protocol}
+
+\noindent Each activated agent $a_i$ maintains a context comprising:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item A \textbf{system prompt} derived from the node's entity type and knowledge content:
+\begin{quote}
+\small\ttfamily
+You are a reasoning agent for node [\textit{label}] ([\textit{type}]). \\
+Your knowledge: [\textit{description}]. \\
+Reason about the query using your knowledge and messages from neighbors.
+\end{quote}
+
+\item The \textbf{user query} $q$;
+\item \textbf{Incoming messages} from graph-adjacent agents: $\{m_j^{(r-1)} : (v_j, v_i) \in E^*\}$.
+\end{enumerate}
+
+\noindent In each round $r$, the agent generates response $m_i^{(r)}$ by invoking its backend model with this context. Messages exceeding the token budget $B_{\mathrm{tok}}$ are compressed using the $\mathrm{compress}(\cdot)$ function described in Claim~9.
+
+\subsection*{5.4 Convergence Detection}
+
+\noindent The convergence metric $\sigma^{(r)}$ measures the average pairwise similarity between agent messages at round $r$:
+
+$$\sigma^{(r)} = \frac{2}{n(n-1)} \sum_{i<j} \mathrm{sim}\bigl(\mathbf{e}(m_i^{(r)}),\, \mathbf{e}(m_j^{(r)})\bigr)$$
+
+\noindent Reasoning terminates at round $r^*$ when any of:
+\begin{itemize}[nosep,leftmargin=2em]
+\item $\sigma^{(r^*)} \geq \tau_{\mathrm{conv}}$ (agents have reached consensus);
+\item $|\sigma^{(r^*)} - \sigma^{(r^*-1)}| < \epsilon_{\mathrm{delta}}$ (convergence has stalled);
+\item $r^* = R_{\max}$ (maximum rounds reached);
+\item $C_{\mathrm{cum}} \geq C_{\max}$ (cost budget exceeded).
+\end{itemize}
+
+\subsection*{5.5 MasterObserver Architecture}
+
+\noindent The MasterObserver $\mathcal{O}$ implements a \textbf{read-only event bus pattern}:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item All messages between agents are copied to $\mathcal{O}$ without blocking the sender or receiver;
+\item $\mathcal{O}$ records each message as a tuple $(a_i, a_j, m, r, t)$ in the trace $\mathcal{T}$;
+\item After each round, $\mathcal{O}$ computes:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item Health score $h^{(r)}$ based on message count, average length, and error rate;
+  \item Per-agent contribution score $\kappa_i$;
+  \item Anomaly flags for silent agents ($|m_i| = 0$) or circular reasoning;
+  \end{itemize}
+\item $\mathcal{O}$ has \textbf{zero inference cost} --- it observes but never calls a language model.
+\end{enumerate}
+
+\subsection*{5.6 Backend Fallback and Cost Control}
+
+\noindent The backend fallback chain supports three categories:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Examples} & \textbf{Cost Rate} \\
+\midrule
+Cloud API & Anthropic Claude, OpenAI GPT & \$0.25--15/MTok \\
+Local GPU & Ollama (Qwen2.5, Llama), vLLM & \$0.0001/MTok \\
+Adapter & LoRA-augmented local models & \$0.0001/MTok \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Cost budget enforcement tracks $C_{\mathrm{cum}}$ across all inference calls. When $C_{\mathrm{cum}} \geq C_{\max}$, reasoning halts gracefully, returning partial results with a \texttt{budget\_exceeded} flag.
+
+\subsection*{5.7 Hierarchical Aggregation}
+
+\noindent Final-round messages are aggregated using the graph topology:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item Compute betweenness centrality $\mathrm{BC}(v_i)$ for each node in $G^*$;
+\item Select the highest-centrality node as root;
+\item Construct a BFS spanning tree from root;
+\item Aggregate bottom-up: leaf responses $\to$ hub syntheses $\to$ root answer.
+\end{enumerate}
+
+\noindent This preserves the knowledge graph's structural hierarchy in the final answer, unlike flat concatenation approaches.
+
+\vspace{8mm}
+
+%% =============================================================================
+%% SECTION 6: INDUSTRIAL APPLICABILITY
+%% =============================================================================
+
+\section*{Industrial Applicability}
+
+\noindent The CogniGraph system is applicable to any domain requiring structured reasoning over large knowledge graphs, including:
+
+\begin{itemize}[nosep,leftmargin=2em]
+\item \textbf{Regulatory compliance}: Reasoning over legal knowledge graphs (EU AI Act, financial regulations) where multi-hop reasoning across articles and cross-references is required;
+\item \textbf{Scientific research}: Reasoning over biomedical knowledge graphs, materials science ontologies, or academic citation networks;
+\item \textbf{Enterprise knowledge management}: Multi-agent reasoning over corporate knowledge bases with role-based access and audit trails;
+\item \textbf{Multi-hop question answering}: Answering complex questions that require synthesizing information from multiple knowledge sources.
+\end{itemize}
+
+\vspace{2mm}
+
+\noindent The system is implemented as an open-source Python SDK (\texttt{pip install cognigraph}) with CLI (\texttt{kogni}), REST API server, and connectors for NetworkX, Neo4j, and JSON graph formats.
+
+\vspace{15mm}
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\begin{center}
+{\small\itshape Quantamix Solutions B.V., Buitendijks\,2, 1422\,MM Uithoorn, The Netherlands\\
+European Patent Application --- Continuation-in-Part of EP26162901.8\\
+Reference: COGNIGRAPH-CIP-NL-2026-001}
+\end{center}
+
+\end{document}

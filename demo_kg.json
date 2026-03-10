@@ -1,0 +1,291 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "AI System",
+      "type": "Concept",
+      "description": "Core definition of AI system under Art. 3",
+      "id": "ai_system"
+    },
+    {
+      "label": "High-Risk AI",
+      "type": "Concept",
+      "description": "AI systems classified as high-risk under Art. 6 and Annex III",
+      "id": "high_risk"
+    },
+    {
+      "label": "Prohibited Practices",
+      "type": "Concept",
+      "description": "AI practices banned under Art. 5",
+      "id": "prohibited"
+    },
+    {
+      "label": "General-Purpose AI",
+      "type": "Concept",
+      "description": "GPAI models and systems under Chapter V",
+      "id": "gpai"
+    },
+    {
+      "label": "Systemic Risk",
+      "type": "Concept",
+      "description": "GPAI models with systemic risk per Art. 51",
+      "id": "systemic_risk"
+    },
+    {
+      "label": "Transparency",
+      "type": "Concept",
+      "description": "Transparency obligations under Art. 50 and Art. 53",
+      "id": "transparency"
+    },
+    {
+      "label": "Conformity Assessment",
+      "type": "Concept",
+      "description": "Conformity assessment procedures under Art. 43",
+      "id": "conformity"
+    },
+    {
+      "label": "Risk Management",
+      "type": "Concept",
+      "description": "Risk management system required by Art. 9",
+      "id": "risk_mgmt"
+    },
+    {
+      "label": "Data Governance",
+      "type": "Concept",
+      "description": "Data quality and governance requirements under Art. 10",
+      "id": "data_gov"
+    },
+    {
+      "label": "Human Oversight",
+      "type": "Concept",
+      "description": "Human oversight requirements under Art. 14",
+      "id": "human_oversight"
+    },
+    {
+      "label": "Market Surveillance",
+      "type": "Concept",
+      "description": "Market surveillance framework under Art. 74",
+      "id": "market_surv"
+    },
+    {
+      "label": "Penalties",
+      "type": "Concept",
+      "description": "Administrative fines and enforcement under Art. 99",
+      "id": "penalties"
+    },
+    {
+      "label": "Regulatory Sandbox",
+      "type": "Concept",
+      "description": "AI regulatory sandboxes under Art. 57-62",
+      "id": "sandbox"
+    },
+    {
+      "label": "Fundamental Rights",
+      "type": "Concept",
+      "description": "Fundamental rights impact assessment under Art. 27",
+      "id": "fundamental_rights"
+    },
+    {
+      "label": "CE Marking",
+      "type": "Concept",
+      "description": "CE marking requirements under Art. 48",
+      "id": "ce_marking"
+    },
+    {
+      "label": "Provider",
+      "type": "Concept",
+      "description": "Provider obligations under Art. 16-17",
+      "id": "provider"
+    },
+    {
+      "label": "Deployer",
+      "type": "Concept",
+      "description": "Deployer obligations under Art. 26",
+      "id": "deployer"
+    },
+    {
+      "label": "Importer",
+      "type": "Concept",
+      "description": "Importer obligations under Art. 23",
+      "id": "importer"
+    },
+    {
+      "label": "Distributor",
+      "type": "Concept",
+      "description": "Distributor obligations under Art. 24",
+      "id": "distributor"
+    },
+    {
+      "label": "AI Office",
+      "type": "Concept",
+      "description": "EU AI Office for GPAI oversight under Art. 64",
+      "id": "ai_office"
+    },
+    {
+      "label": "Open Source",
+      "type": "Concept",
+      "description": "Open-source AI exemptions under Art. 2(12)",
+      "id": "open_source"
+    },
+    {
+      "label": "Liability",
+      "type": "Concept",
+      "description": "Liability framework interaction with AI Liability Directive",
+      "id": "liability"
+    },
+    {
+      "label": "GDPR Interaction",
+      "type": "Concept",
+      "description": "Interaction with General Data Protection Regulation",
+      "id": "gdpr"
+    }
+  ],
+  "links": [
+    {
+      "relationship": "CLASSIFIES_AS",
+      "weight": 1.0,
+      "source": "ai_system",
+      "target": "high_risk"
+    },
+    {
+      "relationship": "CLASSIFIES_AS",
+      "weight": 1.0,
+      "source": "ai_system",
+      "target": "prohibited"
+    },
+    {
+      "relationship": "INCLUDES",
+      "weight": 1.0,
+      "source": "ai_system",
+      "target": "gpai"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "risk_mgmt"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "data_gov"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "human_oversight"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "transparency"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "conformity"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "ce_marking"
+    },
+    {
+      "relationship": "SUBJECT_TO",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "fundamental_rights"
+    },
+    {
+      "relationship": "OBLIGATIONS_FOR",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "provider"
+    },
+    {
+      "relationship": "OBLIGATIONS_FOR",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "deployer"
+    },
+    {
+      "relationship": "OBLIGATIONS_FOR",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "importer"
+    },
+    {
+      "relationship": "OBLIGATIONS_FOR",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "distributor"
+    },
+    {
+      "relationship": "EXEMPTS",
+      "weight": 1.0,
+      "source": "high_risk",
+      "target": "sandbox"
+    },
+    {
+      "relationship": "ENFORCES",
+      "weight": 1.0,
+      "source": "prohibited",
+      "target": "penalties"
+    },
+    {
+      "relationship": "MAY_HAVE",
+      "weight": 1.0,
+      "source": "gpai",
+      "target": "systemic_risk"
+    },
+    {
+      "relationship": "REQUIRES",
+      "weight": 1.0,
+      "source": "gpai",
+      "target": "transparency"
+    },
+    {
+      "relationship": "PARTIALLY_EXEMPTS",
+      "weight": 1.0,
+      "source": "gpai",
+      "target": "open_source"
+    },
+    {
+      "relationship": "OVERSEEN_BY",
+      "weight": 1.0,
+      "source": "systemic_risk",
+      "target": "ai_office"
+    },
+    {
+      "relationship": "VERIFIES",
+      "weight": 1.0,
+      "source": "conformity",
+      "target": "market_surv"
+    },
+    {
+      "relationship": "COMPLEMENTS",
+      "weight": 1.0,
+      "source": "data_gov",
+      "target": "gdpr"
+    },
+    {
+      "relationship": "ENFORCES",
+      "weight": 1.0,
+      "source": "market_surv",
+      "target": "penalties"
+    },
+    {
+      "relationship": "EXTENDS",
+      "weight": 1.0,
+      "source": "penalties",
+      "target": "liability"
+    }
+  ]
+}

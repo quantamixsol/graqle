@@ -36,3 +36,10 @@ Thumbs.db
 
 # Traces
 traces/
+
+# Benchmark data (large files)
+cognigraph/benchmarks/data/
+benchmarks/data/
+
+# Results (regeneratable)
+cognigraph/benchmarks/results/

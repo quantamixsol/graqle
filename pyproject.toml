@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
-    { name = "CrawlQ AI", email = "engineering@crawlq.ai" },
+    { name = "Harish Kumar", email = "harish.kumar@quantamixsolutions.com" },
 ]
 keywords = [
     "knowledge-graph", "multi-agent", "reasoning", "slm",
@@ -78,12 +78,16 @@ dev = [
 kogni = "cognigraph.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/crawlq-ai/cognigraph"
+Homepage = "https://github.com/quantamixsol/cognigraph"
 Documentation = "https://cognigraph.readthedocs.io"
-Repository = "https://github.com/crawlq-ai/cognigraph"
+Repository = "https://github.com/quantamixsol/cognigraph"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["cognigraph/benchmarks/data/*", "paper/*", "patent/*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["cognigraph"]
+exclude = ["cognigraph/benchmarks/data/*"]
 
 [tool.ruff]
 target-version = "py310"

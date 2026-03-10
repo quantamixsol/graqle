@@ -1,0 +1,225 @@
+\documentclass[a4paper,12pt]{article}
+
+%% ── Geometry (EPO A4 standard margins) ──
+\usepackage[a4paper,top=25mm,bottom=25mm,left=25mm,right=25mm]{geometry}
+
+%% ── Fonts and Encoding ──
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+%% ── Mathematics ──
+\usepackage{amsmath,amssymb}
+
+%% ── Hyperlinks ──
+\usepackage[colorlinks=false]{hyperref}
+
+%% ── Headers/Footers ──
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{COGNIGRAPH-CIP-2026 --- Claims}}
+\fancyhead[R]{\small\textit{Quantamix Solutions B.V.}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.2pt}
+
+%% ── Compact lists ──
+\usepackage{enumitem}
+
+%% ── Line spacing ──
+\usepackage{setspace}
+\setstretch{1.15}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries CLAIMS}\\[3mm]
+{\normalsize European Patent Application --- Continuation-in-Part}\\[1mm]
+{\normalsize Parent: EP26162901.8 (TAMR+, filed 2026-03-06)}\\[1mm]
+{\normalsize Reference: COGNIGRAPH-CIP-NL-2026-001}\\[1mm]
+{\normalsize Applicant: Quantamix Solutions B.V.}\\[1mm]
+{\normalsize Title: CogniGraph: Graph-of-Agents Distributed Reasoning\\
+over Knowledge Graph Topologies with Prize-Collecting\\
+Steiner Tree Activation and Convergent Message Passing}
+\end{center}
+
+\vspace{8mm}
+
+%% =============================================================================
+%% INNOVATION GROUP A: PCST-Activated Multi-Agent Reasoning
+%% (Claims 1--3)
+%% =============================================================================
+
+\noindent\textbf{Claim 1.} A computer-implemented method for distributed reasoning over a knowledge graph $G = (V, E, W)$, comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item receiving a natural-language query $q$ and computing a query embedding $\mathbf{e}_q \in \mathbb{R}^d$ using a text encoder;
+\item for each node $v_i \in V$, computing a relevance prize $\pi_i = \alpha \cdot \mathrm{sim}(\mathbf{e}_q, \mathbf{e}_{v_i})$ where $\alpha$ is a prize scaling factor and $\mathrm{sim}(\cdot,\cdot)$ denotes cosine similarity;
+\item solving a Prize-Collecting Steiner Tree (PCST) optimization on $G$ with node prizes $\{\pi_i\}$ and edge costs $\{c_e = \beta / w_e\}$ where $\beta$ is a cost scaling factor and $w_e$ is the edge weight, to obtain an activated subgraph $G^* \subseteq G$ with $|V^*| \in [4, K_{\max}]$ nodes;
+\item instantiating a language model agent $a_i$ at each activated node $v_i \in V^*$, wherein each agent $a_i$ has access to the knowledge content, entity type, and local graph neighborhood of its corresponding node;
+\item executing $R$ rounds of message-passing reasoning across the activated subgraph, wherein in each round $r$:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item each agent $a_i$ generates a reasoning response $m_i^{(r)}$ conditioned on the query $q$, its node knowledge, and messages received from neighbor agents $\{m_j^{(r-1)} : (v_j, v_i) \in E^*\}$;
+  \item messages are propagated along edges $E^*$ of the activated subgraph;
+  \end{itemize}
+\item aggregating the final-round messages $\{m_i^{(R)}\}_{v_i \in V^*}$ using a hierarchical aggregation function that synthesizes leaf-node responses through hub nodes to produce a unified answer $\hat{a}$.
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 2.} The method of claim~1, wherein step~(c) uses the \texttt{pcst\_fast} solver with a Goemans--Williamson primal-dual approximation, and wherein the PCST activation replaces full-graph traversal such that only $|V^*| \leq K_{\max}$ nodes are activated per query, achieving sublinear cost scaling $O(|V^*| \cdot R)$ instead of $O(|V| \cdot R)$.
+
+\bigskip
+
+\noindent\textbf{Claim 3.} The method of claim~1, further comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item applying a convergence detection mechanism after each round $r$ that computes pairwise cosine similarity $s^{(r)} = \frac{1}{|V^*|^2} \sum_{i,j} \mathrm{sim}(m_i^{(r)}, m_j^{(r)})$ between agent messages;
+\item terminating message passing early when $s^{(r)} \geq \tau_{\mathrm{conv}}$ or $|s^{(r)} - s^{(r-1)}| < \epsilon_{\mathrm{delta}}$, where $\tau_{\mathrm{conv}}$ and $\epsilon_{\mathrm{delta}}$ are convergence thresholds;
+\item applying token-level compression to messages exceeding a token budget $B_{\mathrm{tok}}$, wherein compression preserves the first $B_{\mathrm{tok}}$ tokens and appends a summarization suffix.
+\end{enumerate}
+
+\bigskip
+
+%% =============================================================================
+%% INNOVATION GROUP B: MasterObserver Transparency Monitoring
+%% (Claims 4--6)
+%% =============================================================================
+
+\noindent\textbf{Claim 4.} A computer-implemented system for transparent monitoring of distributed multi-agent reasoning, comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item a plurality of reasoning agents $\{a_1, \ldots, a_n\}$ deployed on nodes of a knowledge graph, each agent generating reasoning messages in response to a query;
+\item a MasterObserver module $\mathcal{O}$ that intercepts all inter-agent messages without participating in the reasoning process, wherein $\mathcal{O}$:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item records a complete message trace $\mathcal{T} = \{(a_i, a_j, m, r, t) : \text{message } m \text{ from } a_i \text{ to } a_j \text{ at round } r, \text{ time } t\}$;
+  \item computes per-round health scores $h^{(r)} = f(\text{message\_count}^{(r)}, \text{avg\_length}^{(r)}, \text{error\_count}^{(r)})$;
+  \item detects anomalies including silent agents, message loops, and divergent reasoning;
+  \end{itemize}
+\item an alert mechanism that flags reasoning sessions where $h^{(r)} < h_{\min}$ for any round $r$.
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 5.} The system of claim~4, wherein the MasterObserver computes per-agent contribution scores $\kappa_i = \frac{|\{m \in \mathcal{T} : \mathrm{sender}(m) = a_i\}|}{|\mathcal{T}|} \cdot \mathrm{avg\_quality}(a_i)$, and provides an explanation trace that maps each part of the final answer to the contributing agent and source node.
+
+\bigskip
+
+\noindent\textbf{Claim 6.} The system of claim~4, wherein the MasterObserver operates as a read-only observer with zero inference cost, receiving copies of messages via an event bus without modifying message content or routing, and wherein the observation overhead is bounded by $O(|\mathcal{T}|)$ in time and space.
+
+\bigskip
+
+%% =============================================================================
+%% INNOVATION GROUP C: Convergent Message Passing with Token Compression
+%% (Claims 7--9)
+%% =============================================================================
+
+\noindent\textbf{Claim 7.} A computer-implemented method for convergent multi-agent message passing over a graph topology, comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item initializing $n$ language model agents on nodes of a graph $G^*$, each agent $a_i$ having a system prompt derived from its node's knowledge content and entity type;
+\item for each round $r = 1, \ldots, R_{\max}$:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item constructing a context window for each agent $a_i$ containing: the original query $q$, the agent's node knowledge, and incoming messages from graph-adjacent agents;
+  \item generating a reasoning response $m_i^{(r)}$ via the agent's language model backend;
+  \item computing a convergence metric $\sigma^{(r)}$ based on inter-agent message similarity;
+  \end{itemize}
+\item terminating at round $r^*$ when $\sigma^{(r^*)}$ satisfies a convergence criterion, yielding early termination savings of $(R_{\max} - r^*) \cdot n$ inference calls.
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 8.} The method of claim~7, wherein the convergence metric $\sigma^{(r)}$ is computed as:
+$$\sigma^{(r)} = \frac{2}{n(n-1)} \sum_{i<j} \mathrm{sim}\bigl(\mathbf{e}(m_i^{(r)}),\, \mathbf{e}(m_j^{(r)})\bigr)$$
+where $\mathbf{e}(\cdot)$ denotes a sentence embedding function, and wherein convergence is declared when $\sigma^{(r)} \geq \tau$ or $|\sigma^{(r)} - \sigma^{(r-1)}| < \epsilon$.
+
+\bigskip
+
+\noindent\textbf{Claim 9.} The method of claim~7, further comprising applying a token compression function $\mathrm{compress}(m, B)$ to any message $m$ exceeding a per-message token budget $B$, wherein $\mathrm{compress}$ retains the first $B - B_{\mathrm{suffix}}$ tokens and appends a model-generated summary of the truncated portion, thereby bounding total token consumption per round to $O(n \cdot B)$.
+
+\bigskip
+
+%% =============================================================================
+%% INNOVATION GROUP D: Backend Fallback Chain with Cost Budget Enforcement
+%% (Claims 10--12)
+%% =============================================================================
+
+\noindent\textbf{Claim 10.} A computer-implemented system for resilient inference in distributed multi-agent reasoning, comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item a backend fallback chain $\mathcal{B} = (b_1, b_2, \ldots, b_k)$ of $k$ language model backends ordered by preference, wherein each backend $b_j$ has an associated cost rate $c_j$ (cost per 1000 tokens) and a failure counter $f_j$;
+\item for each inference request from an agent $a_i$:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item attempting generation on $b_1$; if $b_1$ fails (timeout, rate limit, or error), incrementing $f_1$ and retrying on $b_2$, continuing through the chain until success or exhaustion;
+  \item applying exponential backoff with jitter: wait time $w = \min(2^{\text{attempt}} + \mathrm{random}(0, 1), w_{\max})$ seconds between retries on the same backend;
+  \end{itemize}
+\item a cost budget enforcement mechanism that:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item tracks cumulative cost $C_{\mathrm{cum}} = \sum_{\text{calls}} \frac{\text{tokens}_j \cdot c_j}{1000}$ across all inference calls in a reasoning session;
+  \item halts reasoning when $C_{\mathrm{cum}} \geq C_{\max}$, returning partial results with a budget-exceeded flag;
+  \item reports $C_{\mathrm{cum}}$ in result metadata for cost auditing.
+  \end{itemize}
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 11.} The system of claim~10, wherein the fallback chain supports heterogeneous backends including cloud API models, local GPU-accelerated models via Ollama or vLLM, and adapter-augmented models with LoRA weights, and wherein per-node backend assignment allows different nodes in the knowledge graph to use different backends based on node criticality or domain specialization.
+
+\bigskip
+
+\noindent\textbf{Claim 12.} The system of claim~10, wherein cost budget enforcement is integrated with the convergence detection of claim~7 such that reasoning terminates on the earlier of: (i) convergence criterion satisfied, (ii) maximum rounds $R_{\max}$ reached, or (iii) cost budget $C_{\max}$ exceeded, and wherein the termination reason is recorded in result metadata.
+
+\bigskip
+
+%% =============================================================================
+%% INNOVATION GROUP E: Graph-Topology-Aware Hierarchical Aggregation
+%% (Claims 13--15)
+%% =============================================================================
+
+\noindent\textbf{Claim 13.} A computer-implemented method for hierarchical aggregation of distributed reasoning results over a knowledge graph topology, comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item receiving final-round reasoning messages $\{m_i^{(R)}\}$ from $n$ agents deployed on an activated subgraph $G^* = (V^*, E^*)$;
+\item computing a topological ordering of nodes in $G^*$ based on graph centrality, wherein leaf nodes (degree $\leq 1$) are processed first, hub nodes (degree $\geq 3$) are processed second, and the root node (highest centrality) produces the final synthesis;
+\item at each aggregation level $\ell$:
+  \begin{itemize}[nosep,leftmargin=1.5em]
+  \item the aggregating node $v_\ell$ receives messages from its children in the aggregation tree;
+  \item a language model generates a synthesis $s_\ell$ that combines the children's reasoning with the aggregating node's own knowledge;
+  \item conflict detection identifies contradictions between children's responses and flags them in the explanation trace;
+  \end{itemize}
+\item the root synthesis $s_{\mathrm{root}}$ constitutes the final answer, with provenance traced to contributing leaf nodes.
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 14.} The method of claim~13, wherein the aggregation tree is constructed by:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item computing betweenness centrality $\mathrm{BC}(v_i)$ for each node $v_i \in V^*$;
+\item selecting the node with highest $\mathrm{BC}$ as root;
+\item constructing a breadth-first spanning tree from the root;
+\item assigning aggregation order as reverse BFS level (leaves first, root last).
+\end{enumerate}
+
+\bigskip
+
+\noindent\textbf{Claim 15.} The method of claim~13, further comprising:
+
+\begin{enumerate}[label=(\alph*),nosep,leftmargin=2em]
+\item computing a confidence score $\gamma \in [0, 1]$ for the final answer based on inter-agent agreement at the final round: $\gamma = \sigma^{(R)}$ where $\sigma^{(R)}$ is the convergence metric from claim~8;
+\item when $\gamma < \gamma_{\min}$, automatically triggering an additional reasoning round with increased token budgets and reporting low-confidence status;
+\item generating an explanation trace that maps each sentence in the final answer to the source agent(s) and knowledge graph entity(ies) that contributed to it.
+\end{enumerate}
+
+\vspace{15mm}
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\begin{center}
+{\small\itshape Quantamix Solutions B.V., Buitendijks\,2, 1422\,MM Uithoorn, The Netherlands\\
+European Patent Application --- Continuation-in-Part of EP26162901.8\\
+Reference: COGNIGRAPH-CIP-NL-2026-001\\
+15~Claims in 5~Innovation Groups}
+\end{center}
+
+\end{document}

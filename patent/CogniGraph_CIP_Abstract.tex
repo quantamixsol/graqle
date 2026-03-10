@@ -1,0 +1,59 @@
+\documentclass[a4paper,12pt]{article}
+
+%% ── Geometry (EPO A4 standard margins) ──
+\usepackage[a4paper,top=25mm,bottom=25mm,left=25mm,right=25mm]{geometry}
+
+%% ── Fonts and Encoding ──
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+%% ── Hyperlinks ──
+\usepackage[colorlinks=false]{hyperref}
+
+%% ── Headers/Footers ──
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{COGNIGRAPH-CIP-2026 --- Abstract}}
+\fancyhead[R]{\small\textit{Quantamix Solutions B.V.}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.2pt}
+
+%% ── Line spacing ──
+\usepackage{setspace}
+\setstretch{1.15}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries ABSTRACT}\\[3mm]
+{\normalsize European Patent Application --- Continuation-in-Part}\\[1mm]
+{\normalsize Parent: EP26162901.8 (filed 2026-03-06)}\\[1mm]
+{\normalsize Reference: COGNIGRAPH-CIP-NL-2026-001}\\[1mm]
+{\normalsize Applicant: Quantamix Solutions B.V.}
+\end{center}
+
+\vspace{8mm}
+
+\noindent\textbf{Title:} CogniGraph: Graph-of-Agents Distributed Reasoning over Knowledge Graph Topologies with Prize-Collecting Steiner Tree Activation and Convergent Message Passing
+
+\vspace{6mm}
+
+\noindent A computer-implemented system and method for distributed reasoning over knowledge graphs, wherein each node of a knowledge graph hosts an autonomous language model agent. For each query, a Prize-Collecting Steiner Tree (PCST) optimization selects a compact subgraph of query-relevant nodes, instantiating reasoning agents only on selected nodes. The agents conduct multiple rounds of message-passing reasoning along graph edges, with convergence detected via inter-message similarity metrics, enabling early termination. A MasterObserver module provides full transparency by monitoring all inter-agent traffic without participating in reasoning. A backend fallback chain supports heterogeneous inference backends (cloud APIs, local GPU models, adapter-augmented models) with automatic failover and per-query cost budget enforcement. Final answers are synthesized through graph-topology-aware hierarchical aggregation that preserves the knowledge graph's structural hierarchy. Benchmark evaluation on HotpotQA and EU-RegQA demonstrates improved multi-hop reasoning accuracy over single-agent baselines while maintaining transparency and cost control.
+
+\vspace{6mm}
+
+\noindent\textbf{Classification:} G06F 16/36 (Knowledge graphs), G06N 3/08 (Learning methods), G06N 5/04 (Inference methods)
+
+\vspace{15mm}
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\begin{center}
+{\small\itshape Quantamix Solutions B.V., Buitendijks\,2, 1422\,MM Uithoorn, The Netherlands\\
+European Patent Application --- Continuation-in-Part of EP26162901.8\\
+Reference: COGNIGRAPH-CIP-NL-2026-001}
+\end{center}
+
+\end{document}

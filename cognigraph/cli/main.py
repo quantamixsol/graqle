@@ -276,19 +276,80 @@ def version() -> None:
     console.print(f"CogniGraph v{__version__}")
 
 
-def _load_graph(cfg):
-    """Load graph from config. Returns CogniGraph or None."""
+@app.command()
+def reason(
+    query: str = typer.Argument(..., help="The reasoning query"),
+    graph_path: str = typer.Option(None, "--graph", "-g", help="Path to JSON graph file"),
+    model: str = typer.Option("qwen2.5:3b", "--model", "-m", help="Ollama model name"),
+    host: str = typer.Option("http://localhost:11434", "--host", help="Ollama host"),
+    max_rounds: int = typer.Option(3, "--max-rounds", "-r", help="Max message-passing rounds"),
+    strategy: str = typer.Option("pcst", "--strategy", "-s", help="Activation strategy"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
+) -> None:
+    """Run reasoning with real Ollama GPU backend."""
+    import asyncio
+
+    from cognigraph.backends.api import OllamaBackend
+    from cognigraph.config.settings import CogniGraphConfig
     from cognigraph.core.graph import CogniGraph
     from pathlib import Path
 
+    # Load graph
+    if graph_path and Path(graph_path).exists():
+        graph = CogniGraph.from_json(graph_path)
+    else:
+        graph = _load_graph(CogniGraphConfig.default())
+        if graph is None:
+            console.print("[red]No graph found. Provide --graph path/to/graph.json[/red]")
+            raise typer.Exit(1)
+
+    # Set backend
+    backend = OllamaBackend(model=model, host=host)
+    graph.set_default_backend(backend)
+
+    console.print(f"[bold cyan]CogniGraph[/bold cyan] reasoning with {model}")
+    console.print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+    console.print(f"Query: [green]{query}[/green]")
+
+    result = asyncio.run(
+        graph.areason(query, max_rounds=max_rounds, strategy=strategy)
+    )
+
+    if output_format == "json":
+        import json
+        console.print(json.dumps({
+            "answer": result.answer,
+            "confidence": result.confidence,
+            "rounds": result.rounds_completed,
+            "nodes": result.node_count,
+            "cost_usd": result.cost_usd,
+            "latency_ms": result.latency_ms,
+            "active_nodes": result.active_nodes,
+        }, indent=2))
+    else:
+        console.print(f"\n[bold green]Answer:[/bold green] {result.answer}")
+        console.print(f"[dim]Confidence: {result.confidence:.0%} | Rounds: {result.rounds_completed} | "
+                      f"Nodes: {result.node_count} | Cost: ${result.cost_usd:.4f} | "
+                      f"Latency: {result.latency_ms:.0f}ms[/dim]")
+
+
+def _load_graph(cfg):
+    """Load graph from config or auto-discover. Returns CogniGraph or None."""
+    from cognigraph.core.graph import CogniGraph
+    from pathlib import Path
+
+    # 1. Check for cognigraph.json in current directory
     if cfg.graph.connector == "networkx":
-        # Check for JSON graph file
         json_path = Path("cognigraph.json")
         if json_path.exists():
             return CogniGraph.from_json(str(json_path), config=cfg)
-        return None
-    elif cfg.graph.connector == "neo4j":
-        # Would use Neo4j connector
+
+    # 2. Auto-discover: look for any .json graph file
+    for candidate in ["cognigraph.json", "knowledge_graph.json", "graph.json"]:
+        if Path(candidate).exists():
+            return CogniGraph.from_json(candidate, config=cfg)
+
+    if cfg.graph.connector == "neo4j":
         return None
     return None
 
