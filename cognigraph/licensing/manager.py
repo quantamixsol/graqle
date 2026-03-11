@@ -61,14 +61,19 @@ TIER_FEATURES: dict[LicenseTier, set[str]] = {
         "ralph_loop",
     },
     LicenseTier.PRO: {
-        # Innovations 6-13
+        # Innovations 6-13 (IP-gated moat)
         "semantic_shacl_gate",
+        "debate_protocol",
+        "explanation_trace",
         "constrained_f1",
         "ontology_generator",
         "adaptive_activation",
         "online_graph_learning",
         "lora_auto_selection",
         "tamr_connector",
+        "multi_resolution_embeddings",
+        "bayesian_edge_weighting",
+        "domain_detection",
         # Advanced MCP tools
         "mcp_preflight",
         "mcp_lessons",
@@ -79,6 +84,8 @@ TIER_FEATURES: dict[LicenseTier, set[str]] = {
         "multi_backend_fallback",
         "tiered_backends",
         "session_analytics",
+        "auto_grow_hook",
+        "metrics_dashboard",
     },
     LicenseTier.TEAM: {
         "shared_kg_sync",

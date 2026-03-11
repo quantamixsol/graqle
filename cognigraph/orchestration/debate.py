@@ -48,6 +48,8 @@ class DebateProtocol:
     2. Challenge rounds: nodes critique neighbors' claims
     3. Rebuttal round: nodes respond to critiques
     4. Final: collect all positions for judge aggregation
+
+    .. note:: Requires CogniGraph Pro license (``debate_protocol`` feature).
     """
 
     def __init__(
@@ -55,6 +57,8 @@ class DebateProtocol:
         challenge_rounds: int = 1,
         parallel: bool = True,
     ) -> None:
+        from cognigraph.licensing.manager import check_license
+        check_license("debate_protocol")
         self.challenge_rounds = challenge_rounds
         self.parallel = parallel
 

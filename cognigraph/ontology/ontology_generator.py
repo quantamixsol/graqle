@@ -71,10 +71,14 @@ class OntologyGenerator:
 
     This is a one-time expensive operation. The output is stored
     and reused for all subsequent queries.
+
+    .. note:: Requires CogniGraph Pro license (``ontology_generator`` feature).
     """
 
     def __init__(self, backend: Any) -> None:
         """Initialize with a model backend (typically Bedrock Sonnet/Opus)."""
+        from cognigraph.licensing.manager import check_license
+        check_license("ontology_generator")
         self._backend = backend
         self._generation_cost = 0.0
 
