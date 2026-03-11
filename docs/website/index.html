@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogniGraph — Graphs That Think | Self-Governing Development</title>
+    <meta name="description" content="CogniGraph transforms any codebase into a governed, self-improving reasoning network. One command. Full governance. Zero cloud infrastructure.">
+    <meta name="keywords" content="cognigraph, graph-of-agents, claude code, mcp, governed development, knowledge graph, multi-agent, self-improving">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="CogniGraph — Graphs That Think">
+    <meta property="og:description" content="Self-governing development for Claude Code. Your dev environment learns from mistakes and gets smarter every session.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cognigraph.dev">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CogniGraph — Graphs That Think">
+    <meta name="twitter:description" content="Self-governing development for Claude Code. 13 innovations. Zero cloud infrastructure.">
+
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-card-hover: #1a1a2e;
+            --text: #e4e4ef;
+            --text-muted: #8888a0;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --green: #22c55e;
+            --green-glow: rgba(34, 197, 94, 0.15);
+            --orange: #f59e0b;
+            --border: #2a2a3e;
+            --code-bg: #1a1a2e;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 0;
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--accent) !important;
+            color: white !important;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .nav-cta:hover { background: var(--accent-light) !important; transform: translateY(-1px); }
+
+        /* Hero */
+        .hero {
+            padding: 10rem 2rem 6rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: var(--accent-glow);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--accent-light);
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
+        }
+        .hero h1 span { color: var(--accent-light); }
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+        }
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.85rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--accent-light); transform: translateY(-2px); }
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--accent); background: var(--accent-glow); }
+
+        /* Install Block */
+        .install-block {
+            max-width: 650px;
+            margin: 3rem auto 0;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .install-header {
+            background: rgba(255,255,255,0.03);
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .install-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .install-dot.r { background: #ff5f57; }
+        .install-dot.y { background: #ffbd2e; }
+        .install-dot.g { background: #28c840; }
+        .install-code {
+            padding: 1.25rem 1.5rem;
+            font-family: var(--mono);
+            font-size: 0.95rem;
+            line-height: 2;
+        }
+        .install-code .comment { color: var(--text-muted); }
+        .install-code .cmd { color: var(--green); }
+        .install-code .flag { color: var(--accent-light); }
+        .install-code .output { color: var(--text-muted); font-style: italic; }
+
+        /* Section */
+        section { padding: 5rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section-label {
+            color: var(--accent-light);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: -0.01em;
+        }
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin-bottom: 3rem;
+        }
+
+        /* Tools Grid */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .tool-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            transition: all 0.2s;
+        }
+        .tool-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+            transform: translateY(-2px);
+        }
+        .tool-name {
+            font-family: var(--mono);
+            font-size: 0.95rem;
+            color: var(--accent-light);
+            margin-bottom: 0.5rem;
+        }
+        .tool-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .tool-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .badge-free { background: var(--green-glow); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+        .badge-pro { background: rgba(245,158,11,0.15); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+
+        /* Protocols */
+        .protocols-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+        @media (max-width: 768px) {
+            .protocols-grid { grid-template-columns: 1fr; }
+        }
+        .protocol-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+        }
+        .protocol-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .protocol-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        .protocol-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .protocol-steps {
+            list-style: none;
+            font-size: 0.9rem;
+        }
+        .protocol-steps li {
+            padding: 0.3rem 0;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .protocol-steps li::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        /* Innovations */
+        .innovations-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .innovations-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .innovations-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(42, 42, 62, 0.5);
+            font-size: 0.95rem;
+        }
+        .innovations-table tr:hover { background: var(--bg-card); }
+        .innovations-table .mono { font-family: var(--mono); font-size: 0.85rem; color: var(--text-muted); }
+
+        /* How It Works */
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 3rem 0;
+        }
+        .flow-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            min-width: 140px;
+        }
+        .flow-step strong { display: block; font-size: 0.95rem; margin-bottom: 0.25rem; }
+        .flow-step span { color: var(--text-muted); font-size: 0.8rem; }
+        .flow-arrow { color: var(--accent); font-size: 1.5rem; }
+
+        /* Pricing */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .pricing-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2.5rem 2rem;
+        }
+        .pricing-card.featured {
+            border-color: var(--accent);
+            position: relative;
+        }
+        .pricing-card.featured::before {
+            content: 'POPULAR';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            letter-spacing: 0.05em;
+        }
+        .pricing-tier {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .pricing-price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+        .pricing-price span { font-size: 1rem; font-weight: 400; color: var(--text-muted); }
+        .pricing-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .pricing-features {
+            list-style: none;
+            font-size: 0.9rem;
+        }
+        .pricing-features li {
+            padding: 0.4rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .pricing-features .check { color: var(--green); }
+        .pricing-features .locked { color: var(--text-muted); opacity: 0.4; }
+
+        /* Backends */
+        .backends-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+        .backend-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .backend-card h4 { margin-bottom: 0.5rem; }
+        .backend-card p { color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            flex-wrap: wrap;
+            margin: 3rem 0;
+        }
+        .stat { text-align: center; }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--accent-light);
+        }
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 6rem 2rem;
+            position: relative;
+        }
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .cta-section h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .cta-section p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .footer-links { display: flex; gap: 1.5rem; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
+        .footer-links a:hover { color: var(--text); }
+        .footer-copy { color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .nav-links { display: none; }
+            .hero { padding: 8rem 1.5rem 4rem; }
+            .hero h1 { font-size: 2rem; }
+            .section-title { font-size: 1.75rem; }
+            .stats-row { gap: 2rem; }
+            .flow { flex-direction: column; }
+            .flow-arrow { transform: rotate(90deg); }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+    <div class="nav-inner">
+        <a href="#" class="nav-logo">CogniGraph</a>
+        <div class="nav-links">
+            <a href="#tools">Tools</a>
+            <a href="#protocols">Protocols</a>
+            <a href="#innovations">Innovations</a>
+            <a href="#pricing">Pricing</a>
+            <a href="https://github.com/quantamixsol/cognigraph" target="_blank">GitHub</a>
+            <a href="#install" class="nav-cta">Get Started</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="install">
+    <div class="hero-badge">13 Patent-Protected Innovations | Apache 2.0</div>
+    <h1>Your Development<br/>Environment That <span>Thinks</span></h1>
+    <p>CogniGraph transforms any codebase into a self-governing reasoning network.
+       Install it, run one command, and your Claude Code sessions become governed,
+       self-improving, and semantically validated.</p>
+
+    <div class="hero-buttons">
+        <a href="#install-block" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.5 8.5l-4 3a.5.5 0 01-.8-.4v-6a.5.5 0 01.8-.4l4 3a.5.5 0 010 .8z"/></svg>
+            Get Started Free
+        </a>
+        <a href="https://github.com/quantamixsol/cognigraph" class="btn btn-secondary" target="_blank">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+        </a>
+    </div>
+
+    <div class="install-block" id="install-block">
+        <div class="install-header">
+            <div class="install-dot r"></div>
+            <div class="install-dot y"></div>
+            <div class="install-dot g"></div>
+        </div>
+        <div class="install-code">
+            <div><span class="comment"># Install</span></div>
+            <div><span class="cmd">pip install</span> <span class="flag">cognigraph[api]</span></div>
+            <div>&nbsp;</div>
+            <div><span class="comment"># Initialize your project</span></div>
+            <div><span class="cmd">cd</span> my-project</div>
+            <div><span class="cmd">kogni init</span></div>
+            <div>&nbsp;</div>
+            <div><span class="output"># Scans repo, builds KG, creates CLAUDE.md</span></div>
+            <div><span class="output"># Injects GCC + GSD + Ralph Loop protocols</span></div>
+            <div><span class="output"># Registers MCP server for Claude Code</span></div>
+            <div><span class="output"># Open Claude Code &rarr; governed development ready</span></div>
+        </div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat">
+            <div class="stat-value">13</div>
+            <div class="stat-label">Innovations</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">0.757</div>
+            <div class="stat-label">Constrained F1</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">99.7%</div>
+            <div class="stat-label">Governance Accuracy</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">$0</div>
+            <div class="stat-label">Cloud Infrastructure</div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section id="how-it-works">
+    <div class="container">
+        <div class="section-label">How It Works</div>
+        <div class="section-title">From install to governed development in 60 seconds</div>
+
+        <div class="flow">
+            <div class="flow-step">
+                <strong>pip install</strong>
+                <span>One command</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <strong>kogni init</strong>
+                <span>Scans repo, builds KG</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <strong>Claude Code</strong>
+                <span>MCP tools available</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <strong>Graph Reasoning</strong>
+                <span>Agents think together</span>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <strong>Learning</strong>
+                <span>Gets smarter each session</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MCP Tools -->
+<section id="tools" style="background: rgba(255,255,255,0.01);">
+    <div class="container">
+        <div class="section-label">MCP Tools for Claude Code</div>
+        <div class="section-title">7 governed tools in every session</div>
+        <div class="section-subtitle">Each tool is powered by graph-of-agents reasoning over your project's knowledge graph.</div>
+
+        <div class="tools-grid">
+            <div class="tool-card">
+                <div class="tool-name">kogni_context <span class="tool-badge badge-free">FREE</span></div>
+                <div class="tool-desc">Smart context loading for session start. Returns relevant KG nodes, active branch, and applicable lessons in ~300 tokens. Replaces reading large flat files.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_reason <span class="tool-badge badge-free">FREE</span></div>
+                <div class="tool-desc">Graph-of-agents reasoning over your project KG. Each node becomes an agent that reasons locally, exchanges messages, and produces synthesized answers.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_inspect <span class="tool-badge badge-free">FREE</span></div>
+                <div class="tool-desc">Inspect your project knowledge graph. Explore nodes, edges, statistics, and relationships between components.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_preflight <span class="tool-badge badge-pro">PRO</span></div>
+                <div class="tool-desc">Governance preflight check before code changes. Returns relevant lessons, past mistakes, applicable ADRs, and safety boundary warnings.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_lessons <span class="tool-badge badge-pro">PRO</span></div>
+                <div class="tool-desc">Find lessons and past mistakes relevant to your current operation. Lessons accumulate over time and auto-promote by severity.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_impact <span class="tool-badge badge-pro">PRO</span></div>
+                <div class="tool-desc">Trace downstream impacts through the dependency graph. See which components are affected and their risk level before you deploy.</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">kogni_learn <span class="tool-badge badge-pro">PRO</span></div>
+                <div class="tool-desc">Feed outcomes back for Bayesian graph learning. Success strengthens edges, failure weakens them. Your KG gets smarter every session.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Protocols -->
+<section id="protocols">
+    <div class="container">
+        <div class="section-label">Development Protocols</div>
+        <div class="section-title">Structured governance that no competitor has</div>
+        <div class="section-subtitle">Three battle-tested protocols injected into your CLAUDE.md. Always free.</div>
+
+        <div class="protocols-grid">
+            <div class="protocol-card">
+                <div class="protocol-icon" style="background: var(--accent-glow); color: var(--accent-light);">GCC</div>
+                <h3>Global Context Controller</h3>
+                <p>Session continuity across conversations. Branch management. Auto-commits every 30 minutes. Never lose context again.</p>
+                <ul class="protocol-steps">
+                    <li>Session start/end protocols</li>
+                    <li>Structured COMMIT checkpoints</li>
+                    <li>Branch management (BRANCH, MERGE)</li>
+                    <li>Context retrieval at 6 granularity levels</li>
+                    <li>Multi-instance coordination</li>
+                </ul>
+            </div>
+            <div class="protocol-card">
+                <div class="protocol-icon" style="background: var(--green-glow); color: var(--green);">GSD</div>
+                <h3>Get Shit Done</h3>
+                <p>Structured pre-work before execution. Spec before code. Context engineering over brute force. Atomic commits.</p>
+                <ul class="protocol-steps">
+                    <li>DISCUSS &mdash; clarify scope and constraints</li>
+                    <li>PLAN &mdash; atomic tasks with dependencies</li>
+                    <li>EXECUTE &mdash; one task = one commit</li>
+                    <li>VERIFY &mdash; 3-source cross-reference check</li>
+                </ul>
+            </div>
+            <div class="protocol-card">
+                <div class="protocol-icon" style="background: rgba(245,158,11,0.15); color: var(--orange);">RALPH</div>
+                <h3>Autonomous Iteration Loop</h3>
+                <p>Persistent autonomous iteration with safety guards. Feed task + binary criteria, work until done or blocked.</p>
+                <ul class="protocol-steps">
+                    <li>Binary completion criteria (pass/fail)</li>
+                    <li>Max 20 iterations (configurable)</li>
+                    <li>Cannot deploy to main</li>
+                    <li>Cannot perform destructive ops</li>
+                    <li>Scope creep = auto-exit</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 13 Innovations -->
+<section id="innovations" style="background: rgba(255,255,255,0.01);">
+    <div class="container">
+        <div class="section-label">Research</div>
+        <div class="section-title">13 patent-protected innovations</div>
+        <div class="section-subtitle">European Patent Application EP26162901.8 | Published paper with benchmarks</div>
+
+        <div style="overflow-x: auto;">
+        <table class="innovations-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Innovation</th>
+                    <th>Module</th>
+                    <th>Tier</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>1</td><td><strong>PCST Activation</strong> &mdash; sublinear subgraph selection</td><td class="mono">activation.pcst</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+                <tr><td>2</td><td><strong>MasterObserver</strong> &mdash; zero-cost transparency layer</td><td class="mono">orchestration.observer</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+                <tr><td>3</td><td><strong>Convergent Message Passing</strong> &mdash; similarity termination</td><td class="mono">orchestration.convergence</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+                <tr><td>4</td><td><strong>Backend Fallback Chain</strong> &mdash; heterogeneous inference</td><td class="mono">backends.fallback</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+                <tr><td>5</td><td><strong>Hierarchical Aggregation</strong> &mdash; topology-aware synthesis</td><td class="mono">orchestration.aggregation</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+                <tr><td>6</td><td><strong>SemanticSHACLGate</strong> &mdash; 3-layer OWL governance</td><td class="mono">ontology.semantic_shacl_gate</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>7</td><td><strong>Constrained F1</strong> &mdash; joint quality + governance metric</td><td class="mono">benchmarks.constrained_f1</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>8</td><td><strong>OntologyGenerator</strong> &mdash; automated OWL+SHACL</td><td class="mono">ontology.generator</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>9</td><td><strong>Adaptive Activation</strong> &mdash; dynamic Kmax</td><td class="mono">activation.adaptive</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>10</td><td><strong>Online Graph Learning</strong> &mdash; Bayesian edge updates</td><td class="mono">learning.graph_learner</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>11</td><td><strong>LoRA Auto-Selection</strong> &mdash; per-entity adapters</td><td class="mono">adapters.auto_select</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>12</td><td><strong>TAMR+ Connector</strong> &mdash; retrieval-to-reasoning</td><td class="mono">connectors.tamr</td><td><span class="tool-badge badge-pro">PRO</span></td></tr>
+                <tr><td>13</td><td><strong>MCP Plugin</strong> &mdash; governed context engineering</td><td class="mono">plugins.mcp_server</td><td><span class="tool-badge badge-free">FREE</span></td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</section>
+
+<!-- Backends -->
+<section id="backends">
+    <div class="container">
+        <div class="section-label">Your Models, Your Keys</div>
+        <div class="section-title">Bring your own API backend</div>
+        <div class="section-subtitle">Zero vendor lock-in. Zero cloud infrastructure from us. You control the models and the costs.</div>
+
+        <div class="backends-grid">
+            <div class="backend-card">
+                <h4>Anthropic</h4>
+                <p>Claude Haiku / Sonnet / Opus<br/>Recommended for best results</p>
+            </div>
+            <div class="backend-card">
+                <h4>OpenAI</h4>
+                <p>GPT-4o / GPT-4o-mini<br/>Full compatibility</p>
+            </div>
+            <div class="backend-card">
+                <h4>AWS Bedrock</h4>
+                <p>Any Bedrock model<br/>EU region support</p>
+            </div>
+            <div class="backend-card">
+                <h4>Custom Endpoint</h4>
+                <p>Any OpenAI-compatible API<br/>Self-hosted models</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" style="background: rgba(255,255,255,0.01);">
+    <div class="container">
+        <div class="section-label">Pricing</div>
+        <div class="section-title">Start free. Scale when ready.</div>
+        <div class="section-subtitle">The free tier is genuinely powerful. Pro unlocks the full moat.</div>
+
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="pricing-tier">Free</div>
+                <div class="pricing-price">$0 <span>/forever</span></div>
+                <div class="pricing-desc">Full SDK + GCC/GSD/Ralph protocols. Powerful enough for most developers.</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Innovations 1-5 (core reasoning)</li>
+                    <li><span class="check">&#10003;</span> 3 MCP tools (context, inspect, reason)</li>
+                    <li><span class="check">&#10003;</span> GCC + GSD + Ralph Loop protocols</li>
+                    <li><span class="check">&#10003;</span> Repo scanning + KG building</li>
+                    <li><span class="check">&#10003;</span> Single backend</li>
+                    <li><span class="check">&#10003;</span> CLAUDE.md injection</li>
+                    <li><span class="locked">&#10007;</span> Advanced MCP tools</li>
+                    <li><span class="locked">&#10007;</span> Graph learning</li>
+                </ul>
+            </div>
+            <div class="pricing-card featured">
+                <div class="pricing-tier">Pro</div>
+                <div class="pricing-price">$29 <span>/dev/month</span></div>
+                <div class="pricing-desc">Full moat. 13 innovations. Self-improving knowledge graph.</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Everything in Free</li>
+                    <li><span class="check">&#10003;</span> All 13 innovations</li>
+                    <li><span class="check">&#10003;</span> All 7 MCP tools</li>
+                    <li><span class="check">&#10003;</span> Semantic SHACL governance</li>
+                    <li><span class="check">&#10003;</span> Online graph learning</li>
+                    <li><span class="check">&#10003;</span> Adaptive activation</li>
+                    <li><span class="check">&#10003;</span> Multi-backend fallback</li>
+                    <li><span class="check">&#10003;</span> Session analytics</li>
+                </ul>
+            </div>
+            <div class="pricing-card">
+                <div class="pricing-tier">Team</div>
+                <div class="pricing-price">$99 <span>/team/month</span></div>
+                <div class="pricing-desc">Shared governance for teams up to 10 developers.</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Everything in Pro</li>
+                    <li><span class="check">&#10003;</span> Shared knowledge graph sync</li>
+                    <li><span class="check">&#10003;</span> Cross-developer lessons</li>
+                    <li><span class="check">&#10003;</span> Multi-instance coordination</li>
+                    <li><span class="check">&#10003;</span> Custom domain ontologies</li>
+                    <li><span class="check">&#10003;</span> Team analytics dashboard</li>
+                </ul>
+            </div>
+            <div class="pricing-card">
+                <div class="pricing-tier">Enterprise</div>
+                <div class="pricing-price">Custom</div>
+                <div class="pricing-desc">Private deployment. Compliance reporting. SLA support.</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Everything in Team</li>
+                    <li><span class="check">&#10003;</span> Private / air-gapped deployment</li>
+                    <li><span class="check">&#10003;</span> Compliance reporting (SOC 2, ISO)</li>
+                    <li><span class="check">&#10003;</span> Custom SHACL governance rules</li>
+                    <li><span class="check">&#10003;</span> Dedicated support + SLA</li>
+                    <li><span class="check">&#10003;</span> Custom integrations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+    <h2>Start building smarter today</h2>
+    <p>One command to transform your development workflow. Free forever for individual developers.</p>
+    <div class="hero-buttons">
+        <a href="#install-block" class="btn btn-primary">
+            pip install cognigraph[api]
+        </a>
+        <a href="https://github.com/quantamixsol/cognigraph" class="btn btn-secondary" target="_blank">
+            Star on GitHub
+        </a>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="footer-inner">
+        <div class="footer-copy">
+            &copy; 2026 Quantamix Solutions B.V. &mdash; European Patent EP26162901.8
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/quantamixsol/cognigraph" target="_blank">GitHub</a>
+            <a href="https://github.com/quantamixsol/cognigraph/blob/master/README.md" target="_blank">Docs</a>
+            <a href="https://pypi.org/project/cognigraph/" target="_blank">PyPI</a>
+            <a href="mailto:harish.kumar@quantamixsolutions.com">Contact</a>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

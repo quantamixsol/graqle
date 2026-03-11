@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognigraph"
-version = "0.3.0"
-description = "Graphs that think — governed multi-agent reasoning over knowledge graphs with 13 innovations"
+version = "0.4.0"
+description = "Self-governing development for Claude Code — graph-of-agents reasoning with 13 innovations, GCC/GSD/Ralph protocols, and MCP integration"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ keywords = [
     "graph-of-agents", "lora", "pcst", "distributed-reasoning",
     "governance", "shacl", "owl", "ontology", "mcp",
     "bayesian-learning", "adaptive-activation", "regulatory-ai",
+    "claude-code", "self-governing", "development-tools", "gcc", "gsd",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -83,9 +84,11 @@ dev = [
 kogni = "cognigraph.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/quantamixsol/cognigraph"
-Documentation = "https://cognigraph.readthedocs.io"
+Homepage = "https://cognigraph.dev"
+Documentation = "https://github.com/quantamixsol/cognigraph#readme"
 Repository = "https://github.com/quantamixsol/cognigraph"
+Changelog = "https://github.com/quantamixsol/cognigraph/releases"
+"Bug Tracker" = "https://github.com/quantamixsol/cognigraph/issues"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["cognigraph/benchmarks/data/*", "paper/*", "patent/*"]

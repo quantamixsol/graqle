@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from cognigraph.cli.commands.init import init_command
 from cognigraph.cli.commands.scan import scan_app
 
 app = typer.Typer(
@@ -13,7 +14,41 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(scan_app, name="scan")
+app.command(name="init")(init_command)
 console = Console()
+
+# ---------------------------------------------------------------------------
+# MCP subcommand group: kogni mcp serve
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(
+    name="mcp",
+    help="MCP (Model Context Protocol) server for Claude Code integration.",
+    no_args_is_help=True,
+)
+app.add_typer(mcp_app, name="mcp")
+
+
+@mcp_app.command("serve")
+def mcp_serve(
+    config: str = typer.Option(
+        "cognigraph.yaml", "--config", "-c", help="Config file path"
+    ),
+) -> None:
+    """Start the CogniGraph MCP development server (stdio transport for Claude Code).
+
+    Exposes 7 governed development tools over JSON-RPC stdio:
+      FREE:  kogni_context, kogni_inspect, kogni_reason
+      PRO:   kogni_preflight, kogni_lessons, kogni_impact, kogni_learn
+
+    Add to .mcp.json:
+        { "mcpServers": { "kogni": { "command": "kogni", "args": ["mcp", "serve"] } } }
+    """
+    import asyncio
+    from cognigraph.plugins.mcp_dev_server import KogniDevServer
+
+    server = KogniDevServer(config_path=config)
+    asyncio.run(server.run_stdio())
 
 
 @app.command()
@@ -352,6 +387,33 @@ def _load_graph(cfg):
     if cfg.graph.connector == "neo4j":
         return None
     return None
+
+
+# ---------------------------------------------------------------------------
+# MCP subcommand
+# ---------------------------------------------------------------------------
+
+mcp_app = typer.Typer(help="CogniGraph MCP server for Claude Code integration.")
+
+
+@mcp_app.command("serve")
+def mcp_serve(
+    config: str = typer.Option("cognigraph.yaml", "--config", "-c", help="Config file path"),
+) -> None:
+    """Start the CogniGraph MCP server (stdio transport for Claude Code).
+
+    This server exposes governed development tools via the Model Context Protocol.
+    It is designed to be launched automatically by Claude Code via .mcp.json.
+    """
+    import asyncio
+
+    from cognigraph.plugins.mcp_dev_server import KogniDevServer
+
+    server = KogniDevServer(config_path=config)
+    asyncio.run(server.run_stdio())
+
+
+app.add_typer(mcp_app, name="mcp")
 
 
 if __name__ == "__main__":
