@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognigraph"
-version = "0.5.0"
+version = "0.5.1"
 description = "Self-governing development for Claude Code — graph-of-agents reasoning with 13 innovations, GCC/GSD/Ralph protocols, and MCP integration"
 readme = "README.md"
 license = "Apache-2.0"

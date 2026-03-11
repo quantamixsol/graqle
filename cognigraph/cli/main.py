@@ -63,9 +63,27 @@ def run(
     config: str = typer.Option("cognigraph.yaml", "--config", "-c", help="Config file path"),
     max_rounds: int = typer.Option(5, "--max-rounds", "-r", help="Max message-passing rounds"),
     strategy: str = typer.Option("pcst", "--strategy", "-s", help="Activation strategy"),
+    protocol: str = typer.Option(
+        "consensus", "--protocol", "-p",
+        help="Reasoning protocol: consensus (default) or debate",
+    ),
+    explain: bool = typer.Option(
+        False, "--explain", "-e", help="Output full explanation trace with provenance",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
-    """Run a reasoning query on the CogniGraph."""
+    """Run a reasoning query on the CogniGraph.
+
+    \b
+    Protocols:
+        consensus — standard message-passing with convergence (default)
+        debate    — adversarial debate: opening → challenge → rebuttal → synthesis
+
+    \b
+    Examples:
+        kogni run "what calls the auth service?"
+        kogni run "CORS issue?" --protocol debate --explain
+    """
     import asyncio
     import logging
 
@@ -87,11 +105,9 @@ def run(
         if verbose:
             console.print("[yellow]No config file found, using defaults[/yellow]")
 
-    # For now, create a mock demonstration
-    # In production, this would load from connector
     console.print(f"[bold cyan]CogniGraph[/bold cyan] — Graphs that think")
     console.print(f"Query: [green]{query}[/green]")
-    console.print(f"Strategy: {strategy} | Max rounds: {max_rounds}")
+    console.print(f"Strategy: {strategy} | Protocol: {protocol} | Max rounds: {max_rounds}")
 
     # Try to load graph from config
     graph = _load_graph(cfg)
@@ -103,10 +119,24 @@ def run(
     backend = MockBackend()
     graph.set_default_backend(backend)
 
-    # Run reasoning
+    # Run reasoning with selected protocol
     result = asyncio.run(
         graph.areason(query, max_rounds=max_rounds, strategy=strategy)
     )
+
+    # If debate protocol, run debate on active nodes
+    if protocol == "debate" and result.active_nodes:
+        console.print(f"\n[bold yellow]Debate Protocol[/bold yellow] — {len(result.active_nodes)} nodes")
+        try:
+            from cognigraph.orchestration.debate import DebateProtocol
+            debate = DebateProtocol(challenge_rounds=1, parallel=True)
+            debate_messages = asyncio.run(
+                debate.run(graph, query, result.active_nodes)
+            )
+            total_exchanges = sum(len(msgs) for msgs in debate_messages.values())
+            console.print(f"  Debate: {total_exchanges} exchanges across {len(debate_messages)} nodes")
+        except Exception as e:
+            console.print(f"  [yellow]Debate skipped: {e}[/yellow]")
 
     # Display results
     console.print(f"\n[bold green]Answer:[/bold green]")
@@ -116,6 +146,32 @@ def run(
                   f"Nodes: {result.node_count} | "
                   f"Cost: ${result.cost_usd:.4f} | "
                   f"Latency: {result.latency_ms:.0f}ms[/dim]")
+
+    # Explanation trace
+    if explain:
+        console.print(f"\n[bold]Explanation Trace[/bold]")
+        try:
+            from cognigraph.orchestration.explanation import ExplanationTrace
+            trace = ExplanationTrace(query=query)
+            # Build trace from message trace in result
+            if result.message_trace:
+                for i, msg_dict in enumerate(result.message_trace):
+                    round_num = msg_dict.get("round", i)
+                    node_id = msg_dict.get("source_node_id", f"node-{i}")
+                    content = msg_dict.get("content", "")
+                    confidence = msg_dict.get("confidence", 0.5)
+                    from cognigraph.orchestration.explanation import NodeClaim
+                    trace.claims.append(NodeClaim(
+                        node_id=node_id,
+                        round_num=round_num,
+                        content=content[:300],
+                        confidence=confidence,
+                        reasoning_type=msg_dict.get("reasoning_type", "INITIAL"),
+                    ))
+                trace.final_answer = result.answer
+            console.print(trace.to_summary())
+        except Exception as e:
+            console.print(f"  [yellow]Trace error: {e}[/yellow]")
 
 
 @app.command()
@@ -315,6 +371,177 @@ def version() -> None:
     """Show CogniGraph version."""
     from cognigraph.__version__ import __version__
     console.print(f"CogniGraph v{__version__}")
+
+
+# ---------------------------------------------------------------------------
+# Ontology subcommand group: kogni ontology generate / detect
+# ---------------------------------------------------------------------------
+
+ontology_app = typer.Typer(
+    name="ontology",
+    help="Ontology tools — detect domain, generate schema, validate graph.",
+    no_args_is_help=True,
+)
+app.add_typer(ontology_app, name="ontology")
+
+
+@ontology_app.command("detect")
+def ontology_detect(
+    path: str = typer.Argument(".", help="Project root to analyze"),
+) -> None:
+    """Detect the domain of a codebase and show domain profile."""
+    from pathlib import Path
+    from cognigraph.ontology.domain_detector import detect_domain
+
+    root = Path(path).resolve()
+    profile = detect_domain(root)
+
+    console.print(f"[bold cyan]Domain Profile[/bold cyan]")
+    console.print(f"  Primary: [bold]{profile.primary_domain}[/bold] ({profile.confidence:.0%})")
+    console.print(f"  Secondary: {', '.join(profile.secondary_domains[:5])}")
+    console.print(f"  Language: {profile.language} | Frameworks: {', '.join(profile.frameworks[:5])}")
+    console.print(f"  Frontend: {'yes' if profile.has_frontend else 'no'} | "
+                  f"Backend: {'yes' if profile.has_backend else 'no'} | "
+                  f"ML: {'yes' if profile.has_ml else 'no'} | "
+                  f"CI/CD: {'yes' if profile.has_ci_cd else 'no'}")
+    console.print(f"  Docker: {'yes' if profile.has_docker else 'no'} | "
+                  f"K8s: {'yes' if profile.has_kubernetes else 'no'} | "
+                  f"Serverless: {'yes' if profile.has_serverless else 'no'} | "
+                  f"Tests: {'yes' if profile.has_tests else 'no'}")
+
+
+@ontology_app.command("generate")
+def ontology_generate(
+    path: str = typer.Argument(".", help="Project root to analyze"),
+    api_key: str = typer.Option(
+        None, "--api-key", help="API key for LLM ontology generation",
+    ),
+    model: str = typer.Option(
+        "claude-sonnet-4-6", "--model", "-m",
+        help="Model for ontology generation (best LLM recommended)",
+    ),
+    output: str = typer.Option(
+        None, "--output", "-o", help="Save ontology to JSON file",
+    ),
+) -> None:
+    """Generate a domain-specific ontology using LLM analysis.
+
+    Detects the project domain and uses Claude Sonnet (or specified model)
+    to generate comprehensive node types and edge types.
+
+    \b
+    Examples:
+        kogni ontology generate
+        kogni ontology generate --api-key sk-... --output ontology.json
+    """
+    import json as json_lib
+    import os
+    from pathlib import Path
+    from cognigraph.ontology.domain_detector import auto_ontology, detect_domain
+    from cognigraph.ontology.schema import get_all_node_types, get_all_edge_types
+
+    root = Path(path).resolve()
+    ont_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+
+    console.print(f"[bold cyan]Generating Domain Ontology[/bold cyan]")
+
+    node_shapes, edge_shapes = auto_ontology(root, api_key=ont_key, register=True)
+
+    console.print(f"  Generated [green]{len(node_shapes)}[/green] node types, "
+                  f"[green]{len(edge_shapes)}[/green] edge types")
+    console.print(f"  Total registered: {len(get_all_node_types())} node types, "
+                  f"{len(get_all_edge_types())} edge types")
+
+    if output:
+        out_data = {
+            "node_types": [
+                {"type": s.node_type, "description": s.description,
+                 "properties": [p.name for p in s.properties]}
+                for s in node_shapes
+            ],
+            "edge_types": [
+                {"type": s.edge_type, "description": s.description,
+                 "sources": s.valid_source_types, "targets": s.valid_target_types}
+                for s in edge_shapes
+            ],
+        }
+        Path(output).write_text(
+            json_lib.dumps(out_data, indent=2), encoding="utf-8",
+        )
+        console.print(f"  Saved to [bold]{output}[/bold]")
+
+
+@ontology_app.command("from-text")
+def ontology_from_text(
+    file: str = typer.Argument(..., help="Text/regulation file to generate ontology from"),
+    domain: str = typer.Option("auto", "--domain", "-d", help="Domain name"),
+    output: str = typer.Option(None, "--output", "-o", help="Save to JSON"),
+) -> None:
+    """Generate OWL + SHACL ontology from a regulatory/governance text file.
+
+    Uses Innovation #8 (OntologyGenerator) — reads a document once with a
+    high-end LLM and generates structured semantic constraints.
+
+    \b
+    Example:
+        kogni ontology from-text regulations/eu_ai_act.txt --domain eu_ai_act
+    """
+    import asyncio
+    import json as json_lib
+    import os
+    from pathlib import Path
+
+    file_path = Path(file)
+    if not file_path.exists():
+        console.print(f"[red]File not found: {file}[/red]")
+        raise typer.Exit(1)
+
+    text = file_path.read_text(encoding="utf-8", errors="ignore")
+    domain_name = domain if domain != "auto" else file_path.stem
+
+    console.print(f"[bold cyan]OntologyGenerator[/bold cyan] — Innovation #8")
+    console.print(f"  Document: {file_path.name} ({len(text):,} chars)")
+    console.print(f"  Domain: {domain_name}")
+
+    # Try to use Anthropic backend
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        console.print("[red]ANTHROPIC_API_KEY required for ontology generation[/red]")
+        raise typer.Exit(1)
+
+    try:
+        from cognigraph.backends.anthropic_backend import AnthropicBackend
+        backend = AnthropicBackend(model="claude-sonnet-4-6", api_key=api_key)
+    except ImportError:
+        # Fallback to mock for structure demo
+        from cognigraph.backends.mock import MockBackend
+        backend = MockBackend()
+
+    from cognigraph.ontology.ontology_generator import OntologyGenerator
+    generator = OntologyGenerator(backend=backend)
+
+    console.print("  Generating... (one-time LLM call)")
+    owl, constraints = asyncio.run(
+        generator.generate_from_text(text, domain_name)
+    )
+
+    console.print(f"  [green]Generated: {len(owl)} types, {len(constraints)} constraints[/green]")
+    console.print(f"  Cost: ${generator.generation_cost:.4f}")
+
+    if output:
+        out_data = {
+            "owl_hierarchy": owl,
+            "semantic_constraints": OntologyGenerator.constraints_to_dict(constraints),
+        }
+        Path(output).write_text(
+            json_lib.dumps(out_data, indent=2), encoding="utf-8",
+        )
+        console.print(f"  Saved to [bold]{output}[/bold]")
+    else:
+        for etype, parent in list(owl.items())[:10]:
+            console.print(f"    {etype} → {parent}")
+        if len(owl) > 10:
+            console.print(f"    ... and {len(owl) - 10} more")
 
 
 @app.command()
