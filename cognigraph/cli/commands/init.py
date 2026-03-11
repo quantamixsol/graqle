@@ -716,6 +716,49 @@ def _write_gcc_structure(root: Path) -> bool:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _install_auto_grow_hook(root: Path) -> None:
+    """Install a git post-commit hook that auto-updates cognigraph.json.
+
+    This is the core promise: the graph adapts and grows with every commit.
+    The hook runs `kogni grow` which does an incremental scan + ingest.
+    """
+    git_dir = root / ".git"
+    if not git_dir.is_dir():
+        console.print("  [dim]Not a git repo — skipping auto-grow hook[/dim]")
+        return
+
+    hooks_dir = git_dir / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+    hook_path = hooks_dir / "post-commit"
+
+    # The hook script
+    hook_content = """#!/bin/sh
+# CogniGraph auto-grow hook — updates the knowledge graph on every commit.
+# Installed by `kogni init`. Remove this file to disable.
+
+# Run in background so commits aren't slowed down
+(kogni grow --quiet 2>/dev/null &)
+"""
+
+    if hook_path.exists():
+        existing = hook_path.read_text(encoding="utf-8", errors="ignore")
+        if "kogni grow" in existing:
+            console.print("  [dim]post-commit hook already has kogni grow[/dim]")
+            return
+        # Append to existing hook
+        with open(hook_path, "a", encoding="utf-8") as f:
+            f.write("\n" + hook_content)
+        console.print("  [green]+[/green] Appended kogni grow to existing post-commit hook")
+    else:
+        hook_path.write_text(hook_content, encoding="utf-8")
+        # Make executable on Unix
+        try:
+            hook_path.chmod(0o755)
+        except Exception:
+            pass
+        console.print("  [green]+[/green] Installed git post-commit hook (auto-grow)")
+
+
 def init_command(
     path: str = typer.Argument(".", help="Project root directory"),
     backend: str | None = typer.Option(
@@ -817,19 +860,116 @@ def init_command(
         f"{BACKENDS[chosen_backend]['name']} / {chosen_model}\n"
     )
 
-    # ── Step 2: Scan repository ─────────────────────────────────────
+    # ── Step 2: Scan + domain detection + ingest ────────────────────
     graph_data: dict[str, Any] | None = None
     if not no_scan:
+        # 2a: Code scan
         console.print("[bold]Scanning repository...[/bold]")
         graph_data = scan_repository(root)
         node_count = len(graph_data["nodes"])
         edge_count = len(graph_data["links"])
         project_type = graph_data["graph"].get("project_type", "unknown")
         console.print(
-            f"  Found [cyan]{node_count}[/cyan] nodes, "
+            f"  Code scan: [cyan]{node_count}[/cyan] nodes, "
             f"[cyan]{edge_count}[/cyan] edges "
-            f"([dim]{project_type} project[/dim])\n"
+            f"([dim]{project_type} project[/dim])"
         )
+
+        # 2b: Domain detection + dynamic ontology generation
+        console.print("\n[bold]Detecting project domain...[/bold]")
+        try:
+            from cognigraph.ontology.domain_detector import auto_ontology, detect_domain
+            profile = detect_domain(root)
+            console.print(
+                f"  Domain: [cyan]{profile.primary_domain}[/cyan] "
+                f"({', '.join(profile.secondary_domains[:3])})"
+            )
+            console.print(
+                f"  Language: [cyan]{profile.language}[/cyan] | "
+                f"Frameworks: [cyan]{', '.join(profile.frameworks[:3]) or 'none'}[/cyan]"
+            )
+
+            # Use best LLM for ontology (Sonnet, not Haiku) — one-time cost
+            ont_api_key = None
+            if api_key and not api_key.startswith("${"):
+                ont_api_key = api_key
+            elif api_key_ref and not api_key_ref.startswith("${"):
+                ont_api_key = api_key_ref
+            else:
+                ont_api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+            node_shapes, edge_shapes = auto_ontology(
+                root, api_key=ont_api_key, register=True,
+            )
+            console.print(
+                f"  Ontology: [green]{len(node_shapes)}[/green] node types, "
+                f"[green]{len(edge_shapes)}[/green] edge types"
+            )
+        except Exception as e:
+            console.print(f"  [yellow]Domain detection skipped: {e}[/yellow]")
+
+        # 2c: Knowledge ingestion (markdown KGs, .gcc/, lessons, etc.)
+        console.print("\n[bold]Ingesting knowledge sources...[/bold]")
+        try:
+            from cognigraph.ontology.markdown_parser import parse_and_infer
+            from cognigraph.cli.commands.ingest import (
+                _discover_sources_from_config,
+                _discover_sources_auto,
+                _merge_graphs,
+            )
+
+            config_path_obj = root / "cognigraph.yaml"
+            kg_sources = _discover_sources_from_config(config_path_obj)
+            if not kg_sources:
+                kg_sources = _discover_sources_auto(root)
+
+            if kg_sources:
+                entities, edges_list = parse_and_infer(kg_sources)
+                new_nodes = [e.to_node_dict() for e in entities]
+                new_links = [
+                    {
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "relationship": edge.relationship,
+                        "confidence": edge.confidence,
+                        "source_file": edge.source_file,
+                    }
+                    for edge in edges_list
+                ]
+                graph_data = _merge_graphs(graph_data, new_nodes, new_links)
+                graph_data.pop("_merge_stats", None)
+                total_n = len(graph_data.get("nodes", []))
+                total_e = len(graph_data.get("links", []))
+                console.print(
+                    f"  Ingested [cyan]{len(kg_sources)}[/cyan] source(s): "
+                    f"[green]{total_n}[/green] total nodes, "
+                    f"[green]{total_e}[/green] total edges"
+                )
+            else:
+                console.print("  [dim]No markdown KG sources found (code scan only)[/dim]")
+        except Exception as e:
+            console.print(f"  [yellow]Ingestion skipped: {e}[/yellow]")
+
+        # 2d: Initialize metrics
+        console.print("\n[bold]Initializing metrics...[/bold]")
+        try:
+            from cognigraph.metrics.engine import MetricsEngine
+            metrics = MetricsEngine(root / ".cognigraph")
+            if graph_data:
+                from collections import Counter
+                type_counts = Counter(n.get("type", "") for n in graph_data.get("nodes", []))
+                metrics.graph_stats_initial = {
+                    "nodes": len(graph_data.get("nodes", [])),
+                    "edges": len(graph_data.get("links", [])),
+                    "node_types": dict(type_counts.most_common()),
+                }
+                metrics.graph_stats_current = dict(metrics.graph_stats_initial)
+            metrics.save()
+            console.print("  [green]+[/green] .cognigraph/metrics.json")
+        except Exception as e:
+            console.print(f"  [yellow]Metrics init skipped: {e}[/yellow]")
+
+        console.print()
 
     # ── Step 3: Write files ─────────────────────────────────────────
     console.print("[bold]Creating files...[/bold]")
@@ -860,18 +1000,26 @@ def init_command(
         if created:
             console.print(f"  [green]+[/green] .gcc/ (context controller)")
 
+    # ── Step 4: Install auto-grow git hook ───────────────────────────
+    _install_auto_grow_hook(root)
+
     # ── Done ────────────────────────────────────────────────────────
     console.print()
+    node_total = len(graph_data.get("nodes", [])) if graph_data else 0
+    edge_total = len(graph_data.get("links", [])) if graph_data else 0
     console.print(
         Panel(
-            "[bold green]Project initialized![/bold green]\n\n"
-            "Next steps:\n"
-            "  1. [bold]kogni scan repo .[/bold]    — rebuild the knowledge graph anytime\n"
-            "  2. [bold]kogni context <name>[/bold] — get focused context for a service\n"
-            "  3. [bold]kogni run \"query\"[/bold]    — reason over the knowledge graph\n"
-            "  4. [bold]kogni inspect --stats[/bold] — view graph statistics\n\n"
-            "[dim]CLAUDE.md now contains GCC + GSD + Ralph Loop protocols.\n"
-            "Claude Code will use these automatically.[/dim]",
+            f"[bold green]Project initialized![/bold green]\n\n"
+            f"  Graph: [cyan]{node_total}[/cyan] nodes, [cyan]{edge_total}[/cyan] edges\n\n"
+            "Auto-grow: The knowledge graph updates on every git commit.\n\n"
+            "Commands:\n"
+            "  [bold]kogni context <name>[/bold] — 500-token focused context\n"
+            "  [bold]kogni ingest[/bold]          — re-ingest all knowledge sources\n"
+            "  [bold]kogni metrics[/bold]         — view usage metrics and ROI\n"
+            "  [bold]kogni run \"query\"[/bold]    — reason over the knowledge graph\n"
+            "  [bold]kogni inspect --stats[/bold] — graph statistics\n\n"
+            "[dim]CLAUDE.md has GCC + GSD + Ralph Loop protocols.\n"
+            "Git post-commit hook auto-updates cognigraph.json.[/dim]",
             border_style="green",
             title="Done",
         )
