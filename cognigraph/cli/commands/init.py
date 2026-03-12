@@ -60,7 +60,7 @@ BACKENDS: dict[str, dict[str, Any]] = {
                 False,
             ),
         ],
-        "api_key_env": "AWS_DEFAULT_REGION",
+        "api_key_env": "AWS_ACCESS_KEY_ID",
     },
     "custom": {
         "name": "Custom OpenAI-compatible endpoint",
@@ -216,6 +216,7 @@ _SKIP_DIRS = {
     ".ruff_cache",
     "egg-info",
     ".eggs",
+    "out",
 }
 
 _PYTHON_EXTS = {".py"}
@@ -577,17 +578,25 @@ def _build_cognigraph_yaml(
     backend: str, model: str, api_key_ref: str
 ) -> str:
     """Return the contents of cognigraph.yaml."""
+    model_cfg: dict[str, Any] = {
+        "backend": backend if backend != "custom" else "api",
+        "model": model,
+    }
+    # Bug 7 fix: Bedrock uses region, not api_key.
+    # AWS authentication uses IAM credentials (via aws configure or
+    # env vars AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY), not an API key.
+    if backend == "bedrock":
+        model_cfg["region"] = api_key_ref if not api_key_ref.startswith("${") else "eu-central-1"
+    else:
+        model_cfg["api_key"] = api_key_ref
+
     cfg: dict[str, Any] = {
-        "model": {
-            "backend": backend if backend != "custom" else "api",
-            "model": model,
-            "api_key": api_key_ref,
-        },
+        "model": model_cfg,
         "graph": {
             "connector": "networkx",
         },
         "activation": {
-            "strategy": "pcst",
+            "strategy": "chunk",
             "max_nodes": 20,
         },
         "orchestration": {
@@ -595,7 +604,7 @@ def _build_cognigraph_yaml(
             "convergence_threshold": 0.92,
         },
         "cost": {
-            "budget_per_query": 0.05,
+            "budget_per_query": 0.10,
         },
         "observer": {
             "enabled": True,
@@ -963,13 +972,28 @@ def _verify_backend(
                 "  3. Re-run: kogni init\n"
             )
         elif backend == "bedrock":
-            console.print(
-                "  [bold]To fix:[/bold]\n"
-                "  1. Ensure AWS credentials are configured (aws configure)\n"
-                "  2. Ensure the model is enabled in your AWS Bedrock console\n"
-                "  3. Set the region: export AWS_DEFAULT_REGION=us-east-1\n"
-                "  4. Re-run: kogni init\n"
-            )
+            # Bug 7: Check if this is a cross-region inference profile issue
+            err_lower = err_msg.lower()
+            if "validationexception" in err_lower or "on-demand" in err_lower:
+                console.print(
+                    "  [bold]To fix (cross-region inference profile):[/bold]\n"
+                    f"  The model '{model}' may not support on-demand throughput.\n"
+                    "  Try using a cross-region inference profile ID instead:\n"
+                    f"  [cyan]eu.{model}[/cyan] (EU region) or [cyan]us.{model}[/cyan] (US region)\n\n"
+                    "  Update cognigraph.yaml:\n"
+                    f"    model: eu.{model}\n\n"
+                    "  Or re-run: kogni init\n"
+                )
+            else:
+                console.print(
+                    "  [bold]To fix:[/bold]\n"
+                    "  1. Ensure AWS credentials are configured (aws configure)\n"
+                    "  2. Ensure the model is enabled in your AWS Bedrock console\n"
+                    "  3. Set the region: export AWS_DEFAULT_REGION=eu-central-1\n"
+                    "  4. For cross-region models, use inference profile IDs:\n"
+                    f"     eu.{model} or us.{model}\n"
+                    "  5. Re-run: kogni init\n"
+                )
 
         console.print(
             "  [dim]Continuing setup — graph and MCP tools will still be created.\n"
@@ -1169,11 +1193,28 @@ def _install_kogni_skill(root: Path) -> bool:
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _write_cognigraph_yaml(root: Path, content: str) -> bool:
-    """Write cognigraph.yaml. Returns True if created, False if existed."""
+def _write_cognigraph_yaml(
+    root: Path, content: str, *, force: bool = False
+) -> bool:
+    """Write cognigraph.yaml.
+
+    Returns True if written, False if skipped (user declined overwrite).
+    Bug 15 fix: prompts before overwriting an existing config.
+    """
     target = root / "cognigraph.yaml"
-    if target.exists():
-        console.print(f"  [yellow]cognigraph.yaml already exists — overwriting[/yellow]")
+    if target.exists() and not force:
+        try:
+            from rich.prompt import Confirm
+            overwrite = Confirm.ask(
+                "  [yellow]cognigraph.yaml already exists.[/yellow] Overwrite?",
+                default=False,
+            )
+            if not overwrite:
+                console.print("  [dim]Keeping existing cognigraph.yaml[/dim]")
+                return False
+        except Exception:
+            # Non-interactive mode (e.g., CI) — overwrite silently
+            pass
     target.write_text(content, encoding="utf-8")
     return True
 
@@ -1579,6 +1620,19 @@ def init_command(
         _write_cognigraph_json(root, graph_data)
         console.print(f"  [green]+[/green] cognigraph.json")
 
+        # Auto-rebuild chunks from source files to ensure evidence is available
+        try:
+            from cognigraph.cli.commands.rebuild import rebuild_command
+            updated = rebuild_command(
+                graph_path=str(root / "cognigraph.json"),
+                config_path=str(root / "cognigraph.yaml"),
+                force=True,
+            )
+            if updated > 0:
+                console.print(f"  [green]+[/green] Rebuilt chunks for {updated} nodes")
+        except Exception as exc:
+            console.print(f"  [yellow]⚠[/yellow] Chunk rebuild skipped: {exc}")
+
     # MCP config (IDE-specific location)
     if not no_mcp:
         mcp_path = _get_mcp_path(root, ide)
@@ -1642,6 +1696,21 @@ def init_command(
     elif api_key_ref:
         _resolved_key = api_key_ref
 
+    # ── Step 5: Track project init (lead capture) ──────────────────
+    try:
+        from cognigraph.leads.collector import track_project_init
+        _node_ct = len(graph_data.get("nodes", [])) if graph_data else 0
+        _edge_ct = len(graph_data.get("links", [])) if graph_data else 0
+        track_project_init(
+            project_path=str(root),
+            node_count=_node_ct,
+            edge_count=_edge_ct,
+            backend=chosen_backend,
+            ide=ide,
+        )
+    except Exception:
+        pass  # Never fail on telemetry
+
     # ── Done ────────────────────────────────────────────────────────
     console.print()
     node_total = len(graph_data.get("nodes", [])) if graph_data else 0
@@ -1676,3 +1745,12 @@ def init_command(
             title="Done",
         )
     )
+
+    # Registration nudge (soft, non-blocking)
+    try:
+        from cognigraph.leads.collector import get_registration_nudge
+        nudge = get_registration_nudge()
+        if nudge:
+            console.print(f"\n{nudge}")
+    except Exception:
+        pass

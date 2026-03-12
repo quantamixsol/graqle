@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognigraph"
-version = "0.7.6"
+version = "0.11.0"
 description = "Dev Intelligence Layer — turn any codebase into a reasoning-ready knowledge graph. Works with any IDE, any AI tool, or plain terminal."
 readme = "README.md"
 license = "Apache-2.0"
@@ -41,6 +41,9 @@ dependencies = [
     "typer[all]>=0.9",
     "rich>=13.0",
     "sentence-transformers>=2.2",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -68,8 +71,13 @@ server = [
     "fastapi>=0.100",
     "uvicorn[standard]>=0.20",
 ]
+studio = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "jinja2>=3.1",
+]
 all = [
-    "cognigraph[gpu,neo4j,api,server]",
+    "cognigraph[gpu,neo4j,api,server,studio]",
 ]
 dev = [
     "pytest>=7.0",

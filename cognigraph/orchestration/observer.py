@@ -381,23 +381,45 @@ class MasterObserver:
                     ))
                     continue
 
-                # Check for semantic contradiction signals
-                contra_words = {"however", "contradict", "disagree", "conflict",
-                               "incorrect", "wrong", "oppose", "but actually"}
+                # Check for semantic contradiction signals.
+                # With many nodes (>5), require BOTH nodes to reference
+                # each other AND use contradiction words — reduces false
+                # positives from perspective diversity (Bug 23).
+                contra_words = {"contradict", "disagree", "incorrect",
+                               "wrong", "oppose", "but actually"}
                 a_lower = msg_a.content.lower()
                 b_lower = msg_b.content.lower()
 
-                # If A references B's topic and uses contradiction words
-                if (node_b in a_lower or node_a in b_lower) and \
-                   any(w in a_lower or w in b_lower for w in contra_words):
-                    self._conflicts.append(ConflictPair(
-                        node_a=node_a,
-                        node_b=node_b,
-                        claim_a=msg_a.content[:200],
-                        claim_b=msg_b.content[:200],
-                        round_detected=round_num,
-                        severity="medium",
-                    ))
+                num_nodes = len(messages)
+                if num_nodes <= 5:
+                    # Original logic: one-directional reference + keyword
+                    if (node_b in a_lower or node_a in b_lower) and \
+                       any(w in a_lower or w in b_lower for w in contra_words):
+                        self._conflicts.append(ConflictPair(
+                            node_a=node_a,
+                            node_b=node_b,
+                            claim_a=msg_a.content[:200],
+                            claim_b=msg_b.content[:200],
+                            round_detected=round_num,
+                            severity="medium",
+                        ))
+                else:
+                    # Stricter: require at least 2 contradiction keywords
+                    # across both messages to flag as conflict
+                    keyword_hits = sum(
+                        1 for w in contra_words
+                        if w in a_lower or w in b_lower
+                    )
+                    references_each_other = (node_b in a_lower and node_a in b_lower)
+                    if references_each_other and keyword_hits >= 2:
+                        self._conflicts.append(ConflictPair(
+                            node_a=node_a,
+                            node_b=node_b,
+                            claim_a=msg_a.content[:200],
+                            claim_b=msg_b.content[:200],
+                            round_detected=round_num,
+                            severity="medium",
+                        ))
 
     def _detect_anomalies(
         self, messages: dict[str, Message], round_num: int

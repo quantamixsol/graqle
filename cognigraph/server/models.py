@@ -10,7 +10,7 @@ class ReasonRequest(BaseModel):
 
     query: str = Field(..., description="The reasoning query")
     max_rounds: int = Field(5, description="Max message-passing rounds")
-    strategy: str = Field("pcst", description="Activation strategy")
+    strategy: str | None = Field(None, description="Activation strategy (reads from config if not set)")
     stream: bool = Field(False, description="Enable streaming response")
     node_ids: list[str] | None = Field(None, description="Specific nodes to activate")
 
@@ -42,7 +42,7 @@ class BatchReasonRequest(BaseModel):
 
     queries: list[str] = Field(..., description="List of queries")
     max_rounds: int = Field(5, description="Max rounds per query")
-    strategy: str = Field("pcst", description="Activation strategy")
+    strategy: str | None = Field(None, description="Activation strategy (reads from config if not set)")
     max_concurrent: int = Field(5, description="Max concurrent queries")
 
 

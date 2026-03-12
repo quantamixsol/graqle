@@ -10,7 +10,7 @@ One command. Any IDE. Any AI tool. Zero cloud infrastructure.
 [![PyPI version](https://badge.fury.io/py/cognigraph.svg)](https://pypi.org/project/cognigraph/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Tests: 554 passing](https://img.shields.io/badge/tests-554%20passing-brightgreen.svg)]()
+[![Tests: 745 passing](https://img.shields.io/badge/tests-745%20passing-brightgreen.svg)]()
 [![MCP Compatible](https://img.shields.io/badge/MCP-compatible-8A2BE2.svg)]()
 [![Patent: EP26162901.8](https://img.shields.io/badge/patent-EP26162901.8-orange.svg)](NOTICE)
 
@@ -56,21 +56,28 @@ kogni run "What depends on the auth service?"     # Graph reasoning
 kogni context auth-lambda                           # 500-token focused context
 kogni inspect --stats                               # Graph statistics
 kogni scan repo .                                   # Rebuild knowledge graph
+kogni rebuild                                        # Rebuild chunks from source files
+kogni rebuild --force                                # Force re-read ALL source files
 kogni doctor                                        # Health check
 kogni setup-guide                                   # Backend setup help
+kogni register                                       # Register for updates (optional)
+kogni activate <key>                                 # Activate team/enterprise license
+kogni billing                                        # View tier & usage
 ```
 
 ### Python SDK (any Python environment)
 ```python
 from cognigraph import CogniGraph
-from cognigraph.backends.api import AnthropicBackend
 
-graph = CogniGraph.from_json("cognigraph.json")
-graph.set_default_backend(AnthropicBackend(model="claude-haiku-4-5-20251001"))
+# Load graph — auto-creates backend from cognigraph.yaml config
+graph = CogniGraph.from_json("cognigraph.json", config="cognigraph.yaml")
 
 result = graph.reason("How does GDPR conflict with the AI Act?")
 print(result.answer)          # Multi-agent synthesized answer
 print(f"Cost: ${result.cost_usd:.4f}")  # Transparent cost tracking
+
+# Rebuild chunks from source files (e.g., after code changes)
+graph.rebuild_chunks(force=True)
 ```
 
 ### REST API (any HTTP client — Copilot, Postman, custom tools, bots)
@@ -141,11 +148,11 @@ Your Codebase ──→ kogni init ──→ Knowledge Graph (cognigraph.json)
 
 ---
 
-## 13 Innovations (Patent EP26162901.8)
+## 14 Innovations (Patent EP26162901.8)
 
 | # | Innovation | What it does |
 |---|-----------|-------------|
-| 1 | **PCST Activation** | Sublinear subgraph selection — only wake relevant nodes |
+| 1 | **ChunkScorer Activation** | Per-chunk semantic scoring — each chunk scored independently against query (v0.10.0, replaces PCST) |
 | 2 | **MasterObserver** | Zero-cost transparency layer for reasoning traces |
 | 3 | **Convergent Message Passing** | Agents talk until they agree, then stop |
 | 4 | **Backend Fallback Chain** | Auto-fallback across models with cost budgets |
@@ -158,8 +165,9 @@ Your Codebase ──→ kogni init ──→ Knowledge Graph (cognigraph.json)
 | 11 | **LoRA Auto-Selection** | Per-entity adapter matching |
 | 12 | **TAMR+ Connector** | Retrieval-to-reasoning pipeline |
 | 13 | **Multi-Resolution Embeddings** | Hybrid skill matching (regex + semantic) |
+| 14 | **CypherActivation** | Neo4j vector search on chunk embeddings — bypasses graph algorithms entirely (opt-in) |
 
-All 13 innovations are **free for every developer**. No license key required.
+All 14 innovations are **free for every developer**. No license key required.
 
 ---
 
@@ -190,7 +198,7 @@ CogniGraph follows the **open-core model**: everything a solo developer needs is
 | | Community (Free) | Team | Enterprise |
 |---|:---:|:---:|:---:|
 | **Price** | **$0 forever** | $29/dev/month | Custom |
-| All 13 innovations | ✓ | ✓ | ✓ |
+| All 14 innovations | ✓ | ✓ | ✓ |
 | All MCP tools (7 tools) | ✓ | ✓ | ✓ |
 | All backends (Ollama, Anthropic, OpenAI, Bedrock, vLLM) | ✓ | ✓ | ✓ |
 | CLI + Python SDK + REST API | ✓ | ✓ | ✓ |
@@ -238,7 +246,130 @@ The **SemanticSHACLGate** enforces 3-layer semantic validation on every reasonin
 
 CogniGraph implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
 
-All 13 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use CogniGraph freely in any project, commercial or otherwise.
+All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use CogniGraph freely in any project, commercial or otherwise.
+
+---
+
+## What's New in v0.10.3
+
+**Quality over cost — budget is now a soft limit:**
+
+- **Budget no longer kills reasoning:** Previously, exceeding `budget_per_query` would hard-stop reasoning mid-flow, producing incomplete answers. Now the budget is a **soft warning** — reasoning always completes convergence. Hard stop only triggers at **2x budget AND after at least 2 rounds**, ensuring quality is never sacrificed for cost.
+- **Philosophy:** A graph that thinks should never stop thinking because of a dollar. The budget guides, it doesn't constrain.
+- **`kogni init` budget updated** to `$0.10` (was `$0.05`).
+
+---
+
+## What's New in v0.10.2
+
+**Critical CLI fix + connection pool + budget tuning:**
+
+- **Bug 20 fix (P1):** CLI `--strategy` no longer hardcodes `"pcst"`. Now reads from `cognigraph.yaml` config (defaults to `"chunk"`). Previously, `kogni run` silently used PCST even when config said `chunk` — making the ChunkScorer fix invisible to CLI users.
+- **Bug 21 fix (P2):** Bedrock connection pool increased from 10 → 50 with adaptive retry mode. Fixes `Connection pool is full, discarding connection` warnings when 20 nodes reason in parallel.
+- **Bug 19 documented:** `ReasoningResult.content` is a backward-compatible alias for `.answer` (renamed in v0.9.0). Both work — `.answer` is canonical, `.content` is kept for migration.
+- **Budget default raised:** `budget_per_query` increased from `$0.01` → `$0.10` to support ChunkScorer with 20 active nodes without hitting `cost_budget_exceeded`.
+- **Example config updated:** `cognigraph.example.yaml` now defaults to `strategy: chunk` and `max_nodes: 20`.
+
+---
+
+## What's New in v0.10.1
+
+**Innovation table updated** — README now accurately reflects v0.10.0 architecture:
+
+- **Innovation #1 updated:** "PCST Activation" → **"ChunkScorer Activation"** — per-chunk semantic scoring is the actual default since v0.10.0
+- **Innovation #14 added:** **"CypherActivation"** — Neo4j vector search on chunk embeddings, bypasses graph algorithms entirely (opt-in, shipped in v0.9.0)
+- **Innovation count:** 13 → **14** (updated across all references)
+
+---
+
+## What's New in v0.10.0
+
+**ChunkScorer replaces PCST as default activation** — The #1 blocker (Bug 1, P0) is fixed:
+
+- **ChunkScorer (new default):** Each chunk gets its own embedding and is scored independently against the query. A query about "ProductList function" directly matches the chunk containing that function, regardless of what else the file contains. No more activating `tailwind.config.ts` instead of `Products.tsx`.
+- **PCST demoted to legacy:** Still available via `strategy: "pcst"` in config, but no longer the default. PCST's graph-structure bias toward hub nodes was fundamentally wrong for code search.
+- **Multiple nodes activated:** ChunkScorer returns all nodes above `min_score` threshold (configurable), not just 1. Message-passing between agents actually works now.
+- **Bug 7 fix:** Bedrock auth detection now uses `boto3.Session().get_credentials()` — works with IAM profiles, SSO, env vars, and `~/.aws/credentials`.
+- **Bug 9 fix:** Added control character escaping to JSON repair chain (LLMs produce literal newlines in strings).
+- **Bug 19 fix:** `ReasoningResult.content` backward-compat property added (alias for `.answer`).
+- **Default strategy changed:** `activation.strategy` defaults to `"chunk"` (was `"pcst"`).
+
+**9 new tests** for ChunkScorer. **745 tests passing** (up from 736).
+
+---
+
+## What's New in v0.9.0
+
+**Neo4j Backend + Critical Bug Fixes** — CogniGraph now supports Neo4j as a first-class backend alongside JSON/NetworkX:
+
+- **Neo4j backend:** `CogniGraph.from_neo4j()` / `to_neo4j()` for loading and exporting graphs
+- **CypherActivation:** Vector search on chunk embeddings via Cypher replaces PCST for Neo4j mode — faster and more accurate node activation
+- **Schema management:** `create_schema()` creates constraints + vector index on `:Chunk` nodes
+- **Chunk-level storage:** `:CogniNode`→`:HAS_CHUNK`→`:Chunk` with optional embeddings
+- **Bug 1 (P0) fix:** Chunk-aware scoring now uses 500 chars from top 5 chunks with function/class prioritization (was 200 chars from 3 chunks)
+- **Bug 18 fix:** Confidence calibration now uses relevance-weighted scoring instead of simple averaging
+- **Bug 7 fix:** Bedrock `api_key_env` corrected to `AWS_ACCESS_KEY_ID`
+- **Bug 9 fix:** JSON repair now strips comments before fixing quotes/commas
+- **Bug 14 fix:** `out/` directory added to scan skip list
+- **Bug 16 fix:** SkillAdmin embedding log messages no longer repeat per query
+- **Bug 17 fix:** `kogni doctor` checks both `kogni` and `cognigraph` MCP keys
+
+**37 new tests** (8 chunk scoring + 5 confidence calibration + 13 Neo4j connector + 7 CypherActivation + 4 graph Neo4j). **736 tests passing** (up from 699).
+
+---
+
+## What's New in v0.8.0
+
+**Context-Aware Query Reformulator (ADR-104)** — Queries are now automatically enhanced with conversation context before PCST activation:
+- Auto-hardened in Claude Code / Cursor / Codex (zero extra cost — uses existing conversation context)
+- Pronoun resolution: "what does this do?" → resolves "this" from chat history
+- Attachment support: screenshots, error logs, diagrams are described and woven into queries
+- File + symbol injection: current file and active symbols ground vague queries
+- LLM mode for standalone SDK users (configurable, optional)
+- Fail-open: if reformulation fails, original query passes through unchanged
+
+**49 new tests** for query reformulation. **699 tests passing** (up from 650).
+
+---
+
+## What's New in v0.7.9
+
+**Content-Aware PCST Activation (ADR-103)** — 3-layer fix ensures PCST always selects content-bearing nodes over empty structural connectors (directories, namespaces):
+- Layer 1: `log₂(2 + chunk_count)` content richness multiplier in relevance scoring
+- Layer 2: Post-PCST filter replaces zero-chunk nodes with content-bearing neighbours
+- Layer 3: Direct file lookup bypass when query mentions a specific filename
+
+**6 Bug Fixes:**
+- Bedrock config writes `region` instead of `api_key` (P2)
+- `kogni grow --full` respects SKIP_DIRS exclusions (P2)
+- `kogni doctor` detects MCP registration for all IDEs (P2)
+- `kogni init` prompts before overwriting cognigraph.yaml (P3)
+- SkillAdmin duplicate logging prevented (P3)
+- 33 new tests for content-aware PCST activation
+
+**650 tests passing** (up from 617).
+
+---
+
+## What's New in v0.7.7
+
+**Chunk Pipeline (breaking fix)** — Every node now auto-loads evidence chunks from source files at graph load time. Hand-built KGs that previously had zero chunks now get full evidence for reasoning. New `kogni rebuild` command and `graph.rebuild_chunks()` API.
+
+**13 Bug Fixes** — All issues from end-to-end testing resolved:
+- Agents no longer refuse queries with "outside my domain" (P0)
+- REST API Pydantic forward reference crash fixed (P0)
+- Server auto-creates real backend from config instead of MockBackend (P0)
+- `from_json()` accepts config path as string (P1)
+- Auto-backend creation when no backend set (P1)
+- Bedrock cross-region inference profile guidance (P2)
+- Metrics no longer double-count token savings (P2)
+- JSON repair for LLM ontology generation (5 strategies) (P2)
+- NetworkX FutureWarning suppressed (P3)
+- MCP server reports correct version (P3)
+
+**Lead Generation** — `kogni register`, `kogni activate`, `kogni billing` commands. Stripe webhook handler for automated license delivery.
+
+**617 tests passing** (up from 554).
 
 ---
 

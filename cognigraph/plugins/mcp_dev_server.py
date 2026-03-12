@@ -42,6 +42,11 @@ from typing import Any
 
 logger = logging.getLogger("cognigraph.mcp")
 
+try:
+    from cognigraph.__version__ import __version__ as _version
+except Exception:
+    _version = "0.0.0"
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1091,7 +1096,7 @@ class KogniDevServer:
                     },
                     "serverInfo": {
                         "name": "kogni",
-                        "version": "0.1.0",
+                        "version": _version,
                     },
                 },
             }
@@ -1155,10 +1160,13 @@ class KogniDevServer:
         invalid).  Works on Windows, Linux, and macOS.
         """
         # Redirect logging to stderr so stdout stays clean for JSON-RPC
-        handler = logging.StreamHandler(sys.stderr)
-        handler.setLevel(logging.INFO)
-        handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
-        logging.getLogger("cognigraph").addHandler(handler)
+        # Bug 16 fix: only add handler if none exists yet (prevents duplicate logs)
+        cg_logger = logging.getLogger("cognigraph")
+        if not cg_logger.handlers:
+            handler = logging.StreamHandler(sys.stderr)
+            handler.setLevel(logging.INFO)
+            handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+            cg_logger.addHandler(handler)
 
         logger.info("KogniDevServer starting on stdio transport")
 

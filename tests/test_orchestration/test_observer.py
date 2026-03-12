@@ -201,3 +201,71 @@ async def test_observer_report_to_dict():
     assert "health_score" in d
     assert "contributions" in d
     assert isinstance(d["confidence_trajectory"], list)
+
+
+@pytest.mark.asyncio
+async def test_health_score_scales_with_node_count():
+    """Bug 23: Health score should not collapse to 0% with many nodes.
+
+    With 20 nodes, perspective diversity is expected — the observer should
+    not penalize each "conflict" at the same rate as a 2-node scenario.
+    """
+    from cognigraph.core.observer_report import ObserverReport, ConflictPair
+
+    # Simulate 20-node scenario with 100 "conflicts" (perspective diversity)
+    conflicts = [
+        ConflictPair(
+            node_a=f"n{i}", node_b=f"n{i+1}",
+            claim_a=f"claim {i}", claim_b=f"claim {i+1}",
+            round_detected=0, severity="medium",
+        )
+        for i in range(100)
+    ]
+    report = ObserverReport(
+        query="test",
+        total_rounds=1,
+        total_messages=20,
+        total_nodes=20,
+        overall_confidence=0.87,
+        conflicts=conflicts,
+    )
+    # With the old formula (0.05 per conflict), 100 conflicts → health = 0%
+    # With scaled formula, 20 nodes should keep health well above 0%
+    assert report.health_score > 0.3, (
+        f"Health score {report.health_score:.0%} too low for 20-node scenario "
+        f"with {len(conflicts)} conflicts — observer penalties not scaling"
+    )
+
+    # Sanity: 2-node scenario with 1 conflict should still penalize normally
+    report_small = ObserverReport(
+        query="test",
+        total_rounds=1,
+        total_messages=2,
+        total_nodes=2,
+        overall_confidence=0.87,
+        conflicts=conflicts[:1],
+    )
+    assert report_small.health_score == pytest.approx(0.95, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_multi_node_conflict_detection_stricter():
+    """Bug 23: With >5 nodes, keyword conflict detection should be stricter."""
+    obs = MasterObserver(detect_conflicts=True, detect_anomalies=False,
+                         detect_patterns=False)
+    # 6 nodes — stricter mode requires bidirectional references + 2 keywords
+    msgs = {
+        f"n{i}": _make_msg(f"n{i}", f"Analysis from node n{i} about the topic.")
+        for i in range(6)
+    }
+    # Override n0 to mention n1 with "however" but not a real contradiction
+    msgs["n0"] = _make_msg("n0", "n1 however has a different perspective on pages")
+    msgs["n1"] = _make_msg("n1", "The document has 5 pages")
+
+    await obs.observe_round("q", 0, msgs)
+    report = obs.generate_report("q")
+    # Should NOT flag this as a conflict — "however" alone + one-directional
+    # reference is not enough in strict mode
+    assert report.conflict_count == 0, (
+        f"False conflict detected in 6-node scenario: {report.conflict_count}"
+    )

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CogniGraph Studio{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Knowledge graph intelligence at a glance</p>
+</div>
+
+<div hx-get="/studio/api/partials/metrics-cards" hx-trigger="load, every 15s" hx-swap="innerHTML">
+    <div class="metrics-cards">
+        <div class="card"><div class="card-value">{{ node_count }}</div><div class="card-label">Nodes</div></div>
+        <div class="card"><div class="card-value">{{ edge_count }}</div><div class="card-label">Edges</div></div>
+        <div class="card"><div class="card-value">--</div><div class="card-label">Tokens Saved</div></div>
+        <div class="card"><div class="card-value">--</div><div class="card-label">Cost Saved</div></div>
+        <div class="card"><div class="card-value">--</div><div class="card-label">Queries</div></div>
+        <div class="card"><div class="card-value">--</div><div class="card-label">Context Loads</div></div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="panel">
+        <h3>Node Types</h3>
+        <div class="type-grid">
+            {% for type_name, count in node_types.items() %}
+            <div class="type-item">
+                <span class="type-count">{{ count }}</span>
+                <span class="type-name">{{ type_name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Quick Actions</h3>
+        <div class="actions">
+            <a href="/studio/graph" class="action-btn">Explore Graph</a>
+            <a href="/studio/reasoning" class="action-btn primary">Run Reasoning</a>
+            <a href="/studio/metrics" class="action-btn">View Metrics</a>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Graph Preview</h3>
+    <div id="mini-graph" style="height: 300px; position: relative;"></div>
+</div>
+{% endblock %}
+
+{% block head %}
+<script src="/studio/static/vendor/d3.min.js"></script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/studio/static/js/graph-viz.js"></script>
+<script>
+    fetch('/studio/api/graph/visualization')
+        .then(r => r.json())
+        .then(data => {
+            if (data.nodes && data.nodes.length > 0) {
+                initGraphViz('#mini-graph', data, { mini: true });
+            }
+        });
+</script>
+{% endblock %}

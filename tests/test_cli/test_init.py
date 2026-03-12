@@ -246,7 +246,7 @@ class TestBuildCognigraphYaml:
         assert cfg["model"]["model"] == "claude-haiku-4-5-20251001"
         assert cfg["model"]["api_key"] == "${ANTHROPIC_API_KEY}"
         assert cfg["graph"]["connector"] == "networkx"
-        assert cfg["activation"]["strategy"] == "pcst"
+        assert cfg["activation"]["strategy"] == "chunk"
         assert cfg["orchestration"]["max_rounds"] == 3
 
     def test_custom_backend_becomes_api(self):

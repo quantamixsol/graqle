@@ -15,7 +15,7 @@ from typing import Any
 
 logger = logging.getLogger("cognigraph.metrics")
 
-_DEFAULT_TOKENS_WITHOUT = 25_000  # avg tokens when loading full files
+_DEFAULT_TOKENS_WITHOUT = 2_000  # avg tokens when loading a file manually (realistic)
 
 
 class MetricsEngine:
@@ -104,15 +104,13 @@ class MetricsEngine:
         self.save()
 
     def record_query(self, query: str, result_tokens: int) -> None:
-        """Record a reasoning query."""
+        """Record a reasoning query.
+
+        Token savings are tracked only via ``record_context_load()`` to
+        avoid double-counting.  This method increments query counters only.
+        """
         self.queries += 1
         self._session_queries += 1
-
-        # Queries also save tokens compared to brute-force analysis
-        saved = max(_DEFAULT_TOKENS_WITHOUT - result_tokens, 0)
-        self.tokens_saved += saved
-        self._session_tokens_saved += saved
-
         self.save()
 
     def record_mistake_prevented(self, mistake_id: str, service: str) -> None:
@@ -260,13 +258,14 @@ class MetricsEngine:
         """
         cost_per_1k = 0.015
         estimated_savings_usd = (self.tokens_saved / 1000) * cost_per_1k
-        avg_tokens_per_load = (
+        avg_tokens_saved_per_load = (
             self.tokens_saved // self.context_loads
             if self.context_loads
             else 0
         )
+        avg_tokens_returned = max(_DEFAULT_TOKENS_WITHOUT - avg_tokens_saved_per_load, 1)
         reduction_factor = (
-            round(_DEFAULT_TOKENS_WITHOUT / max((_DEFAULT_TOKENS_WITHOUT - avg_tokens_per_load), 1), 1)
+            round(_DEFAULT_TOKENS_WITHOUT / avg_tokens_returned, 1)
             if self.context_loads
             else 0
         )
@@ -282,7 +281,7 @@ class MetricsEngine:
             "  --- Token Efficiency ---",
             f"  Context loads:        {self.context_loads:,}",
             f"  Total tokens saved:   {self.tokens_saved:,}",
-            f"  Avg saved per load:   {avg_tokens_per_load:,}",
+            f"  Avg saved per load:   {avg_tokens_saved_per_load:,}",
             f"  Reduction factor:     {reduction_factor}x",
             "",
             "  --- Quality ---",
