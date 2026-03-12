@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Live Reasoning — CogniGraph Studio{% endblock %}
+{% block nav_reasoning %}active{% endblock %}
+
+{% block head %}
+<script src="/studio/static/vendor/d3.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Live Reasoning</h1>
+    <p class="subtitle">Watch your graph think in real-time</p>
+</div>
+
+<div class="reasoning-input" x-data="reasoningUI()">
+    <div class="query-bar">
+        <input type="text" class="query-input" placeholder="Ask your knowledge graph..."
+               x-model="query" @keydown.enter="startReasoning()">
+        <button class="btn primary" @click="startReasoning()" :disabled="running">
+            <span x-text="running ? 'Reasoning...' : 'Ask'"></span>
+        </button>
+    </div>
+
+    <div class="reasoning-layout">
+        <div id="reasoning-graph" class="reasoning-canvas"></div>
+        <div class="reasoning-feed">
+            <div class="feed-header">
+                <span x-text="status"></span>
+                <span class="confidence-badge" x-show="confidence > 0"
+                      x-text="Math.round(confidence * 100) + '%'"></span>
+            </div>
+            <div id="activity-feed" class="activity-feed">
+                <template x-for="item in feed" :key="item.id">
+                    <div class="feed-item" :class="item.type">
+                        <span class="feed-type" x-text="item.type"></span>
+                        <span class="feed-content" x-text="item.content"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="result-panel" x-show="answer">
+                <h3>Answer</h3>
+                <div class="answer-text" x-html="answer"></div>
+                <div class="result-meta" x-show="resultMeta">
+                    <span x-text="'Rounds: ' + (resultMeta?.rounds || '-')"></span> &middot;
+                    <span x-text="'Nodes: ' + (resultMeta?.node_count || '-')"></span> &middot;
+                    <span x-text="'Cost: $' + (resultMeta?.cost_usd?.toFixed(4) || '-')"></span> &middot;
+                    <span x-text="'Latency: ' + Math.round(resultMeta?.latency_ms || 0) + 'ms'"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/studio/static/js/graph-viz.js"></script>
+<script>
+    let reasoningGraph = null;
+
+    // Load graph for visualization backdrop
+    fetch('/studio/api/graph/visualization')
+        .then(r => r.json())
+        .then(data => {
+            if (data.nodes && data.nodes.length > 0) {
+                reasoningGraph = initGraphViz('#reasoning-graph', data, { mini: false, reasoning: true });
+            }
+        });
+
+    function reasoningUI() {
+        return {
+            query: '',
+            running: false,
+            status: 'Ready',
+            confidence: 0,
+            answer: '',
+            resultMeta: null,
+            feed: [],
+            feedId: 0,
+
+            async startReasoning() {
+                if (!this.query.trim() || this.running) return;
+                this.running = true;
+                this.status = 'Activating nodes...';
+                this.answer = '';
+                this.resultMeta = null;
+                this.feed = [];
+                this.confidence = 0;
+
+                try {
+                    const response = await fetch('/studio/api/reason', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: this.query, max_rounds: 5 })
+                    });
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue;
+                            const payload = line.slice(6).trim();
+                            if (payload === '[DONE]') continue;
+
+                            try {
+                                const event = JSON.parse(payload);
+                                this.handleEvent(event);
+                            } catch (e) {}
+                        }
+                    }
+                } catch (e) {
+                    this.status = 'Error: ' + e.message;
+                }
+
+                this.running = false;
+            },
+
+            handleEvent(event) {
+                if (event.type === 'final_answer') {
+                    this.answer = event.answer;
+                    this.confidence = event.confidence;
+                    this.resultMeta = event;
+                    this.status = 'Complete';
+
+                    // Highlight active nodes
+                    if (reasoningGraph && event.active_nodes) {
+                        reasoningGraph.highlightNodes(event.active_nodes);
+                    }
+                } else if (event.type === 'error') {
+                    this.status = 'Error: ' + event.message;
+                    this.feed.push({
+                        id: this.feedId++,
+                        type: 'error',
+                        content: event.message
+                    });
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

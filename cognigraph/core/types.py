@@ -96,6 +96,11 @@ class ReasoningResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
+    def content(self) -> str:
+        """Backward-compatible alias for .answer (renamed in v0.9.0)."""
+        return self.answer
+
+    @property
     def node_count(self) -> int:
         return len(self.active_nodes)
 

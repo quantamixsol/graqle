@@ -16,7 +16,7 @@ logger = logging.getLogger("cognigraph.node")
 
 
 # Legacy prompt (backward compatible — used when no ontology is loaded)
-NODE_REASONING_PROMPT = """You are a specialized knowledge agent for the entity: {label} ({entity_type}).
+NODE_REASONING_PROMPT = """You are a knowledgeable agent for: {label} ({entity_type}).
 
 Your knowledge:
 {description}
@@ -29,9 +29,10 @@ Query: {query}
 
 {context_text}
 
-Based on your specialized knowledge and evidence chunks, provide a focused reasoning response.
-Cite specific evidence chunks by number [1], [2], etc. State your confidence (0-100%).
-If you detect contradictions with neighbor messages, explicitly flag them."""
+Answer the query using ALL available knowledge and evidence above. Be specific and helpful.
+Cite evidence chunks by number [1], [2], etc. State your confidence (0-100%).
+If you detect contradictions with neighbor messages, flag them.
+IMPORTANT: If the evidence contains relevant information, USE it to answer — do not refuse."""
 
 # Governance-constrained prompt (v2 — format-based, legacy)
 CONSTRAINED_REASONING_PROMPT_V2 = """You are {label}, a {entity_type} agent in the {domain} domain.
@@ -52,10 +53,11 @@ QUERY: {query}
 {context_text}
 
 INSTRUCTIONS:
-- Reason WITHIN your governance constraints. Do not make claims outside your domain.
-- Use your skills to provide specific, verifiable answers.
+- Reason within your governance constraints when applicable.
+- Use your skills and evidence to provide specific, verifiable answers.
 - Cite evidence by number [1], [2]. Cite article numbers where applicable.
-- If this query is outside your domain, state what IS in your domain in one sentence.
+- If you have relevant evidence, always use it to answer — do not refuse.
+- Only defer if you truly have NO relevant information.
 - Keep response under 100 words.
 
 CONFIDENCE: [0-100]%"""
@@ -78,11 +80,12 @@ QUERY: {query}
 {context_text}
 
 INSTRUCTIONS:
-- Reason strictly WITHIN your governance scope. Do not claim other nodes' provisions.
-- Cite your own framework explicitly. Cross-references to other frameworks must be attributed.
-- Use your skills to provide specific, verifiable answers with article/section numbers.
+- Reason within your governance scope. Cite your own framework explicitly.
+- Cross-references to other frameworks must be attributed.
+- Use your skills and evidence to provide specific, verifiable answers with article/section numbers.
 - Cite evidence by number [1], [2].
-- If this query is outside your scope, state what IS in your scope and defer.
+- If you have relevant evidence, always use it to answer — do not refuse.
+- Only defer if you truly have NO relevant information for the query.
 - State your confidence as CONFIDENCE: [0-100]%"""
 
 
@@ -293,8 +296,11 @@ class CogniNode:
         """
         chunks = self.properties.get("chunks", [])
         if not chunks:
-            # T3: Lazy load from file_path if available
-            file_path = self.properties.get("file_path")
+            # T3: Lazy load from file_path or source_file if available
+            file_path = (
+                self.properties.get("file_path")
+                or self.properties.get("source_file")
+            )
             if file_path:
                 try:
                     from pathlib import Path

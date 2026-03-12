@@ -29,12 +29,16 @@ class GraphConfig(BaseModel):
     username: str | None = None
     password: str | None = None
     database: str | None = None
+    # Neo4j vector search settings
+    vector_index_name: str = "cogni_chunk_embedding_index"
+    embedding_dimension: int = 1024
+    embedding_model: str = "amazon.titan-embed-text-v2:0"
 
 
 class ActivationConfig(BaseModel):
     """Subgraph activation configuration."""
 
-    strategy: str = "pcst"
+    strategy: str = "chunk"  # "chunk" (default), "pcst" (legacy), "full", "top_k"
     max_nodes: int = 50
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     pcst_pruning: str = "strong"
@@ -68,9 +72,37 @@ class ObserverConfig(BaseModel):
 class CostConfig(BaseModel):
     """Cost control configuration."""
 
-    budget_per_query: float = 0.01
+    budget_per_query: float = 0.10  # $0.10 — sufficient for ChunkScorer with 20 nodes
     prefer_local: bool = True
     fallback_to_api: bool = True
+
+    # Dynamic budget ceiling (v0.10.3)
+    # After budget is hit, each subsequent round has P(continue) = base * decay^k
+    # where k = rounds since budget was first exceeded.
+    # This allows convergence without hard cutoff while preventing runaway cost.
+    dynamic_ceiling: bool = True
+    continuation_base_prob: float = 0.85  # P(continue) on the first round over budget
+    continuation_decay: float = 0.6  # multiplicative decay per additional round
+    hard_ceiling_multiplier: float = 3.0  # absolute max: never exceed N * budget
+
+
+class ReformulatorConfig(BaseModel):
+    """Query reformulation configuration (ADR-104).
+
+    Controls whether and how queries are enhanced before PCST activation.
+
+    Modes:
+        - "auto": Detect AI tool environment and use context if available,
+                  otherwise fall back to LLM mode if a backend is set.
+        - "ai_tool": Force AI tool mode (expect context from Claude Code etc.)
+        - "llm": Use a backend model call to reformulate (standalone usage)
+        - "off": Disable reformulation entirely (raw query pass-through)
+    """
+
+    enabled: bool = True
+    mode: str = "auto"  # "auto", "ai_tool", "llm", "off"
+    llm_backend: str | None = None  # named model profile for LLM reformulation
+    graph_summary: str = ""  # brief KG description to help LLM mode
 
 
 class LoggingConfig(BaseModel):
@@ -99,6 +131,7 @@ class CogniGraphConfig(BaseModel):
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     observer: ObserverConfig = Field(default_factory=ObserverConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
+    reformulator: ReformulatorConfig = Field(default_factory=ReformulatorConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     domain: str = "custom"
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)

@@ -231,8 +231,15 @@ class BedrockBackend(BaseBackend):
         if self._client is None:
             try:
                 import boto3
+                from botocore.config import Config as BotoConfig
+                # Increase connection pool for parallel node reasoning (20+ concurrent calls)
+                boto_config = BotoConfig(
+                    max_pool_connections=50,
+                    retries={"max_attempts": 3, "mode": "adaptive"},
+                )
                 self._client = boto3.client(
-                    "bedrock-runtime", region_name=self._region
+                    "bedrock-runtime", region_name=self._region,
+                    config=boto_config,
                 )
             except ImportError:
                 raise ImportError(

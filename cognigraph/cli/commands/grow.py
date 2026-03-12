@@ -53,6 +53,7 @@ def _get_changed_files() -> list[str]:
 def _incremental_scan(root: Path, changed_files: list[str]) -> tuple[list[dict], list[dict]]:
     """Scan only changed source files and return new nodes + edges."""
     import re
+    from cognigraph.cli.commands.init import _should_skip
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
@@ -65,6 +66,10 @@ def _incremental_scan(root: Path, changed_files: list[str]) -> tuple[list[dict],
     for rel_path in changed_files:
         fpath = root / rel_path
         if not fpath.exists() or not fpath.is_file():
+            continue
+
+        # Bug 14 fix: skip build output, node_modules, etc.
+        if _should_skip(Path(rel_path)):
             continue
 
         file_id = rel_path.replace("\\", "/")

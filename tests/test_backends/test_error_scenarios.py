@@ -222,8 +222,13 @@ async def test_budget_exceeded_halts_early(sample_graph):
     backend = CountingBackend(fail_count=0, name_str="costed-mock")
     sample_graph.set_default_backend(backend)
 
-    # Set a tiny budget that will be exceeded after 1 round
-    config = CogniGraphConfig(cost=CostConfig(budget_per_query=0.0000001))
+    # Set a tiny budget that will be exceeded after 1 round.
+    # Disable dynamic ceiling for deterministic test behavior.
+    config = CogniGraphConfig(cost=CostConfig(
+        budget_per_query=0.0000001,
+        dynamic_ceiling=False,
+        hard_ceiling_multiplier=2.0,
+    ))
     sample_graph.config = config
 
     # Activate nodes (normally areason() does this)
@@ -267,6 +272,51 @@ async def test_no_budget_exceeded_normal_run(sample_graph):
 
     assert result.metadata["budget_exceeded"] is False
     assert result.metadata["cumulative_cost_usd"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_dynamic_ceiling_respects_hard_limit(sample_graph):
+    """Dynamic ceiling never exceeds hard_ceiling_multiplier * budget."""
+    backend = CountingBackend(fail_count=0, name_str="costed-mock")
+    sample_graph.set_default_backend(backend)
+
+    # Tiny budget, dynamic ceiling ON, hard limit at 3x
+    config = CogniGraphConfig(cost=CostConfig(
+        budget_per_query=0.0000001,
+        dynamic_ceiling=True,
+        continuation_base_prob=1.0,  # always continue (deterministic)
+        continuation_decay=1.0,  # never decay
+        hard_ceiling_multiplier=3.0,
+    ))
+    sample_graph.config = config
+
+    node_ids = list(sample_graph.nodes.keys())[:3]
+    for nid in node_ids:
+        sample_graph.nodes[nid].activate(backend)
+
+    orchestrator = Orchestrator()
+    result = await orchestrator.run(
+        graph=sample_graph,
+        query="test dynamic ceiling hard limit",
+        active_node_ids=node_ids,
+        max_rounds=10,
+    )
+
+    # Even with P=1.0 (always continue), must stop at hard ceiling
+    assert result.rounds_completed < 10
+    assert result.metadata["budget_exceeded"] is True
+
+
+@pytest.mark.asyncio
+async def test_dynamic_ceiling_config_fields():
+    """CostConfig exposes dynamic ceiling fields with correct defaults."""
+    from cognigraph.config.settings import CostConfig
+
+    cfg = CostConfig()
+    assert cfg.dynamic_ceiling is True
+    assert cfg.continuation_base_prob == 0.85
+    assert cfg.continuation_decay == 0.6
+    assert cfg.hard_ceiling_multiplier == 3.0
 
 
 # ===========================================================================

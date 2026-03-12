@@ -31,7 +31,8 @@ def test_relevance_scorer(sample_graph):
     scorer = RelevanceScorer()
     scores = scorer.score(sample_graph, "concept hub")
     assert len(scores) == 5
-    assert all(0.0 <= v <= 1.0 for v in scores.values())
+    # v3: scores can exceed 1.0 due to content multiplier + property boosts
+    assert all(v >= 0.0 for v in scores.values())
     # n5 has "hub" in description, should score higher
     assert scores["n5"] > 0
 

@@ -45,11 +45,14 @@ class CogniGraph:
         self._node_backends: dict[str, ModelBackend] = {}
         self._orchestrator: Any = None  # set lazily
         self._activator: Any = None  # set lazily
+        self._reformulator: Any = None  # set lazily (ADR-104)
+        self._neo4j_connector: Any = None  # set by from_neo4j / to_neo4j
         self._nx_graph: nx.Graph | None = None
 
-        # Mandatory quality gate: enrich + enforce descriptions
+        # Mandatory quality gate: enrich + enforce descriptions + auto-chunk
         if self.nodes:
             self._auto_enrich_descriptions()
+            self._auto_load_chunks()
             self._enforce_no_empty_descriptions()
 
     # --- Construction ---
@@ -106,14 +109,224 @@ class CogniGraph:
         return graph
 
     @classmethod
-    def from_json(cls, path: str, config: CogniGraphConfig | None = None) -> CogniGraph:
-        """Create a CogniGraph from a JSON file."""
-        import json
-        from pathlib import Path
+    def from_json(
+        cls, path: str, config: CogniGraphConfig | str | None = None
+    ) -> CogniGraph:
+        """Create a CogniGraph from a JSON file.
 
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-        G = nx.node_link_graph(data)
+        Parameters
+        ----------
+        path:
+            Path to the JSON graph file.
+        config:
+            A ``CogniGraphConfig`` instance, a path to a YAML config file
+            (string), or ``None`` for defaults.
+        """
+        import json
+        from pathlib import Path as _Path
+
+        # Bug 4 fix: handle string config path automatically
+        if isinstance(config, str):
+            config_path = _Path(config)
+            if config_path.exists():
+                config = CogniGraphConfig.from_yaml(config)
+            else:
+                logger.warning("Config file not found: %s — using defaults", config)
+                config = None
+
+        data = json.loads(_Path(path).read_text(encoding="utf-8"))
+        # Bug 12 fix: pass edges= explicitly to suppress NetworkX FutureWarning
+        G = nx.node_link_graph(data, edges="links")
         return cls.from_networkx(G, config=config)
+
+    @classmethod
+    def from_neo4j(
+        cls,
+        uri: str = "bolt://localhost:7687",
+        username: str = "neo4j",
+        password: str = "",
+        database: str = "neo4j",
+        config: CogniGraphConfig | None = None,
+    ) -> CogniGraph:
+        """Create a CogniGraph from a Neo4j database.
+
+        Loads nodes and edges via Cypher, attaches chunks as node properties,
+        and stores the connector for runtime Cypher vector search.
+        """
+        from cognigraph.connectors.neo4j import Neo4jConnector
+
+        cfg = config or CogniGraphConfig.default()
+        connector = Neo4jConnector(
+            uri=uri,
+            username=username,
+            password=password,
+            database=database,
+            vector_index_name=cfg.graph.vector_index_name,
+            embedding_dimension=cfg.graph.embedding_dimension,
+        )
+
+        # Load graph structure
+        raw_nodes, raw_edges = connector.load()
+
+        # Build CogniNodes
+        nodes: dict[str, CogniNode] = {}
+        for nid, data in raw_nodes.items():
+            nodes[nid] = CogniNode(
+                id=nid,
+                label=data.get("label", nid),
+                entity_type=data.get("type", "Entity"),
+                description=data.get("description", ""),
+                properties=data.get("properties", {}),
+            )
+
+        # Build CogniEdges
+        edges: dict[str, CogniEdge] = {}
+        for eid, data in raw_edges.items():
+            src = str(data["source"])
+            tgt = str(data["target"])
+            if src not in nodes or tgt not in nodes:
+                continue
+            edge = CogniEdge(
+                id=eid,
+                source_id=src,
+                target_id=tgt,
+                relationship=data.get("relationship", "RELATED_TO"),
+                weight=data.get("weight", 1.0),
+                properties=data.get("properties", {}),
+            )
+            edges[eid] = edge
+            nodes[src].outgoing_edges.append(eid)
+            nodes[tgt].incoming_edges.append(eid)
+
+        # Load chunks and attach to node properties
+        try:
+            chunks_by_node = connector.load_chunks()
+            for nid, chunks in chunks_by_node.items():
+                if nid in nodes:
+                    nodes[nid].properties["chunks"] = chunks
+        except Exception as exc:
+            logger.warning("Failed to load chunks from Neo4j: %s", exc)
+
+        graph = cls(nodes=nodes, edges=edges, config=cfg)
+        graph._neo4j_connector = connector
+        return graph
+
+    def to_neo4j(
+        self,
+        uri: str = "bolt://localhost:7687",
+        username: str = "neo4j",
+        password: str = "",
+        database: str = "neo4j",
+        embed_fn: Any | None = None,
+    ) -> None:
+        """Export current graph to Neo4j. Creates schema, writes nodes + chunks.
+
+        Args:
+            embed_fn: Optional callable(text) -> list[float] for chunk embeddings.
+                      If None, chunks are written without embeddings.
+        """
+        from cognigraph.connectors.neo4j import Neo4jConnector
+
+        connector = Neo4jConnector(
+            uri=uri,
+            username=username,
+            password=password,
+            database=database,
+            vector_index_name=self.config.graph.vector_index_name,
+            embedding_dimension=self.config.graph.embedding_dimension,
+        )
+
+        # Create schema (constraints + vector index)
+        connector.create_schema()
+
+        # Prepare node data
+        raw_nodes: dict[str, Any] = {}
+        for nid, node in self.nodes.items():
+            raw_nodes[nid] = {
+                "label": node.label,
+                "type": node.entity_type,
+                "description": node.description,
+                "properties": node.properties,
+            }
+
+        # Prepare edge data
+        raw_edges: dict[str, Any] = {}
+        for eid, edge in self.edges.items():
+            raw_edges[eid] = {
+                "source": edge.source_id,
+                "target": edge.target_id,
+                "relationship": edge.relationship,
+                "weight": edge.weight,
+            }
+
+        # Write nodes and edges
+        connector.save(raw_nodes, raw_edges)
+
+        # Write chunks with optional embeddings
+        chunks_by_node: dict[str, list[dict]] = {}
+        for nid, node in self.nodes.items():
+            chunks = node.properties.get("chunks", [])
+            if chunks:
+                chunks_by_node[nid] = chunks
+
+        if chunks_by_node:
+            connector.save_chunks(chunks_by_node, embed_fn=embed_fn)
+
+        logger.info(
+            "Exported to Neo4j: %d nodes, %d edges, %d nodes with chunks",
+            len(raw_nodes), len(raw_edges), len(chunks_by_node),
+        )
+
+        # Store connector for runtime use
+        self._neo4j_connector = connector
+
+    # --- Public chunk management ---
+
+    def rebuild_chunks(self, force: bool = False) -> int:
+        """Rebuild chunks for all nodes from their source files.
+
+        Use this after ``kogni init`` or when source files have changed.
+        By default only fills in missing chunks; set *force=True* to
+        re-read even nodes that already have chunks.
+
+        Returns the number of nodes updated.
+        """
+        from pathlib import Path as _P
+
+        updated = 0
+        for node in self.nodes.values():
+            if not force and node.properties.get("chunks"):
+                continue
+
+            file_path = (
+                node.properties.get("file_path")
+                or node.properties.get("source_file")
+            )
+            if not file_path:
+                continue
+
+            try:
+                fp = _P(file_path)
+                if not fp.exists() or not fp.is_file():
+                    continue
+                content = fp.read_text(encoding="utf-8", errors="ignore")
+                if not content.strip():
+                    continue
+
+                suffix = fp.suffix.lower()
+                if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
+                    chunks = self._chunk_source_code(content, max_chunks=5)
+                else:
+                    chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
+
+                if chunks:
+                    node.properties["chunks"] = chunks
+                    updated += 1
+            except Exception:
+                continue
+
+        logger.info("rebuild_chunks: updated %d nodes (force=%s)", updated, force)
+        return updated
 
     # --- Node Enrichment & Validation ---
 
@@ -235,6 +448,98 @@ class CogniGraph:
                     f"empty descriptions from metadata."
                 )
 
+    def _auto_load_chunks(self) -> None:
+        """Auto-load chunks from source files for nodes that have none.
+
+        When a KG node has a ``source_file`` (or ``file_path``) property
+        pointing to a readable file but carries no ``chunks``, this method
+        reads the file and creates chunks so that reasoning agents have
+        evidence to cite.  This is the critical bridge between hand-built
+        KGs (which often omit chunks) and the evidence pipeline that
+        agents depend on.
+        """
+        from pathlib import Path as _P
+
+        loaded = 0
+        for node in self.nodes.values():
+            # Skip nodes that already have chunks
+            if node.properties.get("chunks"):
+                continue
+
+            # Find a file reference
+            file_path = (
+                node.properties.get("file_path")
+                or node.properties.get("source_file")
+            )
+            if not file_path:
+                continue
+
+            try:
+                fp = _P(file_path)
+                if not fp.exists() or not fp.is_file():
+                    continue
+                content = fp.read_text(encoding="utf-8", errors="ignore")
+                if not content.strip():
+                    continue
+
+                # For source code files, try semantic chunking
+                suffix = fp.suffix.lower()
+                if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
+                    chunks = self._chunk_source_code(content, max_chunks=5)
+                else:
+                    # For markdown, config, etc. — single chunk, capped at 4000 chars
+                    chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
+
+                if chunks:
+                    node.properties["chunks"] = chunks
+                    loaded += 1
+            except Exception:
+                continue
+
+        if loaded:
+            logger.info(
+                "Auto-loaded chunks for %d/%d nodes from source files.",
+                loaded, len(self.nodes),
+            )
+
+    @staticmethod
+    def _chunk_source_code(content: str, max_chunks: int = 5) -> list[dict[str, str]]:
+        """Split source code into semantic chunks at function/class boundaries.
+
+        Returns a list of ``{"text": ..., "type": ...}`` dicts, capped at
+        *max_chunks* to stay within token budgets.
+        """
+        import re as _re
+
+        chunks: list[dict[str, str]] = []
+        # Split on top-level definitions
+        pattern = _re.compile(
+            r"^((?:async\s+)?(?:def|class|function|export\s+(?:default\s+)?(?:function|class))\s+\w+)",
+            _re.MULTILINE,
+        )
+        parts = pattern.split(content)
+
+        # parts[0] = module header, then alternating (match, body)
+        if parts[0].strip():
+            header = parts[0].strip()[:1500]
+            chunks.append({"text": header, "type": "module_header"})
+
+        i = 1
+        while i < len(parts) - 1 and len(chunks) < max_chunks:
+            sig = parts[i]
+            body = parts[i + 1] if i + 1 < len(parts) else ""
+            block = (sig + body).strip()[:1500]
+            if block:
+                btype = "class" if "class " in sig else "function"
+                chunks.append({"text": block, "type": btype})
+            i += 2
+
+        # If no splits found, treat as single chunk
+        if not chunks and content.strip():
+            chunks.append({"text": content[:3000], "type": "source"})
+
+        return chunks[:max_chunks]
+
     def validate(self) -> dict:
         """Validate knowledge graph quality for reasoning.
 
@@ -342,15 +647,62 @@ class CogniGraph:
                         node.temperature = node_config.temperature
 
     def _get_backend_for_node(self, node_id: str) -> ModelBackend:
-        """Get the model backend for a specific node."""
+        """Get the model backend for a specific node.
+
+        Bug 5 fix: If no backend is set, auto-create one from config.
+        """
         if node_id in self._node_backends:
             return self._node_backends[node_id]
         if self._default_backend is not None:
             return self._default_backend
+
+        # Auto-create backend from config (Bug 5 fix)
+        backend = self._auto_create_backend()
+        if backend is not None:
+            self._default_backend = backend
+            return backend
+
         raise RuntimeError(
             f"No backend assigned for node '{node_id}'. "
             "Call set_default_backend() or configure_nodes() first."
         )
+
+    def _auto_create_backend(self) -> ModelBackend | None:
+        """Attempt to create a backend from self.config.model settings."""
+        import os
+
+        cfg = self.config
+        backend_name = cfg.model.backend
+        model_name = cfg.model.model
+        api_key = cfg.model.api_key
+
+        # Resolve env var references
+        if api_key and api_key.startswith("${") and api_key.endswith("}"):
+            env_var = api_key[2:-1]
+            api_key = os.environ.get(env_var)
+
+        try:
+            if backend_name == "anthropic":
+                from cognigraph.backends.api import AnthropicBackend
+                api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+                if api_key:
+                    return AnthropicBackend(model=model_name, api_key=api_key)
+            elif backend_name == "openai":
+                from cognigraph.backends.api import OpenAIBackend
+                api_key = api_key or os.environ.get("OPENAI_API_KEY")
+                if api_key:
+                    return OpenAIBackend(model=model_name, api_key=api_key)
+            elif backend_name == "bedrock":
+                from cognigraph.backends.api import BedrockBackend
+                region = os.environ.get("AWS_DEFAULT_REGION", "eu-central-1")
+                return BedrockBackend(model=model_name, region=region)
+            elif backend_name == "ollama":
+                from cognigraph.backends.api import OllamaBackend
+                return OllamaBackend(model=model_name)
+        except (ImportError, Exception) as e:
+            logger.debug("Auto-backend creation failed: %s", e)
+
+        return None
 
     def assign_tiered_backends(
         self,
@@ -380,14 +732,21 @@ class CogniGraph:
         max_rounds: int | None = None,
         strategy: str | None = None,
         node_ids: list[str] | None = None,
+        context: Any = None,
     ) -> ReasoningResult:
-        """Run synchronous reasoning query (convenience wrapper)."""
+        """Run synchronous reasoning query (convenience wrapper).
+
+        Args:
+            context: Optional ``ReformulationContext`` from an AI tool
+                     (Claude Code, Cursor, Codex) for query enhancement.
+        """
         return asyncio.run(
             self.areason(
                 query,
                 max_rounds=max_rounds,
                 strategy=strategy,
                 node_ids=node_ids,
+                context=context,
             )
         )
 
@@ -398,16 +757,30 @@ class CogniGraph:
         max_rounds: int | None = None,
         strategy: str | None = None,
         node_ids: list[str] | None = None,
+        context: Any = None,
     ) -> ReasoningResult:
-        """Run async reasoning query — the core entry point."""
+        """Run async reasoning query — the core entry point.
+
+        Args:
+            context: Optional ``ReformulationContext`` from an AI tool
+                     (Claude Code, Cursor, Codex) for query enhancement
+                     before PCST activation (ADR-104).
+        """
         from cognigraph.orchestration.orchestrator import Orchestrator
 
         max_rounds = max_rounds or self.config.orchestration.max_rounds
         strategy = strategy or self.config.activation.strategy
 
+        # 0. Query reformulation (ADR-104)
+        query = self._reformulate_query(query, context=context)
+
         # 1. Activate subgraph
+        relevance_scores: dict[str, float] | None = None
         if node_ids is None:
             node_ids = self._activate_subgraph(query, strategy)
+            # Capture relevance scores for confidence calibration (Bug 18)
+            if self._activator is not None and hasattr(self._activator, "last_relevance"):
+                relevance_scores = self._activator.last_relevance
 
         # 2. Assign backends to activated nodes
         for nid in node_ids:
@@ -435,7 +808,10 @@ class CogniGraph:
                 skill_admin=skill_admin,
             )
 
-        result = await self._orchestrator.run(self, query, node_ids, max_rounds)
+        result = await self._orchestrator.run(
+            self, query, node_ids, max_rounds,
+            relevance_scores=relevance_scores,
+        )
 
         # 4. Deactivate nodes
         for nid in node_ids:
@@ -453,6 +829,7 @@ class CogniGraph:
         max_rounds: int | None = None,
         strategy: str | None = None,
         node_ids: list[str] | None = None,
+        context: Any = None,
     ) -> AsyncIterator:
         """Stream reasoning results as they become available.
 
@@ -464,6 +841,9 @@ class CogniGraph:
 
         max_rounds = max_rounds or self.config.orchestration.max_rounds
         strategy = strategy or self.config.activation.strategy
+
+        # Query reformulation (ADR-104)
+        query = self._reformulate_query(query, context=context)
 
         if node_ids is None:
             node_ids = self._activate_subgraph(query, strategy)
@@ -580,34 +960,224 @@ class CogniGraph:
         except Exception as e:
             logger.debug(f"Metrics recording skipped: {e}")
 
+    def _reformulate_query(self, query: str, *, context: Any = None) -> str:
+        """Apply query reformulation if configured (ADR-104).
+
+        Returns the reformulated query, or the original if reformulation
+        is disabled, not applicable, or fails for any reason (fail-open).
+        """
+        try:
+            cfg = self.config.reformulator
+            if not cfg.enabled or cfg.mode == "off":
+                return query
+
+            if self._reformulator is None:
+                from cognigraph.activation.reformulator import QueryReformulator
+
+                # Resolve LLM backend for standalone mode
+                llm_backend = None
+                if cfg.llm_backend and cfg.llm_backend in self.config.models:
+                    llm_backend = self._resolve_named_backend(cfg.llm_backend)
+                elif cfg.mode == "llm" and self._default_backend is not None:
+                    llm_backend = self._default_backend
+
+                self._reformulator = QueryReformulator(
+                    mode=cfg.mode,
+                    backend=llm_backend,
+                    enabled=cfg.enabled,
+                    graph_summary=cfg.graph_summary,
+                )
+
+            result = self._reformulator.reformulate(query, context=context)
+            if result.was_reformulated:
+                logger.info(
+                    "Query reformulated (%s, confidence=%.2f): %s",
+                    result.context_source,
+                    result.confidence,
+                    result.reformulated_query[:100],
+                )
+            return result.reformulated_query
+        except Exception as e:
+            logger.debug("Query reformulation skipped: %s", e)
+            return query
+
+    def _resolve_named_backend(self, profile_name: str) -> Any:
+        """Resolve a named model profile to a backend instance."""
+        from cognigraph.config.settings import NamedModelConfig
+
+        profile = self.config.models.get(profile_name)
+        if profile is None:
+            return None
+
+        if profile.backend == "anthropic":
+            from cognigraph.backends.api import AnthropicBackend
+            return AnthropicBackend(model=profile.model, api_key=profile.api_key)
+        elif profile.backend == "openai":
+            from cognigraph.backends.api import OpenAIBackend
+            return OpenAIBackend(model=profile.model, api_key=profile.api_key)
+        elif profile.backend == "bedrock":
+            from cognigraph.backends.api import BedrockBackend
+            return BedrockBackend(model=profile.model)
+        elif profile.backend == "ollama":
+            from cognigraph.backends.api import OllamaBackend
+            return OllamaBackend(model=profile.model)
+
+        return None
+
     def _activate_subgraph(self, query: str, strategy: str) -> list[str]:
-        """Select nodes to activate for a query."""
+        """Select nodes to activate for a query.
+
+        Strategy resolution order:
+        1. "full" / "manual" / "top_k" — explicit strategies
+        2. Direct file lookup — query mentions a known filename
+        3. Neo4j CypherActivation — if connector available
+        4. ChunkScorer (default) — chunk-level embedding search, no PCST
+        5. PCST — legacy fallback (only if strategy="pcst" explicitly)
+        """
         if strategy == "full":
             return list(self.nodes.keys())
         elif strategy == "manual":
             raise ValueError("Manual strategy requires explicit node_ids")
         elif strategy == "top_k":
-            # Simple degree-based selection
             sorted_nodes = sorted(
                 self.nodes.values(), key=lambda n: n.degree, reverse=True
             )
             k = min(self.config.activation.max_nodes, len(sorted_nodes))
             return [n.id for n in sorted_nodes[:k]]
         else:
-            # PCST (default) — falls back to full if pcst_fast not available
-            try:
-                from cognigraph.activation.pcst import PCSTActivation
+            # Direct file lookup bypass (ADR-103 Layer 3)
+            direct = self._direct_file_lookup(query)
+            if direct:
+                logger.info(
+                    "Direct file lookup activated %d nodes (bypassing scoring)",
+                    len(direct),
+                )
+                return direct
 
-                if self._activator is None:
-                    self._activator = PCSTActivation(
-                        max_nodes=self.config.activation.max_nodes,
-                        prize_scaling=self.config.activation.prize_scaling,
-                        cost_scaling=self.config.activation.cost_scaling,
-                    )
-                return self._activator.activate(self, query)
-            except ImportError:
-                logger.warning("pcst_fast not installed, falling back to full activation")
-                return list(self.nodes.keys())
+            # Neo4j CypherActivation (if connector available)
+            if self._neo4j_connector is not None:
+                try:
+                    from cognigraph.activation.cypher_activation import CypherActivation
+                    from cognigraph.activation.embeddings import EmbeddingEngine
+
+                    if self._activator is None or not isinstance(self._activator, CypherActivation):
+                        engine = EmbeddingEngine()
+                        self._activator = CypherActivation(
+                            connector=self._neo4j_connector,
+                            embedding_engine=engine,
+                            max_nodes=self.config.activation.max_nodes,
+                        )
+                    return self._activator.activate(self, query)
+                except Exception as exc:
+                    logger.warning("CypherActivation failed (%s), falling back", exc)
+
+            # Legacy PCST — only if explicitly requested
+            if strategy == "pcst":
+                try:
+                    from cognigraph.activation.pcst import PCSTActivation
+
+                    if self._activator is None or not isinstance(
+                        self._activator, PCSTActivation
+                    ):
+                        self._activator = PCSTActivation(
+                            max_nodes=self.config.activation.max_nodes,
+                            prize_scaling=self.config.activation.prize_scaling,
+                            cost_scaling=self.config.activation.cost_scaling,
+                        )
+                    return self._activator.activate(self, query)
+                except ImportError:
+                    logger.warning("pcst_fast not installed, falling through to ChunkScorer")
+
+            # ChunkScorer (new default) — chunk-level embedding search
+            from cognigraph.activation.chunk_scorer import ChunkScorer
+
+            if self._activator is None or not isinstance(self._activator, ChunkScorer):
+                self._activator = ChunkScorer(
+                    max_nodes=self.config.activation.max_nodes,
+                )
+            return self._activator.activate(self, query)
+
+    def _direct_file_lookup(self, query: str) -> list[str] | None:
+        """Layer 3 (ADR-103): Directly activate nodes matching filenames in the query.
+
+        If the query contains a recognisable filename (e.g., "auth.ts",
+        "payment_service.py"), find the matching node(s) and return them
+        plus their immediate neighbours.  This bypasses PCST entirely,
+        guaranteeing the right file is always activated when explicitly named.
+
+        Returns ``None`` if no filename match is found (→ fall through to PCST).
+
+        Edge cases handled:
+        - Multiple files mentioned → all are activated
+        - File mentioned but not in graph → returns None (fall through to PCST)
+        - Matched node has zero chunks → still activated (agent will use
+          description; the user asked for it explicitly)
+        - Very short filenames (<3 chars) → ignored to prevent false positives
+        - Path fragments ("src/auth") → basename extracted ("auth")
+        """
+        import re as _re
+
+        query_lower = query.lower()
+
+        # Build a lookup: bare_name → node_id, full_label → node_id
+        # Only for nodes whose label looks like a filename (contains '.')
+        label_to_id: dict[str, str] = {}
+        bare_to_id: dict[str, str] = {}
+
+        for nid, node in self.nodes.items():
+            label = (node.label or "").strip()
+            if not label or len(label) < 3:
+                continue
+
+            label_lower = label.lower()
+            # Normalize paths to basename
+            if "/" in label_lower or "\\" in label_lower:
+                label_lower = label_lower.replace("\\", "/").rsplit("/", 1)[-1]
+
+            if "." in label_lower:
+                # It looks like a filename
+                label_to_id[label_lower] = nid
+                bare = label_lower.rsplit(".", 1)[0]
+                if len(bare) >= 3:
+                    bare_to_id[bare] = nid
+
+        if not label_to_id and not bare_to_id:
+            return None
+
+        matched_nodes: set[str] = set()
+
+        # Check full filename matches (e.g., "auth.ts" in query)
+        for fname, nid in label_to_id.items():
+            if fname in query_lower:
+                matched_nodes.add(nid)
+
+        # Check bare name matches with word boundary (e.g., "auth" in query)
+        for bare, nid in bare_to_id.items():
+            if nid in matched_nodes:
+                continue  # Already matched by full name
+            if bare in query_lower:
+                # Word boundary check to avoid substring false matches
+                pattern = r"(?:^|[\s\-_/\\.,;:\"'()]){}(?:[\s\-_/\\.,;:\"'()]|$)".format(
+                    _re.escape(bare)
+                )
+                if _re.search(pattern, query_lower):
+                    matched_nodes.add(nid)
+
+        if not matched_nodes:
+            return None
+
+        # Expand: add immediate neighbours of matched nodes
+        max_nodes = getattr(self.config.activation, "max_nodes", 50)
+        result: set[str] = set(matched_nodes)
+        for nid in list(matched_nodes):
+            for neighbor_id in self.get_neighbors(nid):
+                result.add(neighbor_id)
+                if len(result) >= max_nodes:
+                    break
+            if len(result) >= max_nodes:
+                break
+
+        return list(result)
 
     # --- Graph Operations ---
 
@@ -650,10 +1220,11 @@ class CogniGraph:
         return [self.edges[eid] for eid in self.nodes[node_id].outgoing_edges]
 
     def to_networkx(self) -> nx.Graph:
-        """Export to NetworkX graph (preserves directed/undirected from source)."""
-        if self._nx_graph is not None:
-            return self._nx_graph
+        """Export to NetworkX graph — always builds fresh from current node state.
 
+        This ensures runtime mutations (auto-chunk loading, description
+        enrichment, property updates) are reflected in the exported graph.
+        """
         G = nx.DiGraph()
         for nid, node in self.nodes.items():
             G.add_node(nid, label=node.label, type=node.entity_type,
@@ -701,7 +1272,8 @@ class CogniGraph:
         return len(self.nodes)
 
     def __repr__(self) -> str:
+        domain = getattr(self.config, "domain", "unknown")
         return (
             f"CogniGraph(nodes={len(self.nodes)}, edges={len(self.edges)}, "
-            f"config={self.config.domain})"
+            f"config={domain})"
         )

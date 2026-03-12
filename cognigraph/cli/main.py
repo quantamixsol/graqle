@@ -12,6 +12,10 @@ from cognigraph.cli.commands.metrics_cmd import metrics_command
 from cognigraph.cli.commands.scan import scan_app
 from cognigraph.cli.commands.doctor import doctor_command
 from cognigraph.cli.commands.setup_guide import setup_guide_command
+from cognigraph.cli.commands.register import register_command
+from cognigraph.cli.commands.activate import activate_command
+from cognigraph.cli.commands.billing import billing_command
+from cognigraph.cli.commands.rebuild import rebuild_command
 
 app = typer.Typer(
     name="kogni",
@@ -25,6 +29,10 @@ app.command(name="grow")(grow_command)
 app.command(name="metrics")(metrics_command)
 app.command(name="doctor")(doctor_command)
 app.command(name="setup-guide")(setup_guide_command)
+app.command(name="register")(register_command)
+app.command(name="activate")(activate_command)
+app.command(name="billing")(billing_command)
+app.command(name="rebuild")(rebuild_command)
 console = Console()
 
 # ---------------------------------------------------------------------------
@@ -45,11 +53,14 @@ def mcp_serve(
         "cognigraph.yaml", "--config", "-c", help="Config file path"
     ),
 ) -> None:
-    """Start the CogniGraph MCP development server (stdio transport for Claude Code).
+    """Start the CogniGraph MCP development server (stdio transport).
 
-    Exposes 7 governed development tools over JSON-RPC stdio:
-      FREE:  kogni_context, kogni_inspect, kogni_reason
-      PRO:   kogni_preflight, kogni_lessons, kogni_impact, kogni_learn
+    Exposes 7 development intelligence tools over JSON-RPC stdio:
+      kogni_context, kogni_inspect, kogni_reason, kogni_preflight,
+      kogni_lessons, kogni_impact, kogni_learn
+
+    All tools are free for all users. Works with Claude Code, Cursor,
+    VS Code, and Windsurf.
 
     Add to .mcp.json:
         { "mcpServers": { "kogni": { "command": "kogni", "args": ["mcp", "serve"] } } }
@@ -66,7 +77,7 @@ def run(
     query: str = typer.Argument(..., help="The reasoning query"),
     config: str = typer.Option("cognigraph.yaml", "--config", "-c", help="Config file path"),
     max_rounds: int = typer.Option(5, "--max-rounds", "-r", help="Max message-passing rounds"),
-    strategy: str = typer.Option("pcst", "--strategy", "-s", help="Activation strategy"),
+    strategy: str = typer.Option(None, "--strategy", "-s", help="Activation strategy (default: from config, usually 'chunk')"),
     protocol: str = typer.Option(
         "consensus", "--protocol", "-p",
         help="Reasoning protocol: consensus (default) or debate",
@@ -107,6 +118,9 @@ def run(
         cfg = CogniGraphConfig.default()
         if verbose:
             console.print("[yellow]No config file found, using defaults[/yellow]")
+
+    # Use config strategy if not overridden by CLI flag
+    strategy = strategy or cfg.activation.strategy
 
     console.print(f"[bold cyan]CogniGraph[/bold cyan] -- Graphs that think")
     console.print(f"Query: [green]{query}[/green]")
@@ -149,6 +163,25 @@ def run(
                   f"Nodes: {result.node_count} | "
                   f"Cost: ${result.cost_usd:.4f} | "
                   f"Latency: {result.latency_ms:.0f}ms[/dim]")
+
+    # Track usage + check milestones (non-blocking)
+    try:
+        from cognigraph.leads.collector import (
+            check_milestone,
+            get_milestone_nudge,
+            get_registration_nudge,
+            track_usage,
+        )
+        track_usage("reason_query")
+        milestone = check_milestone()
+        if milestone:
+            console.print(f"\n{get_milestone_nudge(milestone)}")
+        else:
+            nudge = get_registration_nudge()
+            if nudge:
+                console.print(f"\n{nudge}")
+    except Exception:
+        pass  # Never fail on telemetry
 
     # Explanation trace
     if explain:
@@ -301,7 +334,14 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]uvicorn not installed. Install with: pip install cognigraph[server][/red]")
+        console.print(
+            "[red]Server dependencies not installed.[/red]\n"
+            "\n"
+            "  Install with:\n"
+            "    [cyan]pip install 'cognigraph\\[server]'[/cyan]\n"
+            "\n"
+            "  This installs: uvicorn, fastapi, httptools, uvloop (unix)\n"
+        )
         raise typer.Exit(1)
 
     console.print(f"[bold cyan]CogniGraph Server[/bold cyan] starting on {host}:{port}")
@@ -313,6 +353,92 @@ def serve(
         reload=reload,
         factory=True,
     )
+
+
+@app.command()
+def studio(
+    config: str = typer.Option("cognigraph.yaml", "--config", "-c", help="Config file path"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
+    port: int = typer.Option(8888, "--port", "-p", help="Bind port"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't auto-open browser"),
+) -> None:
+    """Launch CogniGraph Studio — local visual dashboard.
+
+    \b
+    Opens an interactive dashboard at http://127.0.0.1:8888/studio/ with:
+      - Graph explorer (D3 force-directed visualization)
+      - Live reasoning view (SSE streaming)
+      - Metrics dashboard (tokens, cost, ROI)
+      - Settings & Neo4j status
+
+    \b
+    Examples:
+        kogni studio
+        kogni studio --port 9000
+        kogni studio --no-browser
+    """
+    try:
+        import uvicorn
+    except ImportError:
+        console.print(
+            "[red]Server dependencies not installed.[/red]\n"
+            "\n"
+            "  Install with:\n"
+            "    [cyan]pip install 'cognigraph\\[studio]'[/cyan]\n"
+            "\n"
+            "  This installs: uvicorn, fastapi, jinja2\n"
+        )
+        raise typer.Exit(1)
+
+    from pathlib import Path
+    from cognigraph.config.settings import CogniGraphConfig
+
+    # Load config
+    if Path(config).exists():
+        cfg = CogniGraphConfig.from_yaml(config)
+    else:
+        cfg = CogniGraphConfig.default()
+
+    # Load graph
+    graph = _load_graph(cfg)
+
+    # Load metrics engine if available
+    metrics = None
+    try:
+        from cognigraph.metrics.engine import MetricsEngine
+        metrics = MetricsEngine()
+    except Exception:
+        pass
+
+    console.print(f"[bold cyan]CogniGraph Studio[/bold cyan] — Graphs that think")
+    if graph:
+        console.print(f"  Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+    else:
+        console.print("  [yellow]No graph loaded — dashboard will show empty state[/yellow]")
+
+    # Build FastAPI app with studio mounted
+    from fastapi import FastAPI
+    from cognigraph.studio.app import mount_studio
+
+    app_instance = FastAPI(title="CogniGraph Studio", version="0.11.0")
+
+    state = {
+        "graph": graph,
+        "config": cfg,
+        "metrics": metrics,
+    }
+    mount_studio(app_instance, state)
+
+    url = f"http://{host}:{port}/studio/"
+    console.print(f"  URL: [bold]{url}[/bold]")
+
+    # Auto-open browser
+    if not no_browser:
+        import threading
+        import webbrowser
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+
+    uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 
 @app.command()
@@ -616,7 +742,7 @@ def reason(
     model: str = typer.Option("qwen2.5:3b", "--model", "-m", help="Ollama model name"),
     host: str = typer.Option("http://localhost:11434", "--host", help="Ollama host"),
     max_rounds: int = typer.Option(3, "--max-rounds", "-r", help="Max message-passing rounds"),
-    strategy: str = typer.Option("pcst", "--strategy", "-s", help="Activation strategy"),
+    strategy: str = typer.Option(None, "--strategy", "-s", help="Activation strategy (default: from config, usually 'chunk')"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
 ) -> None:
     """Run reasoning with real Ollama GPU backend."""
@@ -635,6 +761,9 @@ def reason(
         if graph is None:
             console.print("[red]No graph found. Provide --graph path/to/graph.json[/red]")
             raise typer.Exit(1)
+
+    # Use config strategy if not overridden by CLI flag
+    strategy = strategy or "chunk"
 
     # Set backend
     backend = OllamaBackend(model=model, host=host)
@@ -671,19 +800,27 @@ def _load_graph(cfg):
     from cognigraph.core.graph import CogniGraph
     from pathlib import Path
 
-    # 1. Check for cognigraph.json in current directory
+    # 1. Neo4j backend — primary production path
+    if cfg.graph.connector == "neo4j":
+        return CogniGraph.from_neo4j(
+            uri=cfg.graph.uri or "bolt://localhost:7687",
+            username=cfg.graph.username or "neo4j",
+            password=cfg.graph.password or "",
+            database=cfg.graph.database or "neo4j",
+            config=cfg,
+        )
+
+    # 2. JSON/NetworkX fallback — local development / quick testing
     if cfg.graph.connector == "networkx":
         json_path = Path("cognigraph.json")
         if json_path.exists():
             return CogniGraph.from_json(str(json_path), config=cfg)
 
-    # 2. Auto-discover: look for any .json graph file
+    # 3. Auto-discover: look for any .json graph file
     for candidate in ["cognigraph.json", "knowledge_graph.json", "graph.json"]:
         if Path(candidate).exists():
             return CogniGraph.from_json(candidate, config=cfg)
 
-    if cfg.graph.connector == "neo4j":
-        return None
     return None
 
 

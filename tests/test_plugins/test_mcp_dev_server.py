@@ -459,3 +459,17 @@ class TestSensitiveKeys:
         assert "password" in _SENSITIVE_KEYS
         assert "token" in _SENSITIVE_KEYS
         assert "credential" in _SENSITIVE_KEYS
+
+
+# ---------------------------------------------------------------------------
+# Bug 13 — MCP version must match package version (not hardcoded)
+# ---------------------------------------------------------------------------
+
+class TestMcpVersion:
+    def test_version_matches_package(self):
+        """The _version variable in mcp_dev_server must come from cognigraph.__version__."""
+        from cognigraph.__version__ import __version__ as pkg_version
+        from cognigraph.plugins.mcp_dev_server import _version
+
+        assert _version == pkg_version
+        assert _version != "0.0.0", "_version fell back to default; import is broken"

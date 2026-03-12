@@ -6,8 +6,8 @@ graph:
   connector: json
 
 activation:
-  strategy: pcst
-  max_nodes: 16
+  strategy: chunk    # "chunk" (default, recommended), "pcst" (legacy), "full", "top_k"
+  max_nodes: 20
 
 orchestration:
   max_rounds: 5
@@ -20,7 +20,7 @@ observer:
   detect_anomalies: true
 
 cost:
-  budget_per_query: 0.05
+  budget_per_query: 0.10   # $0.10 recommended for ChunkScorer with 20 nodes
   prefer_local: true
   fallback_to_api: true
 

@@ -112,23 +112,41 @@ class ObserverReport:
         """Overall reasoning health score (0-1).
 
         Penalizes for conflicts, anomalies, and unhealthy patterns.
+        Scales penalties by node count to avoid false-low scores when
+        many nodes reason in parallel (e.g., 20-node ChunkScorer).
+
+        With N nodes, the maximum possible conflict pairs is N*(N-1)/2.
+        We normalize conflict penalty so that even worst-case multi-node
+        scenarios don't drive health to 0% from perspective diversity alone.
         """
         score = 1.0
+        n = max(self.total_nodes, 1)
 
-        # Penalty per conflict
-        score -= len(self.conflicts) * 0.05
+        # Conflict penalty — scaled by node count.
+        # With 1-3 nodes (PCST era): 0.05 per conflict (original).
+        # With 20 nodes: max_pairs=190, so per-conflict penalty shrinks
+        # to keep the score meaningful. Cap total conflict penalty at 0.4.
+        if n <= 3:
+            conflict_penalty_each = 0.05
+        else:
+            # Scale: penalty = 0.4 / max_pairs, so 100% conflicts → -0.4
+            max_pairs = n * (n - 1) / 2
+            conflict_penalty_each = min(0.05, 0.4 / max(max_pairs, 1))
+        score -= len(self.conflicts) * conflict_penalty_each
 
-        # Penalty per high/critical anomaly
+        # Anomaly penalty — scale by node count (more nodes = more anomalies expected)
         critical = sum(1 for a in self.anomalies if a.severity in ("high", "critical"))
-        score -= critical * 0.1
+        anomaly_penalty_each = 0.1 if n <= 3 else 0.1 / (n / 3)
+        score -= critical * anomaly_penalty_each
 
         # Penalty for echo chambers
         echo = sum(1 for p in self.patterns if p.pattern_type == "echo_chamber")
         score -= echo * 0.15
 
-        # Penalty for flip-flopping nodes
+        # Penalty for flip-flopping nodes — scale by node count
         flips = sum(c.flip_count for c in self.contributions.values())
-        score -= flips * 0.02
+        flip_penalty_each = 0.02 if n <= 3 else 0.02 / (n / 3)
+        score -= flips * flip_penalty_each
 
         return max(0.0, min(1.0, score))
 

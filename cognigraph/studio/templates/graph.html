@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Graph Explorer — CogniGraph Studio{% endblock %}
+{% block nav_graph %}active{% endblock %}
+
+{% block head %}
+<script src="/studio/static/vendor/d3.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Graph Explorer</h1>
+    <p class="subtitle">Interactive knowledge graph visualization</p>
+</div>
+
+<div class="graph-toolbar" x-data="graphFilters()">
+    <input type="text" class="search-input" placeholder="Search nodes..."
+           x-model="searchQuery" @input.debounce.300ms="filterGraph()">
+    <div class="filter-chips">
+        <template x-for="t in types" :key="t">
+            <button class="chip" :class="{ active: activeTypes.includes(t) }"
+                    @click="toggleType(t)" x-text="t"></button>
+        </template>
+    </div>
+    <div class="graph-controls">
+        <button onclick="zoomIn()" title="Zoom In">+</button>
+        <button onclick="zoomOut()" title="Zoom Out">&minus;</button>
+        <button onclick="zoomFit()" title="Fit">&#8689;</button>
+        <button onclick="zoomReset()" title="Reset">&#8634;</button>
+    </div>
+</div>
+
+<div class="graph-layout">
+    <div id="graph-container" class="graph-canvas"></div>
+    <div id="node-detail-panel" class="detail-panel">
+        <div class="detail-placeholder">Click a node to see details</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/studio/static/js/graph-viz.js"></script>
+<script>
+    let graphInstance = null;
+
+    fetch('/studio/api/graph/visualization')
+        .then(r => r.json())
+        .then(data => {
+            if (data.nodes && data.nodes.length > 0) {
+                graphInstance = initGraphViz('#graph-container', data, {
+                    mini: false,
+                    onNodeClick: function(nodeId) {
+                        htmx.ajax('GET', '/studio/api/partials/node-detail/' + nodeId,
+                                  { target: '#node-detail-panel', swap: 'innerHTML' });
+                    }
+                });
+            }
+        });
+
+    function graphFilters() {
+        return {
+            searchQuery: '',
+            types: {{ node_types.keys()|list|tojson }},
+            activeTypes: [],
+            toggleType(t) {
+                const idx = this.activeTypes.indexOf(t);
+                if (idx >= 0) this.activeTypes.splice(idx, 1);
+                else this.activeTypes.push(t);
+                this.filterGraph();
+            },
+            filterGraph() {
+                if (graphInstance && graphInstance.filter) {
+                    graphInstance.filter(this.searchQuery, this.activeTypes);
+                }
+            }
+        }
+    }
+
+    function zoomIn() { graphInstance && graphInstance.zoomIn && graphInstance.zoomIn(); }
+    function zoomOut() { graphInstance && graphInstance.zoomOut && graphInstance.zoomOut(); }
+    function zoomFit() { graphInstance && graphInstance.zoomFit && graphInstance.zoomFit(); }
+    function zoomReset() { graphInstance && graphInstance.zoomReset && graphInstance.zoomReset(); }
+</script>
+{% endblock %}

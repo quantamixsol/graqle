@@ -67,7 +67,7 @@ def _check_backend_packages() -> List[CheckResult]:
     backends = {
         "anthropic": ("anthropic", "ANTHROPIC_API_KEY", "Claude (Anthropic)"),
         "openai": ("openai", "OPENAI_API_KEY", "GPT (OpenAI)"),
-        "boto3": ("boto3", "AWS_ACCESS_KEY_ID", "Bedrock (AWS)"),
+        "boto3": ("boto3", None, "Bedrock (AWS)"),  # checked via boto3 credentials
         "httpx": ("httpx", None, "Ollama (local)"),
     }
     any_backend = False
@@ -80,6 +80,21 @@ def _check_backend_packages() -> List[CheckResult]:
             if env_var:
                 has_key = bool(os.environ.get(env_var))
                 key_status = f" | {env_var}: {'set' if has_key else 'NOT SET'}"
+            elif mod_name == "boto3":
+                # Check boto3 credentials (env vars, ~/.aws/credentials, SSO, etc.)
+                try:
+                    import boto3
+                    session = boto3.Session()
+                    creds = session.get_credentials()
+                    if creds is not None:
+                        has_key = True
+                        key_status = " | AWS credentials: found"
+                    else:
+                        has_key = False
+                        key_status = " | AWS credentials: NOT FOUND"
+                except Exception:
+                    has_key = False
+                    key_status = " | AWS credentials: check failed"
             if has_key:
                 results.append((PASS, f"Backend: {label}", f"{ver}{key_status}"))
                 any_backend = True
@@ -246,29 +261,62 @@ def _check_graph_file() -> List[CheckResult]:
 
 
 def _check_mcp_registration() -> List[CheckResult]:
-    """Check if MCP server is registered for Claude Code / VS Code."""
+    """Check if MCP server is registered for any supported IDE.
+
+    Bug 17 fix: checks all IDE-specific MCP config paths, not just .mcp.json.
+    """
+    import json as _json
+
     results = []
 
-    mcp_path = Path(".mcp.json")
-    if not mcp_path.exists():
-        results.append((WARN, "MCP: .mcp.json", "not found — Claude Code integration not configured"))
-        return results
+    # All known MCP config paths (IDE → path)
+    mcp_paths = {
+        "Claude Code": Path(".mcp.json"),
+        "Cursor": Path(".cursor") / "mcp.json",
+        "VS Code": Path(".vscode") / "mcp.json",
+    }
 
-    try:
-        import json
-        with open(mcp_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+    found_any = False
+    for ide_name, mcp_path in mcp_paths.items():
+        if not mcp_path.exists():
+            continue
 
-        servers = data.get("mcpServers", {})
-        if "kogni" in servers:
-            cmd = servers["kogni"].get("command", "?")
-            args = servers["kogni"].get("args", [])
-            results.append((PASS, "MCP: kogni server", f"{cmd} {' '.join(args)}"))
-        else:
-            results.append((WARN, "MCP: kogni server", "not registered in .mcp.json"))
+        try:
+            with open(mcp_path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
 
-    except Exception as e:
-        results.append((FAIL, "MCP: .mcp.json", f"parse error: {e}"))
+            servers = data.get("mcpServers", {})
+            # Check both "kogni" and "cognigraph" server names (Bug 17)
+            mcp_key = None
+            for key in ("kogni", "cognigraph"):
+                if key in servers:
+                    mcp_key = key
+                    break
+
+            if mcp_key is not None:
+                cmd = servers[mcp_key].get("command", "?")
+                args = servers[mcp_key].get("args", [])
+                results.append((
+                    PASS,
+                    f"MCP: {ide_name}",
+                    f"{cmd} {' '.join(args)} ({mcp_path})",
+                ))
+                found_any = True
+            else:
+                results.append((
+                    WARN,
+                    f"MCP: {ide_name}",
+                    f"{mcp_path} exists but 'kogni'/'cognigraph' server not registered",
+                ))
+        except Exception as e:
+            results.append((FAIL, f"MCP: {ide_name}", f"{mcp_path} parse error: {e}"))
+
+    if not found_any:
+        results.append((
+            WARN,
+            "MCP: registration",
+            "not found in any IDE config — run 'kogni init' to configure",
+        ))
 
     return results
 

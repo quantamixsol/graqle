@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import time
 from typing import Any, TYPE_CHECKING
 
@@ -103,6 +104,8 @@ class Orchestrator:
         query: str,
         active_node_ids: list[str],
         max_rounds: int | None = None,
+        *,
+        relevance_scores: dict[str, float] | None = None,
     ) -> ReasoningResult:
         """Execute the full reasoning pipeline."""
         start_time = time.time()
@@ -130,6 +133,13 @@ class Orchestrator:
             else float("inf")
         )
         cumulative_cost = 0.0
+
+        # Dynamic ceiling parameters (v0.10.3)
+        dynamic_ceiling = getattr(cost_config, "dynamic_ceiling", True)
+        cont_base = getattr(cost_config, "continuation_base_prob", 0.85)
+        cont_decay = getattr(cost_config, "continuation_decay", 0.6)
+        hard_mult = getattr(cost_config, "hard_ceiling_multiplier", 3.0)
+        rounds_over_budget = 0
 
         # Message passing loop
         all_messages: list[dict[str, Message]] = []
@@ -161,14 +171,45 @@ class Orchestrator:
                     break
             cumulative_cost += round_tokens * round_cost_rate
 
-            # Budget check — halt early with partial result
+            # Dynamic budget ceiling (v0.10.3)
+            # After soft limit: probabilistic continuation with decay.
+            # P(continue) = base * decay^k, where k = rounds over budget.
+            # Hard ceiling at N * budget is absolute safety net.
             if cumulative_cost >= budget_limit:
-                logger.warning(
-                    f"Cost budget exceeded: ${cumulative_cost:.4f} >= "
-                    f"${budget_limit:.4f}. Halting after round {rounds_completed}."
-                )
-                budget_exceeded = True
-                break
+                if not budget_exceeded:
+                    logger.warning(
+                        f"Cost budget soft limit reached: ${cumulative_cost:.4f} >= "
+                        f"${budget_limit:.4f} (reasoning continues — quality over cost)."
+                    )
+                    budget_exceeded = True
+
+                # Hard ceiling — absolute safety net, never exceed this
+                if cumulative_cost >= budget_limit * hard_mult and rounds_completed >= 2:
+                    logger.warning(
+                        f"Cost hard ceiling ({hard_mult}x budget): "
+                        f"${cumulative_cost:.4f}. "
+                        f"Halting after round {rounds_completed}."
+                    )
+                    break
+
+                # Dynamic probabilistic gate (after minimum 2 rounds)
+                if dynamic_ceiling and rounds_completed >= 2:
+                    p_continue = cont_base * (cont_decay ** rounds_over_budget)
+                    roll = random.random()
+                    if roll > p_continue:
+                        logger.info(
+                            f"Dynamic ceiling: stopping at round {rounds_completed} "
+                            f"(P={p_continue:.2%}, roll={roll:.3f}, "
+                            f"cost=${cumulative_cost:.4f})."
+                        )
+                        break
+                    else:
+                        logger.info(
+                            f"Dynamic ceiling: continuing round {rounds_completed + 1} "
+                            f"(P={p_continue:.2%}, roll={roll:.3f}, "
+                            f"cost=${cumulative_cost:.4f})."
+                        )
+                    rounds_over_budget += 1
 
             # Observer watches this round
             round_obs = await self.observer.observe_round(
@@ -227,13 +268,27 @@ class Orchestrator:
             for msg in round_msgs.values()
         ]
 
-        # Compute confidence
-        final_confidences = [m.confidence for m in final_messages.values()]
-        avg_confidence = (
-            sum(final_confidences) / len(final_confidences)
-            if final_confidences
-            else 0.0
-        )
+        # Compute confidence — relevance-weighted if scores available (Bug 18)
+        final_confidences = {
+            nid: m.confidence for nid, m in final_messages.items()
+        }
+        if relevance_scores and final_confidences:
+            # Weighted: calibrated = sum(conf_i * rel_i) / sum(rel_i)
+            weighted_sum = 0.0
+            weight_total = 0.0
+            for nid, conf in final_confidences.items():
+                rel = relevance_scores.get(nid, 0.0)
+                weighted_sum += conf * rel
+                weight_total += rel
+            avg_confidence = (
+                weighted_sum / weight_total if weight_total > 0 else 0.0
+            )
+        elif final_confidences:
+            avg_confidence = (
+                sum(final_confidences.values()) / len(final_confidences)
+            )
+        else:
+            avg_confidence = 0.0
 
         elapsed_ms = (time.time() - start_time) * 1000
 

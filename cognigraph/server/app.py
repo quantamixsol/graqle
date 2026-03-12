@@ -8,21 +8,84 @@ Production features:
 - Per-client rate limiting (token bucket)
 - Request validation (query length, max_rounds, batch size)
 - CORS middleware
-"""
 
-from __future__ import annotations
+NOTE: Do NOT use ``from __future__ import annotations`` in this module.
+FastAPI/Pydantic needs real type objects at route-registration time;
+PEP 563 deferred annotations break TypeAdapter resolution.
+"""
 
 import json
 import logging
+import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 logger = logging.getLogger("cognigraph.server")
 
 
+def _create_backend_from_config(cfg: Any) -> Any:
+    """Create a real model backend from CogniGraphConfig.
+
+    Mirrors the logic in cli/main.py._create_backend_from_config but
+    without Rich console output (server mode).
+    """
+    from cognigraph.backends.mock import MockBackend
+
+    backend_name = cfg.model.backend
+    model_name = cfg.model.model
+    api_key = cfg.model.api_key
+
+    # Resolve env var references like ${ANTHROPIC_API_KEY}
+    if api_key and api_key.startswith("${") and api_key.endswith("}"):
+        env_var = api_key[2:-1]
+        api_key = os.environ.get(env_var)
+
+    try:
+        if backend_name == "anthropic":
+            from cognigraph.backends.api import AnthropicBackend
+            if not api_key:
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if not api_key:
+                logger.warning("ANTHROPIC_API_KEY not set — using mock backend")
+                return MockBackend(is_fallback=True, fallback_reason="ANTHROPIC_API_KEY not set")
+            return AnthropicBackend(model=model_name, api_key=api_key)
+
+        elif backend_name == "openai":
+            from cognigraph.backends.api import OpenAIBackend
+            if not api_key:
+                api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set — using mock backend")
+                return MockBackend(is_fallback=True, fallback_reason="OPENAI_API_KEY not set")
+            return OpenAIBackend(model=model_name, api_key=api_key)
+
+        elif backend_name == "bedrock":
+            from cognigraph.backends.api import BedrockBackend
+            region = getattr(cfg.model, "region", None) or os.environ.get(
+                "AWS_DEFAULT_REGION", "eu-central-1"
+            )
+            return BedrockBackend(model=model_name, region=region)
+
+        elif backend_name == "ollama":
+            from cognigraph.backends.api import OllamaBackend
+            host = getattr(cfg.model, "host", None) or "http://localhost:11434"
+            return OllamaBackend(model=model_name, host=host)
+
+        else:
+            logger.warning("Unknown backend '%s' — using mock", backend_name)
+            return MockBackend(is_fallback=True, fallback_reason=f"Unknown backend: {backend_name}")
+
+    except ImportError as e:
+        logger.warning("Missing package for backend: %s", e)
+        return MockBackend(is_fallback=True, fallback_reason=str(e))
+    except Exception as e:
+        logger.warning("Backend init failed: %s", e)
+        return MockBackend(is_fallback=True, fallback_reason=str(e))
+
+
 def create_app(
     config_path: str = "cognigraph.yaml",
-    graph_path: str | None = None,
+    graph_path: Optional[str] = None,
 ) -> Any:
     """Create the FastAPI application.
 
@@ -45,7 +108,6 @@ def create_app(
     from cognigraph.__version__ import __version__
     from cognigraph.config.settings import CogniGraphConfig
     from cognigraph.core.graph import CogniGraph
-    from cognigraph.backends.mock import MockBackend
     from cognigraph.server.middleware import (
         setup_auth_middleware,
         setup_rate_limit_middleware,
@@ -61,6 +123,11 @@ def create_app(
         HealthResponse,
         StreamChunkResponse,
     )
+
+    # Rebuild Pydantic models to resolve any forward references
+    for model_cls in (ReasonRequest, ReasonResponse, BatchReasonRequest,
+                      GraphInfoResponse, HealthResponse, StreamChunkResponse):
+        model_cls.model_rebuild()
 
     app = FastAPI(
         title="CogniGraph API",
@@ -81,8 +148,16 @@ def create_app(
     setup_auth_middleware(app)
     setup_rate_limit_middleware(app)
 
+    # Stripe webhook router (if STRIPE_WEBHOOK_SECRET is set)
+    try:
+        from cognigraph.server.stripe_webhook import router as stripe_router
+        if stripe_router is not None:
+            app.include_router(stripe_router, prefix="/webhooks")
+    except Exception:
+        pass  # Stripe integration is optional
+
     # State
-    state: dict[str, Any] = {"graph": None, "config": None}
+    state: dict = {"graph": None, "config": None}
 
     @app.on_event("startup")
     async def startup() -> None:
@@ -96,11 +171,12 @@ def create_app(
         gpath = graph_path or "cognigraph.json"
         if Path(gpath).exists():
             state["graph"] = CogniGraph.from_json(gpath, config=state["config"])
-            # Set mock backend as default (user should configure real one)
-            state["graph"].set_default_backend(MockBackend())
-            logger.info(f"Loaded graph from {gpath}: {len(state['graph'])} nodes")
+            # Bug 3 fix: Create real backend from config instead of MockBackend
+            backend = _create_backend_from_config(state["config"])
+            state["graph"].set_default_backend(backend)
+            logger.info("Loaded graph from %s: %d nodes", gpath, len(state["graph"]))
         else:
-            logger.warning(f"No graph file found at {gpath}")
+            logger.warning("No graph file found at %s", gpath)
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -113,7 +189,7 @@ def create_app(
         )
 
     @app.post("/reason", response_model=ReasonResponse)
-    async def reason(request: ReasonRequest) -> ReasonResponse | StreamingResponse:
+    async def reason(request: ReasonRequest) -> Any:
         graph = state.get("graph")
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")
@@ -161,7 +237,7 @@ def create_app(
         )
 
     @app.post("/reason/batch")
-    async def reason_batch(request: BatchReasonRequest) -> list[ReasonResponse]:
+    async def reason_batch(request: BatchReasonRequest) -> list:
         graph = state.get("graph")
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")
@@ -240,6 +316,22 @@ def create_app(
             "neighbors": graph.get_neighbors(node_id),
         }
 
+    @app.post("/leads")
+    async def capture_lead(request_data: dict) -> dict:
+        """Receive anonymous telemetry and lead registrations from SDK installs."""
+        try:
+            from cognigraph.server.stripe_webhook import _store_lead
+            _store_lead({
+                "email": request_data.get("email", ""),
+                "tier": "free",
+                "holder": request_data.get("name", ""),
+                "stripe_session_id": "",
+                "stripe_customer_id": "",
+            })
+        except Exception:
+            pass
+        return {"status": "ok"}
+
     async def _stream_reason(graph: CogniGraph, request: ReasonRequest):
         """SSE generator for streaming reasoning."""
         async for chunk in graph.areason_stream(
@@ -251,5 +343,22 @@ def create_app(
             data = json.dumps(chunk.to_dict())
             yield f"data: {data}\n\n"
         yield "data: [DONE]\n\n"
+
+    # Mount Studio dashboard (optional — only if studio package is available)
+    try:
+        from cognigraph.studio.app import mount_studio
+
+        # Load metrics engine
+        metrics = None
+        try:
+            from cognigraph.metrics.engine import MetricsEngine
+            metrics = MetricsEngine()
+        except Exception:
+            pass
+
+        state["metrics"] = metrics
+        mount_studio(app, state)
+    except ImportError:
+        logger.debug("Studio not available (install cognigraph[studio] for dashboard)")
 
     return app

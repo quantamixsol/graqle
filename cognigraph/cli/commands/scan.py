@@ -58,12 +58,24 @@ EDGE_TYPES = {
     "USES_ENVVAR": "Uses environment variable",
 }
 
-# Directories to always skip
+# Directories to always skip (source code only — no build artifacts)
 SKIP_DIRS = frozenset({
-    "__pycache__", ".git", "node_modules", ".venv", "venv", "env",
-    ".next", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", "egg-info", ".eggs", ".cache", "coverage",
+    # Python
+    "__pycache__", ".venv", "venv", "env", ".tox", ".mypy_cache",
+    ".pytest_cache", ".ruff_cache", "egg-info", ".eggs",
+    "site-packages",
+    # JavaScript / Node
+    "node_modules", ".next", ".turbo", ".vercel",
+    # Build outputs (all languages)
+    "dist", "build", "out", "_build", "target",
+    # IDE / editor
     ".idea", ".vscode",
+    # VCS
+    ".git",
+    # Caches / coverage
+    ".cache", "coverage", ".coverage", ".nyc_output",
+    # Misc build artifacts
+    ".cargo", ".gradle", ".mvn",
 })
 
 # ---------------------------------------------------------------------------

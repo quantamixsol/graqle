@@ -41,6 +41,9 @@ class SLMAgent(BaseAgent):
 
         # T2: Include semantic chunks for content-aware reasoning
         chunks = node_info.get("chunks", [])
+        # Also check properties (chunks may be nested there after graph load)
+        if not chunks and isinstance(node_info.get("properties"), dict):
+            chunks = node_info["properties"].get("chunks", [])
         if chunks:
             parts.append("Source content:")
             for chunk in chunks[:5]:  # top 5 chunks to stay within token budget
@@ -54,9 +57,15 @@ class SLMAgent(BaseAgent):
                     parts.append(f"[{ctype}] {text[:800]}")
 
         # T3: Lazy file loading fallback when no chunks
-        if not chunks and node_info.get("file_path"):
+        file_path = (
+            node_info.get("file_path")
+            or node_info.get("source_file")
+            or (node_info.get("properties", {}) or {}).get("file_path")
+            or (node_info.get("properties", {}) or {}).get("source_file")
+        )
+        if not chunks and file_path:
             try:
-                with open(node_info["file_path"], "r", encoding="utf-8", errors="ignore") as f:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read(4000)
                 if content.strip():
                     parts.append(f"File content:\n{content}")

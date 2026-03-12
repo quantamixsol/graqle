@@ -205,18 +205,86 @@ class OntologyGenerator:
 
     @staticmethod
     def _repair_json(text: str) -> Dict:
-        """Attempt to repair malformed JSON."""
+        """Attempt to repair malformed JSON from LLM output.
+
+        LLMs frequently produce JSON with:
+        - Trailing commas before closing braces/brackets
+        - Single quotes instead of double quotes
+        - Unescaped control characters
+        - Comments (// or /* */)
+        """
+        import re
+
         # Try to find the outermost braces
         start = text.find("{")
         end = text.rfind("}")
-        if start >= 0 and end > start:
+        if start < 0 or end <= start:
+            logger.error("Could not find JSON object in response")
+            return {"owl_hierarchy": {}, "semantic_constraints": []}
+
+        candidate = text[start : end + 1]
+
+        # Attempt 1: parse as-is
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 2: strip comments first (// and /* */) — must come before
+        # other repairs so that commented-out commas/quotes don't confuse them
+        fixed = re.sub(r"//[^\n]*", "", candidate)
+        fixed = re.sub(r"/\*.*?\*/", "", fixed, flags=re.DOTALL)
+        try:
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 3: replace single quotes with double quotes
+        fixed2 = fixed.replace("'", '"')
+        try:
+            return json.loads(fixed2)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 4: fix trailing commas (most common LLM JSON error)
+        fixed3 = re.sub(r",\s*([}\]])", r"\1", fixed2)
+        try:
+            return json.loads(fixed3)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 5: escape control characters inside string values
+        # LLMs produce literal newlines/tabs inside JSON strings → invalid
+        fixed4 = re.sub(
+            r'(?<=": ")([^"]*?)(?=")',
+            lambda m: m.group(0).replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r"),
+            fixed3,
+        )
+        try:
+            return json.loads(fixed4)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 6: truncate at last valid closing brace
+        # (handles cases where LLM appended extra text after JSON)
+        depth = 0
+        last_valid_end = -1
+        for i, ch in enumerate(fixed3):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    last_valid_end = i
+                    break
+        if last_valid_end > 0:
             try:
-                return json.loads(text[start : end + 1])
+                return json.loads(fixed3[: last_valid_end + 1])
             except json.JSONDecodeError:
                 pass
 
         # Last resort: return empty structure
-        logger.error("Could not repair JSON, returning empty ontology")
+        logger.error("Could not repair JSON after 6 attempts, returning empty ontology")
         return {"owl_hierarchy": {}, "semantic_constraints": []}
 
     @staticmethod
