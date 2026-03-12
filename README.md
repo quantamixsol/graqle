@@ -73,6 +73,30 @@ print(result.answer)          # Multi-agent synthesized answer
 print(f"Cost: ${result.cost_usd:.4f}")  # Transparent cost tracking
 ```
 
+### REST API (any HTTP client — Copilot, Postman, custom tools, bots)
+```bash
+# Start the server
+kogni serve                          # localhost:8000
+
+# Query from anything that speaks HTTP
+curl -X POST http://localhost:8000/reason \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What depends on the auth service?"}'
+```
+```json
+{
+  "answer": "The auth service is depended on by...",
+  "confidence": 0.87,
+  "cost_usd": 0.0023,
+  "latency_ms": 1250.5
+}
+```
+
+**Endpoints:** `/reason` (single query), `/reason/batch` (up to 50), `/graph/stats`, `/nodes/{id}`, `/health`<br/>
+**Auth:** API key via `X-API-Key` header or Bearer token<br/>
+**Docs:** Interactive Swagger UI at `http://localhost:8000/docs`<br/>
+**Full reference:** [docs/api-reference.md](docs/api-reference.md)
+
 ### MCP Tools (Claude Code, Cursor, VS Code, Windsurf)
 | Tool | Purpose |
 |------|---------|
@@ -91,24 +115,29 @@ print(f"Cost: ${result.cost_usd:.4f}")  # Transparent cost tracking
 ```
 Your Codebase ──→ kogni init ──→ Knowledge Graph (cognigraph.json)
                                         │
-                   ┌────────────────────┼────────────────────┐
-                   ▼                    ▼                    ▼
-              CLI queries          MCP tools            Python SDK
-              (any terminal)    (AI-powered IDEs)    (scripts, CI/CD)
-                   │                    │                    │
-                   └────────────────────┼────────────────────┘
-                                        ▼
-                              Graph-of-Agents Engine
-                        (each node = autonomous LLM agent)
-                                        │
-                   ┌────────────────────┼────────────────────┐
-                   ▼                    ▼                    ▼
-              Anthropic            Ollama (free)         Any OpenAI-
-              OpenAI               vLLM / llama.cpp      compatible
-              AWS Bedrock          (local, private)       endpoint
+         ┌──────────┬──────────┬────────┼────────┐
+         ▼          ▼          ▼        ▼        ▼
+       CLI      REST API    Python   MCP      Direct
+    (terminal)  (HTTP)      SDK      Server   JSON read
+         │          │          │        │        │
+         ▼          ▼          ▼        ▼        ▼
+    Any IDE    Any tool     Scripts  Claude   Custom
+    terminal   Copilot      CI/CD   Cursor   parsers
+               Postman      Jupyter VS Code
+               Slack bots   Replit  Windsurf
 ```
 
-**Key insight:** CogniGraph is model-agnostic. Use free local models (Ollama), cloud APIs (Anthropic, OpenAI), or enterprise backends (AWS Bedrock) — smart routing sends complex queries to capable models and simple ones to cheap models, all within your cost budget.
+**The knowledge graph is the product.** Once built, query it however you want:
+
+| Access Method | Use When | Example |
+|--------------|----------|---------|
+| `kogni run` | Quick terminal query | `kogni run "what calls payments?"` |
+| `kogni serve` | Any HTTP client needs access | `curl localhost:8000/reason` |
+| Python SDK | Scripts, notebooks, pipelines | `graph.reason("query")` |
+| MCP Server | AI-powered IDE with MCP support | Auto-available after `kogni init` |
+| Read JSON | Custom integration, any language | Parse `cognigraph.json` directly |
+
+**Model-agnostic.** Use free local models (Ollama), cloud APIs (Anthropic, OpenAI), or enterprise backends (AWS Bedrock). Smart routing sends complex queries to capable models and simple ones to cheap models, all within your cost budget.
 
 ---
 
