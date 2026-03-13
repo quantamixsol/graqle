@@ -1,0 +1,318 @@
+{
+  "init_timestamp": "2026-03-12T00:27:27.998606+00:00",
+  "context_loads": 2974,
+  "queries": 661,
+  "tokens_saved": 46358204,
+  "mistakes_prevented": 0,
+  "lessons_applied": 1,
+  "safety_checks": 0,
+  "safety_blocks": 0,
+  "sessions": [],
+  "node_access": {
+    "svc::l03": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:27.999392+00:00"
+    },
+    "svc::l05": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:27.999392+00:00"
+    },
+    "svc::l06": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.000470+00:00"
+    },
+    "env::neo4j_password": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.000470+00:00"
+    },
+    "env::neo4j_uri": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.001726+00:00"
+    },
+    "svc::l10": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.002818+00:00"
+    },
+    "env::bedrock_model": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.003728+00:00"
+    },
+    "svc::l01": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.004031+00:00"
+    },
+    "svc::l02": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.005117+00:00"
+    },
+    "env::s3_bucket": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.005117+00:00"
+    },
+    "adr::adr-075": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.006160+00:00"
+    },
+    "adr::adr-085": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.007165+00:00"
+    },
+    "adr::adr-092": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.007165+00:00"
+    },
+    "svc::l04": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.008323+00:00"
+    },
+    "svc::l07": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.008323+00:00"
+    },
+    "adr::adr-043": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.009326+00:00"
+    },
+    "adr::adr-091": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.009326+00:00"
+    },
+    "adr::adr-094": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.010329+00:00"
+    },
+    "adr::adr-095": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.011331+00:00"
+    },
+    "svc::l08": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.011331+00:00"
+    },
+    "svc::l13": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.015503+00:00"
+    },
+    "adr::adr-086": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.016101+00:00"
+    },
+    "adr::adr-056": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.017162+00:00"
+    },
+    "svc::l12": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.017465+00:00"
+    },
+    "mod::shared_response_kg_persistence.py": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.018464+00:00"
+    },
+    "infra::i01": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.018464+00:00"
+    },
+    "svc::frontend": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.019468+00:00"
+    },
+    "adr::adr-041": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.019984+00:00"
+    },
+    "svc::l09": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.019984+00:00"
+    },
+    "svc::l11": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.019984+00:00"
+    },
+    "svc::l14": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.019984+00:00"
+    },
+    "svc::l17": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.022807+00:00"
+    },
+    "svc::l18": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.022807+00:00"
+    },
+    "mod::shared_tamr_retrieval.py": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.024409+00:00"
+    },
+    "lesson::lesson-006": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.024409+00:00"
+    },
+    "lesson::lesson-081": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.025424+00:00"
+    },
+    "lesson::lesson-040": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.025424+00:00"
+    },
+    "lesson::lesson-053": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.026578+00:00"
+    },
+    "lesson::lesson-054": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.027584+00:00"
+    },
+    "lesson::lesson-056": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.028587+00:00"
+    },
+    "lesson::lesson-062": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.028587+00:00"
+    },
+    "lesson::lesson-068": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.029593+00:00"
+    },
+    "lesson::lesson-069": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.030597+00:00"
+    },
+    "lesson::lesson-073": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.031600+00:00"
+    },
+    "lesson::lesson-078": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.031600+00:00"
+    },
+    "lesson::lesson-088": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.033038+00:00"
+    },
+    "lesson::lesson-092": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.033038+00:00"
+    },
+    "svc::tamr_retrieval": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.034222+00:00"
+    },
+    "adr::adr-055": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.035225+00:00"
+    },
+    "adr::adr-046": {
+      "count": 1,
+      "last_accessed": "2026-03-12T00:27:28.035225+00:00"
+    },
+    "n1": {
+      "count": 425,
+      "last_accessed": "2026-03-13T10:17:51.744228+00:00"
+    },
+    "n2": {
+      "count": 425,
+      "last_accessed": "2026-03-13T10:17:51.744742+00:00"
+    },
+    "n3": {
+      "count": 425,
+      "last_accessed": "2026-03-13T10:17:51.745781+00:00"
+    },
+    "n4": {
+      "count": 425,
+      "last_accessed": "2026-03-13T10:17:51.745781+00:00"
+    },
+    "n5": {
+      "count": 425,
+      "last_accessed": "2026-03-13T10:17:51.746823+00:00"
+    },
+    "gdpr": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:50.200550+00:00"
+    },
+    "ai_act": {
+      "count": 188,
+      "last_accessed": "2026-03-13T10:17:44.525172+00:00"
+    },
+    "art22": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:50.200550+00:00"
+    },
+    "art6": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:50.200550+00:00"
+    },
+    "consent": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:50.200550+00:00"
+    },
+    "transparency": {
+      "count": 188,
+      "last_accessed": "2026-03-13T10:17:44.525172+00:00"
+    },
+    "hub": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:52.654569+00:00"
+    },
+    "leaf1": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:52.654569+00:00"
+    },
+    "leaf2": {
+      "count": 47,
+      "last_accessed": "2026-03-13T10:16:52.654569+00:00"
+    },
+    "high_risk": {
+      "count": 94,
+      "last_accessed": "2026-03-13T10:17:44.525172+00:00"
+    }
+  },
+  "graph_stats": {
+    "nodes": 314,
+    "edges": 178,
+    "node_types": {
+      "PACKAGE": 3,
+      "PAPER": 12,
+      "BENCHMARK": 7,
+      "IP_ASSET": 14,
+      "PUBLICATION": 11,
+      "ADR": 22,
+      "MOAT_MODULE": 6,
+      "COMPETITOR": 1,
+      "SERVICE": 20,
+      "NEO4J_SCHEMA": 10,
+      "TEST_SUITE": 7,
+      "STRIPE_PRODUCT": 4,
+      "OPEN_ISSUE": 17,
+      "BRAND_ASSET": 1,
+      "CHANNEL": 5,
+      "PERSONA": 4,
+      "MODULE": 7,
+      "MISTAKE": 35,
+      "INFRA": 12,
+      "LESSON": 93,
+      "Entity": 23
+    },
+    "edge_types": {
+      "RELATED_TO": 178
+    },
+    "captured_at": "2026-03-12T00:27:28.036295+00:00"
+  },
+  "graph_stats_current": {
+    "nodes": 5,
+    "edges": 7,
+    "node_types": {
+      "Concept": 5
+    },
+    "edge_types": {
+      "RELATED_TO": 2,
+      "CONTAINS": 3,
+      "CONFLICTS_WITH": 1,
+      "REFERENCES": 1
+    },
+    "captured_at": "2026-03-13T10:17:51.746823+00:00"
+  }
+}

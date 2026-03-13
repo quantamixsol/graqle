@@ -82,7 +82,7 @@ def rebuild_command(
     _save_graph(graph, str(gp))
 
     _print(f"\n[green]Done![/green]")
-    _print(f"  Nodes with chunks: {before_count} → {after_count}")
+    _print(f"  Nodes with chunks: {before_count} -> {after_count}")
     _print(f"  Nodes updated: {updated}")
 
     if after_count == 0:

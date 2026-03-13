@@ -962,7 +962,19 @@ def _parse_llm_ontology(
     if start >= 0 and end > start:
         text = text[start:end + 1]
 
-    data = json.loads(text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # Attempt repair: strip trailing commas, fix common LLM JSON issues
+        import re
+        repaired = re.sub(r',\s*([}\]])', r'', text)  # trailing commas
+        repaired = repaired.replace("'", '"')  # single quotes
+        try:
+            data = json.loads(repaired)
+            logger.info('LLM ontology JSON repaired successfully')
+        except json.JSONDecodeError:
+            logger.warning('LLM ontology JSON could not be parsed even after repair')
+            raise
 
     node_shapes: list[NodeShape] = []
     edge_shapes: list[EdgeShape] = []

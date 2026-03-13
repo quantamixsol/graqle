@@ -47,7 +47,7 @@ class AdapterHub:
                 local_dir=str(local_path),
                 revision=revision,
             )
-            logger.info(f"Downloaded adapter: {adapter_id} → {local_path}")
+            logger.info(f"Downloaded adapter: {adapter_id} -> {local_path}")
             return local_path
         except ImportError:
             raise ImportError(

@@ -1666,7 +1666,7 @@ def init_command(
             if updated > 0:
                 console.print(f"  [green]+[/green] Rebuilt chunks for {updated} nodes")
         except Exception as exc:
-            console.print(f"  [yellow]⚠[/yellow] Chunk rebuild skipped: {exc}")
+            console.print(f"  [yellow]![/yellow] Chunk rebuild skipped: {exc}")
 
     # MCP config (IDE-specific location)
     if not no_mcp:

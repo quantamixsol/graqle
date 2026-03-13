@@ -273,6 +273,16 @@ All 14 innovations are free to use under Apache 2.0. The patent protects the spe
 
 ---
 
+## What's New in v0.12.2
+
+**Windows compatibility + JSON repair.**
+
+- **Windows Unicode crash fixed:** Replaced 7 instances of Unicode arrows (U+2192) and warning symbols (U+26A0) in print/logger output that crashed on Windows cp1252 consoles. All runtime output now uses ASCII-safe characters.
+- **LLM ontology JSON repair:** Added automatic JSON repair for malformed LLM responses during ontology generation (trailing commas, single quotes). Falls back to heuristic gracefully instead of crashing.
+- **763 tests passing.**
+
+---
+
 ## What's New in v0.12.1
 
 **The "Last Mile" Release — every tester bug fixed, adaptive features now actually adapt.**
