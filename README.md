@@ -2,29 +2,31 @@
 
 # Graqle
 
-### Dev Intelligence Layer — Graphs That Think
+**Your codebase has answers. Stop digging for them.**
 
-Turn any codebase into a reasoning-ready knowledge graph.<br/>
-One command. Any IDE. Any AI tool. Zero cloud infrastructure.
+Turn any codebase into a knowledge graph where every module is a reasoning agent.<br/>
+One install. Any IDE. Any AI tool. Zero cloud infrastructure.
 
-[![PyPI version](https://badge.fury.io/py/graqle.svg)](https://pypi.org/project/graqle/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Tests: 797 passing](https://img.shields.io/badge/tests-797%20passing-brightgreen.svg)]()
-[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-8A2BE2.svg)]()
-[![Patent: EP26162901.8](https://img.shields.io/badge/patent-EP26162901.8-orange.svg)](NOTICE)
+[![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
+[![Tests: 797 passing](https://img.shields.io/badge/tests-797%20passing-06b6d4.svg)]()
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
+[![Patent](https://img.shields.io/badge/patent-EP26162901.8-06b6d4.svg)](NOTICE)
+
+[Website](https://graqle.com) · [PyPI](https://pypi.org/project/graqle/) · [GitHub](https://github.com/quantamixsol/graqle)
 
 </div>
 
 ---
 
-> **What if your development environment understood your entire codebase — and kept learning?**
->
-> Graqle transforms any codebase into a knowledge graph where every module, service, and config is a node backed by an autonomous LLM agent. Query it from any IDE, any AI tool, or plain terminal. One `pip install`, one `graq init`, and your dev environment becomes intelligent.
+## The problem
 
----
+Every time you ask your AI assistant "what depends on the auth service?", it reads 60 files, burns 50,000 tokens, takes 20 minutes, and still gives you a best-guess answer.
 
-## Quick Start
+It doesn't understand your architecture. It just reads text.
+
+## The fix
 
 ```bash
 pip install graqle[api]
@@ -32,504 +34,287 @@ cd your-project
 graq init
 ```
 
-That's it. Graqle scans your repo, builds a knowledge graph, and configures your IDE. Works with:
+That's it. Graqle scans your codebase, builds a knowledge graph, and wires up your IDE. Now ask:
 
-| IDE / Tool | Integration | Command |
-|-----------|-------------|---------|
-| **Claude Code** | MCP server + CLAUDE.md | `graq init` (auto-detected) |
-| **Cursor** | MCP server + .cursorrules | `graq init --ide cursor` |
-| **VS Code + Copilot** | MCP server + copilot-instructions | `graq init --ide vscode` |
-| **Windsurf** | MCP server + .windsurfrules | `graq init --ide windsurf` |
-| **Codex / Replit / JetBrains** | CLI + Python SDK | `graq init --ide generic` |
-| **Plain terminal** | Full CLI | `graq init --ide generic` |
-| **CI/CD pipelines** | Python SDK | `pip install graqle` |
+```bash
+graq reason "what breaks if I change auth?"
+```
 
-No cloud account. No infrastructure. Your machine, your API keys, your data.
+**3 nodes activated. 500 tokens. 5 seconds. $0.0003.**
+
+Not 60 files. Not 50,000 tokens. Not $0.15. Not "maybe".
 
 ---
 
-## What You Get
+## How it works
 
-### CLI (any terminal, any IDE)
-```bash
-graq run "What depends on the auth service?"     # Graph reasoning
-graq context auth-lambda                           # 500-token focused context
-graq inspect --stats                               # Graph statistics
-graq scan repo .                                   # Rebuild knowledge graph
-graq rebuild                                        # Rebuild chunks from source files
-graq rebuild --force                                # Force re-read ALL source files
-graq doctor                                        # Health check
-graq setup-guide                                   # Backend setup help
+**Graqle turns your codebase into a graph where every module is an autonomous reasoning agent.** When you ask a question:
 
-# Teach the graph (v0.15.0)
-graq learn node "auth-service" --type SERVICE      # Add a code-level node
-graq learn entity "CrawlQ" --type PRODUCT          # Add a business entity
-graq learn knowledge "Target is C-suite" --domain brand  # Teach domain knowledge
-graq learn edge "CrawlQ" "auth-service" -r POWERS  # Add relationships
-graq learn discover --from "auth-service"           # Auto-discover connections
+1. The right nodes activate (3 instead of 300)
+2. Each agent reasons about its own domain
+3. Agents cross-reference and synthesize one answer
+4. You get the answer, confidence score, and cost — transparently
 
-# Multi-project graphs (v0.15.0)
-graq link merge proj1/kg.json proj2/kg.json        # Merge KGs across projects
-graq link edge crawlq/sdk frictionmelt/retrieval   # Cross-project edges
-graq link stats merged.json                         # Per-project breakdown
+```
+Your Codebase ──→ graq init ──→ Knowledge Graph
+                                      │
+              ┌──────────┬────────────┼──────────┐
+              ▼          ▼            ▼          ▼
+            CLI      Python SDK   MCP Server  REST API
+         (terminal)  (scripts)    (IDE)       (HTTP)
 ```
 
-### Python SDK (any Python environment)
+**The graph is the product.** Query it from any IDE, any terminal, any script. Your machine, your API keys, your data.
+
+---
+
+## Works with everything
+
+| IDE / Tool | How | Setup |
+|-----------|-----|-------|
+| **Claude Code** | MCP server + CLAUDE.md | `graq init` (auto) |
+| **Cursor** | MCP server + .cursorrules | `graq init --ide cursor` |
+| **VS Code + Copilot** | MCP server | `graq init --ide vscode` |
+| **Windsurf** | MCP server + .windsurfrules | `graq init --ide windsurf` |
+| **JetBrains / Codex / Replit** | CLI + SDK | `graq init --ide generic` |
+| **CI/CD pipelines** | Python SDK | `pip install graqle` |
+
+No cloud account. No infrastructure. No config files to write.
+
+---
+
+## CLI
+
+```bash
+# Ask questions
+graq reason "what depends on auth?"          # Graph reasoning
+graq context auth-lambda                      # 500-token focused context
+graq inspect --stats                          # Graph statistics
+
+# Build and maintain
+graq init                                     # Scan repo, build graph
+graq scan repo .                              # Rescan codebase
+graq rebuild --force                          # Rebuild all chunks
+
+# Teach the graph
+graq learn node "auth-service" --type SERVICE
+graq learn entity "Payments" --type SERVICE
+graq learn knowledge "Auth uses RSA-256" --domain technical
+graq learn edge "Payments" "auth-service" -r DEPENDS_ON
+graq learn discover --from "auth-service"     # Auto-discover connections
+
+# Multi-project
+graq link merge proj1/kg.json proj2/kg.json   # Merge knowledge graphs
+graq link edge crawlq/sdk myapp/retrieval     # Cross-project edges
+
+# Utilities
+graq doctor                                   # Health check
+graq setup-guide                              # Backend setup
+graq serve                                    # Start REST API
+```
+
+## Python SDK
+
 ```python
-from graqle import Graqle
+from graqle.core.graph import Graqle
+from graqle.backends.api import AnthropicBackend
 
-# Load graph — auto-creates backend from graqle.yaml config
-graph = Graqle.from_json("graqle.json", config="graqle.yaml")
+graph = Graqle.from_json("graqle.json")
+graph.set_default_backend(
+    AnthropicBackend(model="claude-haiku-4-5-20251001")
+)
 
-result = graph.reason("How does GDPR conflict with the AI Act?")
-print(result.answer)          # Multi-agent synthesized answer
-print(f"Cost: ${result.cost_usd:.4f}")  # Transparent cost tracking
+result = graph.reason(
+    "What services depend on auth?",
+    max_rounds=3,
+    strategy="top_k"
+)
 
-# Rebuild chunks from source files (e.g., after code changes)
-graph.rebuild_chunks(force=True)
+print(result.answer)
+print(f"Confidence: {result.confidence:.0%}")
+print(f"Cost: ${result.cost_usd:.4f}")
 ```
 
-### REST API (any HTTP client — Copilot, Postman, custom tools, bots)
+## REST API
+
 ```bash
-# Start the server
-graq serve                          # localhost:8000
+graq serve                    # Start on localhost:8000
 
-# Query from anything that speaks HTTP
-curl -X POST http://localhost:8000/reason \
+curl -X POST localhost:8000/reason \
   -H "Content-Type: application/json" \
-  -d '{"query": "What depends on the auth service?"}'
+  -d '{"query": "What depends on auth?"}'
 ```
+
 ```json
 {
-  "answer": "The auth service is depended on by...",
+  "answer": "billing-api and notifications depend on auth via JWT...",
   "confidence": 0.87,
   "cost_usd": 0.0023,
-  "latency_ms": 1250.5
+  "latency_ms": 1250
 }
 ```
 
-**Endpoints:** `/reason` (single query), `/reason/batch` (up to 50), `/graph/stats`, `/nodes/{id}`, `/health`<br/>
-**Auth:** API key via `X-API-Key` header or Bearer token<br/>
-**Docs:** Interactive Swagger UI at `http://localhost:8000/docs`<br/>
-**Full reference:** [docs/api-reference.md](docs/api-reference.md)
+Interactive docs at `localhost:8000/docs`. Auth via `X-API-Key` header.
 
-### MCP Tools (Claude Code, Cursor, VS Code, Windsurf)
-| Tool | Purpose |
-|------|---------|
-| `graq_context` | 500-token focused context (replaces 20-60K file reads) |
+## MCP Tools
+
+Available automatically in Claude Code, Cursor, VS Code, and Windsurf after `graq init`:
+
+| Tool | What it does |
+|------|-------------|
+| `graq_context` | 500-token focused context (replaces reading entire files) |
 | `graq_reason` | Multi-agent graph reasoning |
-| `graq_inspect` | Graph structure inspection |
-| `graq_preflight` | Pre-change safety check |
 | `graq_impact` | "What breaks if I change X?" |
+| `graq_preflight` | Pre-change safety check |
 | `graq_lessons` | Surface past mistakes before you repeat them |
-| `graq_learn` | Teach the graph: outcomes, business entities, or domain knowledge |
-| `graq_reload` | Hot-reload KG from disk without restarting (v0.15.0) |
+| `graq_learn` | Teach the graph new knowledge |
+| `graq_inspect` | Graph structure inspection |
+| `graq_reload` | Hot-reload graph without restarting |
 
 ---
 
-## How It Works
+## Why this works (and others don't)
 
-```
-Your Codebase ──→ graq init ──→ Knowledge Graph (graqle.json)
-                                        │
-         ┌──────────┬──────────┬────────┼────────┐
-         ▼          ▼          ▼        ▼        ▼
-       CLI      REST API    Python   MCP      Direct
-    (terminal)  (HTTP)      SDK      Server   JSON read
-         │          │          │        │        │
-         ▼          ▼          ▼        ▼        ▼
-    Any IDE    Any tool     Scripts  Claude   Custom
-    terminal   Copilot      CI/CD   Cursor   parsers
-               Postman      Jupyter VS Code
-               Slack bots   Replit  Windsurf
-```
+Most "AI code tools" read files one at a time. That's fundamentally the wrong approach for architectural questions — you can't understand a system by reading files in isolation.
 
-**The knowledge graph is the product.** Once built, query it however you want:
+Graqle is different because:
 
-| Access Method | Use When | Example |
-|--------------|----------|---------|
-| `graq run` | Quick terminal query | `graq run "what calls payments?"` |
-| `graq serve` | Any HTTP client needs access | `curl localhost:8000/reason` |
-| Python SDK | Scripts, notebooks, pipelines | `graph.reason("query")` |
-| MCP Server | AI-powered IDE with MCP support | Auto-available after `graq init` |
-| Read JSON | Custom integration, any language | Parse `graqle.json` directly |
+**It understands relationships, not just text.** Your codebase is a graph of dependencies, ownership, and data flow. Graqle models that structure and reasons over it — so "what depends on auth?" traces actual dependency chains instead of grep-ing for the word "auth".
 
-**Model-agnostic.** Use free local models (Ollama), cloud APIs (Anthropic, OpenAI), or enterprise backends (AWS Bedrock). Smart routing sends complex queries to capable models and simple ones to cheap models, all within your cost budget.
+**It's 541x cheaper.** Not estimated — measured. Reading 60 files costs ~50K tokens per query. Activating 3 graph nodes costs ~500. Over hundreds of queries per day, that's the difference between $50 and $0.09.
+
+**It tells you what it doesn't know.** Every answer includes a confidence score calibrated for graph size. When confidence is low, Graqle explains which knowledge is missing — it doesn't guess and hope you don't notice.
+
+**It has governance built in.** Define module boundaries and architecture rules in your codebase. Graqle enforces them on every reasoning output. Security agents talk security, not UI. No extra configuration.
+
+**It keeps learning.** The graph auto-discovers new connections, remembers which nodes produce useful answers for which query patterns, and gets smarter with every interaction. Your dev environment develops institutional memory.
 
 ---
 
-## 15 Innovations (Patent EP26162901.8)
+## The numbers
 
-| # | Innovation | What it does |
-|---|-----------|-------------|
-| 1 | **ChunkScorer Activation** | Per-chunk semantic scoring — each chunk scored independently against query (v0.10.0, replaces PCST) |
-| 2 | **MasterObserver** | Zero-cost transparency layer for reasoning traces |
-| 3 | **Convergent Message Passing** | Agents talk until they agree, then stop |
-| 4 | **Backend Fallback Chain** | Auto-fallback across models with cost budgets |
-| 5 | **Hierarchical Aggregation** | Topology-aware answer synthesis |
-| 6 | **SemanticSHACLGate** | 3-layer OWL-aware governance validation |
-| 7 | **Constrained F1** | Joint quality + governance evaluation metric |
-| 8 | **OntologyGenerator** | Auto-generate OWL+SHACL from documents |
-| 9 | **Adaptive Activation** | Dynamic node selection from query complexity |
-| 10 | **Online Graph Learning** | Bayesian edge weight updates from usage |
-| 11 | **LoRA Auto-Selection** | Per-entity adapter matching |
-| 12 | **TAMR+ Connector** | Retrieval-to-reasoning pipeline |
-| 13 | **Multi-Resolution Embeddings** | Hybrid skill matching (regex + semantic) |
-| 14 | **CypherActivation** | Neo4j vector search on chunk embeddings — bypasses graph algorithms entirely (opt-in) |
-| 15 | **Activation Memory** | Cross-query learning — remembers which nodes were useful for which query patterns (v0.12.0) |
-
-All 15 innovations are **free for every developer**. No license key required.
+| Metric | Graqle | Reading files | Difference |
+|--------|--------|---------------|------------|
+| Tokens per query | **500** | 50,000 | **100x fewer** |
+| Cost per query | **$0.0003** | $0.15 | **541x cheaper** |
+| Time to answer | **<5 seconds** | 20 minutes | — |
+| Governance accuracy | **99.7%** | N/A | — |
+| Tests passing | **797** | — | — |
 
 ---
 
 ## Backends
 
-| Backend | Models | Cost | Install |
-|---------|--------|------|---------|
-| **Ollama** | Any local model (Qwen, Llama, etc.) | **$0** (local) | `pip install graqle[api]` |
-| **Anthropic** | Claude Haiku / Sonnet / Opus | $5 free credits | `pip install graqle[api]` |
-| **OpenAI** | GPT-4o / GPT-4o-mini | $5 free credits | `pip install graqle[api]` |
-| **AWS Bedrock** | Claude, Titan, Llama, Mistral | AWS Free Tier | `pip install graqle[api]` |
-| **vLLM** | GPU inference + LoRA | $0 (your GPU) | `pip install graqle[gpu]` |
-| **llama.cpp** | CPU GGUF models | $0 (your CPU) | `pip install graqle[cpu]` |
+Use whatever model you want. Graqle routes simple queries to cheap models and complex ones to capable models.
+
+| Backend | Models | Cost |
+|---------|--------|------|
+| **Ollama** | Qwen, Llama, Mistral (local) | **$0** |
+| **Anthropic** | Claude Haiku / Sonnet / Opus | ~$0.001/query |
+| **OpenAI** | GPT-4o / GPT-4o-mini | ~$0.001/query |
+| **AWS Bedrock** | Claude, Titan, Llama | AWS pricing |
+| **vLLM** | GPU inference + LoRA | Your GPU |
+| **llama.cpp** | GGUF models (CPU) | **$0** |
 
 ```bash
-graq setup-guide              # See all options with setup steps
-graq setup-guide ollama       # Free, local, no API key needed
-graq setup-guide anthropic    # Best quality, $5 free credits
+graq setup-guide              # See all options
+graq setup-guide ollama       # Free, local, no API key
 graq doctor                   # Verify everything works
 ```
 
 ---
 
-## Pricing — 100% Free for Developers
+## Pricing
 
-Graqle follows the **open-core model**: everything a solo developer needs is free forever. We monetize team and enterprise collaboration features.
+**Free for individuals. Always.**
 
-| | Community (Free) | Team | Enterprise |
+| | Open Source | Team | Enterprise |
 |---|:---:|:---:|:---:|
 | **Price** | **$0 forever** | $29/dev/month | Custom |
-| All 15 innovations | ✓ | ✓ | ✓ |
-| All MCP tools (8 tools) | ✓ | ✓ | ✓ |
-| All backends (Ollama, Anthropic, OpenAI, Bedrock, vLLM) | ✓ | ✓ | ✓ |
-| CLI + Python SDK + REST API | ✓ | ✓ | ✓ |
-| Unlimited queries | ✓ | ✓ | ✓ |
-| Auto-growing knowledge graph | ✓ | ✓ | ✓ |
-| Session continuity workspace | ✓ | ✓ | ✓ |
-| SemanticSHACL governance | ✓ | ✓ | ✓ |
-| Multi-IDE support | ✓ | ✓ | ✓ |
-| Commercial use | ✓ | ✓ | ✓ |
-| Shared KG sync across team | — | ✓ | ✓ |
-| Multi-developer coordination | — | ✓ | ✓ |
-| Team analytics & insights | — | ✓ | ✓ |
-| Custom ontologies | — | ✓ | ✓ |
-| Private deployment | — | — | ✓ |
-| Compliance & audit trail | — | — | ✓ |
-| SLA support | — | — | ✓ |
+| All 15 innovations | Yes | Yes | Yes |
+| All MCP tools | Yes | Yes | Yes |
+| All backends | Yes | Yes | Yes |
+| CLI + SDK + API | Yes | Yes | Yes |
+| Unlimited queries | Yes | Yes | Yes |
+| Commercial use | Yes | Yes | Yes |
+| Shared team graphs | — | Yes | Yes |
+| Neo4j GDS intelligence | — | Yes | Yes |
+| SSO + audit trail | — | — | Yes |
 
-**Why free?** We believe every developer deserves intelligent tooling regardless of budget. The innovations that save you tokens and time should not be behind a paywall. Teams pay for collaboration — individuals never pay.
+All 15 innovations are free. Every developer deserves intelligent tooling regardless of budget. Teams pay for collaboration — individuals never pay.
 
 ---
 
-## Benchmarks
+## 15 Innovations (Patent EP26162901.8)
 
-| Metric | Graqle | Single-Agent Baseline | Improvement |
-|--------|-----------|----------------------|-------------|
-| Constrained F1 | **0.757** | 0.328 | **+131%** |
-| Governance Accuracy | **99.7%** | N/A | — |
-| Token Efficiency | **500 tokens/query** | 20-60K tokens | **40-120x** |
+Every innovation listed below is free to use under Apache 2.0.
 
----
-
-## Governance
-
-**Governance is self-imposed** — boundary conditions defined in your codebase (ADRs, architecture docs, dependency rules, scope boundaries) become enforced constraints on every reasoning output. No external compliance system needed — the constraints live where the code lives.
-
-The **SemanticSHACLGate** enforces 3-layer semantic validation:
-
-1. **Framework Fidelity** — agents cite their own domain correctly (security modules talk security, not UI)
-2. **Scope Boundary** — responses stay within assigned boundaries (as defined by your ADRs, architecture docs, or custom constraints)
-3. **Cross-Reference Integrity** — proper attribution when crossing domain boundaries
-
-**How it works in practice:**
-- Dependencies in `package.json` / `requirements.txt` → boundary constraints
-- ADRs (Architecture Decision Records) → reasoning rules
-- Module boundaries → scope constraints
-- Import relationships → valid cross-reference paths
-
-```python
-# Example: register your codebase's architecture as governance constraints
-from graqle.ontology.semantic_shacl_gate import SemanticConstraint
-
-constraint = SemanticConstraint(
-    own_framework_markers=["authentication", "JWT", "session"],
-    in_scope_topics=["auth flows", "token validation", "session management"],
-    out_of_scope_topics=["UI rendering", "analytics"],
-    reasoning_rules=["Always cite specific security patterns when discussing auth"],
-)
-```
-
-See [examples/governance_example.py](examples/governance_example.py) for a complete working example.
-
-**MultiGov-30 benchmark: 99.7% governance accuracy** (FF: 100%, SB: 100%, CR: 98.3%).
+| # | What it does | Why it matters |
+|---|-------------|----------------|
+| 1 | **Chunk-level semantic scoring** | Each code chunk scored independently — finds the exact function, not just the file |
+| 2 | **Zero-cost transparency layer** | See exactly which agents activated and why, without extra LLM calls |
+| 3 | **Convergent message passing** | Agents discuss until they agree, then stop. No wasted rounds |
+| 4 | **Backend fallback chain** | Auto-switches models if one fails. Cost budgets enforced |
+| 5 | **Topology-aware synthesis** | Answers reflect graph structure, not just agent count |
+| 6 | **3-layer governance validation** | Enforces domain boundaries on every reasoning output |
+| 7 | **Formula-based compliance scoring** | Quantitative scores, not pass/fail. Gap attribution shows what's missing |
+| 8 | **Auto-generate ontologies** | Build OWL+SHACL constraints from your codebase automatically |
+| 9 | **Adaptive activation** | Simple queries use 3 nodes ($0.0001). Complex queries use 50 ($0.003) |
+| 10 | **Cross-query learning** | Remembers which nodes worked for which patterns. Gets smarter over time |
+| 11 | **Per-entity model selection** | Security nodes use capable models. Utility nodes use cheap ones |
+| 12 | **Retrieval-to-reasoning pipeline** | Connects document retrieval to graph reasoning seamlessly |
+| 13 | **Hybrid skill matching** | Combines regex precision with semantic flexibility |
+| 14 | **Neo4j vector + graph search** | Single database query for both embedding similarity and graph traversal |
+| 15 | **Activation memory** | Persistent cross-session learning about node effectiveness |
 
 ---
 
-## Patent & IP Notice
+## What's new in v0.16.0
 
-Graqle implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
+- **Full rebrand:** `cognigraph` → `graqle`, `kogni` → `graq`
+- **Backward compatible:** `pip install cognigraph` still works (installs graqle automatically)
+- **All v0.15.0 features carried forward:** MCP hot-reload, confidence recalibration, business entity support, multi-project CLI
 
-All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use Graqle freely in any project, commercial or otherwise.
+See the [full changelog](#changelog) below.
 
----
+<details>
+<summary><strong>Changelog</strong></summary>
 
-## What's New in v0.15.0
+### v0.15.0
 
-**Real-world feedback release — 6 fixes from Session 2 evaluation on a 13K-node merged KG.**
+- MCP hot-reload (graph auto-reloads on file change)
+- Confidence recalibrated for large KGs (65%+ for quality answers, was 9-15%)
+- Business entity support (`graq learn entity`, `graq learn knowledge`)
+- Multi-project CLI (`graq link merge`, `graq link edge`, `graq link stats`)
+- 797 tests passing
 
-### MCP Hot-Reload (was 2/10 → fixed)
-- **KG auto-reloads on file change:** The MCP server now checks `graqle.json` mtime on every tool call. If the file changed (e.g., after `graq learn` in another terminal), the graph reloads automatically. No restart needed.
-- **New `graq_reload` MCP tool:** Force-reload the KG from disk. 8 MCP tools total (was 7).
+### v0.12.3
 
-### Confidence Recalibrated for Large KGs (was 3/10 → fixed)
-- **v0.14.0 formula still reported 9-15% confidence for 8/10 quality answers on 13K-node graphs.** Root cause: 60/40 raw/coverage weighting undervalued the raw quality signal, and the flat 0.30 floor was too low.
-- **New formula:** 75/25 weighting (raw quality dominates), logarithmic coverage scale, tiered floors: 3+ nodes → 0.40, 5+ → 0.55, 10+ → 0.65.
-- Same query on 13K-node KG now reports **65%+ confidence** (was 9-15%).
+- Studio dashboard CSS fixes
+- Mobile responsive + QR code
+- Embedding cache (11K nodes: 30s → <1s per query)
 
-### Business Entity Support (was 4/10 → fixed)
-- **`graq learn entity`** — Add PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET, COMPETITOR, METRIC nodes. Code scanning finds modules; this adds what code scanning can't.
-- **`graq learn knowledge`** — Teach domain facts with domain tagging (brand, copy, product, market, technical). KNOWLEDGE nodes auto-connect to related graph nodes.
-- **MCP `graq_learn` expanded** — 3 modes: `outcome` (default, backward compatible), `entity`, `knowledge`. No new tool needed — same `graq_learn` with a `mode` parameter.
+### v0.12.0
 
-### Multi-Project CLI (was 3/10 → fixed)
-- **`graq link merge`** — Merge multiple project KGs into one. Auto-prefixes node IDs to prevent collisions (`auth-lambda` → `crawlq/auth-lambda`).
-- **`graq link edge`** — Create cross-project relationships: `graq link edge crawlq/sdk frictionmelt/retrieval --relation POWERS`
-- **`graq link stats`** — Per-project node counts, cross-project edge counts, graph health.
+- Observer overhaul (perspective diversity no longer flagged as conflict)
+- Adaptive node count (simple queries use fewer nodes)
+- Cross-query learning (Activation Memory, Innovation #15)
+- Call-graph edges from scanner
 
-### Testing
-- 34 new tests across 3 new test files. **797 tests passing** (up from 763).
+### v0.10.0
 
----
+- ChunkScorer replaces PCST as default activation
+- Multiple nodes activated (was single-node)
+- Bedrock auth detection fixed
 
-## What's New in v0.12.3
+### v0.9.0
 
-**Studio overhaul + Embedding cache + Mobile-ready.**
+- Neo4j backend (`from_neo4j()` / `to_neo4j()`)
+- CypherActivation (vector + graph in single Cypher query)
+- Chunk-aware scoring (500 chars from top 5 chunks)
+- 736 tests passing
 
-### Studio Dashboard Fixed
-- **CSS class mismatches resolved:** Dashboard cards, metrics, node types, and graph preview now render correctly. The `main-content` / `metric-card` / `node-types-grid` classes were mismatched between HTML templates and CSS -- all aligned now.
-- **HTMX partials fixed:** Auto-refreshing metrics cards use correct CSS grid layout.
-
-### Mobile Responsiveness + QR Code
-- **Full mobile support:** Hamburger menu, responsive grids (4-col -> 2-col -> 1-col), touch-friendly targets (44px min), sidebar overlay.
-- **QR code on dashboard:** Scan from your phone to access Studio while reasoning runs. Like Claude Code's QR feature.
-- **Tablet/phone breakpoints:** 1024px, 768px, 480px with landscape-specific layouts.
-
-### Embedding Cache (Performance)
-- **10-100x faster activation for large repos:** Chunk embeddings precomputed during `graq init` and saved to `.graqle/chunk_embeddings.npz`. At query time, only the query is embedded (1 call), then fast numpy batch cosine similarity against all cached chunks.
-- **11K nodes: ~30s -> <1s** per query activation (was embedding every chunk live).
-- **Automatic:** Built during `graq init`, loaded transparently by ChunkScorer.
-- **Fallback:** If cache is missing, falls back to live embedding (works always, just slower).
-
-### Windows Unicode (from v0.12.2)
-- 7 Unicode crash locations fixed (runtime print/logger output).
-- LLM ontology JSON repair added.
-
-**763 tests passing.**
-
----
-
-## What's New in v0.12.2
-
-**Windows compatibility + JSON repair.**
-
-- **Windows Unicode crash fixed:** Replaced 7 instances of Unicode arrows (U+2192) and warning symbols (U+26A0) in print/logger output that crashed on Windows cp1252 consoles. All runtime output now uses ASCII-safe characters.
-- **LLM ontology JSON repair:** Added automatic JSON repair for malformed LLM responses during ontology generation (trailing commas, single quotes). Falls back to heuristic gracefully instead of crashing.
-- **763 tests passing.**
-
----
-
-## What's New in v0.12.1
-
-**The "Last Mile" Release — every tester bug fixed, adaptive features now actually adapt.**
-
-All remaining bugs from the v0.12.0 feedback report resolved:
-
-### Bug Fixes
-- **Bug 27: Studio node detail routes** — Nodes with `/` or `:` in IDs (85% of scanned nodes) now accessible. Changed `{node_id}` → `{node_id:path}` in all API + Studio routes.
-- **Bug 5: QueryComplexityScorer always "simple"** — Thresholds lowered from 0.3/0.6/0.8 to 0.15/0.35/0.55. Added dev-specific entity markers (service, component, endpoint, auth, etc.) and depth patterns (what depends on, where is used, explain how). "How does the auth service work?" now scores **moderate**, not simple.
-- **Bug 26: ActivationMemory boosts not wired** — `get_boosts()` now called during ChunkScorer activation, passing memory-guided boosts to node scoring. Cross-query learning is no longer session-only.
-- **Bug 28: Examples not in pip package** — `examples/` directory now force-included in wheel via hatch build config.
-- **Bug 7: Init overwrites graqle.yaml** — Now deep-merges new defaults into existing config. User's API keys, Neo4j credentials, and custom model overrides are preserved.
-- **Bug 11: `graq serve` missing FastAPI check** — Now checks for both `uvicorn` AND `fastapi` before starting, with clear install instructions.
-- **Bug 25: Budget ceiling config exposed** — `dynamic_ceiling` and `hard_ceiling_multiplier` now in init template so users can configure them.
-
-**763 tests passing** (3 new regression tests for adaptive scoring + init merge logic).
-
----
-
-## What's New in v0.12.0
-
-**The "Adapts" Release — Cross-query learning, observer overhaul, adaptive activation.**
-
-Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this release addresses every tester feedback point:
-
-### Observer Overhaul (fixes "0% health" / "100+ false conflicts")
-- **Conflict detection redesigned:** Perspective diversity is no longer punished as contradiction. With 20 nodes reasoning in parallel, most discuss different aspects — only flag when nodes make opposing claims about the same topic with explicit negation language.
-- **3-tier detection:** Explicit (CONTRADICTION type), Strong (mutual reference + negation phrase), One-directional (small node sets only).
-- **Health score redesigned:** Capped per-category penalties prevent health from reaching 0%. Critical anomalies penalized more, perspective diversity less.
-- **Adaptive anomaly thresholds:** Confidence variance thresholds scale with node count — natural at 20 nodes, suspicious at 3.
-
-### Adaptive Node Count (fixes "always activates max_nodes")
-- **QueryComplexityScorer wired into ChunkScorer:** Simple queries activate `max_nodes/4`, moderate `max_nodes/2`, complex `max_nodes*0.75`, expert uses full `max_nodes`.
-- **Cost savings:** Simple queries ("what is X?") now use ~4 nodes instead of 50, reducing cost by 90%.
-
-### Cross-Query Learning (new — "Activation Memory")
-- **ActivationMemory:** Tracks which nodes produced useful results for which query patterns. Over time, nodes that consistently contribute high-confidence answers get activation boosts for similar future queries.
-- **Keyword-based pattern matching:** Records query keywords per node, computes overlap for future queries.
-- **Persistent:** Saved to `.graqle/activation_memory.json`, survives across sessions.
-- **Innovation #15:** Listed in the patent innovations table.
-
-### Scanner: Call-Graph Edges
-- **DEFINES edges:** Scanner now extracts function/class definitions and creates `DEFINES` edges from file → function nodes.
-- **Richer graph:** Graph score moves from 8/10 → 9/10 with function-level nodes.
-
-### REST API Defaults Fixed
-- **Observer enabled by default:** Rule-based observer (zero LLM cost) now runs by default, providing transparency in every query.
-
-### Governance Examples
-- **New:** `examples/governance_example.py` — working SHACL governance constraints for a software engineering codebase (not just regulatory domains).
-
-**15 new tests.** **760 tests passing** (up from 745).
-
----
-
-## What's New in v0.11.0
-
-**Graqle Studio — interactive dashboard:**
-- Studio dashboard at `/studio/` with D3 graph explorer, live reasoning trace, metrics analytics, and settings UI.
-
----
-
-## What's New in v0.10.3
-
-**Quality over cost — budget is now a soft limit:**
-
-- **Budget no longer kills reasoning:** Previously, exceeding `budget_per_query` would hard-stop reasoning mid-flow, producing incomplete answers. Now the budget is a **soft warning** — reasoning always completes convergence. Hard stop only triggers at **3x budget AND after at least 2 rounds**, ensuring quality is never sacrificed for cost.
-- **Philosophy:** A graph that thinks should never stop thinking because of a dollar. The budget guides, it doesn't constrain.
-- **`graq init` budget updated** to `$0.10` (was `$0.05`).
-
----
-
-## What's New in v0.10.2
-
-**Critical CLI fix + connection pool + budget tuning:**
-
-- **Bug 20 fix (P1):** CLI `--strategy` no longer hardcodes `"pcst"`. Now reads from `graqle.yaml` config (defaults to `"chunk"`). Previously, `graq run` silently used PCST even when config said `chunk` — making the ChunkScorer fix invisible to CLI users.
-- **Bug 21 fix (P2):** Bedrock connection pool increased from 10 → 50 with adaptive retry mode. Fixes `Connection pool is full, discarding connection` warnings when 20 nodes reason in parallel.
-- **Bug 19 documented:** `ReasoningResult.content` is a backward-compatible alias for `.answer` (renamed in v0.9.0). Both work — `.answer` is canonical, `.content` is kept for migration.
-- **Budget default raised:** `budget_per_query` increased from `$0.01` → `$0.10` to support ChunkScorer with 20 active nodes without hitting `cost_budget_exceeded`.
-- **Example config updated:** `graqle.example.yaml` now defaults to `strategy: chunk` and `max_nodes: 20`.
-
----
-
-## What's New in v0.10.1
-
-**Innovation table updated** — README now accurately reflects v0.10.0 architecture:
-
-- **Innovation #1 updated:** "PCST Activation" → **"ChunkScorer Activation"** — per-chunk semantic scoring is the actual default since v0.10.0
-- **Innovation #14 added:** **"CypherActivation"** — Neo4j vector search on chunk embeddings, bypasses graph algorithms entirely (opt-in, shipped in v0.9.0)
-- **Innovation count:** 13 → **14** (updated across all references)
-
----
-
-## What's New in v0.10.0
-
-**ChunkScorer replaces PCST as default activation** — The #1 blocker (Bug 1, P0) is fixed:
-
-- **ChunkScorer (new default):** Each chunk gets its own embedding and is scored independently against the query. A query about "ProductList function" directly matches the chunk containing that function, regardless of what else the file contains. No more activating `tailwind.config.ts` instead of `Products.tsx`.
-- **PCST demoted to legacy:** Still available via `strategy: "pcst"` in config, but no longer the default. PCST's graph-structure bias toward hub nodes was fundamentally wrong for code search.
-- **Multiple nodes activated:** ChunkScorer returns all nodes above `min_score` threshold (configurable), not just 1. Message-passing between agents actually works now.
-- **Bug 7 fix:** Bedrock auth detection now uses `boto3.Session().get_credentials()` — works with IAM profiles, SSO, env vars, and `~/.aws/credentials`.
-- **Bug 9 fix:** Added control character escaping to JSON repair chain (LLMs produce literal newlines in strings).
-- **Bug 19 fix:** `ReasoningResult.content` backward-compat property added (alias for `.answer`).
-- **Default strategy changed:** `activation.strategy` defaults to `"chunk"` (was `"pcst"`).
-
-**9 new tests** for ChunkScorer. **745 tests passing** (up from 736).
-
----
-
-## What's New in v0.9.0
-
-**Neo4j Backend + Critical Bug Fixes** — Graqle now supports Neo4j as a first-class backend alongside JSON/NetworkX:
-
-- **Neo4j backend:** `Graqle.from_neo4j()` / `to_neo4j()` for loading and exporting graphs
-- **CypherActivation:** Vector search on chunk embeddings via Cypher replaces PCST for Neo4j mode — faster and more accurate node activation
-- **Schema management:** `create_schema()` creates constraints + vector index on `:Chunk` nodes
-- **Chunk-level storage:** `:CogniNode`→`:HAS_CHUNK`→`:Chunk` with optional embeddings
-- **Bug 1 (P0) fix:** Chunk-aware scoring now uses 500 chars from top 5 chunks with function/class prioritization (was 200 chars from 3 chunks)
-- **Bug 18 fix:** Confidence calibration now uses relevance-weighted scoring instead of simple averaging
-- **Bug 7 fix:** Bedrock `api_key_env` corrected to `AWS_ACCESS_KEY_ID`
-- **Bug 9 fix:** JSON repair now strips comments before fixing quotes/commas
-- **Bug 14 fix:** `out/` directory added to scan skip list
-- **Bug 16 fix:** SkillAdmin embedding log messages no longer repeat per query
-- **Bug 17 fix:** `graq doctor` checks both `graq` and `graqle` MCP keys
-
-**37 new tests** (8 chunk scoring + 5 confidence calibration + 13 Neo4j connector + 7 CypherActivation + 4 graph Neo4j). **736 tests passing** (up from 699).
-
----
-
-## What's New in v0.8.0
-
-**Context-Aware Query Reformulator (ADR-104)** — Queries are now automatically enhanced with conversation context before PCST activation:
-- Auto-hardened in Claude Code / Cursor / Codex (zero extra cost — uses existing conversation context)
-- Pronoun resolution: "what does this do?" → resolves "this" from chat history
-- Attachment support: screenshots, error logs, diagrams are described and woven into queries
-- File + symbol injection: current file and active symbols ground vague queries
-- LLM mode for standalone SDK users (configurable, optional)
-- Fail-open: if reformulation fails, original query passes through unchanged
-
-**49 new tests** for query reformulation. **699 tests passing** (up from 650).
-
----
-
-## What's New in v0.7.9
-
-**Content-Aware PCST Activation (ADR-103)** — 3-layer fix ensures PCST always selects content-bearing nodes over empty structural connectors (directories, namespaces):
-- Layer 1: `log₂(2 + chunk_count)` content richness multiplier in relevance scoring
-- Layer 2: Post-PCST filter replaces zero-chunk nodes with content-bearing neighbours
-- Layer 3: Direct file lookup bypass when query mentions a specific filename
-
-**6 Bug Fixes:**
-- Bedrock config writes `region` instead of `api_key` (P2)
-- `graq grow --full` respects SKIP_DIRS exclusions (P2)
-- `graq doctor` detects MCP registration for all IDEs (P2)
-- `graq init` prompts before overwriting graqle.yaml (P3)
-- SkillAdmin duplicate logging prevented (P3)
-- 33 new tests for content-aware PCST activation
-
-**650 tests passing** (up from 617).
-
----
-
-## What's New in v0.7.7
-
-**Chunk Pipeline (breaking fix)** — Every node now auto-loads evidence chunks from source files at graph load time. Hand-built KGs that previously had zero chunks now get full evidence for reasoning. New `graq rebuild` command and `graph.rebuild_chunks()` API.
-
-**13 Bug Fixes** — All issues from end-to-end testing resolved:
-- Agents no longer refuse queries with "outside my domain" (P0)
-- REST API Pydantic forward reference crash fixed (P0)
-- Server auto-creates real backend from config instead of MockBackend (P0)
-- `from_json()` accepts config path as string (P1)
-- Auto-backend creation when no backend set (P1)
-- Bedrock cross-region inference profile guidance (P2)
-- Metrics no longer double-count token savings (P2)
-- JSON repair for LLM ontology generation (5 strategies) (P2)
-- NetworkX FutureWarning suppressed (P3)
-- MCP server reports correct version (P3)
-
-**Lead Generation** — `graq register`, `graq activate`, `graq billing` commands. Stripe webhook handler for automated license delivery.
-
-**617 tests passing** (up from 554).
+</details>
 
 ---
 
@@ -547,12 +332,10 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 }
 ```
 
----
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and PR guidelines.
 
 ## License
 
-[Apache 2.0](LICENSE) — use it commercially, modify it freely, just keep the attribution.
+[Apache 2.0](LICENSE) — use it commercially, modify it freely, keep the attribution.

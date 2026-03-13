@@ -1319,9 +1319,189 @@ class Graqle:
     def auto_connect(self, new_node_ids: list[str]) -> int:
         """Auto-discover edges between new nodes and existing nodes.
 
-        Uses keyword overlap in descriptions to find connections.
+        Delegates to semantic_auto_connect() which uses a 3-tier fallback:
+        Bedrock Titan V2 -> sentence-transformers -> keyword overlap.
         Returns number of edges added.
         """
+        return self.semantic_auto_connect(new_node_ids)
+
+    def semantic_auto_connect(
+        self,
+        new_node_ids: list[str],
+        *,
+        threshold: float = 0.7,
+        max_edges: int = 20,
+        method: str = "auto",
+    ) -> int:
+        """Semantic auto-connect using embedding similarity.
+
+        Uses a 3-tier fallback chain for computing similarity:
+        1. Bedrock Titan V2 embeddings (production, 1024-dim)
+        2. sentence-transformers (local, 384-dim)
+        3. keyword overlap (zero-dependency fallback)
+
+        Args:
+            new_node_ids: IDs of newly added nodes to connect.
+            threshold: Cosine similarity threshold for creating edges (0.0-1.0).
+            max_edges: Maximum number of auto-edges to create.
+            method: "auto" (fallback chain), "bedrock", "transformers", or "keyword".
+
+        Returns:
+            Number of edges added.
+        """
+        import numpy as np
+
+        engine = self._get_embedding_engine(method)
+
+        # Collect candidate nodes with descriptions
+        candidate_ids = [
+            nid for nid in self.nodes
+            if nid not in new_node_ids and self.nodes[nid].description
+        ]
+        new_ids_with_desc = [
+            nid for nid in new_node_ids
+            if nid in self.nodes and self.nodes[nid].description
+        ]
+
+        if not new_ids_with_desc or not candidate_ids:
+            return 0
+
+        # If using keyword fallback, delegate to legacy method
+        if engine is None:
+            return self._keyword_auto_connect(new_node_ids, max_edges=max_edges)
+
+        # Compute embeddings for candidates (use cached when available)
+        candidate_embeddings = self._get_or_compute_embeddings(
+            candidate_ids, engine
+        )
+        new_embeddings = self._get_or_compute_embeddings(
+            new_ids_with_desc, engine
+        )
+
+        edges_added = 0
+        for i, new_id in enumerate(new_ids_with_desc):
+            new_emb = new_embeddings[i]
+            if new_emb is None:
+                continue
+
+            # Score all candidates
+            scored: list[tuple[str, float]] = []
+            for j, cand_id in enumerate(candidate_ids):
+                cand_emb = candidate_embeddings[j]
+                if cand_emb is None:
+                    continue
+                # Skip if already connected
+                if self.get_edges_between(new_id, cand_id):
+                    continue
+                sim = float(np.dot(new_emb, cand_emb) / (
+                    np.linalg.norm(new_emb) * np.linalg.norm(cand_emb) + 1e-9
+                ))
+                if sim >= threshold:
+                    scored.append((cand_id, sim))
+
+            # Sort by similarity descending, connect top matches
+            scored.sort(key=lambda x: x[1], reverse=True)
+            for cand_id, sim in scored:
+                if edges_added >= max_edges:
+                    return edges_added
+                self.add_edge_simple(new_id, cand_id, relation="SEMANTICALLY_RELATED")
+                # Store similarity score on the edge
+                edge_id = f"{new_id}___SEMANTICALLY_RELATED___{cand_id}"
+                if edge_id in self.edges:
+                    self.edges[edge_id].properties["similarity"] = round(sim, 4)
+                edges_added += 1
+
+        return edges_added
+
+    def _get_embedding_engine(self, method: str = "auto"):
+        """Get the best available embedding engine using fallback chain.
+
+        Returns an engine with .embed(text) -> np.ndarray, or None for keyword fallback.
+        """
+        if method == "keyword":
+            return None
+
+        # Tier 1: Bedrock Titan V2
+        if method in ("auto", "bedrock"):
+            try:
+                from graqle.activation.embeddings import TitanV2Engine
+                engine = TitanV2Engine()
+                # Test connectivity with a small embed
+                engine.embed("test")
+                logger.info("Semantic auto-connect: using Bedrock Titan V2")
+                return engine
+            except Exception as e:
+                if method == "bedrock":
+                    logger.error("Bedrock Titan V2 requested but unavailable: %s", e)
+                    return None
+                logger.debug("Bedrock Titan V2 unavailable: %s", e)
+
+        # Tier 2: sentence-transformers
+        if method in ("auto", "transformers"):
+            try:
+                from graqle.activation.embeddings import EmbeddingEngine
+                engine = EmbeddingEngine()
+                engine._load()
+                if not engine._use_simple:
+                    logger.info("Semantic auto-connect: using sentence-transformers")
+                    return engine
+                if method == "transformers":
+                    logger.error("sentence-transformers requested but not installed")
+                    return None
+            except Exception as e:
+                logger.debug("sentence-transformers unavailable: %s", e)
+
+        # Tier 3: keyword fallback (return None signals keyword mode)
+        logger.info("Semantic auto-connect: falling back to keyword overlap")
+        return None
+
+    def _get_or_compute_embeddings(
+        self,
+        node_ids: list[str],
+        engine,
+    ) -> list:
+        """Get cached embeddings or compute new ones.
+
+        Stores embeddings in node.properties['_embedding_cache'] to avoid
+        recomputation across calls.
+        """
+        import numpy as np
+        import hashlib
+
+        results = []
+        for nid in node_ids:
+            node = self.nodes[nid]
+            desc = node.description or ""
+            if not desc:
+                results.append(None)
+                continue
+
+            # Content-hash for cache invalidation
+            content_hash = hashlib.md5(desc.encode()).hexdigest()
+            cached = node.properties.get("_embedding_cache")
+
+            if cached and isinstance(cached, dict) and cached.get("hash") == content_hash:
+                emb = np.array(cached["vector"], dtype=np.float32)
+                results.append(emb)
+            else:
+                try:
+                    emb = engine.embed(desc)
+                    # Cache on the node (excluded from JSON serialization via _ prefix)
+                    node.properties["_embedding_cache"] = {
+                        "hash": content_hash,
+                        "vector": emb.tolist(),
+                    }
+                    results.append(emb)
+                except Exception as e:
+                    logger.warning("Embedding failed for node %s: %s", nid, e)
+                    results.append(None)
+
+        return results
+
+    def _keyword_auto_connect(
+        self, new_node_ids: list[str], *, max_edges: int = 20
+    ) -> int:
+        """Legacy keyword-overlap auto-connect (fallback when no embeddings available)."""
         stopwords = {"the", "a", "an", "is", "in", "to", "of", "and", "for",
                       "it", "on", "with", "as", "at", "by", "this", "that"}
         edges_added = 0
@@ -1338,7 +1518,6 @@ class Graqle:
             for nid, node in self.nodes.items():
                 if nid == new_id or not node.description:
                     continue
-                # Skip if already connected
                 existing = self.get_edges_between(new_id, nid)
                 if existing:
                     continue
@@ -1348,7 +1527,7 @@ class Graqle:
                 if len(overlap) >= 3:
                     self.add_edge_simple(new_id, nid, relation="RELATED_TO")
                     edges_added += 1
-                    if edges_added >= 20:  # Cap auto-connections
+                    if edges_added >= max_edges:
                         return edges_added
 
         return edges_added
