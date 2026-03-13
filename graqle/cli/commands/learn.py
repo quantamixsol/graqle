@@ -4,21 +4,29 @@ Adds business-level nodes, relationships, and context that code scanning
 can't discover. The graph becomes self-discovering and self-evolving:
 users seed high-level concepts, Graqle finds connections autonomously.
 
+Uses a 3-tier intelligence stack:
+  1. Semantic similarity (Bedrock Titan V2 / sentence-transformers / keyword fallback)
+  2. Graph topology (link prediction, community detection via Neo4j GDS or NetworkX)
+  3. Entity extraction (NLP-based entity linking for knowledge ingestion)
+
 Examples:
     graq learn node "auth-service" --type SERVICE --desc "Handles JWT auth"
     graq learn node "revenue-goal" --type BUSINESS_OUTCOME --desc "Hit $1M ARR by Q3"
     graq learn edge "auth-service" "user-db" --relation DEPENDS_ON
     graq learn file notes.md --auto-connect
-    graq learn discover --from "auth-service"
+    graq learn discover --from "auth-service" --semantic --gds
+    graq learn knowledge "TAMR+ means intelligent retrieval" --domain copy
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 learn_app = typer.Typer(
@@ -56,11 +64,15 @@ def learn_node(
     label: str = typer.Option(None, "--label", "-l", help="Display label (defaults to node_id)"),
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
     auto_connect: bool = typer.Option(True, "--auto-connect/--no-auto-connect", help="Auto-discover edges"),
+    semantic: bool = typer.Option(True, "--semantic/--no-semantic", help="Use semantic similarity (Bedrock/transformers/keyword fallback)"),
+    threshold: float = typer.Option(0.7, "--threshold", help="Semantic similarity threshold (0.0-1.0)"),
 ) -> None:
     """Add a new node to the knowledge graph.
 
     Business-level nodes like PRODUCT, BUSINESS_OUTCOME, CLIENT, TEAM
     give Graqle cross-cutting reasoning that pure code scanning misses.
+
+    Uses semantic auto-connect by default (Bedrock Titan V2 -> sentence-transformers -> keyword).
     """
     graph, gpath = _load_graph(graph_path)
 
@@ -76,8 +88,11 @@ def learn_node(
     )
 
     auto_edges = 0
-    if auto_connect and hasattr(graph, "auto_connect"):
-        auto_edges = graph.auto_connect([node_id])
+    if auto_connect and hasattr(graph, "semantic_auto_connect"):
+        method = "auto" if semantic else "keyword"
+        auto_edges = graph.semantic_auto_connect(
+            [node_id], threshold=threshold, method=method,
+        )
 
     graph.to_json(gpath)
 
@@ -85,7 +100,7 @@ def learn_node(
     if description:
         console.print(f"  Description: {description}")
     if auto_edges:
-        console.print(f"  [cyan]Auto-connected {auto_edges} edges[/cyan]")
+        console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -144,15 +159,15 @@ def learn_file(
     )
 
     auto_edges = 0
-    if auto_connect and hasattr(graph, "auto_connect"):
-        auto_edges = graph.auto_connect([node_id])
+    if auto_connect and hasattr(graph, "semantic_auto_connect"):
+        auto_edges = graph.semantic_auto_connect([node_id])
 
     graph.to_json(gpath)
 
     console.print(f"[green]✓ Learned from file:[/green] {fpath.name}")
     console.print(f"  Node: {node_id} ({node_type})")
     if auto_edges:
-        console.print(f"  [cyan]Auto-connected {auto_edges} edges[/cyan]")
+        console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -217,8 +232,8 @@ def learn_entity(
             edges_added += 1
 
     auto_edges = 0
-    if hasattr(graph, "auto_connect"):
-        auto_edges = graph.auto_connect([entity_id])
+    if hasattr(graph, "semantic_auto_connect"):
+        auto_edges = graph.semantic_auto_connect([entity_id])
 
     graph.to_json(gpath)
 
@@ -228,7 +243,7 @@ def learn_entity(
     if edges_added:
         console.print(f"  [cyan]Connected to {edges_added} nodes via {relation}[/cyan]")
     if auto_edges:
-        console.print(f"  [cyan]Auto-discovered {auto_edges} additional edges[/cyan]")
+        console.print(f"  [cyan]Semantically discovered {auto_edges} additional edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -238,12 +253,19 @@ def learn_knowledge(
     domain: str = typer.Option("general", "--domain", "-d", help="Knowledge domain: brand, copy, product, market, technical"),
     tags: str = typer.Option("", "--tags", help="Comma-separated tags for retrieval"),
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
+    semantic: bool = typer.Option(True, "--semantic/--no-semantic", help="Use semantic similarity for auto-connect"),
+    threshold: float = typer.Option(0.65, "--threshold", help="Semantic similarity threshold"),
+    extract_entities: bool = typer.Option(True, "--extract/--no-extract", help="Extract entities from fact text"),
 ) -> None:
     """Teach domain knowledge that can't be extracted from code.
 
     Unlike 'graq learn node' which adds generic nodes, this creates
     KNOWLEDGE nodes with domain tagging for smarter retrieval during
     reasoning and preflight checks.
+
+    Entity extraction automatically finds proper nouns, quoted terms,
+    and capitalized phrases in the fact text, then links them to
+    existing graph nodes via semantic similarity.
 
     \b
     Examples:
@@ -259,6 +281,11 @@ def learn_knowledge(
     node_id = f"knowledge_{domain}_{ts}"
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
 
+    # Extract entities from the fact text
+    extracted_entities: list[str] = []
+    if extract_entities:
+        extracted_entities = _extract_entities(fact)
+
     graph.add_node_simple(
         node_id,
         label=fact[:80],
@@ -270,13 +297,24 @@ def learn_knowledge(
             "tags": tag_list,
             "created": ts,
             "manual": True,
+            "extracted_entities": extracted_entities,
         },
     )
 
-    # Auto-connect to existing nodes that share keywords
+    # Semantic auto-connect to existing nodes
     auto_edges = 0
-    if hasattr(graph, "auto_connect"):
-        auto_edges = graph.auto_connect([node_id])
+    if hasattr(graph, "semantic_auto_connect"):
+        method = "auto" if semantic else "keyword"
+        auto_edges = graph.semantic_auto_connect(
+            [node_id], threshold=threshold, method=method,
+        )
+
+    # Entity-based connections: link extracted entities to matching nodes
+    entity_edges = 0
+    if extracted_entities:
+        entity_edges = _connect_extracted_entities(
+            graph, node_id, extracted_entities, domain,
+        )
 
     graph.to_json(gpath)
 
@@ -284,9 +322,134 @@ def learn_knowledge(
     console.print(f"  Domain: {domain} | Node: {node_id}")
     if tag_list:
         console.print(f"  Tags: {', '.join(tag_list)}")
+    if extracted_entities:
+        console.print(f"  [magenta]Entities extracted: {', '.join(extracted_entities[:10])}[/magenta]")
     if auto_edges:
-        console.print(f"  [cyan]Auto-connected {auto_edges} edges[/cyan]")
+        console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
+    if entity_edges:
+        console.print(f"  [cyan]Entity-linked {entity_edges} edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
+
+
+def _extract_entities(text: str) -> list[str]:
+    """Extract entities from text using lightweight NLP heuristics.
+
+    Finds:
+    - Quoted terms ("TAMR+", 'CrawlQ')
+    - Capitalized multi-word phrases (C-suite, Neo4j, TraceGov)
+    - ALL-CAPS acronyms (JWT, API, CORS)
+    - CamelCase terms (DeepSeek, GraphLearner)
+
+    Returns deduplicated list of entity strings.
+    """
+    entities: set[str] = set()
+
+    # 1. Quoted terms (single or double quotes)
+    quoted = re.findall(r'''["']([^"']{2,50})["']''', text)
+    entities.update(quoted)
+
+    # 2. ALL-CAPS acronyms (2+ chars, may contain digits)
+    acronyms = re.findall(r'\b([A-Z][A-Z0-9]{1,10})\b', text)
+    # Filter out common words that happen to be caps
+    caps_stopwords = {"THE", "AND", "FOR", "BUT", "NOT", "ALL", "ARE", "WAS",
+                      "HAS", "HAD", "CAN", "DID", "GET", "SET", "PUT", "USE"}
+    entities.update(a for a in acronyms if a not in caps_stopwords)
+
+    # 3. Capitalized phrases (1-4 words starting with uppercase)
+    cap_phrases = re.findall(
+        r'\b([A-Z][a-zA-Z0-9+#-]*(?:\s+[A-Z][a-zA-Z0-9+#-]*){0,3})\b',
+        text,
+    )
+    # Filter single-char and sentence starters
+    for phrase in cap_phrases:
+        words = phrase.split()
+        # Skip if it's just the start of a sentence (single common word)
+        if len(words) == 1 and words[0].lower() in {
+            "the", "a", "an", "is", "in", "to", "of", "and", "for",
+            "it", "on", "with", "as", "at", "by", "this", "that",
+            "we", "our", "they", "their", "its", "are", "was", "has",
+            "target", "free", "key", "main", "new", "all", "any",
+        }:
+            continue
+        if len(phrase) >= 2:
+            entities.add(phrase)
+
+    # 4. CamelCase terms
+    camel = re.findall(r'\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b', text)
+    entities.update(camel)
+
+    # 5. Terms with special chars that indicate names (TAMR+, Neo4j, etc.)
+    special = re.findall(r'\b([A-Z][a-zA-Z0-9]*[+#@])\b', text)
+    entities.update(special)
+
+    return sorted(entities)
+
+
+def _connect_extracted_entities(
+    graph, knowledge_node_id: str, entities: list[str], domain: str,
+) -> int:
+    """Connect a knowledge node to existing graph nodes that match extracted entities.
+
+    Uses fuzzy matching: entity text is compared against node IDs, labels,
+    and entity_type. Domain-aware: brand knowledge preferentially connects
+    to PRODUCT nodes, etc.
+    """
+    # Domain -> preferred node types mapping
+    domain_types = {
+        "brand": {"PRODUCT", "CLIENT", "MARKET", "BUSINESS_OUTCOME"},
+        "copy": {"PRODUCT", "KNOWLEDGE", "CONCEPT"},
+        "product": {"PRODUCT", "SERVICE", "METRIC", "BUSINESS_OUTCOME"},
+        "market": {"MARKET", "COMPETITOR", "CLIENT", "METRIC"},
+        "technical": {"SERVICE", "MODULE", "LAMBDA", "CONFIG"},
+    }
+    preferred = domain_types.get(domain, set())
+
+    edges_added = 0
+    for entity_text in entities:
+        entity_lower = entity_text.lower()
+        best_match: str | None = None
+        best_score = 0.0
+
+        for nid, node in graph.nodes.items():
+            if nid == knowledge_node_id:
+                continue
+            # Already connected?
+            if graph.get_edges_between(knowledge_node_id, nid):
+                continue
+
+            score = 0.0
+            # Exact ID match
+            if entity_lower == nid.lower():
+                score = 1.0
+            # ID contains entity
+            elif entity_lower in nid.lower():
+                score = 0.8
+            # Label match
+            elif node.label and entity_lower == node.label.lower():
+                score = 0.95
+            elif node.label and entity_lower in node.label.lower():
+                score = 0.7
+            # Description contains entity
+            elif node.description and entity_lower in node.description.lower():
+                score = 0.5
+
+            # Boost for domain-preferred types
+            if score > 0 and preferred and node.entity_type in preferred:
+                score = min(score * 1.2, 1.0)
+
+            if score > best_score:
+                best_score = score
+                best_match = nid
+
+        if best_match and best_score >= 0.5:
+            # Determine relation based on domain
+            relation = "INFORMS" if domain in ("brand", "copy", "market") else "RELATED_TO"
+            graph.add_edge_simple(knowledge_node_id, best_match, relation=relation)
+            edges_added += 1
+            if edges_added >= 10:  # Cap entity connections
+                break
+
+    return edges_added
 
 
 @learn_app.command("discover")
@@ -294,11 +457,21 @@ def learn_discover(
     from_node: str = typer.Option(None, "--from", "-f", help="Start discovery from this node"),
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
     depth: int = typer.Option(2, "--depth", help="Discovery depth (hops)"),
+    semantic: bool = typer.Option(True, "--semantic/--no-semantic", help="Use semantic similarity for suggestions"),
+    gds: bool = typer.Option(False, "--gds/--no-gds", help="Run GDS topology analysis (link prediction, communities)"),
+    threshold: float = typer.Option(0.6, "--threshold", help="Semantic similarity threshold"),
+    top_k: int = typer.Option(15, "--top-k", help="Number of suggestions to show"),
 ) -> None:
     """Auto-discover new connections and concepts in the graph.
 
     This is the self-evolving feature: Graqle analyzes existing nodes
-    and suggests new nodes/edges that users haven't thought of.
+    and suggests new edges that users haven't thought of.
+
+    \b
+    Intelligence tiers:
+      --semantic (default):  Bedrock Titan V2 / sentence-transformers / keyword
+      --gds:                 Link prediction (Adamic Adar, Common Neighbors, PA)
+                             + community detection (Louvain) via Neo4j GDS or NetworkX
     """
     graph, gpath = _load_graph(graph_path)
 
@@ -308,6 +481,8 @@ def learn_discover(
         if node.degree <= 1:
             isolated.append((nid, node.entity_type, node.label))
 
+    focus_nodes = [from_node] if from_node else None
+
     if from_node:
         if from_node not in graph.nodes:
             console.print(f"[red]Node '{from_node}' not found[/red]")
@@ -316,42 +491,215 @@ def learn_discover(
         neighbors = graph.get_neighbors(from_node)
         console.print(f"  Current connections: {len(neighbors)}")
 
-        # Suggest connections based on shared types
+    # ---- Semantic Similarity Suggestions ----
+    if semantic:
+        console.print(Panel("[bold]Semantic Similarity Analysis[/bold]", style="blue"))
+        _show_semantic_suggestions(graph, from_node, threshold=threshold, top_k=top_k)
+
+    # ---- GDS Topology Analysis ----
+    if gds:
+        console.print(Panel("[bold]Graph Topology Intelligence (GDS)[/bold]", style="green"))
+        _show_gds_analysis(graph, focus_nodes=focus_nodes, top_k=top_k)
+
+    # ---- Fallback: type-based + keyword suggestions (when no semantic/gds) ----
+    if not semantic and not gds and from_node:
         node = graph.nodes[from_node]
+        neighbors = graph.get_neighbors(from_node)
         suggestions = []
         for nid, n in graph.nodes.items():
             if nid == from_node or nid in neighbors:
                 continue
-            # Same type = potential peer
             if n.entity_type == node.entity_type:
-                suggestions.append((nid, "SAME_TYPE", n.label))
-            # Description keyword overlap
+                suggestions.append((nid, "SAME_TYPE", n.label, 0.0))
             if node.description and n.description:
                 node_words = set(node.description.lower().split())
                 n_words = set(n.description.lower().split())
                 overlap = node_words & n_words - {"the", "a", "an", "is", "in", "to", "of", "and", "for"}
                 if len(overlap) >= 3:
-                    suggestions.append((nid, "KEYWORD_OVERLAP", f"{len(overlap)} shared terms"))
+                    suggestions.append((nid, "KEYWORD_OVERLAP", f"{len(overlap)} shared terms", 0.0))
 
         if suggestions[:10]:
-            table = Table(title="Suggested Connections")
+            table = Table(title="Suggested Connections (keyword)")
             table.add_column("Node ID", style="cyan")
             table.add_column("Reason", style="yellow")
             table.add_column("Detail")
-            for nid, reason, detail in suggestions[:10]:
+            for nid, reason, detail, _ in suggestions[:10]:
                 table.add_row(nid, reason, detail)
             console.print(table)
         else:
             console.print("  [dim]No new connections suggested[/dim]")
 
     if isolated:
-        console.print(f"\n[bold yellow]⚠ {len(isolated)} isolated nodes (≤1 connection):[/bold yellow]")
+        console.print(f"\n[bold yellow]Isolated nodes ({len(isolated)} with 1 or fewer connections):[/bold yellow]")
         for nid, ntype, label in isolated[:15]:
-            console.print(f"  • {nid} ({ntype})")
+            console.print(f"  {nid} ({ntype})")
         if len(isolated) > 15:
             console.print(f"  ... and {len(isolated) - 15} more")
 
     console.print(f"\n[dim]Graph: {len(graph)} nodes, use 'graq learn edge' to add connections[/dim]")
+
+
+def _show_semantic_suggestions(graph, from_node: str | None, *, threshold: float, top_k: int) -> None:
+    """Display semantic similarity suggestions for the discover command."""
+    import numpy as np
+
+    engine = graph._get_embedding_engine("auto")
+
+    if engine is None:
+        console.print("  [yellow]No embedding engine available. Using keyword fallback.[/yellow]")
+        if from_node:
+            _show_keyword_suggestions(graph, from_node, top_k=top_k)
+        return
+
+    engine_name = type(engine).__name__
+    console.print(f"  Engine: [cyan]{engine_name}[/cyan] | Threshold: {threshold}")
+
+    # Determine which nodes to analyze
+    if from_node:
+        source_ids = [from_node]
+    else:
+        # Analyze all nodes with few connections
+        source_ids = [
+            nid for nid, node in graph.nodes.items()
+            if node.degree <= 2 and node.description
+        ][:20]  # Cap for performance
+
+    if not source_ids:
+        console.print("  [dim]No candidates for semantic analysis[/dim]")
+        return
+
+    # Get all node embeddings
+    all_ids = list(graph.nodes.keys())
+    all_ids_with_desc = [nid for nid in all_ids if graph.nodes[nid].description]
+    all_embeddings = graph._get_or_compute_embeddings(all_ids_with_desc, engine)
+
+    # Build embedding index
+    emb_index: dict[str, np.ndarray] = {}
+    for idx, nid in enumerate(all_ids_with_desc):
+        if all_embeddings[idx] is not None:
+            emb_index[nid] = all_embeddings[idx]
+
+    suggestions: list[tuple[str, str, float]] = []  # (source, target, score)
+
+    for src_id in source_ids:
+        if src_id not in emb_index:
+            continue
+        src_emb = emb_index[src_id]
+        neighbors = set(graph.get_neighbors(src_id))
+
+        for tgt_id, tgt_emb in emb_index.items():
+            if tgt_id == src_id or tgt_id in neighbors:
+                continue
+            sim = float(np.dot(src_emb, tgt_emb) / (
+                np.linalg.norm(src_emb) * np.linalg.norm(tgt_emb) + 1e-9
+            ))
+            if sim >= threshold:
+                suggestions.append((src_id, tgt_id, sim))
+
+    suggestions.sort(key=lambda x: x[2], reverse=True)
+    suggestions = suggestions[:top_k]
+
+    if suggestions:
+        table = Table(title=f"Semantic Suggestions (top {len(suggestions)})")
+        table.add_column("Source", style="cyan")
+        table.add_column("Target", style="cyan")
+        table.add_column("Similarity", style="green", justify="right")
+        table.add_column("Target Type", style="dim")
+        for src, tgt, score in suggestions:
+            tgt_type = graph.nodes[tgt].entity_type if tgt in graph.nodes else "?"
+            table.add_row(src, tgt, f"{score:.4f}", tgt_type)
+        console.print(table)
+    else:
+        console.print("  [dim]No semantic matches above threshold[/dim]")
+
+
+def _show_keyword_suggestions(graph, from_node: str, *, top_k: int) -> None:
+    """Fallback keyword-based suggestions when no embeddings available."""
+    stopwords = {"the", "a", "an", "is", "in", "to", "of", "and", "for",
+                  "it", "on", "with", "as", "at", "by", "this", "that"}
+    node = graph.nodes[from_node]
+    neighbors = set(graph.get_neighbors(from_node))
+    suggestions = []
+
+    if not node.description:
+        return
+
+    node_words = set(node.description.lower().split()) - stopwords
+    for nid, n in graph.nodes.items():
+        if nid == from_node or nid in neighbors or not n.description:
+            continue
+        n_words = set(n.description.lower().split()) - stopwords
+        overlap = node_words & n_words
+        if len(overlap) >= 3:
+            suggestions.append((nid, len(overlap), n.entity_type))
+
+    suggestions.sort(key=lambda x: x[1], reverse=True)
+    if suggestions[:top_k]:
+        table = Table(title="Keyword Overlap Suggestions")
+        table.add_column("Node ID", style="cyan")
+        table.add_column("Shared Terms", justify="right")
+        table.add_column("Type", style="dim")
+        for nid, count, ntype in suggestions[:top_k]:
+            table.add_row(nid, str(count), ntype)
+        console.print(table)
+
+
+def _show_gds_analysis(graph, *, focus_nodes: list[str] | None, top_k: int) -> None:
+    """Display GDS topology analysis (link prediction + communities)."""
+    from graqle.learning.gds_intelligence import GDSIntelligence
+
+    neo4j_conn = getattr(graph, "_neo4j_connector", None)
+    gds = GDSIntelligence(graph, neo4j_connector=neo4j_conn)
+    console.print(f"  Engine: [cyan]{gds.method}[/cyan]")
+
+    report = gds.discover_missing_links(
+        focus_nodes=focus_nodes, top_k=top_k,
+    )
+
+    # Link Predictions
+    if report.link_predictions:
+        table = Table(title=f"Link Predictions ({len(report.link_predictions)} found)")
+        table.add_column("Source", style="cyan")
+        table.add_column("Target", style="cyan")
+        table.add_column("Score", style="green", justify="right")
+        table.add_column("Algorithm", style="yellow")
+        table.add_column("Reason", style="dim")
+        for pred in report.link_predictions[:top_k]:
+            table.add_row(
+                pred.source, pred.target,
+                f"{pred.score:.4f}", pred.algorithm,
+                pred.reason[:60],
+            )
+        console.print(table)
+    else:
+        console.print("  [dim]No link predictions found[/dim]")
+
+    # Communities
+    if report.communities:
+        console.print(f"\n  [bold]Communities detected: {len(report.communities)}[/bold]")
+        for comm in report.communities[:10]:
+            members_preview = ", ".join(comm.members[:5])
+            if len(comm.members) > 5:
+                members_preview += f", ... (+{len(comm.members) - 5})"
+            console.print(f"    Cluster {comm.id}: {comm.label}")
+            console.print(f"      Members: {members_preview}")
+
+    # Node Similarities
+    if report.similarities:
+        table = Table(title=f"Node Similarities ({len(report.similarities)} pairs)")
+        table.add_column("Node A", style="cyan")
+        table.add_column("Node B", style="cyan")
+        table.add_column("Jaccard", style="green", justify="right")
+        table.add_column("Shared Neighbors", style="dim")
+        for sim in report.similarities[:top_k]:
+            shared = ", ".join(sim.shared_neighbors[:3])
+            if len(sim.shared_neighbors) > 3:
+                shared += f" +{len(sim.shared_neighbors) - 3}"
+            table.add_row(sim.node_a, sim.node_b, f"{sim.score:.4f}", shared)
+        console.print(table)
+
+    # Stats
+    console.print(f"\n  [dim]Stats: {report.stats}[/dim]")
 
 
 @learn_app.command("batch")
