@@ -156,6 +156,139 @@ def learn_file(
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
+@learn_app.command("entity")
+def learn_entity(
+    entity_id: str = typer.Argument(..., help="Unique entity ID (e.g. 'CrawlQ', 'Philips')"),
+    entity_type: str = typer.Option("PRODUCT", "--type", "-t", help="Entity type: PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET"),
+    description: str = typer.Option("", "--desc", "-d", help="Business description"),
+    connects: str = typer.Option(None, "--connects", help="Comma-separated node IDs to connect to"),
+    relation: str = typer.Option("RELATES_TO", "--relation", "-r", help="Edge relation for --connects"),
+    graph_path: str = typer.Option("cognigraph.json", "--graph", "-g", help="Graph file path"),
+) -> None:
+    """Add a business-level entity to the knowledge graph.
+
+    Code scanning discovers modules and files. This command adds the
+    business context that code scanning can't: products, clients,
+    outcomes, teams, synergies, and market segments.
+
+    \b
+    Examples:
+        kogni learn entity "CrawlQ" --type PRODUCT --desc "Content ERP for enterprise"
+        kogni learn entity "Philips" --type CLIENT --desc "75% content time reduction"
+        kogni learn entity "content_compliance" --type SYNERGY --connects "CrawlQ,TracGov"
+    """
+    graph, gpath = _load_graph(graph_path)
+
+    # Business types get special properties
+    business_types = {"PRODUCT", "CLIENT", "BUSINESS_OUTCOME", "TEAM", "SYNERGY", "MARKET", "COMPETITOR", "METRIC"}
+    etype = entity_type.upper()
+    if etype not in business_types:
+        console.print(f"[yellow]Note: '{etype}' is not a standard business type. Standard types: {', '.join(sorted(business_types))}[/yellow]")
+
+    if entity_id in graph.nodes:
+        console.print(f"[yellow]Entity '{entity_id}' already exists — updating.[/yellow]")
+
+    graph.add_node_simple(
+        entity_id,
+        label=entity_id.replace("_", " ").title(),
+        entity_type=etype,
+        description=description,
+        properties={
+            "source": "kogni_learn_entity",
+            "manual": True,
+            "business_entity": True,
+        },
+    )
+
+    edges_added = 0
+    if connects:
+        targets = [t.strip() for t in connects.split(",") if t.strip()]
+        for target in targets:
+            if target not in graph.nodes:
+                # Fuzzy match
+                matches = [nid for nid in graph.nodes if target.lower() in nid.lower()]
+                if matches:
+                    target = matches[0]
+                    console.print(f"  [dim]Fuzzy matched → {target}[/dim]")
+                else:
+                    console.print(f"  [yellow]Skipping '{target}' — not found in graph[/yellow]")
+                    continue
+            graph.add_edge_simple(entity_id, target, relation=relation.upper())
+            edges_added += 1
+
+    auto_edges = 0
+    if hasattr(graph, "auto_connect"):
+        auto_edges = graph.auto_connect([entity_id])
+
+    graph.to_json(gpath)
+
+    console.print(f"[green]✓ Business entity added:[/green] {entity_id} ({etype})")
+    if description:
+        console.print(f"  Description: {description}")
+    if edges_added:
+        console.print(f"  [cyan]Connected to {edges_added} nodes via {relation}[/cyan]")
+    if auto_edges:
+        console.print(f"  [cyan]Auto-discovered {auto_edges} additional edges[/cyan]")
+    console.print(f"  Graph: {len(graph)} nodes total")
+
+
+@learn_app.command("knowledge")
+def learn_knowledge(
+    fact: str = typer.Argument(..., help="The knowledge to teach (e.g. 'Target audience is C-suite')"),
+    domain: str = typer.Option("general", "--domain", "-d", help="Knowledge domain: brand, copy, product, market, technical"),
+    tags: str = typer.Option("", "--tags", help="Comma-separated tags for retrieval"),
+    graph_path: str = typer.Option("cognigraph.json", "--graph", "-g", help="Graph file path"),
+) -> None:
+    """Teach domain knowledge that can't be extracted from code.
+
+    Unlike 'kogni learn node' which adds generic nodes, this creates
+    KNOWLEDGE nodes with domain tagging for smarter retrieval during
+    reasoning and preflight checks.
+
+    \b
+    Examples:
+        kogni learn knowledge "Target audience is C-suite in regulated industries" --domain brand
+        kogni learn knowledge "TAMR+ means intelligent document retrieval" --domain copy
+        kogni learn knowledge "Free tier: 500 nodes, 3 queries/month" --domain product
+    """
+    from datetime import datetime, timezone
+
+    graph, gpath = _load_graph(graph_path)
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    node_id = f"knowledge_{domain}_{ts}"
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+    graph.add_node_simple(
+        node_id,
+        label=fact[:80],
+        entity_type="KNOWLEDGE",
+        description=fact,
+        properties={
+            "source": "kogni_learn_knowledge",
+            "domain": domain,
+            "tags": tag_list,
+            "created": ts,
+            "manual": True,
+        },
+    )
+
+    # Auto-connect to existing nodes that share keywords
+    auto_edges = 0
+    if hasattr(graph, "auto_connect"):
+        auto_edges = graph.auto_connect([node_id])
+
+    graph.to_json(gpath)
+
+    console.print(f"[green]✓ Knowledge taught:[/green] {fact[:60]}...")
+    console.print(f"  Domain: {domain} | Node: {node_id}")
+    if tag_list:
+        console.print(f"  Tags: {', '.join(tag_list)}")
+    if auto_edges:
+        console.print(f"  [cyan]Auto-connected {auto_edges} edges[/cyan]")
+    console.print(f"  Graph: {len(graph)} nodes total")
+
+
 @learn_app.command("discover")
 def learn_discover(
     from_node: str = typer.Option(None, "--from", "-f", help="Start discovery from this node"),

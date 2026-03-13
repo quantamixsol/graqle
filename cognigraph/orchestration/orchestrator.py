@@ -269,10 +269,16 @@ class Orchestrator:
         ]
 
         # Compute confidence — relevance-weighted if scores available (Bug 18)
-        # FEEDBACK FIX: Confidence was miscalibrated for large KGs (>5K nodes).
-        # Old formula: sum(conf_i * rel_i) / sum(rel_i) dragged confidence
-        # down to 9-15% even when answers were well-reasoned.
-        # Fix: Use top-k activated nodes for confidence, not the diluted average.
+        # v0.14.0 FIX: Top-k weighted + coverage factor
+        # v0.15.0 FIX: Further recalibration for large KGs (>5K nodes).
+        #   Session 2 eval showed 9-15% confidence for 8/10 quality answers
+        #   on a 13K-node merged KG. Root causes:
+        #   1. Default node confidence (0.5) diluted the weighted average
+        #   2. 60/40 raw/coverage split underweighted the raw quality signal
+        #   3. Floor of 0.30 too low for well-supported multi-node answers
+        #   Fix: 75/25 weighting, logarithmic coverage, tiered floors.
+        import math
+
         final_confidences = {
             nid: m.confidence for nid, m in final_messages.items()
         }
@@ -298,19 +304,27 @@ class Orchestrator:
                 weighted_sum / weight_total if weight_total > 0 else 0.0
             )
 
-            # Coverage boost: more activated nodes = higher base confidence
-            # A query that activates 15 relevant nodes should be more
-            # confident than one that only found 2.
+            # Coverage: logarithmic scale so large activations don't saturate
+            # at the same rate as small ones.  log2(1+15)/log2(1+20) ≈ 0.91
             activated = len([s for s in scored if s[2] > 0.01])
-            coverage_factor = min(1.0, activated / max(top_k, 1))
+            coverage_factor = min(
+                1.0,
+                math.log2(1 + activated) / math.log2(1 + max(top_k, 3)),
+            )
 
-            # Calibrated confidence: 60% from top-k quality, 40% from coverage
-            avg_confidence = (0.6 * raw_confidence) + (0.4 * coverage_factor)
+            # Calibrated: 75% from top-k quality, 25% from coverage breadth
+            avg_confidence = (0.75 * raw_confidence) + (0.25 * coverage_factor)
 
-            # Floor: if we have substantive answers from multiple nodes,
-            # confidence should be at least 0.30
-            if activated >= 3 and raw_confidence > 0.05:
-                avg_confidence = max(avg_confidence, 0.30)
+            # Tiered floor based on activated node count:
+            #   3+  nodes with raw > 0.05  → floor 0.40
+            #   5+  nodes with raw > 0.10  → floor 0.55
+            #   10+ nodes with raw > 0.15  → floor 0.65
+            if activated >= 10 and raw_confidence > 0.15:
+                avg_confidence = max(avg_confidence, 0.65)
+            elif activated >= 5 and raw_confidence > 0.10:
+                avg_confidence = max(avg_confidence, 0.55)
+            elif activated >= 3 and raw_confidence > 0.05:
+                avg_confidence = max(avg_confidence, 0.40)
 
         elif final_confidences:
             avg_confidence = (

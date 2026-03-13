@@ -104,6 +104,7 @@ def server(mock_graph):
     srv._graph = mock_graph
     srv._config = None
     srv._graph_file = "cognigraph.json"
+    srv._graph_mtime = 9999999999.0  # Far future — prevent hot-reload in tests
     return srv
 
 
@@ -112,8 +113,8 @@ def server(mock_graph):
 # ---------------------------------------------------------------------------
 
 class TestToolDefinitions:
-    def test_seven_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 7
+    def test_eight_tools_defined(self):
+        assert len(TOOL_DEFINITIONS) == 8
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -125,6 +126,7 @@ class TestToolDefinitions:
             "kogni_lessons",
             "kogni_impact",
             "kogni_learn",
+            "kogni_reload",
         }
         assert names == expected
 
@@ -155,7 +157,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 7
+        assert len(tools) == 8
 
 
 # ---------------------------------------------------------------------------

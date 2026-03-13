@@ -17,6 +17,7 @@ from cognigraph.cli.commands.activate import activate_command
 from cognigraph.cli.commands.billing import billing_command
 from cognigraph.cli.commands.rebuild import rebuild_command
 from cognigraph.cli.commands.learn import learn_app as learn_sub_app
+from cognigraph.cli.commands.link import link_app as link_sub_app
 
 app = typer.Typer(
     name="kogni",
@@ -35,6 +36,7 @@ app.command(name="activate")(activate_command)
 app.command(name="billing")(billing_command)
 app.command(name="rebuild")(rebuild_command)
 app.add_typer(learn_sub_app, name="learn")
+app.add_typer(link_sub_app, name="link")
 console = Console()
 
 # ---------------------------------------------------------------------------

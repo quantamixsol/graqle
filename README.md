@@ -10,7 +10,7 @@ One command. Any IDE. Any AI tool. Zero cloud infrastructure.
 [![PyPI version](https://badge.fury.io/py/cognigraph.svg)](https://pypi.org/project/cognigraph/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Tests: 763 passing](https://img.shields.io/badge/tests-763%20passing-brightgreen.svg)]()
+[![Tests: 797 passing](https://img.shields.io/badge/tests-797%20passing-brightgreen.svg)]()
 [![MCP Compatible](https://img.shields.io/badge/MCP-compatible-8A2BE2.svg)]()
 [![Patent: EP26162901.8](https://img.shields.io/badge/patent-EP26162901.8-orange.svg)](NOTICE)
 
@@ -60,9 +60,18 @@ kogni rebuild                                        # Rebuild chunks from sourc
 kogni rebuild --force                                # Force re-read ALL source files
 kogni doctor                                        # Health check
 kogni setup-guide                                   # Backend setup help
-kogni register                                       # Register for updates (optional)
-kogni activate <key>                                 # Activate team/enterprise license
-kogni billing                                        # View tier & usage
+
+# Teach the graph (v0.15.0)
+kogni learn node "auth-service" --type SERVICE      # Add a code-level node
+kogni learn entity "CrawlQ" --type PRODUCT          # Add a business entity
+kogni learn knowledge "Target is C-suite" --domain brand  # Teach domain knowledge
+kogni learn edge "CrawlQ" "auth-service" -r POWERS  # Add relationships
+kogni learn discover --from "auth-service"           # Auto-discover connections
+
+# Multi-project graphs (v0.15.0)
+kogni link merge proj1/kg.json proj2/kg.json        # Merge KGs across projects
+kogni link edge crawlq/sdk frictionmelt/retrieval   # Cross-project edges
+kogni link stats merged.json                         # Per-project breakdown
 ```
 
 ### Python SDK (any Python environment)
@@ -113,7 +122,8 @@ curl -X POST http://localhost:8000/reason \
 | `kogni_preflight` | Pre-change safety check |
 | `kogni_impact` | "What breaks if I change X?" |
 | `kogni_lessons` | Surface past mistakes before you repeat them |
-| `kogni_learn` | Teach the graph new knowledge |
+| `kogni_learn` | Teach the graph: outcomes, business entities, or domain knowledge |
+| `kogni_reload` | Hot-reload KG from disk without restarting (v0.15.0) |
 
 ---
 
@@ -200,7 +210,7 @@ CogniGraph follows the **open-core model**: everything a solo developer needs is
 |---|:---:|:---:|:---:|
 | **Price** | **$0 forever** | $29/dev/month | Custom |
 | All 15 innovations | ✓ | ✓ | ✓ |
-| All MCP tools (7 tools) | ✓ | ✓ | ✓ |
+| All MCP tools (8 tools) | ✓ | ✓ | ✓ |
 | All backends (Ollama, Anthropic, OpenAI, Bedrock, vLLM) | ✓ | ✓ | ✓ |
 | CLI + Python SDK + REST API | ✓ | ✓ | ✓ |
 | Unlimited queries | ✓ | ✓ | ✓ |
@@ -270,6 +280,34 @@ See [examples/governance_example.py](examples/governance_example.py) for a compl
 CogniGraph implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
 
 All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use CogniGraph freely in any project, commercial or otherwise.
+
+---
+
+## What's New in v0.15.0
+
+**Real-world feedback release — 6 fixes from Session 2 evaluation on a 13K-node merged KG.**
+
+### MCP Hot-Reload (was 2/10 → fixed)
+- **KG auto-reloads on file change:** The MCP server now checks `cognigraph.json` mtime on every tool call. If the file changed (e.g., after `kogni learn` in another terminal), the graph reloads automatically. No restart needed.
+- **New `kogni_reload` MCP tool:** Force-reload the KG from disk. 8 MCP tools total (was 7).
+
+### Confidence Recalibrated for Large KGs (was 3/10 → fixed)
+- **v0.14.0 formula still reported 9-15% confidence for 8/10 quality answers on 13K-node graphs.** Root cause: 60/40 raw/coverage weighting undervalued the raw quality signal, and the flat 0.30 floor was too low.
+- **New formula:** 75/25 weighting (raw quality dominates), logarithmic coverage scale, tiered floors: 3+ nodes → 0.40, 5+ → 0.55, 10+ → 0.65.
+- Same query on 13K-node KG now reports **65%+ confidence** (was 9-15%).
+
+### Business Entity Support (was 4/10 → fixed)
+- **`kogni learn entity`** — Add PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET, COMPETITOR, METRIC nodes. Code scanning finds modules; this adds what code scanning can't.
+- **`kogni learn knowledge`** — Teach domain facts with domain tagging (brand, copy, product, market, technical). KNOWLEDGE nodes auto-connect to related graph nodes.
+- **MCP `kogni_learn` expanded** — 3 modes: `outcome` (default, backward compatible), `entity`, `knowledge`. No new tool needed — same `kogni_learn` with a `mode` parameter.
+
+### Multi-Project CLI (was 3/10 → fixed)
+- **`kogni link merge`** — Merge multiple project KGs into one. Auto-prefixes node IDs to prevent collisions (`auth-lambda` → `crawlq/auth-lambda`).
+- **`kogni link edge`** — Create cross-project relationships: `kogni link edge crawlq/sdk frictionmelt/retrieval --relation POWERS`
+- **`kogni link stats`** — Per-project node counts, cross-project edge counts, graph health.
+
+### Testing
+- 34 new tests across 3 new test files. **797 tests passing** (up from 763).
 
 ---
 

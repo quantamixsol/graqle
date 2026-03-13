@@ -216,34 +216,79 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "kogni_learn",
         "description": (
-            "Record a development outcome for graph learning. "
-            "Strengthens edges between components that worked well together, "
-            "weakens edges to components that caused issues. "
-            "Call this after completing a task."
+            "Teach the knowledge graph. Three modes:\n"
+            "1. 'outcome' (default) — Record a dev outcome, adjust edge weights\n"
+            "2. 'entity' — Add a business entity (PRODUCT, CLIENT, TEAM, etc.)\n"
+            "3. 'knowledge' — Teach domain knowledge (brand rules, copy, etc.)\n"
+            "Call after completing a task, or to enrich the graph with business context."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["outcome", "entity", "knowledge"],
+                    "default": "outcome",
+                    "description": "Learning mode: outcome (edge weight updates), entity (business nodes), knowledge (domain facts)",
+                },
                 "action": {
                     "type": "string",
-                    "description": "What was done",
+                    "description": "[outcome mode] What was done",
                 },
                 "outcome": {
                     "type": "string",
                     "enum": ["success", "failure", "partial"],
-                    "description": "Task outcome",
+                    "description": "[outcome mode] Task outcome",
                 },
                 "components": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Components involved",
+                    "description": "[outcome mode] Components involved",
                 },
                 "lesson": {
                     "type": "string",
-                    "description": "Optional new lesson learned",
+                    "description": "[outcome mode] Optional new lesson learned",
+                },
+                "entity_id": {
+                    "type": "string",
+                    "description": "[entity mode] Unique entity ID (e.g. 'CrawlQ', 'Philips')",
+                },
+                "entity_type": {
+                    "type": "string",
+                    "description": "[entity mode] Type: PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET, COMPETITOR, METRIC",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "[entity/knowledge mode] Description or fact text",
+                },
+                "connects_to": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "[entity mode] Node IDs to connect to",
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "[knowledge mode] Domain: brand, copy, product, market, technical",
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "[knowledge mode] Tags for retrieval",
                 },
             },
-            "required": ["action", "outcome", "components"],
+            "required": [],
+        },
+    },
+    {
+        "name": "kogni_reload",
+        "description": (
+            "Force-reload the knowledge graph from disk. "
+            "Use after external changes to cognigraph.json "
+            "(e.g., after kogni learn, kogni scan, or manual edits)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
         },
     },
 ]
@@ -266,13 +311,24 @@ class KogniDevServer:
         self._graph: Any = None  # CogniGraph, loaded lazily
         self._config: Any = None  # CogniGraphConfig
         self._graph_file: str | None = None  # path to the loaded graph JSON
+        self._graph_mtime: float = 0.0
 
     # ------------------------------------------------------------------
     # Graph lifecycle
     # ------------------------------------------------------------------
 
     def _load_graph(self) -> Any | None:
-        """Lazy-load the knowledge graph. Returns CogniGraph or None."""
+        """Lazy-load the knowledge graph. Reloads automatically if file changed on disk."""
+        # Hot-reload: check if graph file changed since last load
+        if self._graph is not None and self._graph_file is not None:
+            try:
+                current_mtime = Path(self._graph_file).stat().st_mtime
+                if current_mtime > self._graph_mtime:
+                    logger.info("Graph file changed on disk — reloading")
+                    self._graph = None  # Force reload
+            except OSError:
+                pass  # File gone — use cached graph
+
         if self._graph is not None:
             return self._graph
 
@@ -296,6 +352,7 @@ class KogniDevServer:
                 if p.exists():
                     self._graph = CogniGraph.from_json(str(p), config=self._config)
                     self._graph_file = str(p.resolve())
+                    self._graph_mtime = p.stat().st_mtime
                     # Assign real backend from config
                     self._assign_backend(self._graph, self._config)
                     logger.info(
@@ -484,6 +541,7 @@ class KogniDevServer:
             "kogni_lessons": self._handle_lessons,
             "kogni_impact": self._handle_impact,
             "kogni_learn": self._handle_learn,
+            "kogni_reload": self._handle_reload,
         }
 
         handler = handlers.get(name)
@@ -892,6 +950,17 @@ class KogniDevServer:
     # ── 7. kogni_learn (PRO) ──────────────────────────────────────────
 
     async def _handle_learn(self, args: dict[str, Any]) -> str:
+        mode = args.get("mode", "outcome")
+
+        if mode == "entity":
+            return await self._handle_learn_entity(args)
+        elif mode == "knowledge":
+            return await self._handle_learn_knowledge(args)
+        else:
+            return await self._handle_learn_outcome(args)
+
+    async def _handle_learn_outcome(self, args: dict[str, Any]) -> str:
+        """Original learn mode: record dev outcomes, adjust edge weights."""
         action = args.get("action", "")
         outcome = args.get("outcome", "")
         components = args.get("components", [])
@@ -899,7 +968,7 @@ class KogniDevServer:
 
         if not action or not outcome or not components:
             return json.dumps({
-                "error": "Parameters 'action', 'outcome', and 'components' are all required."
+                "error": "Outcome mode requires 'action', 'outcome', and 'components'."
             })
 
         graph = self._load_graph()
@@ -907,7 +976,6 @@ class KogniDevServer:
         lesson_node_id: str | None = None
 
         if graph is not None:
-            # Update edge weights between involved components
             weight_delta = {
                 "success": 0.05,
                 "failure": -0.1,
@@ -920,7 +988,6 @@ class KogniDevServer:
                 if node:
                     component_ids.append(node.id)
 
-            # Adjust edge weights between all pairs of involved nodes
             for i, nid_a in enumerate(component_ids):
                 for nid_b in component_ids[i + 1:]:
                     edges = graph.get_edges_between(nid_a, nid_b)
@@ -936,7 +1003,6 @@ class KogniDevServer:
                             "delta": round(weight_delta, 4),
                         })
 
-            # Add lesson node if provided
             if lesson_text:
                 from cognigraph.core.node import CogniNode
                 from cognigraph.core.edge import CogniEdge
@@ -960,7 +1026,6 @@ class KogniDevServer:
                 )
                 graph.add_node(lesson_node)
 
-                # Connect lesson to involved components
                 for idx, nid in enumerate(component_ids):
                     edge = CogniEdge(
                         id=f"e_{lesson_node_id}_{nid}_{idx}",
@@ -971,16 +1036,131 @@ class KogniDevServer:
                     )
                     graph.add_edge(edge)
 
-            # Persist updated graph back to JSON
             self._save_graph(graph)
 
         return json.dumps({
             "recorded": True,
+            "mode": "outcome",
             "action": action,
             "outcome": outcome,
             "components": components,
             "edge_updates": updates,
             "lesson_node_id": lesson_node_id,
+        })
+
+    async def _handle_learn_entity(self, args: dict[str, Any]) -> str:
+        """Entity mode: add business-level nodes (PRODUCT, CLIENT, etc.)."""
+        entity_id = args.get("entity_id", "")
+        entity_type = args.get("entity_type", "PRODUCT")
+        description = args.get("description", "")
+        connects_to = args.get("connects_to", [])
+
+        if not entity_id:
+            return json.dumps({
+                "error": "Entity mode requires 'entity_id'."
+            })
+
+        graph = self._load_graph()
+        if graph is None:
+            return json.dumps({"error": "No graph loaded."})
+
+        graph.add_node_simple(
+            entity_id,
+            label=entity_id.replace("_", " ").title(),
+            entity_type=entity_type.upper(),
+            description=description,
+            properties={
+                "source": "kogni_learn_entity",
+                "manual": True,
+                "business_entity": True,
+            },
+        )
+
+        edges_added: list[str] = []
+        for target in connects_to:
+            node = self._find_node(target)
+            if node:
+                graph.add_edge_simple(entity_id, node.id, relation="RELATES_TO")
+                edges_added.append(node.id)
+
+        auto_edges = 0
+        if hasattr(graph, "auto_connect"):
+            auto_edges = graph.auto_connect([entity_id])
+
+        self._save_graph(graph)
+
+        return json.dumps({
+            "recorded": True,
+            "mode": "entity",
+            "entity_id": entity_id,
+            "entity_type": entity_type.upper(),
+            "description": description[:100],
+            "connected_to": edges_added,
+            "auto_edges": auto_edges,
+            "total_nodes": len(graph.nodes),
+        })
+
+    async def _handle_learn_knowledge(self, args: dict[str, Any]) -> str:
+        """Knowledge mode: teach domain facts that can't be extracted from code."""
+        description = args.get("description", "")
+        domain = args.get("domain", "general")
+        tags = args.get("tags", [])
+
+        if not description:
+            return json.dumps({
+                "error": "Knowledge mode requires 'description' (the fact to teach)."
+            })
+
+        graph = self._load_graph()
+        if graph is None:
+            return json.dumps({"error": "No graph loaded."})
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        node_id = f"knowledge_{domain}_{ts}"
+
+        graph.add_node_simple(
+            node_id,
+            label=description[:80],
+            entity_type="KNOWLEDGE",
+            description=description,
+            properties={
+                "source": "kogni_learn_knowledge",
+                "domain": domain,
+                "tags": tags,
+                "created": ts,
+                "manual": True,
+            },
+        )
+
+        auto_edges = 0
+        if hasattr(graph, "auto_connect"):
+            auto_edges = graph.auto_connect([node_id])
+
+        self._save_graph(graph)
+
+        return json.dumps({
+            "recorded": True,
+            "mode": "knowledge",
+            "node_id": node_id,
+            "domain": domain,
+            "description": description[:100],
+            "tags": tags,
+            "auto_edges": auto_edges,
+            "total_nodes": len(graph.nodes),
+        })
+
+    async def _handle_reload(self, args: dict[str, Any]) -> str:
+        """Force-reload the knowledge graph from disk."""
+        old_count = len(self._graph.nodes) if self._graph else 0
+        self._graph = None  # Force reload
+        self._graph_mtime = 0.0
+        graph = self._load_graph()
+        new_count = len(graph.nodes) if graph else 0
+        return json.dumps({
+            "status": "reloaded",
+            "previous_nodes": old_count,
+            "current_nodes": new_count,
+            "graph_file": self._graph_file,
         })
 
     # ------------------------------------------------------------------

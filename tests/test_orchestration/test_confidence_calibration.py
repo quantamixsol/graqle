@@ -1,10 +1,12 @@
 """Tests for relevance-weighted confidence calibration (Bug 18 fix).
 
-Verifies that the orchestrator uses relevance scores to weight confidence
-instead of simple averaging: calibrated = sum(conf_i * rel_i) / sum(rel_i).
+v0.14.0: Top-k weighted + coverage factor
+v0.15.0: Recalibrated for large KGs (>5K nodes) — 75/25 weighting,
+         logarithmic coverage, tiered floors.
 """
 
 import asyncio
+import math
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -52,13 +54,9 @@ def _make_graph(node_ids):
 
 def _setup_mocks(orch, messages_dict):
     """Wire up mocks so run() executes one round and returns."""
-    # message_protocol.run_round returns messages
     orch.message_protocol.run_round = AsyncMock(return_value=messages_dict)
-    # convergence after first round
     orch.convergence_detector.check = MagicMock(return_value=True)
-    # aggregator returns a string
     orch.aggregator.aggregate = AsyncMock(return_value="synthesized answer")
-    # observer does nothing
     orch.observer.observe_round = AsyncMock(return_value=[])
 
 
@@ -82,10 +80,10 @@ class TestConfidenceCalibration:
                 relevance_scores=relevance,
             )
 
-            # New calibrated formula: top-k weighted + coverage factor
-            # With 2 nodes, both are in top-k; coverage = 2/3 = 0.667
+            # v0.15.0 formula: 75/25 weighting + log coverage
             # raw = (0.95*0.95 + 0.90*0.10) / (0.95+0.10) = 0.945
-            # calibrated = 0.6 * 0.945 + 0.4 * 0.667 = 0.834
+            # coverage = log2(1+2)/log2(1+3) = log2(3)/log2(4) = 0.792
+            # calibrated = 0.75*0.945 + 0.25*0.792 = 0.907
             assert result.confidence > 0.70
 
         asyncio.run(_run())
@@ -107,9 +105,6 @@ class TestConfidenceCalibration:
                 relevance_scores=relevance,
             )
 
-            # Calibrated: raw = (0.8*0.9 + 0.95*0.05) / (0.9+0.05) = 0.808
-            # coverage = 2/3 = 0.667
-            # calibrated = 0.6 * 0.808 + 0.4 * 0.667 = 0.752
             # Should be less than unweighted average of 0.875
             assert result.confidence < 0.875
 
@@ -161,9 +156,69 @@ class TestConfidenceCalibration:
                 graph, "query", ["x"],
                 relevance_scores={"x": 0.7},
             )
-            # Calibrated: raw=0.85, coverage=1/3=0.333
-            # calibrated = 0.6*0.85 + 0.4*0.333 = 0.643
-            # Single node = low coverage → lower calibrated confidence
-            assert 0.5 < result.confidence < 0.75
+            # v0.15.0: raw=0.85, coverage=log2(2)/log2(4)=0.5
+            # calibrated = 0.75*0.85 + 0.25*0.5 = 0.763
+            # But single node → low activation, no floor applies
+            assert 0.5 < result.confidence < 0.85
+
+        asyncio.run(_run())
+
+    def test_large_kg_many_activated_nodes_gets_high_confidence(self):
+        """Large KG (13K+) with 15 activated nodes should report high confidence.
+
+        This is the core fix for the Session 2 evaluation feedback:
+        "9-15% confidence for 8/10 quality answers on 13K-node KG"
+        """
+        async def _run():
+            orch = _make_orchestrator()
+            # Simulate 15 activated nodes (typical PCST output on large KG)
+            node_ids = [f"n{i}" for i in range(15)]
+            confs = [0.92, 0.88, 0.85, 0.83, 0.80, 0.78, 0.75,
+                     0.72, 0.70, 0.68, 0.65, 0.60, 0.55, 0.50, 0.50]
+            rels = [0.95, 0.82, 0.75, 0.65, 0.58, 0.52, 0.48,
+                    0.42, 0.38, 0.31, 0.28, 0.22, 0.15, 0.10, 0.05]
+            messages = {
+                nid: _make_message(nid, confidence=c)
+                for nid, c in zip(node_ids, confs)
+            }
+            _setup_mocks(orch, messages)
+            graph = _make_graph(node_ids)
+
+            relevance = dict(zip(node_ids, rels))
+            result = await orch.run(
+                graph, "cross-product synergies", node_ids,
+                relevance_scores=relevance,
+            )
+
+            # With 15 nodes activated (all rel > 0.01), raw > 0.15
+            # → 10+ node floor of 0.65 applies
+            # Actual calibrated should be well above 0.65
+            assert result.confidence >= 0.65, (
+                f"Large KG confidence {result.confidence:.2f} below 0.65 floor"
+            )
+
+        asyncio.run(_run())
+
+    def test_medium_activation_gets_medium_floor(self):
+        """5-9 activated nodes should get the 0.55 floor."""
+        async def _run():
+            orch = _make_orchestrator()
+            node_ids = [f"n{i}" for i in range(6)]
+            messages = {
+                nid: _make_message(nid, confidence=0.50)
+                for nid in node_ids
+            }
+            _setup_mocks(orch, messages)
+            graph = _make_graph(node_ids)
+
+            # All nodes with moderate relevance > 0.01
+            relevance = {f"n{i}": 0.5 - i * 0.05 for i in range(6)}
+            result = await orch.run(
+                graph, "query", node_ids,
+                relevance_scores=relevance,
+            )
+
+            # 6 activated, raw = 0.50 > 0.10 → floor 0.55
+            assert result.confidence >= 0.55
 
         asyncio.run(_run())
