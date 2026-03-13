@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.benchmarks.benchmark_runner import (
+from graqle.benchmarks.benchmark_runner import (
     exact_match,
     f1_score,
     _normalize_answer,
@@ -108,7 +108,7 @@ class TestQuestionResultGovernance:
             total_tokens=50,
             convergence_rounds=2,
             active_nodes=3,
-            method="cognigraph-pcst",
+            method="graqle-pcst",
         )
         assert qr.shacl_pass == 0
         assert qr.shacl_fail == 0
@@ -129,7 +129,7 @@ class TestQuestionResultGovernance:
             total_tokens=50,
             convergence_rounds=2,
             active_nodes=3,
-            method="cognigraph-pcst",
+            method="graqle-pcst",
             shacl_pass=5,
             shacl_fail=1,
             constraint_propagations=3,
@@ -153,7 +153,7 @@ class TestQuestionResultGovernance:
             total_tokens=50,
             convergence_rounds=2,
             active_nodes=3,
-            method="cognigraph-pcst",
+            method="graqle-pcst",
             shacl_pass=5,
         )
         d = qr.to_dict()
@@ -166,7 +166,7 @@ class TestQuestionResultGovernance:
 class TestBenchmarkSummaryGovernance:
     def test_default_governance_totals(self):
         s = BenchmarkSummary(
-            method="cognigraph-pcst",
+            method="graqle-pcst",
             dataset="MultiGov-30",
             n_questions=10,
             avg_em=0.3,
@@ -185,7 +185,7 @@ class TestBenchmarkSummaryGovernance:
 
     def test_governance_totals_set(self):
         s = BenchmarkSummary(
-            method="cognigraph-pcst",
+            method="graqle-pcst",
             dataset="MultiGov-30",
             n_questions=10,
             avg_em=0.3,

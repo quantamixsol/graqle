@@ -1,8 +1,8 @@
 """Tests for v0.15.0 MCP server features:
 
-1. KG hot-reload (mtime-based + kogni_reload tool)
-2. kogni_learn entity mode
-3. kogni_learn knowledge mode
+1. KG hot-reload (mtime-based + graq_reload tool)
+2. graq_learn entity mode
+3. graq_learn knowledge mode
 4. Tool count (now 8)
 """
 
@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cognigraph.plugins.mcp_dev_server import (
+from graqle.plugins.mcp_dev_server import (
     TOOL_DEFINITIONS,
     KogniDevServer,
 )
@@ -68,10 +68,10 @@ def _build_mock_graph() -> MagicMock:
 @pytest.fixture
 def server():
     srv = KogniDevServer.__new__(KogniDevServer)
-    srv.config_path = "cognigraph.yaml"
+    srv.config_path = "graqle.yaml"
     srv._graph = _build_mock_graph()
     srv._config = None
-    srv._graph_file = "cognigraph.json"
+    srv._graph_file = "graqle.json"
     srv._graph_mtime = 9999999999.0  # Far future — prevent hot-reload in tests
     return srv
 
@@ -86,30 +86,30 @@ class TestToolDefinitionsV015:
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
-        assert "kogni_reload" in names
+        assert "graq_reload" in names
 
     def test_learn_has_mode_parameter(self):
-        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "kogni_learn")
+        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_learn")
         props = learn_tool["inputSchema"]["properties"]
         assert "mode" in props
         assert set(props["mode"]["enum"]) == {"outcome", "entity", "knowledge"}
 
     def test_learn_has_entity_params(self):
-        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "kogni_learn")
+        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_learn")
         props = learn_tool["inputSchema"]["properties"]
         assert "entity_id" in props
         assert "entity_type" in props
         assert "connects_to" in props
 
     def test_learn_has_knowledge_params(self):
-        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "kogni_learn")
+        learn_tool = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_learn")
         props = learn_tool["inputSchema"]["properties"]
         assert "domain" in props
         assert "tags" in props
 
 
 # ---------------------------------------------------------------------------
-# kogni_reload handler
+# graq_reload handler
 # ---------------------------------------------------------------------------
 
 class TestReloadHandler:
@@ -150,11 +150,11 @@ class TestHotReload:
         mock_stat = MagicMock()
         mock_stat.st_mtime = 2000.0  # Newer
 
-        with patch("cognigraph.plugins.mcp_dev_server.Path") as MockPath:
+        with patch("graqle.plugins.mcp_dev_server.Path") as MockPath:
             MockPath.return_value.stat.return_value = mock_stat
             MockPath.return_value.exists.return_value = True
             # After mtime check sets self._graph = None, the loading code runs
-            # We mock the import chain to avoid full CogniGraph initialization
+            # We mock the import chain to avoid full Graqle initialization
             server._graph = MagicMock()
             server._graph.nodes = {"a": MockNode("a", "A", "S", "desc")}
 
@@ -162,17 +162,17 @@ class TestHotReload:
             # by setting _graph_mtime older than file
             assert server._graph is not None  # Currently cached
             # The actual reload happens inside _load_graph which we'd
-            # need the full CogniGraph import chain to test properly
+            # need the full Graqle import chain to test properly
 
 
 # ---------------------------------------------------------------------------
-# kogni_learn entity mode
+# graq_learn entity mode
 # ---------------------------------------------------------------------------
 
 class TestLearnEntityMode:
     @pytest.mark.asyncio
     async def test_entity_mode_creates_node(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "entity",
             "entity_id": "CrawlQ",
             "entity_type": "PRODUCT",
@@ -192,7 +192,7 @@ class TestLearnEntityMode:
 
     @pytest.mark.asyncio
     async def test_entity_mode_requires_entity_id(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "entity",
         })
         data = json.loads(result)
@@ -200,7 +200,7 @@ class TestLearnEntityMode:
 
     @pytest.mark.asyncio
     async def test_entity_mode_connects_to_existing(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "entity",
             "entity_id": "MyProduct",
             "entity_type": "PRODUCT",
@@ -212,13 +212,13 @@ class TestLearnEntityMode:
 
 
 # ---------------------------------------------------------------------------
-# kogni_learn knowledge mode
+# graq_learn knowledge mode
 # ---------------------------------------------------------------------------
 
 class TestLearnKnowledgeMode:
     @pytest.mark.asyncio
     async def test_knowledge_mode_creates_node(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "knowledge",
             "description": "Target audience is C-suite in regulated industries",
             "domain": "brand",
@@ -236,7 +236,7 @@ class TestLearnKnowledgeMode:
 
     @pytest.mark.asyncio
     async def test_knowledge_mode_requires_description(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "knowledge",
         })
         data = json.loads(result)
@@ -244,7 +244,7 @@ class TestLearnKnowledgeMode:
 
     @pytest.mark.asyncio
     async def test_knowledge_mode_default_domain(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "knowledge",
             "description": "Some fact",
         })
@@ -253,14 +253,14 @@ class TestLearnKnowledgeMode:
 
 
 # ---------------------------------------------------------------------------
-# kogni_learn outcome mode (backward compatibility)
+# graq_learn outcome mode (backward compatibility)
 # ---------------------------------------------------------------------------
 
 class TestLearnOutcomeMode:
     @pytest.mark.asyncio
     async def test_default_mode_is_outcome(self, server):
         """No mode specified = outcome mode (backward compatible)."""
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "action": "fixed auth",
             "outcome": "success",
             "components": ["auth-lambda"],
@@ -271,7 +271,7 @@ class TestLearnOutcomeMode:
 
     @pytest.mark.asyncio
     async def test_outcome_requires_action(self, server):
-        result = await server.handle_tool("kogni_learn", {
+        result = await server.handle_tool("graq_learn", {
             "mode": "outcome",
             "outcome": "success",
             "components": ["x"],

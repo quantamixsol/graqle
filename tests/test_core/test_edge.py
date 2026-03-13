@@ -1,7 +1,7 @@
 """Tests for CogniEdge."""
 
-from cognigraph.core.edge import CogniEdge
-from cognigraph.core.message import Message
+from graqle.core.edge import CogniEdge
+from graqle.core.message import Message
 
 
 def test_edge_creation():

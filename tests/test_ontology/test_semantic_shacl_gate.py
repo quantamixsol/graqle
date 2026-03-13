@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.ontology.semantic_shacl_gate import (
+from graqle.ontology.semantic_shacl_gate import (
     SemanticSHACLGate,
     SemanticConstraint,
     SemanticValidationResult,

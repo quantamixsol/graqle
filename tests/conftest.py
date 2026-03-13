@@ -1,15 +1,15 @@
-"""Shared test fixtures for CogniGraph."""
+"""Shared test fixtures for Graqle."""
 
 import pytest
 import networkx as nx
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.node import CogniNode
-from cognigraph.core.edge import CogniEdge
-from cognigraph.core.message import Message
-from cognigraph.core.state import NodeState
-from cognigraph.core.types import ReasoningType
-from cognigraph.backends.mock import MockBackend
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
+from graqle.core.edge import CogniEdge
+from graqle.core.message import Message
+from graqle.core.state import NodeState
+from graqle.core.types import ReasoningType
+from graqle.backends.mock import MockBackend
 
 
 @pytest.fixture
@@ -47,8 +47,8 @@ def sample_nx_graph():
 
 @pytest.fixture
 def sample_graph(sample_nx_graph):
-    """A CogniGraph built from the sample NetworkX graph."""
-    return CogniGraph.from_networkx(sample_nx_graph)
+    """A Graqle built from the sample NetworkX graph."""
+    return Graqle.from_networkx(sample_nx_graph)
 
 
 @pytest.fixture

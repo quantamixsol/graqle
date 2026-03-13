@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.ontology.domain_registry import DomainRegistry, DomainOntology
+from graqle.ontology.domain_registry import DomainRegistry, DomainOntology
 
 
 class TestDomainRegistry:

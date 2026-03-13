@@ -1,13 +1,13 @@
 <div align="center">
 
-# CogniGraph
+# Graqle
 
 ### Dev Intelligence Layer — Graphs That Think
 
 Turn any codebase into a reasoning-ready knowledge graph.<br/>
 One command. Any IDE. Any AI tool. Zero cloud infrastructure.
 
-[![PyPI version](https://badge.fury.io/py/cognigraph.svg)](https://pypi.org/project/cognigraph/)
+[![PyPI version](https://badge.fury.io/py/graqle.svg)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Tests: 797 passing](https://img.shields.io/badge/tests-797%20passing-brightgreen.svg)]()
@@ -20,29 +20,29 @@ One command. Any IDE. Any AI tool. Zero cloud infrastructure.
 
 > **What if your development environment understood your entire codebase — and kept learning?**
 >
-> CogniGraph transforms any codebase into a knowledge graph where every module, service, and config is a node backed by an autonomous LLM agent. Query it from any IDE, any AI tool, or plain terminal. One `pip install`, one `kogni init`, and your dev environment becomes intelligent.
+> Graqle transforms any codebase into a knowledge graph where every module, service, and config is a node backed by an autonomous LLM agent. Query it from any IDE, any AI tool, or plain terminal. One `pip install`, one `graq init`, and your dev environment becomes intelligent.
 
 ---
 
 ## Quick Start
 
 ```bash
-pip install cognigraph[api]
+pip install graqle[api]
 cd your-project
-kogni init
+graq init
 ```
 
-That's it. CogniGraph scans your repo, builds a knowledge graph, and configures your IDE. Works with:
+That's it. Graqle scans your repo, builds a knowledge graph, and configures your IDE. Works with:
 
 | IDE / Tool | Integration | Command |
 |-----------|-------------|---------|
-| **Claude Code** | MCP server + CLAUDE.md | `kogni init` (auto-detected) |
-| **Cursor** | MCP server + .cursorrules | `kogni init --ide cursor` |
-| **VS Code + Copilot** | MCP server + copilot-instructions | `kogni init --ide vscode` |
-| **Windsurf** | MCP server + .windsurfrules | `kogni init --ide windsurf` |
-| **Codex / Replit / JetBrains** | CLI + Python SDK | `kogni init --ide generic` |
-| **Plain terminal** | Full CLI | `kogni init --ide generic` |
-| **CI/CD pipelines** | Python SDK | `pip install cognigraph` |
+| **Claude Code** | MCP server + CLAUDE.md | `graq init` (auto-detected) |
+| **Cursor** | MCP server + .cursorrules | `graq init --ide cursor` |
+| **VS Code + Copilot** | MCP server + copilot-instructions | `graq init --ide vscode` |
+| **Windsurf** | MCP server + .windsurfrules | `graq init --ide windsurf` |
+| **Codex / Replit / JetBrains** | CLI + Python SDK | `graq init --ide generic` |
+| **Plain terminal** | Full CLI | `graq init --ide generic` |
+| **CI/CD pipelines** | Python SDK | `pip install graqle` |
 
 No cloud account. No infrastructure. Your machine, your API keys, your data.
 
@@ -52,34 +52,34 @@ No cloud account. No infrastructure. Your machine, your API keys, your data.
 
 ### CLI (any terminal, any IDE)
 ```bash
-kogni run "What depends on the auth service?"     # Graph reasoning
-kogni context auth-lambda                           # 500-token focused context
-kogni inspect --stats                               # Graph statistics
-kogni scan repo .                                   # Rebuild knowledge graph
-kogni rebuild                                        # Rebuild chunks from source files
-kogni rebuild --force                                # Force re-read ALL source files
-kogni doctor                                        # Health check
-kogni setup-guide                                   # Backend setup help
+graq run "What depends on the auth service?"     # Graph reasoning
+graq context auth-lambda                           # 500-token focused context
+graq inspect --stats                               # Graph statistics
+graq scan repo .                                   # Rebuild knowledge graph
+graq rebuild                                        # Rebuild chunks from source files
+graq rebuild --force                                # Force re-read ALL source files
+graq doctor                                        # Health check
+graq setup-guide                                   # Backend setup help
 
 # Teach the graph (v0.15.0)
-kogni learn node "auth-service" --type SERVICE      # Add a code-level node
-kogni learn entity "CrawlQ" --type PRODUCT          # Add a business entity
-kogni learn knowledge "Target is C-suite" --domain brand  # Teach domain knowledge
-kogni learn edge "CrawlQ" "auth-service" -r POWERS  # Add relationships
-kogni learn discover --from "auth-service"           # Auto-discover connections
+graq learn node "auth-service" --type SERVICE      # Add a code-level node
+graq learn entity "CrawlQ" --type PRODUCT          # Add a business entity
+graq learn knowledge "Target is C-suite" --domain brand  # Teach domain knowledge
+graq learn edge "CrawlQ" "auth-service" -r POWERS  # Add relationships
+graq learn discover --from "auth-service"           # Auto-discover connections
 
 # Multi-project graphs (v0.15.0)
-kogni link merge proj1/kg.json proj2/kg.json        # Merge KGs across projects
-kogni link edge crawlq/sdk frictionmelt/retrieval   # Cross-project edges
-kogni link stats merged.json                         # Per-project breakdown
+graq link merge proj1/kg.json proj2/kg.json        # Merge KGs across projects
+graq link edge crawlq/sdk frictionmelt/retrieval   # Cross-project edges
+graq link stats merged.json                         # Per-project breakdown
 ```
 
 ### Python SDK (any Python environment)
 ```python
-from cognigraph import CogniGraph
+from graqle import Graqle
 
-# Load graph — auto-creates backend from cognigraph.yaml config
-graph = CogniGraph.from_json("cognigraph.json", config="cognigraph.yaml")
+# Load graph — auto-creates backend from graqle.yaml config
+graph = Graqle.from_json("graqle.json", config="graqle.yaml")
 
 result = graph.reason("How does GDPR conflict with the AI Act?")
 print(result.answer)          # Multi-agent synthesized answer
@@ -92,7 +92,7 @@ graph.rebuild_chunks(force=True)
 ### REST API (any HTTP client — Copilot, Postman, custom tools, bots)
 ```bash
 # Start the server
-kogni serve                          # localhost:8000
+graq serve                          # localhost:8000
 
 # Query from anything that speaks HTTP
 curl -X POST http://localhost:8000/reason \
@@ -116,21 +116,21 @@ curl -X POST http://localhost:8000/reason \
 ### MCP Tools (Claude Code, Cursor, VS Code, Windsurf)
 | Tool | Purpose |
 |------|---------|
-| `kogni_context` | 500-token focused context (replaces 20-60K file reads) |
-| `kogni_reason` | Multi-agent graph reasoning |
-| `kogni_inspect` | Graph structure inspection |
-| `kogni_preflight` | Pre-change safety check |
-| `kogni_impact` | "What breaks if I change X?" |
-| `kogni_lessons` | Surface past mistakes before you repeat them |
-| `kogni_learn` | Teach the graph: outcomes, business entities, or domain knowledge |
-| `kogni_reload` | Hot-reload KG from disk without restarting (v0.15.0) |
+| `graq_context` | 500-token focused context (replaces 20-60K file reads) |
+| `graq_reason` | Multi-agent graph reasoning |
+| `graq_inspect` | Graph structure inspection |
+| `graq_preflight` | Pre-change safety check |
+| `graq_impact` | "What breaks if I change X?" |
+| `graq_lessons` | Surface past mistakes before you repeat them |
+| `graq_learn` | Teach the graph: outcomes, business entities, or domain knowledge |
+| `graq_reload` | Hot-reload KG from disk without restarting (v0.15.0) |
 
 ---
 
 ## How It Works
 
 ```
-Your Codebase ──→ kogni init ──→ Knowledge Graph (cognigraph.json)
+Your Codebase ──→ graq init ──→ Knowledge Graph (graqle.json)
                                         │
          ┌──────────┬──────────┬────────┼────────┐
          ▼          ▼          ▼        ▼        ▼
@@ -148,11 +148,11 @@ Your Codebase ──→ kogni init ──→ Knowledge Graph (cognigraph.json)
 
 | Access Method | Use When | Example |
 |--------------|----------|---------|
-| `kogni run` | Quick terminal query | `kogni run "what calls payments?"` |
-| `kogni serve` | Any HTTP client needs access | `curl localhost:8000/reason` |
+| `graq run` | Quick terminal query | `graq run "what calls payments?"` |
+| `graq serve` | Any HTTP client needs access | `curl localhost:8000/reason` |
 | Python SDK | Scripts, notebooks, pipelines | `graph.reason("query")` |
-| MCP Server | AI-powered IDE with MCP support | Auto-available after `kogni init` |
-| Read JSON | Custom integration, any language | Parse `cognigraph.json` directly |
+| MCP Server | AI-powered IDE with MCP support | Auto-available after `graq init` |
+| Read JSON | Custom integration, any language | Parse `graqle.json` directly |
 
 **Model-agnostic.** Use free local models (Ollama), cloud APIs (Anthropic, OpenAI), or enterprise backends (AWS Bedrock). Smart routing sends complex queries to capable models and simple ones to cheap models, all within your cost budget.
 
@@ -186,25 +186,25 @@ All 15 innovations are **free for every developer**. No license key required.
 
 | Backend | Models | Cost | Install |
 |---------|--------|------|---------|
-| **Ollama** | Any local model (Qwen, Llama, etc.) | **$0** (local) | `pip install cognigraph[api]` |
-| **Anthropic** | Claude Haiku / Sonnet / Opus | $5 free credits | `pip install cognigraph[api]` |
-| **OpenAI** | GPT-4o / GPT-4o-mini | $5 free credits | `pip install cognigraph[api]` |
-| **AWS Bedrock** | Claude, Titan, Llama, Mistral | AWS Free Tier | `pip install cognigraph[api]` |
-| **vLLM** | GPU inference + LoRA | $0 (your GPU) | `pip install cognigraph[gpu]` |
-| **llama.cpp** | CPU GGUF models | $0 (your CPU) | `pip install cognigraph[cpu]` |
+| **Ollama** | Any local model (Qwen, Llama, etc.) | **$0** (local) | `pip install graqle[api]` |
+| **Anthropic** | Claude Haiku / Sonnet / Opus | $5 free credits | `pip install graqle[api]` |
+| **OpenAI** | GPT-4o / GPT-4o-mini | $5 free credits | `pip install graqle[api]` |
+| **AWS Bedrock** | Claude, Titan, Llama, Mistral | AWS Free Tier | `pip install graqle[api]` |
+| **vLLM** | GPU inference + LoRA | $0 (your GPU) | `pip install graqle[gpu]` |
+| **llama.cpp** | CPU GGUF models | $0 (your CPU) | `pip install graqle[cpu]` |
 
 ```bash
-kogni setup-guide              # See all options with setup steps
-kogni setup-guide ollama       # Free, local, no API key needed
-kogni setup-guide anthropic    # Best quality, $5 free credits
-kogni doctor                   # Verify everything works
+graq setup-guide              # See all options with setup steps
+graq setup-guide ollama       # Free, local, no API key needed
+graq setup-guide anthropic    # Best quality, $5 free credits
+graq doctor                   # Verify everything works
 ```
 
 ---
 
 ## Pricing — 100% Free for Developers
 
-CogniGraph follows the **open-core model**: everything a solo developer needs is free forever. We monetize team and enterprise collaboration features.
+Graqle follows the **open-core model**: everything a solo developer needs is free forever. We monetize team and enterprise collaboration features.
 
 | | Community (Free) | Team | Enterprise |
 |---|:---:|:---:|:---:|
@@ -233,7 +233,7 @@ CogniGraph follows the **open-core model**: everything a solo developer needs is
 
 ## Benchmarks
 
-| Metric | CogniGraph | Single-Agent Baseline | Improvement |
+| Metric | Graqle | Single-Agent Baseline | Improvement |
 |--------|-----------|----------------------|-------------|
 | Constrained F1 | **0.757** | 0.328 | **+131%** |
 | Governance Accuracy | **99.7%** | N/A | — |
@@ -259,7 +259,7 @@ The **SemanticSHACLGate** enforces 3-layer semantic validation:
 
 ```python
 # Example: register your codebase's architecture as governance constraints
-from cognigraph.ontology.semantic_shacl_gate import SemanticConstraint
+from graqle.ontology.semantic_shacl_gate import SemanticConstraint
 
 constraint = SemanticConstraint(
     own_framework_markers=["authentication", "JWT", "session"],
@@ -277,9 +277,9 @@ See [examples/governance_example.py](examples/governance_example.py) for a compl
 
 ## Patent & IP Notice
 
-CogniGraph implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
+Graqle implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
 
-All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use CogniGraph freely in any project, commercial or otherwise.
+All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use Graqle freely in any project, commercial or otherwise.
 
 ---
 
@@ -288,8 +288,8 @@ All 14 innovations are free to use under Apache 2.0. The patent protects the spe
 **Real-world feedback release — 6 fixes from Session 2 evaluation on a 13K-node merged KG.**
 
 ### MCP Hot-Reload (was 2/10 → fixed)
-- **KG auto-reloads on file change:** The MCP server now checks `cognigraph.json` mtime on every tool call. If the file changed (e.g., after `kogni learn` in another terminal), the graph reloads automatically. No restart needed.
-- **New `kogni_reload` MCP tool:** Force-reload the KG from disk. 8 MCP tools total (was 7).
+- **KG auto-reloads on file change:** The MCP server now checks `graqle.json` mtime on every tool call. If the file changed (e.g., after `graq learn` in another terminal), the graph reloads automatically. No restart needed.
+- **New `graq_reload` MCP tool:** Force-reload the KG from disk. 8 MCP tools total (was 7).
 
 ### Confidence Recalibrated for Large KGs (was 3/10 → fixed)
 - **v0.14.0 formula still reported 9-15% confidence for 8/10 quality answers on 13K-node graphs.** Root cause: 60/40 raw/coverage weighting undervalued the raw quality signal, and the flat 0.30 floor was too low.
@@ -297,14 +297,14 @@ All 14 innovations are free to use under Apache 2.0. The patent protects the spe
 - Same query on 13K-node KG now reports **65%+ confidence** (was 9-15%).
 
 ### Business Entity Support (was 4/10 → fixed)
-- **`kogni learn entity`** — Add PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET, COMPETITOR, METRIC nodes. Code scanning finds modules; this adds what code scanning can't.
-- **`kogni learn knowledge`** — Teach domain facts with domain tagging (brand, copy, product, market, technical). KNOWLEDGE nodes auto-connect to related graph nodes.
-- **MCP `kogni_learn` expanded** — 3 modes: `outcome` (default, backward compatible), `entity`, `knowledge`. No new tool needed — same `kogni_learn` with a `mode` parameter.
+- **`graq learn entity`** — Add PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET, COMPETITOR, METRIC nodes. Code scanning finds modules; this adds what code scanning can't.
+- **`graq learn knowledge`** — Teach domain facts with domain tagging (brand, copy, product, market, technical). KNOWLEDGE nodes auto-connect to related graph nodes.
+- **MCP `graq_learn` expanded** — 3 modes: `outcome` (default, backward compatible), `entity`, `knowledge`. No new tool needed — same `graq_learn` with a `mode` parameter.
 
 ### Multi-Project CLI (was 3/10 → fixed)
-- **`kogni link merge`** — Merge multiple project KGs into one. Auto-prefixes node IDs to prevent collisions (`auth-lambda` → `crawlq/auth-lambda`).
-- **`kogni link edge`** — Create cross-project relationships: `kogni link edge crawlq/sdk frictionmelt/retrieval --relation POWERS`
-- **`kogni link stats`** — Per-project node counts, cross-project edge counts, graph health.
+- **`graq link merge`** — Merge multiple project KGs into one. Auto-prefixes node IDs to prevent collisions (`auth-lambda` → `crawlq/auth-lambda`).
+- **`graq link edge`** — Create cross-project relationships: `graq link edge crawlq/sdk frictionmelt/retrieval --relation POWERS`
+- **`graq link stats`** — Per-project node counts, cross-project edge counts, graph health.
 
 ### Testing
 - 34 new tests across 3 new test files. **797 tests passing** (up from 763).
@@ -325,9 +325,9 @@ All 14 innovations are free to use under Apache 2.0. The patent protects the spe
 - **Tablet/phone breakpoints:** 1024px, 768px, 480px with landscape-specific layouts.
 
 ### Embedding Cache (Performance)
-- **10-100x faster activation for large repos:** Chunk embeddings precomputed during `kogni init` and saved to `.cognigraph/chunk_embeddings.npz`. At query time, only the query is embedded (1 call), then fast numpy batch cosine similarity against all cached chunks.
+- **10-100x faster activation for large repos:** Chunk embeddings precomputed during `graq init` and saved to `.graqle/chunk_embeddings.npz`. At query time, only the query is embedded (1 call), then fast numpy batch cosine similarity against all cached chunks.
 - **11K nodes: ~30s -> <1s** per query activation (was embedding every chunk live).
-- **Automatic:** Built during `kogni init`, loaded transparently by ChunkScorer.
+- **Automatic:** Built during `graq init`, loaded transparently by ChunkScorer.
 - **Fallback:** If cache is missing, falls back to live embedding (works always, just slower).
 
 ### Windows Unicode (from v0.12.2)
@@ -359,8 +359,8 @@ All remaining bugs from the v0.12.0 feedback report resolved:
 - **Bug 5: QueryComplexityScorer always "simple"** — Thresholds lowered from 0.3/0.6/0.8 to 0.15/0.35/0.55. Added dev-specific entity markers (service, component, endpoint, auth, etc.) and depth patterns (what depends on, where is used, explain how). "How does the auth service work?" now scores **moderate**, not simple.
 - **Bug 26: ActivationMemory boosts not wired** — `get_boosts()` now called during ChunkScorer activation, passing memory-guided boosts to node scoring. Cross-query learning is no longer session-only.
 - **Bug 28: Examples not in pip package** — `examples/` directory now force-included in wheel via hatch build config.
-- **Bug 7: Init overwrites cognigraph.yaml** — Now deep-merges new defaults into existing config. User's API keys, Neo4j credentials, and custom model overrides are preserved.
-- **Bug 11: `kogni serve` missing FastAPI check** — Now checks for both `uvicorn` AND `fastapi` before starting, with clear install instructions.
+- **Bug 7: Init overwrites graqle.yaml** — Now deep-merges new defaults into existing config. User's API keys, Neo4j credentials, and custom model overrides are preserved.
+- **Bug 11: `graq serve` missing FastAPI check** — Now checks for both `uvicorn` AND `fastapi` before starting, with clear install instructions.
 - **Bug 25: Budget ceiling config exposed** — `dynamic_ceiling` and `hard_ceiling_multiplier` now in init template so users can configure them.
 
 **763 tests passing** (3 new regression tests for adaptive scoring + init merge logic).
@@ -386,7 +386,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 ### Cross-Query Learning (new — "Activation Memory")
 - **ActivationMemory:** Tracks which nodes produced useful results for which query patterns. Over time, nodes that consistently contribute high-confidence answers get activation boosts for similar future queries.
 - **Keyword-based pattern matching:** Records query keywords per node, computes overlap for future queries.
-- **Persistent:** Saved to `.cognigraph/activation_memory.json`, survives across sessions.
+- **Persistent:** Saved to `.graqle/activation_memory.json`, survives across sessions.
 - **Innovation #15:** Listed in the patent innovations table.
 
 ### Scanner: Call-Graph Edges
@@ -405,7 +405,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 ## What's New in v0.11.0
 
-**CogniGraph Studio — interactive dashboard:**
+**Graqle Studio — interactive dashboard:**
 - Studio dashboard at `/studio/` with D3 graph explorer, live reasoning trace, metrics analytics, and settings UI.
 
 ---
@@ -416,7 +416,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 - **Budget no longer kills reasoning:** Previously, exceeding `budget_per_query` would hard-stop reasoning mid-flow, producing incomplete answers. Now the budget is a **soft warning** — reasoning always completes convergence. Hard stop only triggers at **3x budget AND after at least 2 rounds**, ensuring quality is never sacrificed for cost.
 - **Philosophy:** A graph that thinks should never stop thinking because of a dollar. The budget guides, it doesn't constrain.
-- **`kogni init` budget updated** to `$0.10` (was `$0.05`).
+- **`graq init` budget updated** to `$0.10` (was `$0.05`).
 
 ---
 
@@ -424,11 +424,11 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 **Critical CLI fix + connection pool + budget tuning:**
 
-- **Bug 20 fix (P1):** CLI `--strategy` no longer hardcodes `"pcst"`. Now reads from `cognigraph.yaml` config (defaults to `"chunk"`). Previously, `kogni run` silently used PCST even when config said `chunk` — making the ChunkScorer fix invisible to CLI users.
+- **Bug 20 fix (P1):** CLI `--strategy` no longer hardcodes `"pcst"`. Now reads from `graqle.yaml` config (defaults to `"chunk"`). Previously, `graq run` silently used PCST even when config said `chunk` — making the ChunkScorer fix invisible to CLI users.
 - **Bug 21 fix (P2):** Bedrock connection pool increased from 10 → 50 with adaptive retry mode. Fixes `Connection pool is full, discarding connection` warnings when 20 nodes reason in parallel.
 - **Bug 19 documented:** `ReasoningResult.content` is a backward-compatible alias for `.answer` (renamed in v0.9.0). Both work — `.answer` is canonical, `.content` is kept for migration.
 - **Budget default raised:** `budget_per_query` increased from `$0.01` → `$0.10` to support ChunkScorer with 20 active nodes without hitting `cost_budget_exceeded`.
-- **Example config updated:** `cognigraph.example.yaml` now defaults to `strategy: chunk` and `max_nodes: 20`.
+- **Example config updated:** `graqle.example.yaml` now defaults to `strategy: chunk` and `max_nodes: 20`.
 
 ---
 
@@ -460,9 +460,9 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 ## What's New in v0.9.0
 
-**Neo4j Backend + Critical Bug Fixes** — CogniGraph now supports Neo4j as a first-class backend alongside JSON/NetworkX:
+**Neo4j Backend + Critical Bug Fixes** — Graqle now supports Neo4j as a first-class backend alongside JSON/NetworkX:
 
-- **Neo4j backend:** `CogniGraph.from_neo4j()` / `to_neo4j()` for loading and exporting graphs
+- **Neo4j backend:** `Graqle.from_neo4j()` / `to_neo4j()` for loading and exporting graphs
 - **CypherActivation:** Vector search on chunk embeddings via Cypher replaces PCST for Neo4j mode — faster and more accurate node activation
 - **Schema management:** `create_schema()` creates constraints + vector index on `:Chunk` nodes
 - **Chunk-level storage:** `:CogniNode`→`:HAS_CHUNK`→`:Chunk` with optional embeddings
@@ -472,7 +472,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 - **Bug 9 fix:** JSON repair now strips comments before fixing quotes/commas
 - **Bug 14 fix:** `out/` directory added to scan skip list
 - **Bug 16 fix:** SkillAdmin embedding log messages no longer repeat per query
-- **Bug 17 fix:** `kogni doctor` checks both `kogni` and `cognigraph` MCP keys
+- **Bug 17 fix:** `graq doctor` checks both `graq` and `graqle` MCP keys
 
 **37 new tests** (8 chunk scoring + 5 confidence calibration + 13 Neo4j connector + 7 CypherActivation + 4 graph Neo4j). **736 tests passing** (up from 699).
 
@@ -501,9 +501,9 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 **6 Bug Fixes:**
 - Bedrock config writes `region` instead of `api_key` (P2)
-- `kogni grow --full` respects SKIP_DIRS exclusions (P2)
-- `kogni doctor` detects MCP registration for all IDEs (P2)
-- `kogni init` prompts before overwriting cognigraph.yaml (P3)
+- `graq grow --full` respects SKIP_DIRS exclusions (P2)
+- `graq doctor` detects MCP registration for all IDEs (P2)
+- `graq init` prompts before overwriting graqle.yaml (P3)
 - SkillAdmin duplicate logging prevented (P3)
 - 33 new tests for content-aware PCST activation
 
@@ -513,7 +513,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 
 ## What's New in v0.7.7
 
-**Chunk Pipeline (breaking fix)** — Every node now auto-loads evidence chunks from source files at graph load time. Hand-built KGs that previously had zero chunks now get full evidence for reasoning. New `kogni rebuild` command and `graph.rebuild_chunks()` API.
+**Chunk Pipeline (breaking fix)** — Every node now auto-loads evidence chunks from source files at graph load time. Hand-built KGs that previously had zero chunks now get full evidence for reasoning. New `graq rebuild` command and `graph.rebuild_chunks()` API.
 
 **13 Bug Fixes** — All issues from end-to-end testing resolved:
 - Agents no longer refuse queries with "outside my domain" (P0)
@@ -527,7 +527,7 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 - NetworkX FutureWarning suppressed (P3)
 - MCP server reports correct version (P3)
 
-**Lead Generation** — `kogni register`, `kogni activate`, `kogni billing` commands. Stripe webhook handler for automated license delivery.
+**Lead Generation** — `graq register`, `graq activate`, `graq billing` commands. Stripe webhook handler for automated license delivery.
 
 **617 tests passing** (up from 554).
 
@@ -536,14 +536,14 @@ Based on detailed external testing across 8 versions (v0.7.6 → v0.10.3), this 
 ## Citation
 
 ```bibtex
-@article{kumar2026cognigraph,
-  title   = {CogniGraph: Governed Intelligence through Graph-of-Agents Reasoning
+@article{kumar2026graqle,
+  title   = {Graqle: Governed Intelligence through Graph-of-Agents Reasoning
              over Knowledge Graph Topologies with Semantic SHACL Validation},
   author  = {Kumar, Harish},
   year    = {2026},
   institution = {Quantamix Solutions B.V.},
   note    = {European Patent Application EP26162901.8},
-  url     = {https://github.com/quantamixsol/cognigraph}
+  url     = {https://github.com/quantamixsol/graqle}
 }
 ```
 

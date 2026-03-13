@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognigraph.activation.cypher_activation import CypherActivation
+from graqle.activation.cypher_activation import CypherActivation
 
 
 def _make_graph(node_ids):

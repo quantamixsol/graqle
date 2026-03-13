@@ -1,4 +1,4 @@
-"""Tests for cognigraph.plugins.mcp_dev_server — KogniDevServer (7-tool MCP server)."""
+"""Tests for graqle.plugins.mcp_dev_server — KogniDevServer (7-tool MCP server)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cognigraph.plugins.mcp_dev_server import (
+from graqle.plugins.mcp_dev_server import (
     TOOL_DEFINITIONS,
     KogniDevServer,
     _SENSITIVE_KEYS,
@@ -100,10 +100,10 @@ def mock_graph():
 def server(mock_graph):
     """KogniDevServer with graph pre-injected."""
     srv = KogniDevServer.__new__(KogniDevServer)
-    srv.config_path = "cognigraph.yaml"
+    srv.config_path = "graqle.yaml"
     srv._graph = mock_graph
     srv._config = None
-    srv._graph_file = "cognigraph.json"
+    srv._graph_file = "graqle.json"
     srv._graph_mtime = 9999999999.0  # Far future — prevent hot-reload in tests
     return srv
 
@@ -119,14 +119,14 @@ class TestToolDefinitions:
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
         expected = {
-            "kogni_context",
-            "kogni_inspect",
-            "kogni_reason",
-            "kogni_preflight",
-            "kogni_lessons",
-            "kogni_impact",
-            "kogni_learn",
-            "kogni_reload",
+            "graq_context",
+            "graq_inspect",
+            "graq_reason",
+            "graq_preflight",
+            "graq_lessons",
+            "graq_impact",
+            "graq_learn",
+            "graq_reload",
         }
         assert names == expected
 
@@ -144,10 +144,10 @@ class TestToolDefinitions:
     def test_all_tools_are_free(self):
         """All MCP tools are ungated since v0.7.5."""
         tool_names = {t["name"] for t in TOOL_DEFINITIONS}
-        assert "kogni_preflight" in tool_names
-        assert "kogni_lessons" in tool_names
-        assert "kogni_impact" in tool_names
-        assert "kogni_learn" in tool_names
+        assert "graq_preflight" in tool_names
+        assert "graq_lessons" in tool_names
+        assert "graq_impact" in tool_names
+        assert "graq_learn" in tool_names
 
 
 # ---------------------------------------------------------------------------
@@ -167,16 +167,16 @@ class TestListTools:
 class TestHandleTool:
     @pytest.mark.asyncio
     async def test_unknown_tool(self, server):
-        result = await server.handle_tool("kogni_nonexistent", {})
+        result = await server.handle_tool("graq_nonexistent", {})
         data = json.loads(result)
         assert "error" in data
         assert "Unknown tool" in data["error"]
 
     @pytest.mark.asyncio
     async def test_dispatches_free_tool(self, server):
-        """kogni_inspect should work without license check."""
+        """graq_inspect should work without license check."""
         with patch.object(server, "_read_active_branch", return_value=None):
-            result = await server.handle_tool("kogni_inspect", {"stats": True})
+            result = await server.handle_tool("graq_inspect", {"stats": True})
         data = json.loads(result)
         assert "total_nodes" in data
         assert data["total_nodes"] == 3
@@ -184,10 +184,10 @@ class TestHandleTool:
     @pytest.mark.asyncio
     async def test_pro_tools_ungated(self, server):
         """All tools are free since v0.7.5 — no license gate."""
-        # kogni_preflight should dispatch directly without any license check
+        # graq_preflight should dispatch directly without any license check
         with patch.object(server, "_handle_preflight", new_callable=AsyncMock) as mock_pf:
             mock_pf.return_value = json.dumps({"status": "ok"})
-            result = await server.handle_tool("kogni_preflight", {"action": "test"})
+            result = await server.handle_tool("graq_preflight", {"action": "test"})
         data = json.loads(result)
         assert "error" not in data or "Unknown" not in data.get("error", "")
 
@@ -272,7 +272,7 @@ class TestFindNodesMatching:
 
 
 # ---------------------------------------------------------------------------
-# kogni_inspect handler
+# graq_inspect handler
 # ---------------------------------------------------------------------------
 
 class TestInspectHandler:
@@ -311,7 +311,7 @@ class TestInspectHandler:
 
 
 # ---------------------------------------------------------------------------
-# kogni_context handler
+# graq_context handler
 # ---------------------------------------------------------------------------
 
 class TestContextHandler:
@@ -340,7 +340,7 @@ class TestContextHandler:
 
 
 # ---------------------------------------------------------------------------
-# kogni_reason handler (fallback mode)
+# graq_reason handler (fallback mode)
 # ---------------------------------------------------------------------------
 
 class TestReasonHandler:
@@ -369,7 +369,7 @@ class TestReasonHandler:
 
 
 # ---------------------------------------------------------------------------
-# kogni_impact handler
+# graq_impact handler
 # ---------------------------------------------------------------------------
 
 class TestImpactHandler:
@@ -398,7 +398,7 @@ class TestImpactHandler:
 
 
 # ---------------------------------------------------------------------------
-# kogni_lessons handler
+# graq_lessons handler
 # ---------------------------------------------------------------------------
 
 class TestLessonsHandler:
@@ -420,7 +420,7 @@ class TestLessonsHandler:
 
 
 # ---------------------------------------------------------------------------
-# kogni_preflight handler
+# graq_preflight handler
 # ---------------------------------------------------------------------------
 
 class TestPreflightHandler:
@@ -469,9 +469,9 @@ class TestSensitiveKeys:
 
 class TestMcpVersion:
     def test_version_matches_package(self):
-        """The _version variable in mcp_dev_server must come from cognigraph.__version__."""
-        from cognigraph.__version__ import __version__ as pkg_version
-        from cognigraph.plugins.mcp_dev_server import _version
+        """The _version variable in mcp_dev_server must come from graqle.__version__."""
+        from graqle.__version__ import __version__ as pkg_version
+        from graqle.plugins.mcp_dev_server import _version
 
         assert _version == pkg_version
         assert _version != "0.0.0", "_version fell back to default; import is broken"

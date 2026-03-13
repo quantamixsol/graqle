@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognigraph.adapters.auto_select import AdapterAutoSelector, SelectionResult
+from graqle.adapters.auto_select import AdapterAutoSelector, SelectionResult
 
 
 @dataclass

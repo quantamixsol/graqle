@@ -41,11 +41,11 @@ Thumbs.db
 traces/
 
 # Benchmark data (large files)
-cognigraph/benchmarks/data/
+graqle/benchmarks/data/
 benchmarks/data/
 
 # Results (regeneratable)
-cognigraph/benchmarks/results/
+graqle/benchmarks/results/
 
 # Benchmark logs
 *.log

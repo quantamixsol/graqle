@@ -1,4 +1,4 @@
-"""Tests for cognigraph.licensing.keygen — key generation CLI utility."""
+"""Tests for graqle.licensing.keygen — key generation CLI utility."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from cognigraph.licensing.keygen import generate_license_key, main
-from cognigraph.licensing.manager import LicenseManager, LicenseTier
+from graqle.licensing.keygen import generate_license_key, main
+from graqle.licensing.manager import LicenseManager, LicenseTier
 
 
 # ---------------------------------------------------------------------------

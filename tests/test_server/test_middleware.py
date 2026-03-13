@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cognigraph.server.middleware import (
+from graqle.server.middleware import (
     TokenBucket,
     RateLimiter,
     get_configured_api_keys,

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from cognigraph.activation.chunk_scorer import ChunkScorer
+from graqle.activation.chunk_scorer import ChunkScorer
 
 
 def _make_node(nid, label, entity_type, description, chunks=None):
@@ -25,7 +25,7 @@ def _make_node(nid, label, entity_type, description, chunks=None):
 
 
 def _make_graph(nodes_dict):
-    """Create a mock CogniGraph."""
+    """Create a mock Graqle."""
     graph = MagicMock()
     graph.nodes = nodes_dict
     return graph

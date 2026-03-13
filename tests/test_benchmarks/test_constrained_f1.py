@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.benchmarks.benchmark_runner import (
+from graqle.benchmarks.benchmark_runner import (
     constrained_f1_score,
     f1_score,
     QuestionResult,

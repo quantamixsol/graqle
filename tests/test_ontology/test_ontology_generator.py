@@ -4,8 +4,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from cognigraph.ontology.ontology_generator import OntologyGenerator
-from cognigraph.ontology.semantic_shacl_gate import SemanticConstraint
+from graqle.ontology.ontology_generator import OntologyGenerator
+from graqle.ontology.semantic_shacl_gate import SemanticConstraint
 
 
 MOCK_GENERATION_RESPONSE = json.dumps({

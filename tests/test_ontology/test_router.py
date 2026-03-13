@@ -2,12 +2,12 @@
 
 import pytest
 
-from cognigraph.ontology.router import OntologyRouter
-from cognigraph.ontology.domain_registry import DomainRegistry
-from cognigraph.ontology.domains.governance import register_governance_domain
-from cognigraph.core.node import CogniNode
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.edge import CogniEdge
+from graqle.ontology.router import OntologyRouter
+from graqle.ontology.domain_registry import DomainRegistry
+from graqle.ontology.domains.governance import register_governance_domain
+from graqle.core.node import CogniNode
+from graqle.core.graph import Graqle
+from graqle.core.edge import CogniEdge
 
 
 def _make_governance_graph():
@@ -36,7 +36,7 @@ def _make_governance_graph():
     nodes["risk_1"].outgoing_edges = ["e3"]
     nodes["person_1"].incoming_edges = ["e4"]
 
-    return CogniGraph(nodes=nodes, edges=edges)
+    return Graqle(nodes=nodes, edges=edges)
 
 
 class TestOntologyRouter:

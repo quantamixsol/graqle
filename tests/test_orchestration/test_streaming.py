@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognigraph.backends.mock import MockBackend
-from cognigraph.orchestration.streaming import StreamingOrchestrator, StreamChunk
+from graqle.backends.mock import MockBackend
+from graqle.orchestration.streaming import StreamingOrchestrator, StreamChunk
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""CogniGraph Quickstart — 5-minute demo with mock backend.
+"""Graqle Quickstart — 5-minute demo with mock backend.
 
 This example creates a small regulatory knowledge graph,
 assigns mock agents to each node, and runs a reasoning query.
@@ -9,8 +9,8 @@ import asyncio
 
 import networkx as nx
 
-from cognigraph import CogniGraph
-from cognigraph.backends.mock import MockBackend
+from graqle import Graqle
+from graqle.backends.mock import MockBackend
 
 
 def create_regulatory_graph() -> nx.Graph:
@@ -59,8 +59,8 @@ async def main():
     # 1. Create graph
     G = create_regulatory_graph()
 
-    # 2. Build CogniGraph from NetworkX
-    graph = CogniGraph.from_networkx(G)
+    # 2. Build Graqle from NetworkX
+    graph = Graqle.from_networkx(G)
     print(f"Created: {graph}")
     print(f"Stats: {graph.stats}")
     print()
