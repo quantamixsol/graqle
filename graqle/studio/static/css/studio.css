@@ -830,6 +830,21 @@ code {
   text-decoration: none;
 }
 
+.btn-outline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.btn-outline:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  text-decoration: none;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ============================================================================
    TABLES
    ============================================================================ */

@@ -71,6 +71,22 @@
     </div>
 </div>
 
+<!-- Cloud Banner (only shown when not connected) -->
+<div x-data="{ show: false }" x-init="fetch('/studio/api/cloud/status').then(r=>r.json()).then(d=>{show=!d.connected}).catch(()=>{show=true})">
+    <div x-show="show" class="panel" style="background: linear-gradient(135deg, var(--bg-panel) 0%, rgba(14,165,233,0.08) 100%); border: 1px solid var(--brand); border-left: 3px solid var(--brand);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+                <strong style="color:var(--brand)">Back up your graph to Graqle Cloud</strong>
+                <p class="text-muted" style="margin:4px 0 0; font-size:13px;">Optional — all local features work without an account.</p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <a href="/studio/settings" class="btn btn-primary" style="text-decoration:none; padding:6px 16px; font-size:13px;">Connect</a>
+                <button @click="show=false" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px;" title="Dismiss">&times;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Graph Preview -->
 <div class="panel">
     <h3>Graph Preview</h3>

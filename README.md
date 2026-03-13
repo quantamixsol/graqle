@@ -9,7 +9,7 @@ One install. Any IDE. Any AI tool. Zero cloud infrastructure.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 894 passing](https://img.shields.io/badge/tests-894%20passing-06b6d4.svg)]()
+[![Tests: 916 passing](https://img.shields.io/badge/tests-916%20passing-06b6d4.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
 [![Patent](https://img.shields.io/badge/patent-EP26162901.8-06b6d4.svg)](NOTICE)
@@ -111,6 +111,16 @@ graq link edge crawlq/sdk myapp/retrieval     # Cross-project edges
 graq learned                                  # List all taught knowledge
 graq learned --domain brand                   # Filter by domain
 
+# Visual dashboard
+graq studio                                   # Launch local web UI
+graq studio --port 9000                       # Custom port
+
+# Cloud (optional — local features work without login)
+graq login                                    # Connect to Graqle Cloud
+graq login --api-key grq_abc123               # Non-interactive login
+graq login --status                           # Check connection
+graq logout                                   # Disconnect
+
 # Utilities
 graq doctor                                   # Health check
 graq setup-guide                              # Backend setup
@@ -161,6 +171,27 @@ curl -X POST localhost:8000/reason \
 ```
 
 Interactive docs at `localhost:8000/docs`. Auth via `X-API-Key` header.
+
+## Studio (Visual Dashboard)
+
+```bash
+pip install graqle[studio]         # Adds uvicorn, fastapi, jinja2
+graq studio                        # Opens http://127.0.0.1:8888/studio/
+graq studio --port 9000            # Custom port
+graq studio --no-browser           # Don't auto-open browser
+```
+
+Graqle Studio is a local web dashboard for exploring and managing your knowledge graph. No cloud — everything runs on your machine.
+
+| Page | URL | What it does |
+|------|-----|-------------|
+| **Dashboard** | `/studio/` | Overview: node/edge counts, type distribution, metrics summary |
+| **Graph Explorer** | `/studio/graph` | Interactive D3 force-directed visualization. Zoom, pan, filter by type |
+| **Reasoning** | `/studio/reasoning` | Live reasoning view with SSE streaming. Watch agents activate in real-time |
+| **Metrics** | `/studio/metrics` | Token usage, cost tracking, ROI calculations, query history |
+| **Settings** | `/studio/settings` | Model configuration, Neo4j connection status, graph reload |
+
+Studio also exposes a JSON API at `/studio/api/` for programmatic access to graph data, node details, and metrics.
 
 ## MCP Tools
 
@@ -275,16 +306,37 @@ Every innovation listed below is free to use under Apache 2.0.
 
 ---
 
-## What's new in v0.16.0
+## What's new in v0.18.0
 
-- **Full rebrand:** `cognigraph` → `graqle`, `kogni` → `graq`
-- **Backward compatible:** `pip install cognigraph` still works (installs graqle automatically)
-- **All v0.15.0 features carried forward:** MCP hot-reload, confidence recalibration, business entity support, multi-project CLI
+- **Graqle Cloud (optional):** `graq login` to connect — backup, team sync, usage analytics. Zero signup for local use.
+- **Studio Cloud Connect:** Settings page with Connect/Disconnect UI. Dashboard shows subtle cloud banner (dismissible).
+- **Ontology Refinement:** `OntologyRefiner` analyzes activation patterns to suggest type merges, promotions, and new relationships.
+- **CI/CD GitHub Action:** Auto-updates `graqle.json` on PR merge. Validates graph on PRs.
 
 See the [full changelog](#changelog) below.
 
 <details>
 <summary><strong>Changelog</strong></summary>
+
+### v0.18.0 — Cloud Connect + Ontology Intelligence (2026-03-13)
+
+**Graqle Cloud (optional — zero signup for local features):**
+- `graq login` / `graq logout` — Connect to Graqle Cloud for backup, team sync, and usage analytics. API keys stored in `~/.graqle/credentials.json`. Supports interactive and non-interactive (`--api-key`) modes. `graq login --status` to check connection.
+- **Studio Cloud Connect** — Settings page has full Connect/Disconnect UI with API key input, email field, and plan display. Dashboard shows a subtle, dismissible "Back up your graph" banner when not connected.
+- **Credentials manager** — `graqle.cloud.credentials` module: `load_credentials()`, `save_credentials()`, `clear_credentials()`, `get_cloud_status()`. All local features work without any account.
+- **Studio API endpoints** — `/studio/api/cloud/status`, `/studio/api/cloud/connect`, `/studio/api/cloud/disconnect` for the Studio UI.
+
+**Ontology Intelligence (P3-13):**
+- **`OntologyRefiner`** — Analyzes activation memory patterns to suggest ontology refinements. Detects underused entity types (candidates for merging), co-activation patterns (types that should have explicit relationships), and high-value types (promotion candidates). Returns `RefinementSuggestion` objects with action, confidence, and evidence.
+- **Type usage report** — `refiner.get_type_usage_report()` returns per-type activation statistics for dashboards and analysis.
+
+**CI/CD (P3-14):**
+- **`graqle-scan.yml` GitHub Action** — Runs `graq scan repo .` on push to master (code files only). Auto-commits updated `graqle.json`. On PRs: validates existing graph and runs dry-run scan preview.
+
+**Studio Improvements:**
+- Dynamic version display in Settings page (was hardcoded v0.11.0)
+- Cloud connection panel with Alpine.js reactive UI
+- `.btn-outline` and `.btn:disabled` CSS styles
 
 ### v0.17.0 — Field-Tested Release (2026-03-13)
 
@@ -302,6 +354,16 @@ See the [full changelog](#changelog) below.
 - `graq self-update` — Upgrade Graqle handling Windows exe file locks (detects running MCP server, stops it, upgrades via pip, optionally restarts).
 - `graq --version` — Standard CLI version flag (was missing; only `graq version` subcommand existed).
 
+**Ontology Refinement (P3-13):**
+- **`OntologyRefiner`** — Analyzes activation memory to suggest ontology improvements. Detects underused entity types, finds co-activation patterns between types, and promotes high-value types. Use via `OntologyRefiner(memory, graph).analyze()` to get structured `RefinementSuggestion` objects with action, confidence, and evidence.
+- **Type usage report** — `refiner.get_type_usage_report()` returns per-type activation stats for dashboards.
+
+**CI/CD Integration (P3-14):**
+- **GitHub Action workflow** — `.github/workflows/graqle-scan.yml` auto-runs `graq scan repo .` on push to master (code changes only). On PRs, validates existing graph and does a dry-run scan. Auto-commits updated `graqle.json` when the graph changes.
+
+**Studio Documentation:**
+- Added full `graq studio` section to README with page descriptions, URLs, install instructions, and API access.
+
 **Developer Experience:**
 - **`.graqle-ignore` support:** Create a `.graqle-ignore` file (gitignore syntax) in your project root to exclude directories from `graq scan`. Also supports `--exclude` flag. Prevents vendored deps (openpyxl, etc.) from adding 1,500+ noise nodes.
 - **Auto-detect full `graq` path in `.mcp.json`:** `graq init` now uses `shutil.which("graq")` to write the absolute path. Windows users no longer need pip Scripts dir on PATH.
@@ -313,7 +375,7 @@ See the [full changelog](#changelog) below.
 **Install Size:**
 - `sentence-transformers` moved from core to `[embeddings]` optional group. `pip install graqle` is now ~10MB (was ~200MB+). Use `pip install graqle[embeddings]` or `graqle[all]` for local embedding models.
 
-**894 tests passing.** Up from 797 in v0.15.0. All backward-compatible — existing `graqle.json` files with either `"edges"` or `"links"` key load correctly.
+**901 tests passing.** Up from 797 in v0.15.0. All backward-compatible — existing `graqle.json` files with either `"edges"` or `"links"` key load correctly.
 
 ### v0.16.0 — Graqle Rebrand (2026-03-13)
 

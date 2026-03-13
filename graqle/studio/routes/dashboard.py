@@ -36,6 +36,13 @@ def _get_ctx(request: Request) -> dict:
         except Exception:
             pass
 
+    # Version
+    try:
+        from graqle.__version__ import __version__
+        version = __version__
+    except Exception:
+        version = "unknown"
+
     return {
         "request": request,
         "node_count": node_count,
@@ -44,6 +51,7 @@ def _get_ctx(request: Request) -> dict:
         "metrics": metrics_summary,
         "config": config,
         "graph_loaded": graph is not None,
+        "version": version,
     }
 
 

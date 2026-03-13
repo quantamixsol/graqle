@@ -1,7 +1,7 @@
 {
-  "directed": "<MagicMock name='mock.to_networkx().is_directed()' id='1387279418368'>",
-  "multigraph": "<MagicMock name='mock.to_networkx().is_multigraph()' id='1387278835264'>",
-  "graph": "<MagicMock name='mock.to_networkx().graph' id='1387279431472'>",
+  "directed": "<MagicMock name='mock.to_networkx().is_directed()' id='2511022425808'>",
+  "multigraph": "<MagicMock name='mock.to_networkx().is_multigraph()' id='2511022415952'>",
+  "graph": "<MagicMock name='mock.to_networkx().graph' id='2511022400336'>",
   "nodes": [],
   "links": []
 }
