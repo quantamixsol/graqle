@@ -66,7 +66,7 @@ class TestConfidenceCalibration:
     """Tests for relevance-weighted confidence in Orchestrator.run()."""
 
     def test_weighted_confidence_high_relevance_dominates(self):
-        """High-relevance node with high confidence should dominate."""
+        """High-relevance node with high confidence should produce good score."""
         async def _run():
             orch = _make_orchestrator()
             messages = {
@@ -82,9 +82,11 @@ class TestConfidenceCalibration:
                 relevance_scores=relevance,
             )
 
-            # Weighted: (0.95*0.95 + 0.90*0.10) / (0.95+0.10) = 0.945
-            # Unweighted: (0.95+0.90)/2 = 0.925
-            assert result.confidence > 0.925
+            # New calibrated formula: top-k weighted + coverage factor
+            # With 2 nodes, both are in top-k; coverage = 2/3 = 0.667
+            # raw = (0.95*0.95 + 0.90*0.10) / (0.95+0.10) = 0.945
+            # calibrated = 0.6 * 0.945 + 0.4 * 0.667 = 0.834
+            assert result.confidence > 0.70
 
         asyncio.run(_run())
 
@@ -105,8 +107,10 @@ class TestConfidenceCalibration:
                 relevance_scores=relevance,
             )
 
-            # Weighted: (0.8*0.9 + 0.95*0.05) / (0.9+0.05) = 0.808
-            # Unweighted: (0.8+0.95)/2 = 0.875
+            # Calibrated: raw = (0.8*0.9 + 0.95*0.05) / (0.9+0.05) = 0.808
+            # coverage = 2/3 = 0.667
+            # calibrated = 0.6 * 0.808 + 0.4 * 0.667 = 0.752
+            # Should be less than unweighted average of 0.875
             assert result.confidence < 0.875
 
         asyncio.run(_run())
@@ -146,7 +150,7 @@ class TestConfidenceCalibration:
         asyncio.run(_run())
 
     def test_single_node_relevance_weighted(self):
-        """Single node: weighted confidence equals that node's confidence."""
+        """Single node: calibrated confidence accounts for low coverage."""
         async def _run():
             orch = _make_orchestrator()
             messages = {"x": _make_message("x", confidence=0.85)}
@@ -157,7 +161,9 @@ class TestConfidenceCalibration:
                 graph, "query", ["x"],
                 relevance_scores={"x": 0.7},
             )
-            # (0.85*0.7)/0.7 = 0.85
-            assert abs(result.confidence - 0.85) < 0.01
+            # Calibrated: raw=0.85, coverage=1/3=0.333
+            # calibrated = 0.6*0.85 + 0.4*0.333 = 0.643
+            # Single node = low coverage → lower calibrated confidence
+            assert 0.5 < result.confidence < 0.75
 
         asyncio.run(_run())

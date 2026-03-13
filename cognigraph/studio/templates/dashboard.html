@@ -90,7 +90,7 @@
         .then(r => r.json())
         .then(data => {
             if (data.nodes && data.nodes.length > 0) {
-                initGraphViz('#mini-graph', data, { mini: true });
+                new CogniGraphViz('#mini-graph', data, { mini: true });
             } else {
                 document.getElementById('mini-graph').innerHTML =
                     '<div class="text-muted" style="display:flex;align-items:center;justify-content:center;height:100%">No graph data available</div>';

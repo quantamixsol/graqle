@@ -62,7 +62,7 @@
         .then(r => r.json())
         .then(data => {
             if (data.nodes && data.nodes.length > 0) {
-                reasoningGraph = initGraphViz('#reasoning-graph', data, { mini: false, reasoning: true });
+                reasoningGraph = new CogniGraphViz('#reasoning-graph', data, { mini: false, reasoning: true });
             }
         });
 

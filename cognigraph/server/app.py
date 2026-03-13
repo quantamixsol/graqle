@@ -316,6 +316,93 @@ def create_app(
             "neighbors": graph.get_neighbors(node_id),
         }
 
+    @app.post("/reload")
+    async def reload_graph() -> dict:
+        """Hot-reload the knowledge graph from disk without restarting the server.
+
+        FEEDBACK: MCP server doesn't hot-reload KG — after swapping cognigraph.json,
+        must restart. This endpoint fixes that.
+        """
+        gpath = graph_path or "cognigraph.json"
+        if not Path(gpath).exists():
+            raise HTTPException(status_code=404, detail=f"Graph file not found: {gpath}")
+
+        old_count = len(state["graph"]) if state.get("graph") else 0
+        state["graph"] = CogniGraph.from_json(gpath, config=state["config"])
+        backend = _create_backend_from_config(state["config"])
+        state["graph"].set_default_backend(backend)
+        new_count = len(state["graph"])
+        logger.info("Reloaded graph: %d → %d nodes", old_count, new_count)
+        return {
+            "status": "reloaded",
+            "previous_nodes": old_count,
+            "current_nodes": new_count,
+        }
+
+    @app.post("/learn")
+    async def learn(request_data: dict) -> dict:
+        """Add new knowledge to the graph — nodes, edges, or business concepts.
+
+        FEEDBACK: Code-heavy KGs lack business concepts. This lets users add
+        PRODUCT, BUSINESS_OUTCOME, CLIENT, and other high-level nodes manually.
+
+        The graph becomes self-discovering and self-evolving:
+        - Users add business-level nodes
+        - CogniGraph activates relevant skills autonomously
+        - The graph discovers new areas users can't think of
+
+        Body:
+          nodes: [{id, label, type, description, properties}]
+          edges: [{source, target, relation}]
+          auto_connect: bool (default true) — auto-discover edges to existing nodes
+        """
+        graph = state.get("graph")
+        if graph is None:
+            raise HTTPException(status_code=503, detail="No graph loaded")
+
+        nodes_added = 0
+        edges_added = 0
+
+        # Add nodes
+        for node_data in request_data.get("nodes", []):
+            node_id = node_data.get("id")
+            if not node_id:
+                continue
+            graph.add_node_simple(
+                node_id,
+                label=node_data.get("label", node_id),
+                entity_type=node_data.get("type", "CONCEPT"),
+                description=node_data.get("description", ""),
+                properties=node_data.get("properties", {}),
+            )
+            nodes_added += 1
+
+        # Add edges
+        for edge_data in request_data.get("edges", []):
+            src = edge_data.get("source")
+            tgt = edge_data.get("target")
+            rel = edge_data.get("relation", "RELATES_TO")
+            if src and tgt and src in graph.nodes and tgt in graph.nodes:
+                graph.add_edge_simple(src, tgt, relation=rel)
+                edges_added += 1
+
+        # Auto-connect: find related nodes by description similarity
+        if request_data.get("auto_connect", True) and nodes_added > 0:
+            new_ids = [n["id"] for n in request_data.get("nodes", []) if n.get("id")]
+            auto_edges = graph.auto_connect(new_ids) if hasattr(graph, "auto_connect") else 0
+            edges_added += auto_edges
+
+        # Persist to disk
+        gpath = graph_path or "cognigraph.json"
+        graph.to_json(gpath)
+
+        return {
+            "status": "learned",
+            "nodes_added": nodes_added,
+            "edges_added": edges_added,
+            "total_nodes": len(graph),
+        }
+
     @app.post("/leads")
     async def capture_lead(request_data: dict) -> dict:
         """Receive anonymous telemetry and lead registrations from SDK installs."""

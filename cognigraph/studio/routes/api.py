@@ -324,22 +324,22 @@ async def partial_node_detail(request: Request, node_id: str):
 # ---------- Helpers ----------
 
 _TYPE_COLORS = {
-    "SERVICE": "#8b5cf6", "COMPONENT": "#7c3aed", "MODULE": "#6d28d9",
-    "FUNCTION": "#a78bfa", "CLASS": "#c4b5fd",
-    "FILE": "#3b82f6", "DIRECTORY": "#60a5fa", "PACKAGE": "#2563eb",
-    "CONFIG": "#f59e0b", "ENVIRONMENT": "#d97706",
-    "DATABASE": "#10b981", "TABLE": "#059669",
-    "REGULATION": "#f97316", "POLICY": "#ea580c", "CONTROL": "#ef4444",
-    "RISK": "#dc2626", "STANDARD": "#b91c1c",
-    "ADR": "#06b6d4", "LESSON": "#0891b2", "MISTAKE": "#e11d48",
-    "PAPER": "#8b5cf6", "PATENT": "#7c3aed",
-    "TEST": "#22c55e", "BENCHMARK": "#16a34a",
-    "PERSON": "#ec4899", "ORGANIZATION": "#db2777",
+    "SERVICE": "#8b5cf6", "COMPONENT": "#a78bfa", "MODULE": "#7c3aed",
+    "FUNCTION": "#6d28d9", "CLASS": "#5b21b6", "METHOD": "#4c1d95",
+    "FILE": "#3b82f6", "DIRECTORY": "#2563eb", "PACKAGE": "#1d4ed8",
+    "CONFIG": "#f59e0b", "ENVIRONMENT": "#d97706", "VARIABLE": "#b45309",
+    "DATABASE": "#10b981", "TABLE": "#059669", "SCHEMA": "#047857",
+    "MODEL": "#065f46", "REGULATION": "#f97316", "POLICY": "#ea580c",
+    "CONTROL": "#dc2626", "RISK": "#ef4444", "STANDARD": "#f87171",
+    "ADR": "#06b6d4", "LESSON": "#ec4899", "MISTAKE": "#f43f5e",
+    "PAPER": "#d946ef", "PATENT": "#c026d3", "TEST": "#22c55e",
+    "BENCHMARK": "#16a34a", "PERSON": "#f472b6", "ORGANIZATION": "#e879f9",
 }
+_DEFAULT_COLOR = "#64748b"
 
 
 def _type_color(entity_type: str) -> str:
-    return _TYPE_COLORS.get(entity_type, "#64748b")
+    return _TYPE_COLORS.get(entity_type.upper(), _DEFAULT_COLOR)
 
 
 def _format_number(n: int | float) -> str:

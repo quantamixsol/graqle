@@ -269,20 +269,49 @@ class Orchestrator:
         ]
 
         # Compute confidence — relevance-weighted if scores available (Bug 18)
+        # FEEDBACK FIX: Confidence was miscalibrated for large KGs (>5K nodes).
+        # Old formula: sum(conf_i * rel_i) / sum(rel_i) dragged confidence
+        # down to 9-15% even when answers were well-reasoned.
+        # Fix: Use top-k activated nodes for confidence, not the diluted average.
         final_confidences = {
             nid: m.confidence for nid, m in final_messages.items()
         }
         if relevance_scores and final_confidences:
-            # Weighted: calibrated = sum(conf_i * rel_i) / sum(rel_i)
+            # Sort by relevance, take top contributors
+            scored = [
+                (nid, final_confidences[nid], relevance_scores.get(nid, 0.0))
+                for nid in final_confidences
+            ]
+            scored.sort(key=lambda x: x[2], reverse=True)
+
+            # Use top-k nodes (at least 3, at most 20) for confidence
+            top_k = max(3, min(20, len(scored) // 3))
+            top_scored = scored[:top_k]
+
             weighted_sum = 0.0
             weight_total = 0.0
-            for nid, conf in final_confidences.items():
-                rel = relevance_scores.get(nid, 0.0)
+            for nid, conf, rel in top_scored:
                 weighted_sum += conf * rel
                 weight_total += rel
-            avg_confidence = (
+
+            raw_confidence = (
                 weighted_sum / weight_total if weight_total > 0 else 0.0
             )
+
+            # Coverage boost: more activated nodes = higher base confidence
+            # A query that activates 15 relevant nodes should be more
+            # confident than one that only found 2.
+            activated = len([s for s in scored if s[2] > 0.01])
+            coverage_factor = min(1.0, activated / max(top_k, 1))
+
+            # Calibrated confidence: 60% from top-k quality, 40% from coverage
+            avg_confidence = (0.6 * raw_confidence) + (0.4 * coverage_factor)
+
+            # Floor: if we have substantive answers from multiple nodes,
+            # confidence should be at least 0.30
+            if activated >= 3 and raw_confidence > 0.05:
+                avg_confidence = max(avg_confidence, 0.30)
+
         elif final_confidences:
             avg_confidence = (
                 sum(final_confidences.values()) / len(final_confidences)

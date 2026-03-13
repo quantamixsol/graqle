@@ -772,6 +772,29 @@ class CogniGraph:
         max_rounds = max_rounds or self.config.orchestration.max_rounds
         strategy = strategy or self.config.activation.strategy
 
+        # PERF: Adaptive scaling for large KGs (>5K nodes)
+        # FEEDBACK: 93-95s per query on 13K graph. Target: <15s.
+        # Scale down max_nodes and max_rounds based on graph size.
+        graph_size = len(self)
+        if graph_size > 5000 and max_rounds > 3:
+            max_rounds = min(max_rounds, 3)
+            logger.info(
+                "Large graph (%d nodes): capping max_rounds to %d for performance",
+                graph_size, max_rounds,
+            )
+        if graph_size > 10000 and max_rounds > 2:
+            max_rounds = 2
+            logger.info(
+                "Very large graph (%d nodes): capping max_rounds to 2", graph_size
+            )
+
+        # Also cap max_nodes dynamically for the activator
+        if graph_size > 5000 and self.config.activation.max_nodes > 25:
+            self.config.activation.max_nodes = 25
+            logger.info(
+                "Large graph: capping activation max_nodes to 25"
+            )
+
         # 0. Query reformulation (ADR-104)
         query = self._reformulate_query(query, context=context)
 
@@ -1254,6 +1277,94 @@ class CogniGraph:
             self.nodes[edge.source_id].outgoing_edges.append(edge.id)
         if edge.target_id in self.nodes:
             self.nodes[edge.target_id].incoming_edges.append(edge.id)
+
+    def add_node_simple(
+        self,
+        node_id: str,
+        *,
+        label: str | None = None,
+        entity_type: str = "CONCEPT",
+        description: str = "",
+        properties: dict | None = None,
+    ) -> CogniNode:
+        """Convenience: add a node from kwargs (used by kogni learn and /learn API)."""
+        node = CogniNode(
+            id=node_id,
+            label=label or node_id,
+            entity_type=entity_type,
+            description=description,
+            properties=properties or {},
+        )
+        self.add_node(node)
+        return node
+
+    def add_edge_simple(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        relation: str = "RELATES_TO",
+    ) -> CogniEdge:
+        """Convenience: add an edge from kwargs."""
+        edge_id = f"{source_id}___{relation}___{target_id}"
+        edge = CogniEdge(
+            id=edge_id,
+            source_id=source_id,
+            target_id=target_id,
+            relationship=relation,
+        )
+        self.add_edge(edge)
+        return edge
+
+    def auto_connect(self, new_node_ids: list[str]) -> int:
+        """Auto-discover edges between new nodes and existing nodes.
+
+        Uses keyword overlap in descriptions to find connections.
+        Returns number of edges added.
+        """
+        stopwords = {"the", "a", "an", "is", "in", "to", "of", "and", "for",
+                      "it", "on", "with", "as", "at", "by", "this", "that"}
+        edges_added = 0
+
+        for new_id in new_node_ids:
+            new_node = self.nodes.get(new_id)
+            if not new_node or not new_node.description:
+                continue
+
+            new_words = set(new_node.description.lower().split()) - stopwords
+            if len(new_words) < 2:
+                continue
+
+            for nid, node in self.nodes.items():
+                if nid == new_id or not node.description:
+                    continue
+                # Skip if already connected
+                existing = self.get_edges_between(new_id, nid)
+                if existing:
+                    continue
+
+                node_words = set(node.description.lower().split()) - stopwords
+                overlap = new_words & node_words
+                if len(overlap) >= 3:
+                    self.add_edge_simple(new_id, nid, relation="RELATED_TO")
+                    edges_added += 1
+                    if edges_added >= 20:  # Cap auto-connections
+                        return edges_added
+
+        return edges_added
+
+    def to_json(self, path: str) -> None:
+        """Save the graph to a JSON file (node_link_data format)."""
+        import json as _json
+        from pathlib import Path as _Path
+
+        G = self.to_networkx()
+        data = nx.node_link_data(G)
+        _Path(path).write_text(
+            _json.dumps(data, indent=2, default=str),
+            encoding="utf-8",
+        )
+        logger.info("Saved graph to %s: %d nodes", path, len(self))
 
     def get_neighbors(self, node_id: str) -> list[str]:
         """Get IDs of all neighbor nodes."""

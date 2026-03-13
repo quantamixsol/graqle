@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognigraph"
-version = "0.12.3"
+version = "0.14.0"
 description = "Dev Intelligence Layer — turn any codebase into a reasoning-ready knowledge graph. Works with any IDE, any AI tool, or plain terminal."
 readme = "README.md"
 license = "Apache-2.0"
