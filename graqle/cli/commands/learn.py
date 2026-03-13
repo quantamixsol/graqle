@@ -29,6 +29,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from graqle.cli.console import ARROW, CHECK
+
 learn_app = typer.Typer(
     name="learn",
     help="Teach the knowledge graph new concepts, relationships, and business context.",
@@ -36,6 +38,19 @@ learn_app = typer.Typer(
 )
 
 console = Console()
+
+
+def _describe_connections(graph, node_id: str) -> list[str]:
+    """Return a list of 'target_id (RELATION)' strings for a node's edges."""
+    results: list[str] = []
+    if not hasattr(graph, "get_neighbors"):
+        return results
+    neighbors = graph.get_neighbors(node_id)
+    for nid in neighbors:
+        edges = graph.get_edges_between(node_id, nid) if hasattr(graph, "get_edges_between") else []
+        rel = edges[0].relationship if edges else "RELATES_TO"
+        results.append(f"{nid} ({rel})")
+    return results
 
 
 def _load_graph(graph_path: str = "graqle.json"):
@@ -96,11 +111,12 @@ def learn_node(
 
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Added node:[/green] {node_id} ({node_type})")
+    console.print(f"[green]{CHECK} Added node:[/green] {node_id} ({node_type})")
     if description:
         console.print(f"  Description: {description}")
     if auto_edges:
-        console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
+        connections = _describe_connections(graph, node_id)
+        console.print(f"  [cyan]Auto-connected to: {', '.join(connections)}[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -122,7 +138,7 @@ def learn_edge(
     graph.add_edge_simple(source, target, relation=relation.upper())
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Added edge:[/green] {source} —[{relation}]→ {target}")
+    console.print(f"[green]{CHECK} Added edge:[/green] {source} --[{relation}]{ARROW} {target}")
 
 
 @learn_app.command("file")
@@ -164,7 +180,7 @@ def learn_file(
 
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Learned from file:[/green] {fpath.name}")
+    console.print(f"[green]{CHECK} Learned from file:[/green] {fpath.name}")
     console.print(f"  Node: {node_id} ({node_type})")
     if auto_edges:
         console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
@@ -224,7 +240,7 @@ def learn_entity(
                 matches = [nid for nid in graph.nodes if target.lower() in nid.lower()]
                 if matches:
                     target = matches[0]
-                    console.print(f"  [dim]Fuzzy matched → {target}[/dim]")
+                    console.print(f"  [dim]Fuzzy matched {ARROW} {target}[/dim]")
                 else:
                     console.print(f"  [yellow]Skipping '{target}' — not found in graph[/yellow]")
                     continue
@@ -237,13 +253,18 @@ def learn_entity(
 
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Business entity added:[/green] {entity_id} ({etype})")
+    console.print(f"[green]{CHECK} Business entity added:[/green] {entity_id} ({etype})")
     if description:
         console.print(f"  Description: {description}")
-    if edges_added:
-        console.print(f"  [cyan]Connected to {edges_added} nodes via {relation}[/cyan]")
-    if auto_edges:
-        console.print(f"  [cyan]Semantically discovered {auto_edges} additional edges[/cyan]")
+    if edges_added or auto_edges:
+        connections = _describe_connections(graph, entity_id)
+        if connections:
+            console.print(f"  [cyan]Auto-connected to: {', '.join(connections)}[/cyan]")
+        else:
+            if edges_added:
+                console.print(f"  [cyan]Connected to {edges_added} nodes via {relation}[/cyan]")
+            if auto_edges:
+                console.print(f"  [cyan]Semantically discovered {auto_edges} additional edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -318,16 +339,21 @@ def learn_knowledge(
 
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Knowledge taught:[/green] {fact[:60]}...")
+    console.print(f"[green]{CHECK} Knowledge taught:[/green] {fact[:60]}...")
     console.print(f"  Domain: {domain} | Node: {node_id}")
     if tag_list:
         console.print(f"  Tags: {', '.join(tag_list)}")
     if extracted_entities:
         console.print(f"  [magenta]Entities extracted: {', '.join(extracted_entities[:10])}[/magenta]")
-    if auto_edges:
-        console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
-    if entity_edges:
-        console.print(f"  [cyan]Entity-linked {entity_edges} edges[/cyan]")
+    if auto_edges or entity_edges:
+        connections = _describe_connections(graph, node_id)
+        if connections:
+            console.print(f"  [cyan]Auto-connected to: {', '.join(connections)}[/cyan]")
+        else:
+            if auto_edges:
+                console.print(f"  [cyan]Semantically connected {auto_edges} edges[/cyan]")
+            if entity_edges:
+                console.print(f"  [cyan]Entity-linked {entity_edges} edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
 
@@ -747,5 +773,5 @@ def learn_batch(
 
     graph.to_json(gpath)
 
-    console.print(f"[green]✓ Batch learned:[/green] {nodes_added} nodes, {edges_added} edges")
+    console.print(f"[green]{CHECK} Batch learned:[/green] {nodes_added} nodes, {edges_added} edges")
     console.print(f"  Graph: {len(graph)} nodes total")

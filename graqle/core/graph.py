@@ -77,10 +77,19 @@ class Graqle:
             nid = str(node_id)
             props = {k: v for k, v in data.items()
                      if k not in (node_label_key, node_type_key, node_desc_key)}
+            # Accept both "type" and "entity_type" keys (scanner writes entity_type)
+            etype = data.get(node_type_key) or data.get("entity_type", "Entity")
+            # Remove entity_type from props if it leaked in
+            props.pop("entity_type", None)
+            # Flatten nested "properties" dict (NetworkX preserves it as a node attr)
+            if "properties" in props and isinstance(props["properties"], dict):
+                nested = props.pop("properties")
+                nested.update(props)  # existing props override nested
+                props = nested
             nodes[nid] = CogniNode(
                 id=nid,
                 label=data.get(node_label_key, nid),
-                entity_type=data.get(node_type_key, "Entity"),
+                entity_type=etype,
                 description=data.get(node_desc_key, ""),
                 properties=props,
             )
@@ -136,7 +145,10 @@ class Graqle:
                 config = None
 
         data = json.loads(_Path(path).read_text(encoding="utf-8"))
-        # Bug 12 fix: pass edges= explicitly to suppress NetworkX FutureWarning
+        # Normalize: accept both "edges" and "links" keys (scanner writes "edges",
+        # older NetworkX defaults to "links").  Always pass edges= explicitly.
+        if "edges" in data and "links" not in data:
+            data["links"] = data.pop("edges")
         G = nx.node_link_graph(data, edges="links")
         return cls.from_networkx(G, config=config)
 
@@ -1538,7 +1550,7 @@ class Graqle:
         from pathlib import Path as _Path
 
         G = self.to_networkx()
-        data = nx.node_link_data(G)
+        data = nx.node_link_data(G, edges="links")
         _Path(path).write_text(
             _json.dumps(data, indent=2, default=str),
             encoding="utf-8",

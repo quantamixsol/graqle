@@ -9,7 +9,7 @@ One install. Any IDE. Any AI tool. Zero cloud infrastructure.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 797 passing](https://img.shields.io/badge/tests-797%20passing-06b6d4.svg)]()
+[![Tests: 894 passing](https://img.shields.io/badge/tests-894%20passing-06b6d4.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
 [![Patent](https://img.shields.io/badge/patent-EP26162901.8-06b6d4.svg)](NOTICE)
@@ -107,10 +107,16 @@ graq learn discover --from "auth-service"     # Auto-discover connections
 graq link merge proj1/kg.json proj2/kg.json   # Merge knowledge graphs
 graq link edge crawlq/sdk myapp/retrieval     # Cross-project edges
 
+# Review what was learned
+graq learned                                  # List all taught knowledge
+graq learned --domain brand                   # Filter by domain
+
 # Utilities
 graq doctor                                   # Health check
 graq setup-guide                              # Backend setup
 graq serve                                    # Start REST API
+graq self-update                              # Upgrade (handles Windows exe locks)
+graq --version                                # Show version
 ```
 
 ## Python SDK
@@ -279,6 +285,42 @@ See the [full changelog](#changelog) below.
 
 <details>
 <summary><strong>Changelog</strong></summary>
+
+### v0.17.0 — Field-Tested Release (2026-03-13)
+
+**Real-world tested on CopyForge (3,870 nodes, Python + React/TS) and quantamixsolutions.com (55 nodes, enriched KG). Fixes every bug found during field testing.**
+
+**Critical Bug Fixes:**
+- **`edges`/`links` JSON key mismatch (P0):** `graq scan` wrote `"edges"` but `from_json()` expected `"links"` — broke the `scan → learn → save → learn` cycle completely. Now accepts both keys, always saves as `"links"`.
+- **`entity_type` not loading from JSON (P0):** Node types showed as generic "Entity" instead of "KNOWLEDGE"/"SERVICE" after load. `from_networkx()` now checks both `"type"` and `"entity_type"` keys and flattens nested `properties` dicts.
+- **Windows Unicode crash (P0):** Rich crashed on cp1252 Windows terminals when graph data contained Unicode arrows/symbols. Fixed with `PYTHONIOENCODING=utf-8` on CLI startup + `safe_symbol()` helper with ASCII fallbacks.
+- **Impact analysis too coarse:** `graq_impact` returned entire `components/` directory (17 files) because BFS followed `CONTAINS` edges up to parent dirs. Now skips structural edges (CONTAINS, DEFINES), only follows dependency edges (IMPORTS, CALLS, DEPENDS_ON).
+- **Lessons hit_count always 0:** `graq_lessons` and `graq_preflight` now increment `properties["hits"]` on each surfaced lesson and persist to disk.
+
+**New Commands:**
+- `graq learned` — List all KNOWLEDGE, LESSON, and manually-added nodes with domain, description, creation date, and hit count. Filter by `--domain`.
+- `graq self-update` — Upgrade Graqle handling Windows exe file locks (detects running MCP server, stops it, upgrades via pip, optionally restarts).
+- `graq --version` — Standard CLI version flag (was missing; only `graq version` subcommand existed).
+
+**Developer Experience:**
+- **`.graqle-ignore` support:** Create a `.graqle-ignore` file (gitignore syntax) in your project root to exclude directories from `graq scan`. Also supports `--exclude` flag. Prevents vendored deps (openpyxl, etc.) from adding 1,500+ noise nodes.
+- **Auto-detect full `graq` path in `.mcp.json`:** `graq init` now uses `shutil.which("graq")` to write the absolute path. Windows users no longer need pip Scripts dir on PATH.
+- **Non-TTY auto-detection:** `graq init` detects headless environments (CI/CD, Claude Code bash) and defaults to non-interactive mode automatically.
+- **Bench fail-fast:** `graq bench` checks backend availability before running N queries. No more 75+ identical error lines when backend is missing.
+- **Fuzzy search in `graq context`:** If exact match fails, uses `difflib.get_close_matches` with "Did you mean?" suggestions.
+- **Verbose learn output:** `graq learn entity/knowledge` now shows the actual connected node names, not just edge count.
+
+**Install Size:**
+- `sentence-transformers` moved from core to `[embeddings]` optional group. `pip install graqle` is now ~10MB (was ~200MB+). Use `pip install graqle[embeddings]` or `graqle[all]` for local embedding models.
+
+**894 tests passing.** Up from 797 in v0.15.0. All backward-compatible — existing `graqle.json` files with either `"edges"` or `"links"` key load correctly.
+
+### v0.16.0 — Graqle Rebrand (2026-03-13)
+
+- **Rename:** CogniGraph → Graqle. `pip install graqle`, CLI: `graq`, MCP: `graq_*`
+- **Backward compat:** `pip install cognigraph` auto-installs graqle + shows DeprecationWarning
+- Domain: graqle.com registered (Route 53)
+- All v0.15.0 features carried forward
 
 ### v0.15.0
 

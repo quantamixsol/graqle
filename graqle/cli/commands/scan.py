@@ -14,7 +14,7 @@ import logging
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
@@ -236,17 +236,36 @@ class JSAnalyzer:
 # ---------------------------------------------------------------------------
 
 class GitignoreMatcher:
-    """Simple .gitignore pattern matching (covers most common patterns)."""
+    """Simple .gitignore pattern matching (covers most common patterns).
 
-    def __init__(self, repo_root: Path) -> None:
+    Also reads ``.graqle-ignore`` if present, applying the same syntax.
+    Extra patterns can be supplied via *extra_patterns* (e.g. from ``--exclude``).
+    """
+
+    def __init__(
+        self,
+        repo_root: Path,
+        *,
+        extra_patterns: list[str] | None = None,
+    ) -> None:
         self._patterns: list[re.Pattern[str]] = []
-        gi = repo_root / ".gitignore"
-        if gi.is_file():
-            for raw_line in gi.read_text(errors="ignore").splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                self._patterns.append(self._compile(line))
+        for ignore_file in (".gitignore", ".graqle-ignore"):
+            gi = repo_root / ignore_file
+            if gi.is_file():
+                self._load_file(gi)
+        if extra_patterns:
+            for pat in extra_patterns:
+                pat = pat.strip()
+                if pat and not pat.startswith("#"):
+                    self._patterns.append(self._compile(pat))
+
+    def _load_file(self, path: Path) -> None:
+        """Load patterns from a gitignore-style file."""
+        for raw_line in path.read_text(errors="ignore").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            self._patterns.append(self._compile(line))
 
     @staticmethod
     def _compile(pattern: str) -> re.Pattern[str]:
@@ -292,6 +311,7 @@ class RepoScanner:
         max_depth: int = 5,
         include_tests: bool = True,
         verbose: bool = False,
+        exclude_patterns: list[str] | None = None,
     ) -> None:
         self.root = root.resolve()
         self.max_depth = max_depth
@@ -300,7 +320,7 @@ class RepoScanner:
 
         self.py_analyzer = PythonAnalyzer()
         self.js_analyzer = JSAnalyzer()
-        self.gitignore = GitignoreMatcher(self.root)
+        self.gitignore = GitignoreMatcher(self.root, extra_patterns=exclude_patterns)
 
         # Graph data (networkx-style node_link_data)
         self._nodes: dict[str, dict[str, Any]] = {}
@@ -1161,6 +1181,10 @@ def scan_repo(
     depth: int = typer.Option(5, "--depth", "-d", help="Max directory depth"),
     include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging output"),
+    exclude: Optional[list[str]] = typer.Option(
+        None, "--exclude", "-e",
+        help="Gitignore-style patterns to exclude (repeatable, e.g. --exclude '*.log' --exclude 'tmp/')",
+    ),
 ) -> None:
     """Scan a code repository and build a knowledge graph.
 
@@ -1190,6 +1214,7 @@ def scan_repo(
         max_depth=depth,
         include_tests=include_tests,
         verbose=verbose,
+        exclude_patterns=exclude,
     )
 
     data = scanner.scan()

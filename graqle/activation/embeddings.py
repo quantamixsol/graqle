@@ -61,7 +61,7 @@ class EmbeddingEngine:
         except ImportError:
             logger.warning(
                 "sentence-transformers not installed, using bag-of-words fallback. "
-                "Install with: pip install sentence-transformers"
+                "Install with: pip install 'graqle[embeddings]'"
             )
             self._use_simple = True
 

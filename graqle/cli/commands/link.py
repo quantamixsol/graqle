@@ -18,6 +18,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from graqle.cli.console import ARROW, CHECK
+
 link_app = typer.Typer(
     name="link",
     help="Multi-project graph operations — merge KGs and create cross-project edges.",
@@ -124,7 +126,7 @@ def link_merge(
         json.dumps(merged_data, indent=2, default=str), encoding="utf-8"
     )
 
-    console.print(f"\n[bold green]✓ Merged {len(sources)} projects[/bold green]")
+    console.print(f"\n[bold green]{CHECK} Merged {len(sources)} projects[/bold green]")
     table = Table(title="Merge Summary")
     table.add_column("Project", style="cyan")
     table.add_column("Nodes", justify="right")
@@ -191,7 +193,7 @@ def link_edge(
     graph.add_edge_simple(src_id, tgt_id, relation=relation.upper(), weight=weight)
     graph.to_json(str(p))
 
-    console.print(f"[green]✓ Cross-project edge:[/green] {src_id} —[{relation}]→ {tgt_id}")
+    console.print(f"[green]{CHECK} Cross-project edge:[/green] {src_id} --[{relation}]{ARROW} {tgt_id}")
     console.print(f"  Weight: {weight}")
 
 
