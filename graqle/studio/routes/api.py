@@ -321,6 +321,45 @@ async def partial_node_detail(request: Request, node_id: str):
     """
 
 
+# ---------- Cloud ----------
+
+
+@router.get("/cloud/status")
+async def cloud_status():
+    """Return cloud connection status."""
+    from graqle.cloud.credentials import get_cloud_status
+    return get_cloud_status()
+
+
+@router.post("/cloud/connect")
+async def cloud_connect(request: Request):
+    """Connect to Graqle Cloud with API key."""
+    body = await request.json()
+    api_key = body.get("api_key", "")
+    email = body.get("email", "")
+
+    if not api_key.startswith("grq_"):
+        return {"success": False, "error": "Invalid API key format"}
+
+    from graqle.cloud.credentials import CloudCredentials, save_credentials
+    creds = CloudCredentials(
+        api_key=api_key,
+        email=email,
+        plan="free",
+        connected=True,
+    )
+    save_credentials(creds)
+    return {"success": True, "plan": "free"}
+
+
+@router.post("/cloud/disconnect")
+async def cloud_disconnect():
+    """Disconnect from Graqle Cloud."""
+    from graqle.cloud.credentials import clear_credentials
+    clear_credentials()
+    return {"success": True}
+
+
 # ---------- Helpers ----------
 
 _TYPE_COLORS = {

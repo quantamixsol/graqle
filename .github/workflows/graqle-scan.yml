@@ -1,0 +1,97 @@
+name: Graqle KG Scan
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**.py'
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - '**.go'
+      - '**.rs'
+      - '**.java'
+  pull_request:
+    branches: [master]
+    paths:
+      - '**.py'
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - '**.go'
+      - '**.rs'
+      - '**.java'
+
+jobs:
+  scan:
+    name: Update Knowledge Graph
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'  # Only on merge, not PR open
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Graqle
+        run: pip install graqle
+
+      - name: Run graq scan
+        run: |
+          graq scan repo . --output graqle.json
+          echo "### Graqle KG Updated" >> $GITHUB_STEP_SUMMARY
+          graq inspect --stats >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet graqle.json 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated graph
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add graqle.json
+          git commit -m "chore: update knowledge graph [skip ci]"
+          git push
+
+  validate:
+    name: Validate KG (PR Check)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Graqle
+        run: pip install graqle
+
+      - name: Validate existing graph
+        run: |
+          if [ -f graqle.json ]; then
+            graq validate --graph graqle.json || true
+            graq inspect --stats || true
+          else
+            echo "No graqle.json found — run 'graq init' to create one"
+          fi
+
+      - name: Dry-run scan
+        run: |
+          graq scan repo . --output /tmp/graqle-pr.json
+          echo "### Graqle KG Scan (PR Preview)" >> $GITHUB_STEP_SUMMARY
+          echo "Scan completed successfully. Graph will be updated on merge." >> $GITHUB_STEP_SUMMARY

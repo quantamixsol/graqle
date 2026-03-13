@@ -1,8 +1,8 @@
 {
   "init_timestamp": "2026-03-12T00:27:27.998606+00:00",
-  "context_loads": 3470,
-  "queries": 773,
-  "tokens_saved": 47347892,
+  "context_loads": 3842,
+  "queries": 857,
+  "tokens_saved": 48090158,
   "mistakes_prevented": 0,
   "lessons_applied": 1,
   "safety_checks": 0,
@@ -210,64 +210,64 @@
       "last_accessed": "2026-03-12T00:27:28.035225+00:00"
     },
     "n1": {
-      "count": 497,
-      "last_accessed": "2026-03-13T15:10:57.434508+00:00"
+      "count": 551,
+      "last_accessed": "2026-03-13T22:31:52.429222+00:00"
     },
     "n2": {
-      "count": 497,
-      "last_accessed": "2026-03-13T15:10:57.435765+00:00"
+      "count": 551,
+      "last_accessed": "2026-03-13T22:31:52.430465+00:00"
     },
     "n3": {
-      "count": 497,
-      "last_accessed": "2026-03-13T15:10:57.436770+00:00"
+      "count": 551,
+      "last_accessed": "2026-03-13T22:31:52.430465+00:00"
     },
     "n4": {
-      "count": 497,
-      "last_accessed": "2026-03-13T15:10:57.436770+00:00"
+      "count": 551,
+      "last_accessed": "2026-03-13T22:31:52.431476+00:00"
     },
     "n5": {
-      "count": 497,
-      "last_accessed": "2026-03-13T15:10:57.437774+00:00"
+      "count": 551,
+      "last_accessed": "2026-03-13T22:31:52.432480+00:00"
     },
     "gdpr": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:00.647922+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:34.669666+00:00"
     },
     "ai_act": {
-      "count": 220,
-      "last_accessed": "2026-03-13T15:10:50.003629+00:00"
+      "count": 244,
+      "last_accessed": "2026-03-13T22:31:45.401895+00:00"
     },
     "art22": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:00.647922+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:34.670669+00:00"
     },
     "art6": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:00.647922+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:34.671672+00:00"
     },
     "consent": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:00.647922+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:34.672694+00:00"
     },
     "transparency": {
-      "count": 220,
-      "last_accessed": "2026-03-13T15:10:50.003629+00:00"
+      "count": 244,
+      "last_accessed": "2026-03-13T22:31:45.402900+00:00"
     },
     "hub": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:02.964693+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:36.965712+00:00"
     },
     "leaf1": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:02.965696+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:36.966715+00:00"
     },
     "leaf2": {
-      "count": 55,
-      "last_accessed": "2026-03-13T15:10:02.966699+00:00"
+      "count": 61,
+      "last_accessed": "2026-03-13T22:30:36.967764+00:00"
     },
     "high_risk": {
-      "count": 110,
-      "last_accessed": "2026-03-13T15:10:50.003629+00:00"
+      "count": 122,
+      "last_accessed": "2026-03-13T22:31:45.402900+00:00"
     }
   },
   "graph_stats": {
@@ -313,6 +313,6 @@
       "CONFLICTS_WITH": 1,
       "REFERENCES": 1
     },
-    "captured_at": "2026-03-13T15:10:57.438684+00:00"
+    "captured_at": "2026-03-13T22:31:52.433706+00:00"
   }
 }

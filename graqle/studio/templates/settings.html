@@ -5,7 +5,68 @@
 {% block content %}
 <div class="page-header">
     <h1>Settings</h1>
-    <p class="subtitle">Configuration and backend status</p>
+    <p class="subtitle">Configuration, backend status, and cloud connection</p>
+</div>
+
+<!-- Cloud Connection -->
+<div class="panel" x-data="cloudConnect()" x-init="checkStatus()">
+    <h3>Graqle Cloud</h3>
+    <p class="text-muted" style="margin-bottom: 16px;">
+        Cloud features are optional. Your graph, your machine, your data.
+    </p>
+
+    <!-- Connected state -->
+    <div x-show="connected" style="display:none">
+        <div class="status-banner green" style="margin-bottom: 16px;">
+            <strong>Connected to Graqle Cloud</strong>
+        </div>
+        <div class="metric-row"><span>Email</span><strong x-text="email"></strong></div>
+        <div class="metric-row"><span>Plan</span><strong x-text="plan"></strong></div>
+        <div class="metric-row"><span>Cloud URL</span><strong x-text="cloudUrl"></strong></div>
+        <div style="margin-top: 16px;">
+            <button class="btn btn-outline" @click="disconnect()">Disconnect</button>
+        </div>
+    </div>
+
+    <!-- Disconnected state -->
+    <div x-show="!connected && !showForm" style="display:none">
+        <div class="cloud-features" style="margin-bottom: 20px;">
+            <div class="metric-row"><span>Graph Backup</span><strong>Sync your graph to the cloud</strong></div>
+            <div class="metric-row"><span>Team Sharing</span><strong>Share graphs with your team</strong></div>
+            <div class="metric-row"><span>Usage Analytics</span><strong>Track queries, costs, and ROI</strong></div>
+        </div>
+        <button class="btn btn-primary" @click="showForm = true">Connect to Cloud</button>
+        <p class="text-muted" style="margin-top: 8px; font-size: 12px;">
+            Or run <code>graq login</code> from the terminal
+        </p>
+    </div>
+
+    <!-- Login form -->
+    <div x-show="showForm && !connected" style="display:none">
+        <div style="margin-bottom: 16px;">
+            <label style="display:block; margin-bottom:6px; color:var(--text-secondary)">API Key</label>
+            <input type="text" x-model="apiKey" placeholder="grq_..."
+                   style="width:100%; padding:8px 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-family:monospace;">
+        </div>
+        <div style="margin-bottom: 16px;">
+            <label style="display:block; margin-bottom:6px; color:var(--text-secondary)">Email (optional)</label>
+            <input type="email" x-model="emailInput" placeholder="you@company.com"
+                   style="width:100%; padding:8px 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary);">
+        </div>
+        <div x-show="error" class="status-banner red" style="margin-bottom: 12px;">
+            <span x-text="error"></span>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary" @click="connect()" :disabled="connecting">
+                <span x-show="!connecting">Connect</span>
+                <span x-show="connecting">Connecting...</span>
+            </button>
+            <button class="btn btn-outline" @click="showForm = false; error = ''">Cancel</button>
+        </div>
+        <p class="text-muted" style="margin-top: 12px; font-size: 12px;">
+            Get an API key at <a href="https://graqle.com/account" target="_blank" style="color:var(--brand)">graqle.com/account</a>
+        </p>
+    </div>
 </div>
 
 <div class="grid-2">
@@ -69,15 +130,84 @@
 
 <div class="panel">
     <h3>About</h3>
-    <div class="metric-row"><span>Graqle Version</span><strong>v0.11.0</strong></div>
+    <div class="metric-row"><span>Graqle Version</span><strong>v{{ version }}</strong></div>
     <div class="metric-row"><span>Patent</span><strong>EP26162901.8</strong></div>
     <div class="metric-row"><span>License</span><strong>Apache 2.0</strong></div>
-    <div class="metric-row"><span>Innovations</span><strong>14</strong></div>
+    <div class="metric-row"><span>Innovations</span><strong>15</strong></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function cloudConnect() {
+        return {
+            connected: false,
+            email: '',
+            plan: 'free',
+            cloudUrl: '',
+            showForm: false,
+            apiKey: '',
+            emailInput: '',
+            error: '',
+            connecting: false,
+
+            async checkStatus() {
+                try {
+                    const r = await fetch('/studio/api/cloud/status');
+                    const data = await r.json();
+                    this.connected = data.connected || false;
+                    this.email = data.email || '';
+                    this.plan = data.plan || 'free';
+                    this.cloudUrl = data.cloud_url || '';
+                } catch(e) {
+                    this.connected = false;
+                }
+            },
+
+            async connect() {
+                this.error = '';
+                if (!this.apiKey.startsWith('grq_')) {
+                    this.error = 'API key must start with grq_';
+                    return;
+                }
+                this.connecting = true;
+                try {
+                    const r = await fetch('/studio/api/cloud/connect', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            api_key: this.apiKey,
+                            email: this.emailInput,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (data.success) {
+                        this.connected = true;
+                        this.email = this.emailInput;
+                        this.plan = data.plan || 'free';
+                        this.showForm = false;
+                    } else {
+                        this.error = data.error || 'Connection failed';
+                    }
+                } catch(e) {
+                    this.error = 'Network error: ' + e.message;
+                }
+                this.connecting = false;
+            },
+
+            async disconnect() {
+                try {
+                    await fetch('/studio/api/cloud/disconnect', {method: 'POST'});
+                    this.connected = false;
+                    this.email = '';
+                    this.plan = 'free';
+                    this.apiKey = '';
+                    this.emailInput = '';
+                } catch(e) {}
+            }
+        }
+    }
+
     function neo4jHealth() {
         return {
             loading: true,
@@ -89,9 +219,8 @@
                 try {
                     const r = await fetch('/studio/api/graph/nodes?size=1');
                     const data = await r.json();
-                    // Basic health check via graph API
                     this.nodeCount = data.total || 0;
-                    this.connected = false; // Will be true when Neo4j backend is active
+                    this.connected = false;
                 } catch(e) {}
                 this.loading = false;
             }
