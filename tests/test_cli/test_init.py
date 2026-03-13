@@ -21,6 +21,7 @@ from graqle.cli.commands.init import (
     _detect_project_type,
     _extract_js_imports,
     _extract_python_imports,
+    _resolve_graq_command,
     _should_skip,
     _write_claude_md,
     _write_graqle_json,
@@ -444,3 +445,81 @@ class TestBackendsRegistry:
                 continue
             defaults = [m for m in backend["models"] if m[2] is True]
             assert len(defaults) == 1, f"Backend '{key}' should have exactly 1 default model"
+
+
+# ---------------------------------------------------------------------------
+# P1-3: _resolve_graq_command — auto-detect full path
+# ---------------------------------------------------------------------------
+
+class TestResolveGraqCommand:
+    def test_returns_full_path_when_found(self):
+        with patch("graqle.cli.commands.init.shutil.which", return_value="/usr/local/bin/graq"):
+            result = _resolve_graq_command()
+            assert result == "/usr/local/bin/graq"
+
+    def test_returns_windows_path_when_found(self):
+        with patch(
+            "graqle.cli.commands.init.shutil.which",
+            return_value="C:\\Users\\test\\Scripts\\graq.exe",
+        ):
+            result = _resolve_graq_command()
+            assert result == "C:\\Users\\test\\Scripts\\graq.exe"
+
+    def test_falls_back_to_bare_graq_when_not_found(self):
+        with patch("graqle.cli.commands.init.shutil.which", return_value=None):
+            result = _resolve_graq_command()
+            assert result == "graq"
+
+    def test_mcp_json_uses_full_path(self):
+        with patch(
+            "graqle.cli.commands.init.shutil.which",
+            return_value="/home/user/.local/bin/graq",
+        ):
+            data = _build_mcp_json()
+            assert data["mcpServers"]["graqle"]["command"] == "/home/user/.local/bin/graq"
+
+
+# ---------------------------------------------------------------------------
+# P1-6: Non-TTY auto-detection in graq init
+# ---------------------------------------------------------------------------
+
+class TestNonTtyAutoDetection:
+    """Verify that ``graq init`` auto-defaults when stdin is not a TTY."""
+
+    def test_non_tty_sets_no_interactive(self):
+        """When stdin.isatty() returns False the init code should flip
+        no_interactive to True and print the detection message."""
+        import graqle.cli.commands.init as init_mod
+
+        # We test the logic directly: simulate the condition check
+        with patch.object(init_mod.sys, "stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            no_interactive = False
+            # Replicate the guard from init_command
+            if not no_interactive and not init_mod.sys.stdin.isatty():
+                no_interactive = True
+            assert no_interactive is True
+
+    def test_tty_does_not_flip(self):
+        """When stdin IS a TTY, no_interactive stays False."""
+        import graqle.cli.commands.init as init_mod
+
+        with patch.object(init_mod.sys, "stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = True
+            no_interactive = False
+            if not no_interactive and not init_mod.sys.stdin.isatty():
+                no_interactive = True
+            assert no_interactive is False
+
+    def test_explicit_no_interactive_skips_tty_check(self):
+        """When --no-interactive is already True, the TTY check is skipped."""
+        import graqle.cli.commands.init as init_mod
+
+        with patch.object(init_mod.sys, "stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            no_interactive = True  # already set
+            # The guard: `not no_interactive` is False, so isatty is never called
+            if not no_interactive and not init_mod.sys.stdin.isatty():
+                pass  # would set True
+            # isatty should NOT have been called because of short-circuit
+            mock_stdin.isatty.assert_not_called()

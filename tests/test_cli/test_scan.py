@@ -509,3 +509,65 @@ class TestConstants:
         assert "CONTAINS" in EDGE_TYPES
         assert "TESTS" in EDGE_TYPES
         assert "DEPENDS_ON" in EDGE_TYPES
+
+
+# ---------------------------------------------------------------------------
+# P1-4: .graqle-ignore support + --exclude patterns
+# ---------------------------------------------------------------------------
+
+class TestGraqleIgnore:
+    """Test .graqle-ignore file and extra_patterns support."""
+
+    def test_graqle_ignore_file_respected(self, tmp_path):
+        """A .graqle-ignore file should exclude matching paths."""
+        (tmp_path / ".graqle-ignore").write_text("secrets/\n*.key\n")
+        matcher = GitignoreMatcher(tmp_path)
+        assert matcher.is_ignored("secrets/passwords.txt") is True
+        assert matcher.is_ignored("cert.key") is True
+        assert matcher.is_ignored("main.py") is False
+
+    def test_graqle_ignore_stacks_with_gitignore(self, tmp_path):
+        """Both .gitignore and .graqle-ignore patterns should apply."""
+        (tmp_path / ".gitignore").write_text("*.pyc\n")
+        (tmp_path / ".graqle-ignore").write_text("vendor/\n")
+        matcher = GitignoreMatcher(tmp_path)
+        assert matcher.is_ignored("module.pyc") is True
+        assert matcher.is_ignored("vendor/lib.py") is True
+        assert matcher.is_ignored("src/main.py") is False
+
+    def test_extra_patterns_work(self, tmp_path):
+        """Patterns passed via extra_patterns should also exclude."""
+        matcher = GitignoreMatcher(tmp_path, extra_patterns=["*.log", "tmp/"])
+        assert matcher.is_ignored("debug.log") is True
+        assert matcher.is_ignored("tmp/cache") is True
+        assert matcher.is_ignored("main.py") is False
+
+    def test_no_graqle_ignore_file(self, tmp_path):
+        """When .graqle-ignore does not exist, nothing extra is excluded."""
+        matcher = GitignoreMatcher(tmp_path)
+        assert matcher.is_ignored("anything") is False
+
+    def test_scanner_respects_graqle_ignore(self, tmp_path):
+        """RepoScanner should skip files matched by .graqle-ignore."""
+        (tmp_path / ".graqle-ignore").write_text("generated/\n")
+        gen = tmp_path / "generated"
+        gen.mkdir()
+        (gen / "output.py").write_text("x = 1")
+        (tmp_path / "real.py").write_text("y = 2")
+
+        scanner = RepoScanner(tmp_path)
+        data = _scan_no_progress(scanner)
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert "real.py" in node_ids
+        assert "generated/output.py" not in node_ids
+
+    def test_scanner_respects_exclude_patterns(self, tmp_path):
+        """RepoScanner should skip files matched by exclude_patterns."""
+        (tmp_path / "keep.py").write_text("a = 1")
+        (tmp_path / "skip_me.py").write_text("b = 2")
+
+        scanner = RepoScanner(tmp_path, exclude_patterns=["skip_me*"])
+        data = _scan_no_progress(scanner)
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert "keep.py" in node_ids
+        assert "skip_me.py" not in node_ids

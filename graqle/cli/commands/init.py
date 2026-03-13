@@ -11,6 +11,8 @@ import json
 import logging
 import os
 import re
+import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -646,11 +648,29 @@ def _detect_ide(root: Path) -> str:
     return "claude"
 
 
+def _resolve_graq_command() -> str:
+    """Find the full path to the ``graq`` executable.
+
+    Uses :func:`shutil.which` so that on Windows the result is e.g.
+    ``C:\\Users\\...\\Scripts\\graq.exe``.  Falls back to bare ``"graq"``
+    with a console warning when the executable is not on PATH.
+    """
+    full_path = shutil.which("graq")
+    if full_path:
+        return full_path
+    console.print(
+        "  [yellow]WARNING:[/yellow] Could not find 'graq' on PATH. "
+        "Using bare 'graq' — MCP may fail if it is not resolvable.\n"
+        "  [dim]Fix: ensure 'graq' (or 'graq.exe') is on your PATH.[/dim]"
+    )
+    return "graq"
+
+
 def _build_mcp_json(ide: str = "claude") -> dict[str, Any]:
     """Return the MCP server config structure for the target IDE."""
     mcp_entry = {
         "type": "stdio",
-        "command": "graq",
+        "command": _resolve_graq_command(),
         "args": ["mcp", "serve", "--config", "graqle.yaml"],
     }
     return {
@@ -1485,6 +1505,14 @@ def init_command(
     ide_label = SUPPORTED_IDES.get(ide, ide)
     console.print(f"Project root: [bold]{root}[/bold]")
     console.print(f"Target IDE:   [bold cyan]{ide_label}[/bold cyan]\n")
+
+    # ── Auto-detect non-TTY environment ──────────────────────────────
+    if not no_interactive and not sys.stdin.isatty():
+        console.print(
+            "[yellow]Non-interactive mode detected. Using defaults. "
+            "Pass --no-interactive explicitly to suppress this message.[/yellow]\n"
+        )
+        no_interactive = True
 
     # ── Step 1: Gather configuration ────────────────────────────────
     if no_interactive:

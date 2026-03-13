@@ -885,6 +885,10 @@ class KogniDevServer:
             "impact_tree": impact_tree,
         })
 
+    # Structural edges that should NOT propagate impact (they connect siblings
+    # via parent directories, producing "everything in components/" results).
+    _STRUCTURAL_EDGES: set[str] = {"CONTAINS", "DEFINES"}
+
     def _bfs_impact(
         self,
         start_id: str,
@@ -892,17 +896,27 @@ class KogniDevServer:
         change_type: str = "modify",
         max_depth: int = _MAX_BFS_DEPTH,
     ) -> list[dict[str, Any]]:
-        """BFS from start_id, returning downstream impact tree."""
+        """BFS from start_id, following only dependency edges (not structural).
+
+        Dependency edges (IMPORTS, CALLS, DEPENDS_ON, READS_FROM, etc.) represent
+        real coupling.  Structural edges (CONTAINS, DEFINES) just describe
+        directory membership and would cause every sibling file to appear as
+        impacted.
+        """
         graph = self._require_graph()
         visited: set[str] = {start_id}
         queue: deque[tuple[str, int, str]] = deque()  # (node_id, depth, relationship)
 
-        # Seed with direct neighbors
+        # Seed: who *depends on* start_id?  Follow reverse IMPORTS/CALLS, and
+        # forward edges from start_id that are dependency-typed.
         for edge in graph.edges.values():
+            rel = getattr(edge, "relationship", "")
+            if rel in self._STRUCTURAL_EDGES:
+                continue
             if edge.source_id == start_id and edge.target_id not in visited:
-                queue.append((edge.target_id, 1, edge.relationship))
+                queue.append((edge.target_id, 1, rel))
             elif edge.target_id == start_id and edge.source_id not in visited:
-                queue.append((edge.source_id, 1, edge.relationship))
+                queue.append((edge.source_id, 1, rel))
 
         results: list[dict[str, Any]] = []
 
@@ -934,16 +948,19 @@ class KogniDevServer:
                 "risk": risk,
             })
 
-            # Continue BFS
+            # Continue BFS — only follow dependency edges
             if depth < max_depth:
                 for edge in graph.edges.values():
+                    edge_rel = getattr(edge, "relationship", "")
+                    if edge_rel in self._STRUCTURAL_EDGES:
+                        continue
                     next_id: str | None = None
                     if edge.source_id == nid and edge.target_id not in visited:
                         next_id = edge.target_id
                     elif edge.target_id == nid and edge.source_id not in visited:
                         next_id = edge.source_id
                     if next_id:
-                        queue.append((next_id, depth + 1, edge.relationship))
+                        queue.append((next_id, depth + 1, edge_rel))
 
         return results
 
@@ -1213,7 +1230,19 @@ class KogniDevServer:
 
         # Sort: highest severity first, then by relevance score
         results.sort(key=lambda x: (severity_order.get(x["severity"], 2), -x["score"]))
-        return results[:_MAX_RESULTS]
+        matched = results[:_MAX_RESULTS]
+
+        # Increment hit_count on each matched lesson node (BUG-7 fix)
+        if matched and graph is not None:
+            for result in matched:
+                node = graph.nodes.get(result["id"])
+                if node is not None:
+                    current = node.properties.get("hit_count", 0)
+                    node.properties["hit_count"] = current + 1
+                    result["hit_count"] = current + 1
+            self._save_graph(graph)
+
+        return matched
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""

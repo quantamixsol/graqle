@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
+# Ensure Unicode output works on Windows cp1252 consoles (P0-2 fix).
+# Rich renders Unicode arrows/symbols from graph data; without this,
+# Windows terminals crash with UnicodeEncodeError on non-ASCII chars.
+if sys.platform == "win32" and not os.environ.get("PYTHONIOENCODING"):
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+
 import typer
 from rich.console import Console
 
@@ -17,13 +26,34 @@ from graqle.cli.commands.activate import activate_command
 from graqle.cli.commands.billing import billing_command
 from graqle.cli.commands.rebuild import rebuild_command
 from graqle.cli.commands.learn import learn_app as learn_sub_app
+from graqle.cli.commands.learned import learned_command
 from graqle.cli.commands.link import link_app as link_sub_app
+from graqle.cli.commands.selfupdate import selfupdate_command
+
+def _version_callback(value: bool) -> None:
+    if value:
+        from graqle.__version__ import __version__
+        print(f"graq {__version__}")
+        raise typer.Exit()
+
 
 app = typer.Typer(
     name="graq",
     help="Graqle — Graphs that think. Turn any KG into a reasoning network.",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None, "--version", callback=_version_callback, is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
+    """Graqle CLI — graphs that think."""
+
+
 app.add_typer(scan_app, name="scan")
 app.command(name="init")(init_command)
 app.command(name="ingest")(ingest_command)
@@ -36,7 +66,9 @@ app.command(name="activate")(activate_command)
 app.command(name="billing")(billing_command)
 app.command(name="rebuild")(rebuild_command)
 app.add_typer(learn_sub_app, name="learn")
+app.command(name="learned")(learned_command)
 app.add_typer(link_sub_app, name="link")
+app.command(name="self-update")(selfupdate_command)
 console = Console()
 
 # ---------------------------------------------------------------------------
@@ -244,7 +276,7 @@ def context(
     # Find the service node
     node = graph.nodes.get(service)
     if node is None:
-        # Fuzzy match
+        # Substring match
         matches = [
             nid for nid in graph.nodes
             if service.lower() in nid.lower()
@@ -252,7 +284,22 @@ def context(
         if matches:
             node = graph.nodes[matches[0]]
         else:
-            console.print(f"Service '{service}' not found in graph.")
+            # Fuzzy match using difflib
+            import difflib
+            close = difflib.get_close_matches(
+                service.lower(),
+                [nid.lower() for nid in graph.nodes],
+                n=3,
+                cutoff=0.4,
+            )
+            if close:
+                # Map lowered IDs back to original IDs
+                lower_to_orig = {nid.lower(): nid for nid in graph.nodes}
+                suggestions = [lower_to_orig[c] for c in close]
+                console.print(f"Service '{service}' not found in graph.")
+                console.print(f"Did you mean: {', '.join(suggestions)}")
+            else:
+                console.print(f"Service '{service}' not found in graph.")
             return
 
     # Build context output
@@ -475,7 +522,23 @@ def bench(
         console.print("[yellow]No graph loaded. Run 'graq scan --repo .' first.[/yellow]")
         return
 
-    graph.set_default_backend(_create_backend_from_config(cfg))
+    backend = _create_backend_from_config(cfg)
+
+    # Fail fast: verify backend can actually respond before running N queries
+    if hasattr(backend, "is_fallback") and backend.is_fallback:
+        console.print(f"[red]Backend unavailable: {getattr(backend, 'fallback_reason', 'unknown')}[/red]")
+        console.print("[yellow]Fix the backend configuration before running benchmarks.[/yellow]")
+        raise typer.Exit(1)
+
+    graph.set_default_backend(backend)
+
+    # Quick smoke test — one query to catch errors early
+    try:
+        smoke = asyncio.run(graph.areason("smoke test", max_rounds=1))
+    except Exception as e:
+        console.print(f"[red]Backend error: {e}[/red]")
+        console.print("[yellow]Fix the backend before running benchmarks. Run 'graq doctor' for help.[/yellow]")
+        raise typer.Exit(1)
 
     test_queries = [
         f"Test query {i}: analyze the relationships in this graph"
