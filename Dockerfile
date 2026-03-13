@@ -9,13 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy package files
 COPY pyproject.toml README.md LICENSE ./
-COPY cognigraph/ cognigraph/
+COPY graqle/ graqle/
 
-# Install cognigraph with server extras
+# Install graqle with server extras
 RUN pip install --no-cache-dir ".[server,api]"
 
 # Default config and graph placeholders
-COPY cognigraph.example.yaml /app/cognigraph.yaml
+COPY graqle.example.yaml /app/graqle.yaml
 
 EXPOSE 8000
 
@@ -23,4 +23,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["kogni", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["graq", "serve", "--host", "0.0.0.0", "--port", "8000"]

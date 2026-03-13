@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 
-from cognigraph.connectors.json_graph import JSONGraphConnector
+from graqle.connectors.json_graph import JSONGraphConnector
 
 
 @pytest.fixture

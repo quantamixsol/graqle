@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognigraph.core.message import Message
-from cognigraph.core.types import ReasoningType
-from cognigraph.orchestration.explanation import ExplanationTrace, NodeClaim
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
+from graqle.orchestration.explanation import ExplanationTrace, NodeClaim
 
 
 def _msg(nid: str, content: str, conf: float = 0.7) -> Message:

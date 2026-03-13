@@ -1,7 +1,7 @@
 """Tests for Message."""
 
-from cognigraph.core.message import Message
-from cognigraph.core.types import ReasoningType
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
 
 
 def test_message_creation():

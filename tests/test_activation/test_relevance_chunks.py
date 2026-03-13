@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognigraph.activation.relevance import RelevanceScorer
+from graqle.activation.relevance import RelevanceScorer
 
 
 def _make_node(label: str, entity_type: str, description: str, chunks=None):

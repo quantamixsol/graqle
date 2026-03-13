@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.ontology.shacl_gate import SHACLGate, ValidationResult
+from graqle.ontology.shacl_gate import SHACLGate, ValidationResult
 
 
 class TestSHACLGate:

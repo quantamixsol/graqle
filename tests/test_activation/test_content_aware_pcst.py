@@ -5,7 +5,7 @@ over empty structural connectors (Directory, Namespace).
 
 Layer 1: Content richness multiplier in RelevanceScorer.score()
 Layer 2: Post-PCST content filter in PCSTActivation._content_filter()
-Layer 3: Direct file lookup bypass in CogniGraph._direct_file_lookup()
+Layer 3: Direct file lookup bypass in Graqle._direct_file_lookup()
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ import math
 import numpy as np
 import pytest
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.node import CogniNode
-from cognigraph.core.edge import CogniEdge
-from cognigraph.activation.pcst import PCSTActivation
-from cognigraph.activation.relevance import RelevanceScorer, _CONTENT_RICHNESS_BASE
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
+from graqle.core.edge import CogniEdge
+from graqle.activation.pcst import PCSTActivation
+from graqle.activation.relevance import RelevanceScorer, _CONTENT_RICHNESS_BASE
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ from cognigraph.activation.relevance import RelevanceScorer, _CONTENT_RICHNESS_B
 # ──────────────────────────────────────────────────────────────────────
 
 @pytest.fixture
-def directory_vs_jsmodule_graph() -> CogniGraph:
+def directory_vs_jsmodule_graph() -> Graqle:
     """Graph where a Directory node has high degree (hub) but zero chunks,
     and its child JSModule nodes have content chunks.
 
@@ -109,11 +109,11 @@ def directory_vs_jsmodule_graph() -> CogniGraph:
         if edge.target_id in nodes:
             nodes[edge.target_id].incoming_edges.append(eid)
 
-    return CogniGraph(nodes=nodes, edges=edges)
+    return Graqle(nodes=nodes, edges=edges)
 
 
 @pytest.fixture
-def isolated_nodes_graph() -> CogniGraph:
+def isolated_nodes_graph() -> Graqle:
     """Graph with zero edges — tests fallback behaviour."""
     nodes = {
         "n1": CogniNode(
@@ -127,7 +127,7 @@ def isolated_nodes_graph() -> CogniGraph:
             properties={},
         ),
     }
-    return CogniGraph(nodes=nodes)
+    return Graqle(nodes=nodes)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ class TestContentRichnessMultiplier:
         assert mult_10 / mult_1 < 3.0
 
     def test_chunked_node_scores_higher_than_empty(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """auth.ts (3 chunks) should outscore dir::src (0 chunks)."""
         scorer = RelevanceScorer()
@@ -166,7 +166,7 @@ class TestContentRichnessMultiplier:
         )
 
     def test_all_chunked_nodes_beat_directory(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Every JSModule should outscore the Directory for a relevant query."""
         scorer = RelevanceScorer()
@@ -178,7 +178,7 @@ class TestContentRichnessMultiplier:
             )
 
     def test_scores_can_exceed_one(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """v3 scores are NOT clamped to [0, 1] — content multiplier can push beyond."""
         scorer = RelevanceScorer()
@@ -195,7 +195,7 @@ class TestPostPCSTContentFilter:
     """Layer 2 (ADR-103): Replace zero-chunk nodes with content-bearing neighbours."""
 
     def test_zero_chunk_node_replaced(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """dir::src (0 chunks) should be replaced by a child with chunks."""
         activator = PCSTActivation(max_nodes=3)
@@ -211,7 +211,7 @@ class TestPostPCSTContentFilter:
         ), "Replacement should be a JSModule"
 
     def test_chunked_nodes_kept(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Nodes with chunks should never be replaced."""
         activator = PCSTActivation(max_nodes=5)
@@ -223,7 +223,7 @@ class TestPostPCSTContentFilter:
         assert set(filtered) == {"mod::auth.ts", "mod::payment.ts"}
 
     def test_no_duplicate_after_replacement(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """If replacement is already in selection, no duplicates appear."""
         activator = PCSTActivation(max_nodes=5)
@@ -237,7 +237,7 @@ class TestPostPCSTContentFilter:
         assert len(filtered) == len(set(filtered))
 
     def test_isolated_zero_chunk_node_kept(
-        self, isolated_nodes_graph: CogniGraph,
+        self, isolated_nodes_graph: Graqle,
     ) -> None:
         """Zero-chunk node with no neighbours is kept (nothing to swap to)."""
         activator = PCSTActivation(max_nodes=5)
@@ -260,7 +260,7 @@ class TestPostPCSTContentFilter:
         }
         nodes["a"].outgoing_edges.append("e_ab")
         nodes["b"].incoming_edges.append("e_ab")
-        graph = CogniGraph(nodes=nodes, edges=edges)
+        graph = Graqle(nodes=nodes, edges=edges)
 
         activator = PCSTActivation(max_nodes=5)
         selected = ["a"]
@@ -268,7 +268,7 @@ class TestPostPCSTContentFilter:
         assert "a" in filtered
 
     def test_empty_selection_returns_empty(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Empty input → empty output."""
         activator = PCSTActivation(max_nodes=5)
@@ -286,7 +286,7 @@ class TestDirectFileLookup:
     """Layer 3 (ADR-103): Bypass PCST when query mentions a specific filename."""
 
     def test_exact_filename_match(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Query mentioning 'auth.ts' should directly activate mod::auth.ts."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -296,7 +296,7 @@ class TestDirectFileLookup:
         assert "mod::auth.ts" in result
 
     def test_bare_name_word_boundary_match(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """'payment' as a word should match payment.ts."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -306,7 +306,7 @@ class TestDirectFileLookup:
         assert "mod::payment.ts" in result
 
     def test_bare_name_no_substring_match(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """'bill' inside 'billing' should not match if 'bill' is not a label.
         But 'billing' should match billing.ts's bare name."""
@@ -317,7 +317,7 @@ class TestDirectFileLookup:
         assert "mod::billing.ts" in result
 
     def test_no_match_returns_none(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Query with no filename reference returns None (→ fall through to PCST)."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -334,12 +334,12 @@ class TestDirectFileLookup:
                 properties={"chunks": [{"text": "content", "type": "source"}]},
             ),
         }
-        graph = CogniGraph(nodes=nodes)
+        graph = Graqle(nodes=nodes)
         result = graph._direct_file_lookup("What is a module?")
         assert result is None
 
     def test_includes_neighbours(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Direct lookup should include neighbours of the matched node."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -350,7 +350,7 @@ class TestDirectFileLookup:
         assert len(result) > 1
 
     def test_multiple_files_in_query(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Query mentioning two files should activate both."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -361,7 +361,7 @@ class TestDirectFileLookup:
         assert "mod::payment.ts" in result
 
     def test_case_insensitive(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """File lookup should be case-insensitive."""
         result = directory_vs_jsmodule_graph._direct_file_lookup(
@@ -379,7 +379,7 @@ class TestDirectFileLookup:
                 properties={"chunks": [{"text": "function verify() {}", "type": "function"}]},
             ),
         }
-        graph = CogniGraph(nodes=nodes)
+        graph = Graqle(nodes=nodes)
         result = graph._direct_file_lookup("What does auth.ts do?")
         assert result is not None
         assert "n1" in result
@@ -393,7 +393,7 @@ class TestFullPipeline:
     """End-to-end integration tests: all 3 layers working together."""
 
     def test_pcst_prefers_content_nodes_over_directory(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Full PCST activation should select content-bearing nodes, not directories."""
         activator = PCSTActivation(max_nodes=3)
@@ -408,7 +408,7 @@ class TestFullPipeline:
         )
 
     def test_activate_subgraph_with_filename_query(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """_activate_subgraph should use direct lookup when query mentions a file."""
         selected = directory_vs_jsmodule_graph._activate_subgraph(
@@ -417,7 +417,7 @@ class TestFullPipeline:
         assert "mod::auth.ts" in selected
 
     def test_activate_subgraph_falls_through_to_pcst(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Generic query should use PCST, not direct file lookup."""
         selected = directory_vs_jsmodule_graph._activate_subgraph(
@@ -427,7 +427,7 @@ class TestFullPipeline:
         assert len(selected) > 0
 
     def test_full_strategy_ignores_layers(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """strategy='full' returns all nodes regardless of content."""
         selected = directory_vs_jsmodule_graph._activate_subgraph(
@@ -436,7 +436,7 @@ class TestFullPipeline:
         assert len(selected) == len(directory_vs_jsmodule_graph.nodes)
 
     def test_topk_strategy_ignores_layers(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """strategy='top_k' uses degree-based selection, not PCST layers."""
         selected = directory_vs_jsmodule_graph._activate_subgraph(
@@ -459,7 +459,7 @@ class TestEdgeCases:
             description="Module with empty chunks list",
             properties={"chunks": []},
         )
-        graph = CogniGraph(nodes={"n1": node})
+        graph = Graqle(nodes={"n1": node})
         scorer = RelevanceScorer()
         scores = scorer.score(graph, "empty module")
         # Should not crash; score should be ≥ 0
@@ -472,7 +472,7 @@ class TestEdgeCases:
             description="Module with string chunk property",
             properties={"chunks": "this is not a list"},
         )
-        graph = CogniGraph(nodes={"n1": node})
+        graph = Graqle(nodes={"n1": node})
         scorer = RelevanceScorer()
         # Should not crash — len("string") > 0 but it's not a list of dicts
         scores = scorer.score(graph, "weird module")
@@ -486,7 +486,7 @@ class TestEdgeCases:
             description="Auth module",
             properties={"chunks": [{"text": "verify JWT", "type": "function"}]},
         )
-        graph = CogniGraph(nodes={"n1": node})
+        graph = Graqle(nodes={"n1": node})
         scorer = RelevanceScorer()
         scores = scorer.score(graph, "How does auth.ts work?")
         # Score should be ≥ 2.0 due to filename floor
@@ -497,7 +497,7 @@ class TestEdgeCases:
         nodes = {
             "a": CogniNode(id="a", label="A", description="node A", properties={}),
         }
-        graph = CogniGraph(nodes=nodes)
+        graph = Graqle(nodes=nodes)
         activator = PCSTActivation(max_nodes=5)
         # "nonexistent" is not in graph.nodes
         filtered = activator._content_filter(
@@ -512,12 +512,12 @@ class TestEdgeCases:
             "n1": CogniNode(id="n1", label="ab", description="short", properties={}),
             "n2": CogniNode(id="n2", label="xy", description="short", properties={}),
         }
-        graph = CogniGraph(nodes=nodes)
+        graph = Graqle(nodes=nodes)
         result = graph._direct_file_lookup("What about ab?")
         assert result is None
 
     def test_content_filter_preserves_order(
-        self, directory_vs_jsmodule_graph: CogniGraph,
+        self, directory_vs_jsmodule_graph: Graqle,
     ) -> None:
         """Content filter should preserve relative order of retained nodes."""
         activator = PCSTActivation(max_nodes=5)
@@ -534,7 +534,7 @@ class TestEdgeCases:
 
     def test_max_nodes_respected_by_direct_lookup(self) -> None:
         """Direct file lookup should not return more nodes than max_nodes."""
-        from cognigraph.config.settings import CogniGraphConfig
+        from graqle.config.settings import GraqleConfig
 
         # Create a large graph with many neighbours
         nodes = {}
@@ -561,9 +561,9 @@ class TestEdgeCases:
             nodes["main"].outgoing_edges.append(eid)
             nodes[nid].incoming_edges.append(eid)
 
-        config = CogniGraphConfig.default()
+        config = GraqleConfig.default()
         config.activation.max_nodes = 10
-        graph = CogniGraph(nodes=nodes, edges=edges, config=config)
+        graph = Graqle(nodes=nodes, edges=edges, config=config)
 
         result = graph._direct_file_lookup("What does main.ts do?")
         assert result is not None

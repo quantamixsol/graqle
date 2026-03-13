@@ -2,13 +2,13 @@
 
 import pytest
 
-from cognigraph.ontology.domains.governance_v3 import (
+from graqle.ontology.domains.governance_v3 import (
     GOVERNANCE_CLASS_HIERARCHY,
     build_governance_semantic_constraints,
     GOVERNANCE_SKILL_MAP,
     register_governance_domain_v3,
 )
-from cognigraph.ontology.semantic_shacl_gate import SemanticConstraint, SemanticSHACLGate
+from graqle.ontology.semantic_shacl_gate import SemanticConstraint, SemanticSHACLGate
 
 
 class TestGovernanceClassHierarchy:
@@ -92,7 +92,7 @@ class TestGovernanceSkillMap:
 
 class TestRegisterGovernanceDomainV3:
     def test_returns_constraints(self):
-        from cognigraph.ontology.domain_registry import DomainRegistry
+        from graqle.ontology.domain_registry import DomainRegistry
         registry = DomainRegistry()
         result = register_governance_domain_v3(registry)
         assert isinstance(result, dict)

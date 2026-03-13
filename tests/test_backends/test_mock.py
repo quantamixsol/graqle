@@ -1,7 +1,7 @@
 """Tests for MockBackend."""
 
 import pytest
-from cognigraph.backends.mock import MockBackend
+from graqle.backends.mock import MockBackend
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,8 @@
-# CogniGraph MCP Integration for Claude Code
+# Graqle MCP Integration for Claude Code
 
-CogniGraph exposes a Model Context Protocol (MCP) server that gives Claude Code
+Graqle exposes a Model Context Protocol (MCP) server that gives Claude Code
 graph-powered context engineering tools. Instead of reading large flat files
-(20-60K tokens), Claude Code calls CogniGraph tools to get focused, governed
+(20-60K tokens), Claude Code calls Graqle tools to get focused, governed
 context in 300-500 tokens.
 
 ---
@@ -13,28 +13,28 @@ context in 300-500 tokens.
 - pip (or uv/pipx)
 - A project with source code to scan
 
-Install CogniGraph:
+Install Graqle:
 
 ```bash
-pip install cognigraph
+pip install graqle
 ```
 
 Verify the CLI is available:
 
 ```bash
-kogni version
+graq version
 ```
 
 ---
 
 ## Quick Setup
 
-Run `kogni init` in your project root. This is the recommended approach -- it
+Run `graq init` in your project root. This is the recommended approach -- it
 creates all configuration files in one step:
 
 ```bash
 cd /path/to/your/project
-kogni init
+graq init
 ```
 
 The interactive wizard will:
@@ -47,21 +47,21 @@ It then automatically creates:
 
 | File | Purpose |
 |------|---------|
-| `cognigraph.yaml` | Model backend, graph connector, activation strategy |
-| `cognigraph.json` | Knowledge graph (built from repository scan) |
+| `graqle.yaml` | Model backend, graph connector, activation strategy |
+| `graqle.json` | Knowledge graph (built from repository scan) |
 | `.mcp.json` | MCP server registration for Claude Code |
 | `CLAUDE.md` | Governance protocols (GCC, GSD, Ralph Loop) |
 | `.gcc/` | Context controller directory structure |
 
-After `kogni init` completes, restart Claude Code (or reload MCP servers) and
-the `cognigraph` tools will be available.
+After `graq init` completes, restart Claude Code (or reload MCP servers) and
+the `graqle` tools will be available.
 
 ### Non-interactive setup
 
 For CI or scripted environments:
 
 ```bash
-kogni init --backend anthropic \
+graq init --backend anthropic \
            --model claude-haiku-4-5-20251001 \
            --api-key-env ANTHROPIC_API_KEY \
            --no-interactive
@@ -82,27 +82,27 @@ Create or edit `.mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "cognigraph": {
+    "graqle": {
       "type": "stdio",
-      "command": "kogni",
-      "args": ["mcp", "serve", "--config", "cognigraph.yaml"]
+      "command": "graq",
+      "args": ["mcp", "serve", "--config", "graqle.yaml"]
     }
   }
 }
 ```
 
-If `.mcp.json` already exists with other servers, add the `"cognigraph"` key
+If `.mcp.json` already exists with other servers, add the `"graqle"` key
 inside the existing `"mcpServers"` object.
 
 ### Minimal configuration (default config path)
 
-If your `cognigraph.yaml` is in the project root, you can omit the config flag:
+If your `graqle.yaml` is in the project root, you can omit the config flag:
 
 ```json
 {
   "mcpServers": {
-    "cognigraph": {
-      "command": "kogni",
+    "graqle": {
+      "command": "graq",
       "args": ["mcp", "serve"]
     }
   }
@@ -113,7 +113,7 @@ If your `cognigraph.yaml` is in the project root, you can omit the config flag:
 
 The MCP server expects:
 
-1. **`cognigraph.yaml`** -- model and graph configuration. Created by `kogni init`
+1. **`graqle.yaml`** -- model and graph configuration. Created by `graq init`
    or manually:
 
    ```yaml
@@ -131,13 +131,13 @@ The MCP server expects:
      convergence_threshold: 0.92
    ```
 
-2. **`cognigraph.json`** -- the knowledge graph. Generate it with:
+2. **`graqle.json`** -- the knowledge graph. Generate it with:
 
    ```bash
-   kogni scan repo .
+   graq scan repo .
    ```
 
-   Or let `kogni init` create it during setup.
+   Or let `graq init` create it during setup.
 
 ---
 
@@ -148,13 +148,13 @@ available in the Free tier; four require a Pro license.
 
 | # | Tool | Description | Tier |
 |---|------|-------------|------|
-| 1 | `kogni_context` | Smart context loading for session start. Returns relevant KG nodes, active branch info, and applicable lessons in ~300-500 tokens. | Free |
-| 2 | `kogni_inspect` | Inspect the project knowledge graph structure. Show nodes, edges, stats, or details for a specific node. | Free |
-| 3 | `kogni_reason` | Graph-of-agents reasoning. Each relevant node becomes an agent; they exchange messages and produce a synthesized answer. | Free |
-| 4 | `kogni_preflight` | Governance preflight check before code changes. Returns relevant lessons, past mistakes, ADRs, and safety boundary warnings. | Pro |
-| 5 | `kogni_lessons` | Query lessons and past mistakes relevant to a specific operation. Filters by severity. | Pro |
-| 6 | `kogni_impact` | Trace downstream impact of a proposed change through the dependency graph. Shows affected components and risk levels. | Pro |
-| 7 | `kogni_learn` | Record a development outcome for Bayesian graph learning. Strengthens or weakens edges based on results. | Pro |
+| 1 | `graq_context` | Smart context loading for session start. Returns relevant KG nodes, active branch info, and applicable lessons in ~300-500 tokens. | Free |
+| 2 | `graq_inspect` | Inspect the project knowledge graph structure. Show nodes, edges, stats, or details for a specific node. | Free |
+| 3 | `graq_reason` | Graph-of-agents reasoning. Each relevant node becomes an agent; they exchange messages and produce a synthesized answer. | Free |
+| 4 | `graq_preflight` | Governance preflight check before code changes. Returns relevant lessons, past mistakes, ADRs, and safety boundary warnings. | Pro |
+| 5 | `graq_lessons` | Query lessons and past mistakes relevant to a specific operation. Filters by severity. | Pro |
+| 6 | `graq_impact` | Trace downstream impact of a proposed change through the dependency graph. Shows affected components and risk levels. | Pro |
+| 7 | `graq_learn` | Record a development outcome for Bayesian graph learning. Strengthens or weakens edges based on results. | Pro |
 
 ---
 
@@ -163,7 +163,7 @@ available in the Free tier; four require a Pro license.
 Below are examples of how Claude Code invokes each tool through the MCP
 protocol. These are the JSON arguments passed to each tool call.
 
-### kogni_context (Free)
+### graq_context (Free)
 
 Load focused context at session start:
 
@@ -177,7 +177,7 @@ Load focused context at session start:
 `level` options: `"minimal"` (~200 tokens), `"standard"` (~400 tokens),
 `"deep"` (~800 tokens).
 
-### kogni_inspect (Free)
+### graq_inspect (Free)
 
 Get graph statistics:
 
@@ -195,7 +195,7 @@ Inspect a specific node:
 }
 ```
 
-### kogni_reason (Free)
+### graq_reason (Free)
 
 Run a reasoning query over the knowledge graph:
 
@@ -208,7 +208,7 @@ Run a reasoning query over the knowledge graph:
 
 `max_rounds` controls message-passing depth (1-5, default 2).
 
-### kogni_preflight (Pro)
+### graq_preflight (Pro)
 
 Check governance constraints before making changes:
 
@@ -219,7 +219,7 @@ Check governance constraints before making changes:
 }
 ```
 
-### kogni_lessons (Pro)
+### graq_lessons (Pro)
 
 Find relevant past mistakes:
 
@@ -232,7 +232,7 @@ Find relevant past mistakes:
 
 `severity_filter` options: `"all"`, `"critical"`, `"high"` (default).
 
-### kogni_impact (Pro)
+### graq_impact (Pro)
 
 Trace downstream effects of a change:
 
@@ -245,7 +245,7 @@ Trace downstream effects of a change:
 
 `change_type` options: `"modify"`, `"add"`, `"remove"`, `"deploy"`.
 
-### kogni_learn (Pro)
+### graq_learn (Pro)
 
 Record an outcome after completing work:
 
@@ -267,54 +267,54 @@ Record an outcome after completing work:
 ### "No graph found" or empty results
 
 The MCP server auto-discovers graph files in this order:
-`cognigraph.json`, `knowledge_graph.json`, `graph.json`.
+`graqle.json`, `knowledge_graph.json`, `graph.json`.
 
 If none exist, run:
 
 ```bash
-kogni scan repo .
+graq scan repo .
 ```
 
-This scans your repository and writes `cognigraph.json`.
+This scans your repository and writes `graqle.json`.
 
 ### Pro tools return license errors
 
-Tools 4-7 (`kogni_preflight`, `kogni_lessons`, `kogni_impact`, `kogni_learn`)
+Tools 4-7 (`graq_preflight`, `graq_lessons`, `graq_impact`, `graq_learn`)
 require a Pro license. Without one, calling these tools returns an error
 message explaining which feature is gated. The 3 Free tools work without
 any license.
 
-### `kogni` command not found
+### `graq` command not found
 
-The `kogni` CLI is installed as a console script by pip. Common fixes:
+The `graq` CLI is installed as a console script by pip. Common fixes:
 
 - Ensure the package is installed in the same Python environment that your
-  shell uses: `pip install cognigraph`
+  shell uses: `pip install graqle`
 - If using a virtual environment, activate it before starting Claude Code,
-  or use the full path to the `kogni` binary in `.mcp.json`:
+  or use the full path to the `graq` binary in `.mcp.json`:
 
   ```json
   {
     "mcpServers": {
-      "cognigraph": {
-        "command": "/path/to/venv/bin/kogni",
+      "graqle": {
+        "command": "/path/to/venv/bin/graq",
         "args": ["mcp", "serve"]
       }
     }
   }
   ```
 
-- On Windows, the script may be at `Scripts\kogni.exe` inside your venv.
+- On Windows, the script may be at `Scripts\graq.exe` inside your venv.
 
 ### MCP server starts but tools are not visible
 
 1. Confirm `.mcp.json` is in the project root (the directory you opened in
    Claude Code).
 2. Restart Claude Code or reload MCP servers after editing `.mcp.json`.
-3. Check that `kogni mcp serve` runs without errors:
+3. Check that `graq mcp serve` runs without errors:
 
    ```bash
-   kogni mcp serve --config cognigraph.yaml
+   graq mcp serve --config graqle.yaml
    ```
 
    The server communicates over stdio. If it prints errors to stderr, those
@@ -322,7 +322,7 @@ The `kogni` CLI is installed as a console script by pip. Common fixes:
 
 ### Wrong Python version
 
-CogniGraph requires Python 3.10+. Check with:
+Graqle requires Python 3.10+. Check with:
 
 ```bash
 python --version
@@ -336,7 +336,7 @@ with the correct version.
 Re-scan the repository to rebuild the knowledge graph:
 
 ```bash
-kogni scan repo .
+graq scan repo .
 ```
 
 Then restart the MCP server (Claude Code does this automatically when it

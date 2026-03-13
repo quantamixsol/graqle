@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Metrics — Graqle Studio{% endblock %}
+{% block nav_metrics %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Metrics &amp; ROI</h1>
+    <p class="subtitle">Token savings, cost impact, and usage analytics</p>
+</div>
+
+<div hx-get="/studio/api/partials/metrics-cards" hx-trigger="load, every 15s" hx-swap="innerHTML">
+    <div class="metrics-cards loading">Loading metrics...</div>
+</div>
+
+<div class="grid-2">
+    <div class="panel" x-data="metricsData()" x-init="load()">
+        <h3>Token Efficiency</h3>
+        <div class="metric-row">
+            <span>Total Tokens Saved</span>
+            <strong x-text="formatNum(data.tokens_saved || 0)"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Context Loads</span>
+            <strong x-text="data.context_loads || 0"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Avg Tokens per Load</span>
+            <strong x-text="data.context_loads ? Math.round((data.tokens_saved || 0) / data.context_loads) : '-'"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Estimated Cost Saved</span>
+            <strong x-text="'$' + ((data.tokens_saved || 0) * 0.000015).toFixed(2)"></strong>
+        </div>
+    </div>
+
+    <div class="panel" x-data="metricsData()" x-init="load()">
+        <h3>Safety &amp; Learning</h3>
+        <div class="metric-row">
+            <span>Queries Executed</span>
+            <strong x-text="data.queries || 0"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Lessons Applied</span>
+            <strong x-text="data.lessons_applied || 0"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Mistakes Prevented</span>
+            <strong x-text="data.mistakes_prevented || 0"></strong>
+        </div>
+        <div class="metric-row">
+            <span>Safety Checks</span>
+            <strong x-text="data.safety_checks || 0"></strong>
+        </div>
+    </div>
+</div>
+
+<div class="panel" x-data="sessionHistory()" x-init="load()">
+    <h3>Recent Sessions</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Date</th><th>Queries</th><th>Tokens Saved</th><th>Lessons</th></tr>
+        </thead>
+        <tbody>
+            <template x-for="s in sessions" :key="s.started_at">
+                <tr>
+                    <td x-text="s.started_at ? new Date(s.started_at).toLocaleDateString() : '-'"></td>
+                    <td x-text="s.queries || 0"></td>
+                    <td x-text="formatNum(s.tokens_saved || 0)"></td>
+                    <td x-text="s.lessons_applied || 0"></td>
+                </tr>
+            </template>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function metricsData() {
+        return {
+            data: {},
+            async load() {
+                const r = await fetch('/studio/api/metrics/summary');
+                this.data = await r.json();
+            },
+            formatNum(n) {
+                if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                return String(Math.round(n));
+            }
+        }
+    }
+
+    function sessionHistory() {
+        return {
+            sessions: [],
+            async load() {
+                const r = await fetch('/studio/api/metrics/sessions');
+                const data = await r.json();
+                this.sessions = (data.sessions || []).reverse().slice(0, 20);
+            },
+            formatNum(n) {
+                if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                return String(Math.round(n));
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -11,9 +11,9 @@ import pytest
 import httpx
 import networkx as nx
 
-from cognigraph.backends.api import OllamaBackend
-from cognigraph.core.graph import CogniGraph
-from cognigraph.config.settings import CogniGraphConfig
+from graqle.backends.api import OllamaBackend
+from graqle.core.graph import Graqle
+from graqle.config.settings import GraqleConfig
 
 
 def _ollama_available() -> bool:
@@ -67,8 +67,8 @@ class TestOllamaBackendDirect:
 
 
 @skip_no_ollama
-class TestCogniGraphWithOllama:
-    """End-to-end: CogniGraph reasoning with real Ollama GPU backend."""
+class TestGraqleWithOllama:
+    """End-to-end: Graqle reasoning with real Ollama GPU backend."""
 
     @pytest.fixture
     def small_graph(self):
@@ -84,9 +84,9 @@ class TestCogniGraphWithOllama:
         G.add_edge("ai_act", "transparency", relationship="REQUIRES")
         G.add_edge("high_risk", "transparency", relationship="SUBJECT_TO")
 
-        config = CogniGraphConfig.default()
+        config = GraqleConfig.default()
         config.orchestration.max_rounds = 2
-        return CogniGraph.from_networkx(G, config=config)
+        return Graqle.from_networkx(G, config=config)
 
     def test_reason_with_ollama(self, small_graph):
         """Full pipeline: graph.reason() with real GPU inference."""

@@ -3,10 +3,10 @@
 import pytest
 import numpy as np
 
-from cognigraph.ontology.constraint_graph import ConstraintGraph, NodeConstraints
-from cognigraph.core.node import CogniNode
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.edge import CogniEdge
+from graqle.ontology.constraint_graph import ConstraintGraph, NodeConstraints
+from graqle.core.node import CogniNode
+from graqle.core.graph import Graqle
+from graqle.core.edge import CogniEdge
 
 
 def _make_graph_with_nodes():
@@ -53,7 +53,7 @@ def _make_graph_with_nodes():
     }
     nodes["gdpr_art22"].outgoing_edges.append("e1")
     nodes["ai_act_art14"].incoming_edges.append("e1")
-    return CogniGraph(nodes=nodes, edges=edges)
+    return Graqle(nodes=nodes, edges=edges)
 
 
 class TestConstraintGraph:

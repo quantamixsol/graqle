@@ -1,4 +1,4 @@
-"""Tests for cognigraph.cli.commands.init — init command, config generation, file writers."""
+"""Tests for graqle.cli.commands.init — init command, config generation, file writers."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from cognigraph.cli.commands.init import (
+from graqle.cli.commands.init import (
     BACKENDS,
     CLAUDE_MD_SECTION,
-    _build_cognigraph_yaml,
+    _build_graqle_yaml,
     _build_gcc_config_yaml,
     _build_gcc_main_md,
     _build_gcc_registry_md,
@@ -23,8 +23,8 @@ from cognigraph.cli.commands.init import (
     _extract_python_imports,
     _should_skip,
     _write_claude_md,
-    _write_cognigraph_json,
-    _write_cognigraph_yaml,
+    _write_graqle_json,
+    _write_graqle_yaml,
     _write_gcc_structure,
     _write_mcp_json,
     scan_repository,
@@ -91,9 +91,9 @@ class TestDetectProjectType:
 
 class TestExtractPythonImports:
     def test_from_import(self):
-        code = "from cognigraph.core.graph import CogniGraph"
+        code = "from graqle.core.graph import Graqle"
         result = _extract_python_imports(code)
-        assert "cognigraph.core.graph" in result
+        assert "graqle.core.graph" in result
 
     def test_dotted_import(self):
         code = "import os.path"
@@ -240,7 +240,7 @@ class TestScanRepository:
 
 class TestBuildCognigraphYaml:
     def test_basic_structure(self):
-        content = _build_cognigraph_yaml("anthropic", "claude-haiku-4-5-20251001", "${ANTHROPIC_API_KEY}")
+        content = _build_graqle_yaml("anthropic", "claude-haiku-4-5-20251001", "${ANTHROPIC_API_KEY}")
         cfg = yaml.safe_load(content)
         assert cfg["model"]["backend"] == "anthropic"
         assert cfg["model"]["model"] == "claude-haiku-4-5-20251001"
@@ -250,7 +250,7 @@ class TestBuildCognigraphYaml:
         assert cfg["orchestration"]["max_rounds"] == 3
 
     def test_custom_backend_becomes_api(self):
-        content = _build_cognigraph_yaml("custom", "my-model", "key123")
+        content = _build_graqle_yaml("custom", "my-model", "key123")
         cfg = yaml.safe_load(content)
         assert cfg["model"]["backend"] == "api"
 
@@ -259,10 +259,10 @@ class TestBuildMcpJson:
     def test_structure(self):
         data = _build_mcp_json()
         assert "mcpServers" in data
-        assert "cognigraph" in data["mcpServers"]
-        srv = data["mcpServers"]["cognigraph"]
+        assert "graqle" in data["mcpServers"]
+        srv = data["mcpServers"]["graqle"]
         assert srv["type"] == "stdio"
-        assert srv["command"] == "kogni"
+        assert srv["command"] == "graq"
         assert "mcp" in srv["args"]
 
 
@@ -308,23 +308,23 @@ class TestBuildGccMetadataYaml:
 
 class TestWriteCognigraphYaml:
     def test_creates_file(self, tmp_path):
-        _write_cognigraph_yaml(tmp_path, "model:\n  backend: test\n")
-        target = tmp_path / "cognigraph.yaml"
+        _write_graqle_yaml(tmp_path, "model:\n  backend: test\n")
+        target = tmp_path / "graqle.yaml"
         assert target.exists()
         assert "backend: test" in target.read_text()
 
     def test_overwrites_existing(self, tmp_path):
-        target = tmp_path / "cognigraph.yaml"
+        target = tmp_path / "graqle.yaml"
         target.write_text("old content")
-        _write_cognigraph_yaml(tmp_path, "new content")
+        _write_graqle_yaml(tmp_path, "new content")
         assert target.read_text() == "new content"
 
 
 class TestWriteCognigraphJson:
     def test_creates_file(self, tmp_path):
         data = {"nodes": [], "links": []}
-        _write_cognigraph_json(tmp_path, data)
-        target = tmp_path / "cognigraph.json"
+        _write_graqle_json(tmp_path, data)
+        target = tmp_path / "graqle.json"
         assert target.exists()
         loaded = json.loads(target.read_text())
         assert loaded == data
@@ -336,7 +336,7 @@ class TestWriteMcpJson:
         target = tmp_path / ".mcp.json"
         assert target.exists()
         data = json.loads(target.read_text())
-        assert "cognigraph" in data["mcpServers"]
+        assert "graqle" in data["mcpServers"]
 
     def test_merges_into_existing(self, tmp_path):
         target = tmp_path / ".mcp.json"
@@ -345,24 +345,24 @@ class TestWriteMcpJson:
         _write_mcp_json(tmp_path)
         data = json.loads(target.read_text())
         assert "other" in data["mcpServers"]
-        assert "cognigraph" in data["mcpServers"]
+        assert "graqle" in data["mcpServers"]
 
-    def test_skips_if_already_has_cognigraph(self, tmp_path):
+    def test_skips_if_already_has_graqle(self, tmp_path):
         target = tmp_path / ".mcp.json"
-        existing = {"mcpServers": {"cognigraph": {"command": "old"}}}
+        existing = {"mcpServers": {"graqle": {"command": "old"}}}
         target.write_text(json.dumps(existing))
         result = _write_mcp_json(tmp_path)
         assert result is False
         data = json.loads(target.read_text())
         # Should not be overwritten
-        assert data["mcpServers"]["cognigraph"]["command"] == "old"
+        assert data["mcpServers"]["graqle"]["command"] == "old"
 
     def test_handles_invalid_json(self, tmp_path):
         target = tmp_path / ".mcp.json"
         target.write_text("not json!")
         _write_mcp_json(tmp_path)
         data = json.loads(target.read_text())
-        assert "cognigraph" in data["mcpServers"]
+        assert "graqle" in data["mcpServers"]
 
 
 class TestWriteClaudeMd:
@@ -370,7 +370,7 @@ class TestWriteClaudeMd:
         _write_claude_md(tmp_path)
         target = tmp_path / "CLAUDE.md"
         assert target.exists()
-        assert "CogniGraph" in target.read_text()
+        assert "Graqle" in target.read_text()
 
     def test_appends_to_existing(self, tmp_path):
         target = tmp_path / "CLAUDE.md"
@@ -378,7 +378,7 @@ class TestWriteClaudeMd:
         _write_claude_md(tmp_path)
         content = target.read_text()
         assert "Existing Project" in content
-        assert "CogniGraph" in content
+        assert "Graqle" in content
 
     def test_skips_if_section_exists(self, tmp_path):
         target = tmp_path / "CLAUDE.md"
@@ -391,15 +391,15 @@ class TestWriteGccStructure:
     def test_creates_full_structure(self, tmp_path):
         result = _write_gcc_structure(tmp_path)
         assert result is True
-        kogni = tmp_path / ".kogni"
-        assert kogni.exists()
-        assert (kogni / "main.md").exists()
-        assert (kogni / "registry.md").exists()
-        assert (kogni / "config.yaml").exists()
-        assert (kogni / "branches" / "main" / "commit.md").exists()
-        assert (kogni / "branches" / "main" / "log.md").exists()
-        assert (kogni / "branches" / "main" / "metadata.yaml").exists()
-        assert (kogni / "checkpoints" / ".gitkeep").exists()
+        graq = tmp_path / ".graq"
+        assert graq.exists()
+        assert (graq / "main.md").exists()
+        assert (graq / "registry.md").exists()
+        assert (graq / "config.yaml").exists()
+        assert (graq / "branches" / "main" / "commit.md").exists()
+        assert (graq / "branches" / "main" / "log.md").exists()
+        assert (graq / "branches" / "main" / "metadata.yaml").exists()
+        assert (graq / "checkpoints" / ".gitkeep").exists()
 
     def test_skips_if_legacy_gcc_exists(self, tmp_path):
         """Legacy .gcc/ is still respected — don't create duplicate."""
@@ -407,8 +407,8 @@ class TestWriteGccStructure:
         result = _write_gcc_structure(tmp_path)
         assert result is False
 
-    def test_skips_if_kogni_exists(self, tmp_path):
-        (tmp_path / ".kogni").mkdir()
+    def test_skips_if_graq_exists(self, tmp_path):
+        (tmp_path / ".graq").mkdir()
         result = _write_gcc_structure(tmp_path)
         assert result is False
 

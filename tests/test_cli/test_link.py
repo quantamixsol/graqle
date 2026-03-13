@@ -1,4 +1,4 @@
-"""Tests for kogni link CLI subcommands (v0.15.0 — multi-project support)."""
+"""Tests for graq link CLI subcommands (v0.15.0 — multi-project support)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from cognigraph.cli.commands.link import link_app
+from graqle.cli.commands.link import link_app
 
 runner = CliRunner()
 
@@ -44,13 +44,13 @@ def sample_graphs(tmp_path):
 
     p1 = tmp_path / "project1"
     p1.mkdir()
-    (p1 / "cognigraph.json").write_text(json.dumps(g1))
+    (p1 / "graqle.json").write_text(json.dumps(g1))
 
     p2 = tmp_path / "project2"
     p2.mkdir()
-    (p2 / "cognigraph.json").write_text(json.dumps(g2))
+    (p2 / "graqle.json").write_text(json.dumps(g2))
 
-    return p1 / "cognigraph.json", p2 / "cognigraph.json", tmp_path
+    return p1 / "graqle.json", p2 / "graqle.json", tmp_path
 
 
 class TestLinkMerge:

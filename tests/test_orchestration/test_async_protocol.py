@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognigraph.backends.mock import MockBackend
-from cognigraph.core.graph import CogniGraph
-from cognigraph.orchestration.async_protocol import AsyncMessageProtocol, NodeMailbox
+from graqle.backends.mock import MockBackend
+from graqle.core.graph import Graqle
+from graqle.orchestration.async_protocol import AsyncMessageProtocol, NodeMailbox
 
 
 @pytest.fixture
@@ -24,8 +24,8 @@ def graph_with_backend(sample_graph):
 @pytest.mark.asyncio
 async def test_node_mailbox():
     """NodeMailbox queues and dequeues messages."""
-    from cognigraph.core.message import Message
-    from cognigraph.core.types import ReasoningType
+    from graqle.core.message import Message
+    from graqle.core.types import ReasoningType
 
     mailbox = NodeMailbox("n1", capacity=10)
     assert mailbox.pending == 0

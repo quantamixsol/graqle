@@ -1,4 +1,4 @@
-"""Tests for cognigraph.cli.commands.scan — PythonAnalyzer, JSAnalyzer, RepoScanner."""
+"""Tests for graqle.cli.commands.scan — PythonAnalyzer, JSAnalyzer, RepoScanner."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cognigraph.cli.commands.scan import (
+from graqle.cli.commands.scan import (
     EDGE_TYPES,
     NODE_TYPES,
     SKIP_DIRS,

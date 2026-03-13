@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognigraph.backends.mock import MockBackend
-from cognigraph.orchestration.debate import DebateProtocol
+from graqle.backends.mock import MockBackend
+from graqle.orchestration.debate import DebateProtocol
 
 
 @pytest.fixture

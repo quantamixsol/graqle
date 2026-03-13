@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Graqle Studio{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Knowledge graph intelligence at a glance</p>
+</div>
+
+<!-- Metrics cards -->
+<div hx-get="/studio/api/partials/metrics-cards" hx-trigger="load, every 15s" hx-swap="innerHTML">
+    <div class="grid-4">
+        <div class="metric-card blue">
+            <div class="icon">&#9673;</div>
+            <div class="label">Nodes</div>
+            <div class="value">{{ node_count }}</div>
+        </div>
+        <div class="metric-card green">
+            <div class="icon">&#8596;</div>
+            <div class="label">Edges</div>
+            <div class="value">{{ edge_count }}</div>
+        </div>
+        <div class="metric-card purple">
+            <div class="icon">&#9889;</div>
+            <div class="label">Queries</div>
+            <div class="value">{{ metrics.get('total_queries', 0) if metrics else 0 }}</div>
+        </div>
+        <div class="metric-card yellow">
+            <div class="icon">$</div>
+            <div class="label">Cost Saved</div>
+            <div class="value">${{ "%.2f"|format(metrics.get('total_cost_saved', 0.0)) if metrics else '0.00' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Node Types -->
+    <div class="panel">
+        <h3>Node Types</h3>
+        <div class="node-types-grid">
+            {% for type_name, count in node_types.items() %}
+            <div class="node-type-item">
+                <span class="dot" style="background: var(--brand)"></span>
+                <span class="name">{{ type_name }}</span>
+                <span class="count">{{ count }}</span>
+            </div>
+            {% else %}
+            <div class="text-muted">No nodes loaded</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="panel">
+        <h3>Quick Actions</h3>
+        <div class="quick-actions">
+            <a href="/studio/graph">&#9673; Explore Graph</a>
+            <a href="/studio/reasoning">&#9889; Run Reasoning</a>
+            <a href="/studio/metrics">&#9776; View Metrics</a>
+        </div>
+
+        <!-- QR Code for mobile access -->
+        <div style="margin-top: 20px;">
+            <h3>Mobile Access</h3>
+            <div id="qr-code" style="text-align: center; padding: 12px;"></div>
+            <p class="text-muted" style="text-align: center; font-size: 11px; margin-top: 8px;">
+                Scan to open Studio on your mobile device
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Graph Preview -->
+<div class="panel">
+    <h3>Graph Preview</h3>
+    <div id="mini-graph" class="mini-graph" style="height: 300px; position: relative;"></div>
+</div>
+{% endblock %}
+
+{% block head %}
+<script src="/studio/static/vendor/d3.min.js"></script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/studio/static/js/graph-viz.js"></script>
+<script>
+    // Load graph preview
+    fetch('/studio/api/graph/visualization')
+        .then(r => r.json())
+        .then(data => {
+            if (data.nodes && data.nodes.length > 0) {
+                new GraqleViz('#mini-graph', data, { mini: true });
+            } else {
+                document.getElementById('mini-graph').innerHTML =
+                    '<div class="text-muted" style="display:flex;align-items:center;justify-content:center;height:100%">No graph data available</div>';
+            }
+        })
+        .catch(() => {
+            document.getElementById('mini-graph').innerHTML =
+                '<div class="text-muted" style="display:flex;align-items:center;justify-content:center;height:100%">Failed to load graph</div>';
+        });
+
+    // Generate QR code for mobile access
+    (function() {
+        var url = window.location.origin + '/studio/';
+        var qrEl = document.getElementById('qr-code');
+        if (!qrEl) return;
+
+        // Use a lightweight inline QR generator (no external deps)
+        var size = 160;
+        var img = document.createElement('img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(url) + '&bgcolor=1e293b&color=38bdf8&format=svg';
+        img.alt = 'QR Code for ' + url;
+        img.style.width = size + 'px';
+        img.style.height = size + 'px';
+        img.style.borderRadius = '8px';
+        img.onerror = function() {
+            // Fallback: show the URL as text
+            qrEl.innerHTML = '<code style="font-size:11px;word-break:break-all">' + url + '</code>';
+        };
+        qrEl.appendChild(img);
+
+        var urlText = document.createElement('div');
+        urlText.style.fontSize = '11px';
+        urlText.style.color = 'var(--text-muted)';
+        urlText.style.marginTop = '6px';
+        urlText.style.wordBreak = 'break-all';
+        urlText.textContent = url;
+        qrEl.appendChild(urlText);
+    })();
+</script>
+{% endblock %}

@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognigraph.backends.mock import MockBackend
-from cognigraph.orchestration.hierarchical import HierarchicalAggregation
+from graqle.backends.mock import MockBackend
+from graqle.orchestration.hierarchical import HierarchicalAggregation
 
 
 @pytest.fixture

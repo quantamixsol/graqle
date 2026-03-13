@@ -1,4 +1,4 @@
-"""CogniGraph Governance Example — SHACL constraints for a codebase KG.
+"""Graqle Governance Example — SHACL constraints for a codebase KG.
 
 This example shows how to apply governance constraints to a software
 engineering knowledge graph. The constraints ensure that:
@@ -11,13 +11,13 @@ Usage:
     python examples/governance_example.py
 
 Requirements:
-    pip install cognigraph
+    pip install graqle
     export ANTHROPIC_API_KEY=...  (or use Ollama for local)
 """
 
 import asyncio
-from cognigraph.core.graph import CogniGraph
-from cognigraph.config.settings import CogniGraphConfig
+from graqle.core.graph import Graqle
+from graqle.config.settings import GraqleConfig
 
 
 def build_example_graph() -> dict:
@@ -99,7 +99,7 @@ def build_example_graph() -> dict:
     }
 
 
-def register_codebase_governance(graph: CogniGraph) -> None:
+def register_codebase_governance(graph: Graqle) -> None:
     """Register governance constraints for a software codebase.
 
     This demonstrates how SHACL-style constraints work outside
@@ -107,11 +107,11 @@ def register_codebase_governance(graph: CogniGraph) -> None:
     practices through the reasoning pipeline.
     """
     try:
-        from cognigraph.ontology.semantic_shacl_gate import (
+        from graqle.ontology.semantic_shacl_gate import (
             SemanticSHACLGate,
             SemanticConstraint,
         )
-        from cognigraph.ontology.domain_registry import DomainRegistry, DomainOntology
+        from graqle.ontology.domain_registry import DomainRegistry, DomainOntology
 
         # Create domain registry
         registry = DomainRegistry()
@@ -185,29 +185,29 @@ def register_codebase_governance(graph: CogniGraph) -> None:
 
     except ImportError as e:
         print(f"Governance module not available: {e}")
-        print("Install with: pip install cognigraph")
+        print("Install with: pip install graqle")
 
 
 async def main():
     """Demonstrate governance-constrained reasoning on a codebase KG."""
     print("=" * 60)
-    print("CogniGraph Governance Example — Codebase KG")
+    print("Graqle Governance Example — Codebase KG")
     print("=" * 60)
 
     # Build the graph
     graph_data = build_example_graph()
     print(f"\nGraph: {len(graph_data['nodes'])} nodes, {len(graph_data['links'])} edges")
 
-    # Load into CogniGraph
-    config = CogniGraphConfig.default()
+    # Load into Graqle
+    config = GraqleConfig.default()
     config.activation.max_nodes = 5  # Small graph, use all nodes
     config.observer.enabled = True   # v0.12: on by default
 
-    graph = CogniGraph(config=config)
+    graph = Graqle(config=config)
 
     # Add nodes and edges
-    from cognigraph.core.node import CogniNode
-    from cognigraph.core.types import Edge
+    from graqle.core.node import CogniNode
+    from graqle.core.types import Edge
     for node_data in graph_data["nodes"]:
         node = CogniNode(
             id=node_data["id"],
@@ -241,7 +241,7 @@ async def main():
     # Note: actual reasoning requires a backend (Anthropic, Ollama, etc.)
     # Uncomment below to run with a real backend:
     #
-    # from cognigraph.backends.api import AnthropicBackend
+    # from graqle.backends.api import AnthropicBackend
     # backend = AnthropicBackend(model="claude-haiku-4-5-20251001")
     # graph.set_default_backend(backend)
     # result = await graph.areason("How does AuthService handle password security?")

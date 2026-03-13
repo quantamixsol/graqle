@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognigraph.backends.mock import MockBackend
-from cognigraph.backends.registry import BackendRegistry
+from graqle.backends.mock import MockBackend
+from graqle.backends.registry import BackendRegistry
 
 
 def test_registry_register_and_get():

@@ -1,4 +1,4 @@
-# Contributing to CogniGraph
+# Contributing to Graqle
 
 Thanks for your interest in contributing. Here's how to get started.
 
@@ -6,8 +6,8 @@ Thanks for your interest in contributing. Here's how to get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/quantamixsol/cognigraph.git
-cd cognigraph
+git clone https://github.com/quantamixsol/graqle.git
+cd graqle
 
 # Create a virtual environment
 python -m venv .venv
@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 
 # With coverage
-pytest tests/ --cov=cognigraph --cov-report=term-missing
+pytest tests/ --cov=graqle --cov-report=term-missing
 
 # Single test file
 pytest tests/test_activation.py -v
@@ -36,12 +36,12 @@ We use **ruff** for linting and formatting:
 
 ```bash
 # Check
-ruff check cognigraph/
-ruff format --check cognigraph/
+ruff check graqle/
+ruff format --check graqle/
 
 # Auto-fix
-ruff check --fix cognigraph/
-ruff format cognigraph/
+ruff check --fix graqle/
+ruff format graqle/
 ```
 
 All PRs must pass `ruff check` and `ruff format --check` with zero errors.

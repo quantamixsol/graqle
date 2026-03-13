@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from cognigraph.learning.activation_memory import (
+from graqle.learning.activation_memory import (
     ActivationMemory,
     ActivationMemoryConfig,
     NodeRecord,

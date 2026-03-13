@@ -1,11 +1,11 @@
-"""Tests for TAMRConnector — TAMR+ to CogniGraph pipeline."""
+"""Tests for TAMRConnector — TAMR+ to Graqle pipeline."""
 
 import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cognigraph.connectors.tamr import (
+from graqle.connectors.tamr import (
     PipelineConfig,
     TAMRConnector,
     TAMRDocument,
@@ -109,12 +109,12 @@ def test_compute_node_prior_clamped():
     assert connector.compute_node_prior(doc) == 1.0
 
 
-def test_to_cognigraph(sample_tamr_data):
-    """Convert subgraph to CogniGraph and verify nodes/edges."""
+def test_to_graqle(sample_tamr_data):
+    """Convert subgraph to Graqle and verify nodes/edges."""
     connector = TAMRConnector()
     subgraph = connector.load_from_dict(sample_tamr_data)
 
-    graph = connector.to_cognigraph(subgraph)
+    graph = connector.to_graqle(subgraph)
 
     assert len(graph.nodes) == 2
     assert len(graph.edges) == 1
@@ -127,7 +127,7 @@ def test_trace_priors_injected(sample_tamr_data):
     connector = TAMRConnector()
     subgraph = connector.load_from_dict(sample_tamr_data)
 
-    graph = connector.to_cognigraph(subgraph)
+    graph = connector.to_graqle(subgraph)
 
     node1 = graph.nodes["doc1"]
     assert "trace_score" in node1.properties

@@ -1,4 +1,4 @@
-"""Tests for CogniGraph MCP Server plugin."""
+"""Tests for Graqle MCP Server plugin."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 
-from cognigraph.plugins.mcp_server import MCPConfig, MCPServer, MCPToolResult
+from graqle.plugins.mcp_server import MCPConfig, MCPServer, MCPToolResult
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def test_tool_definitions(server: MCPServer):
     assert len(tools) == 4
 
     names = {t["name"] for t in tools}
-    assert names == {"kogni_context", "kogni_reason", "kogni_inspect", "kogni_search"}
+    assert names == {"graq_context", "graq_reason", "graq_inspect", "graq_search"}
 
     for tool in tools:
         assert "description" in tool
@@ -116,7 +116,7 @@ def test_tool_definitions(server: MCPServer):
 @pytest.mark.asyncio
 async def test_context_text_format(server: MCPServer):
     """Get text context and verify sections present."""
-    result = await server.handle_tool_call("kogni_context", {"entity": "Auth Lambda"})
+    result = await server.handle_tool_call("graq_context", {"entity": "Auth Lambda"})
     assert not result.is_error
     text = result.content
 
@@ -141,7 +141,7 @@ async def test_context_text_format(server: MCPServer):
 @pytest.mark.asyncio
 async def test_context_json_format(server: MCPServer):
     """Verify JSON output has required fields."""
-    result = await server.handle_tool_call("kogni_context", {"entity": "lambda-auth", "format": "json"})
+    result = await server.handle_tool_call("graq_context", {"entity": "lambda-auth", "format": "json"})
     assert not result.is_error
     data = json.loads(result.content)
 
@@ -162,7 +162,7 @@ async def test_context_json_format(server: MCPServer):
 @pytest.mark.asyncio
 async def test_context_entity_not_found(server: MCPServer):
     """Verify error result for missing entity."""
-    result = await server.handle_tool_call("kogni_context", {"entity": "nonexistent-service"})
+    result = await server.handle_tool_call("graq_context", {"entity": "nonexistent-service"})
     assert result.is_error
     assert "Entity not found" in result.content
 
@@ -174,7 +174,7 @@ async def test_context_entity_not_found(server: MCPServer):
 @pytest.mark.asyncio
 async def test_inspect_summary(server: MCPServer):
     """Verify node/edge counts in summary."""
-    result = await server.handle_tool_call("kogni_inspect", {"detail": "summary"})
+    result = await server.handle_tool_call("graq_inspect", {"detail": "summary"})
     assert not result.is_error
     data = json.loads(result.content)
 
@@ -193,7 +193,7 @@ async def test_inspect_summary(server: MCPServer):
 @pytest.mark.asyncio
 async def test_inspect_types(server: MCPServer):
     """Verify entity type grouping."""
-    result = await server.handle_tool_call("kogni_inspect", {"detail": "types"})
+    result = await server.handle_tool_call("graq_inspect", {"detail": "types"})
     assert not result.is_error
     data = json.loads(result.content)
 
@@ -234,7 +234,7 @@ async def test_search_returns_ranked(server: MCPServer):
     embedder.embed = mock_embed
     server._embedder = embedder
 
-    result = await server.handle_tool_call("kogni_search", {"query": "authentication", "limit": 3})
+    result = await server.handle_tool_call("graq_search", {"query": "authentication", "limit": 3})
     assert not result.is_error
     data = json.loads(result.content)
 
@@ -301,7 +301,7 @@ def test_find_node_fuzzy(server: MCPServer):
 @pytest.mark.asyncio
 async def test_unknown_tool(server: MCPServer):
     """Verify error for invalid tool name."""
-    result = await server.handle_tool_call("kogni_nonexistent", {})
+    result = await server.handle_tool_call("graq_nonexistent", {})
     assert result.is_error
     assert "Unknown tool" in result.content
 

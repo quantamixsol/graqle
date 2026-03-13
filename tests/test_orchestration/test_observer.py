@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognigraph.core.message import Message
-from cognigraph.core.types import ReasoningType
-from cognigraph.orchestration.observer import MasterObserver
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
+from graqle.orchestration.observer import MasterObserver
 
 
 def _make_msg(node_id: str, content: str, confidence: float = 0.7,
@@ -210,7 +210,7 @@ async def test_health_score_scales_with_node_count():
     With 20 nodes, perspective diversity is expected — the observer should
     not penalize each "conflict" at the same rate as a 2-node scenario.
     """
-    from cognigraph.core.observer_report import ObserverReport, ConflictPair
+    from graqle.core.observer_report import ObserverReport, ConflictPair
 
     # Simulate 20-node scenario with 100 "conflicts" (perspective diversity)
     conflicts = [

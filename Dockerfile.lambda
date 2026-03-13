@@ -1,0 +1,27 @@
+FROM public.ecr.aws/lambda/python:3.10
+
+# Install build tools for native deps
+RUN yum install -y gcc gcc-c++ && yum clean all
+
+# Copy package source
+COPY pyproject.toml README.md ./
+COPY graqle/ ./graqle/
+
+# Install graqle with server + api extras (no sentence-transformers — use Bedrock for embeddings)
+# mangum bridges ASGI (FastAPI) to Lambda events
+RUN pip install --no-cache-dir \
+    "fastapi>=0.100" \
+    "uvicorn>=0.20" \
+    "networkx>=3.0" \
+    "pydantic>=2.0" \
+    "pyyaml>=6.0" \
+    "jinja2>=3.1" \
+    "mangum>=0.19" \
+    "boto3>=1.34" \
+    "anthropic>=0.39" \
+    "httpx>=0.25" \
+    "numpy>=1.24" \
+    && pip install --no-cache-dir . --no-deps
+
+# Lambda handler
+CMD ["graqle.server.lambda_handler.handler"]

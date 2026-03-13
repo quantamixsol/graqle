@@ -1,7 +1,7 @@
 """Tests for ConvergenceDetector."""
 
-from cognigraph.core.message import Message
-from cognigraph.orchestration.convergence import ConvergenceDetector
+from graqle.core.message import Message
+from graqle.orchestration.convergence import ConvergenceDetector
 
 
 def _make_msg(node_id: str, content: str, confidence: float = 0.5) -> Message:

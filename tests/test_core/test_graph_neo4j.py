@@ -1,11 +1,11 @@
-"""Tests for CogniGraph.from_neo4j() and to_neo4j()."""
+"""Tests for Graqle.from_neo4j() and to_neo4j()."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.config.settings import CogniGraphConfig
+from graqle.core.graph import Graqle
+from graqle.config.settings import GraqleConfig
 
 
 def _mock_neo4j_module():
@@ -17,7 +17,7 @@ def _mock_neo4j_module():
 
 
 class TestFromNeo4j:
-    """Tests for CogniGraph.from_neo4j()."""
+    """Tests for Graqle.from_neo4j()."""
 
     def test_from_neo4j_creates_graph(self):
         """from_neo4j loads nodes and edges from Neo4j."""
@@ -61,7 +61,7 @@ class TestFromNeo4j:
         session.run.side_effect = [node_records, edge_records, chunk_records]
 
         with patch.dict("sys.modules", {"neo4j": mock_module}):
-            graph = CogniGraph.from_neo4j(
+            graph = Graqle.from_neo4j(
                 uri="bolt://localhost:7687",
                 username="neo4j",
                 password="test",
@@ -101,7 +101,7 @@ class TestFromNeo4j:
         session.run.side_effect = [node_records, [], chunk_records]
 
         with patch.dict("sys.modules", {"neo4j": mock_module}):
-            graph = CogniGraph.from_neo4j()
+            graph = Graqle.from_neo4j()
 
         chunks = graph.nodes["n1"].properties.get("chunks", [])
         assert len(chunks) == 2
@@ -109,7 +109,7 @@ class TestFromNeo4j:
 
 
 class TestToNeo4j:
-    """Tests for CogniGraph.to_neo4j()."""
+    """Tests for Graqle.to_neo4j()."""
 
     def test_to_neo4j_writes_graph(self):
         """to_neo4j should call save and save_chunks on connector."""
@@ -117,8 +117,8 @@ class TestToNeo4j:
         session = mock_driver.session().__enter__()
 
         # Create a simple in-memory graph
-        from cognigraph.core.node import CogniNode
-        from cognigraph.core.edge import CogniEdge
+        from graqle.core.node import CogniNode
+        from graqle.core.edge import CogniEdge
 
         nodes = {
             "a": CogniNode(id="a", label="A", entity_type="T", description="Node A"),
@@ -128,7 +128,7 @@ class TestToNeo4j:
         edges = {
             "e1": CogniEdge(id="e1", source_id="a", target_id="b", relationship="REL"),
         }
-        graph = CogniGraph(nodes=nodes, edges=edges)
+        graph = Graqle(nodes=nodes, edges=edges)
 
         with patch.dict("sys.modules", {"neo4j": mock_module}):
             graph.to_neo4j(uri="bolt://localhost:7687", password="test")
@@ -142,12 +142,12 @@ class TestToNeo4j:
         mock_module, mock_driver = _mock_neo4j_module()
         session = mock_driver.session().__enter__()
 
-        from cognigraph.core.node import CogniNode
+        from graqle.core.node import CogniNode
         nodes = {
             "a": CogniNode(id="a", label="A", entity_type="T", description="desc"),
         }
         nodes["a"].properties["chunks"] = [{"text": "code", "type": "function"}]
-        graph = CogniGraph(nodes=nodes)
+        graph = Graqle(nodes=nodes)
 
         embed_fn = MagicMock(return_value=[0.1] * 1024)
 

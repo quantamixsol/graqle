@@ -1,14 +1,14 @@
-# CogniGraph API Reference
+# Graqle API Reference
 
-CogniGraph can be queried from **any tool, any language, any IDE** through 4 interfaces.
+Graqle can be queried from **any tool, any language, any IDE** through 4 interfaces.
 Pick whichever fits your workflow:
 
 | Interface | Best For | Setup |
 |-----------|----------|-------|
-| **REST API** | Any HTTP client (Copilot, Postman, custom tools, CI/CD) | `kogni serve` |
-| **Python SDK** | Python scripts, notebooks, pipelines | `from cognigraph import CogniGraph` |
-| **CLI** | Terminal, shell scripts, any IDE terminal | `kogni run "query"` |
-| **MCP Server** | Claude Code, Cursor, VS Code (MCP-compatible IDEs) | `kogni init --ide <ide>` |
+| **REST API** | Any HTTP client (Copilot, Postman, custom tools, CI/CD) | `graq serve` |
+| **Python SDK** | Python scripts, notebooks, pipelines | `from graqle import Graqle` |
+| **CLI** | Terminal, shell scripts, any IDE terminal | `graq run "query"` |
+| **MCP Server** | Claude Code, Cursor, VS Code (MCP-compatible IDEs) | `graq init --ide <ide>` |
 
 ---
 
@@ -16,9 +16,9 @@ Pick whichever fits your workflow:
 
 Start the server:
 ```bash
-kogni serve                          # localhost:8000
-kogni serve --port 9000              # custom port
-kogni serve --host 0.0.0.0 --port 8000 --workers 4  # production
+graq serve                          # localhost:8000
+graq serve --port 9000              # custom port
+graq serve --host 0.0.0.0 --port 8000 --workers 4  # production
 ```
 
 Interactive docs available at: `http://localhost:8000/docs` (Swagger UI)
@@ -115,7 +115,7 @@ curl http://localhost:8000/nodes/auth-service
 Set an API key to protect your server:
 ```bash
 export COGNIGRAPH_API_KEY=your-secret-key
-kogni serve
+graq serve
 ```
 
 Then include it in requests:
@@ -160,11 +160,11 @@ data: [DONE]
 ## 2. Python SDK
 
 ```python
-from cognigraph import CogniGraph
-from cognigraph.backends.api import AnthropicBackend
+from graqle import Graqle
+from graqle.backends.api import AnthropicBackend
 
 # Load graph
-graph = CogniGraph.from_json("cognigraph.json")
+graph = Graqle.from_json("graqle.json")
 graph.set_default_backend(AnthropicBackend(model="claude-haiku-4-5-20251001"))
 
 # Single query
@@ -194,10 +194,10 @@ print(f"Nodes: {stats.total_nodes}, Edges: {stats.total_edges}")
 ### Use in Jupyter Notebooks
 ```python
 # In a cell:
-!pip install cognigraph[api]
+!pip install graqle[api]
 
-from cognigraph import CogniGraph
-graph = CogniGraph.from_json("cognigraph.json")
+from graqle import Graqle
+graph = Graqle.from_json("graqle.json")
 # ... query as above
 ```
 
@@ -205,8 +205,8 @@ graph = CogniGraph.from_json("cognigraph.json")
 ```yaml
 - name: Check architecture
   run: |
-    pip install cognigraph[api]
-    kogni run "Are there any circular dependencies?" --format json
+    pip install graqle[api]
+    graq run "Are there any circular dependencies?" --format json
 ```
 
 ---
@@ -215,22 +215,22 @@ graph = CogniGraph.from_json("cognigraph.json")
 
 ```bash
 # Reasoning query
-kogni run "What depends on the auth service?"
+graq run "What depends on the auth service?"
 
 # Focused context (500 tokens)
-kogni context auth-service
+graq context auth-service
 
 # Graph statistics
-kogni inspect --stats
+graq inspect --stats
 
 # Re-scan codebase
-kogni scan repo .
+graq scan repo .
 
 # Health check
-kogni doctor
+graq doctor
 
 # Backend setup help
-kogni setup-guide
+graq setup-guide
 ```
 
 Works in any terminal: VS Code, JetBrains, Replit, Codex, plain bash/zsh.
@@ -240,50 +240,50 @@ Works in any terminal: VS Code, JetBrains, Replit, Codex, plain bash/zsh.
 ## 4. MCP Server (for AI-powered IDEs)
 
 MCP (Model Context Protocol) is supported by Claude Code, Cursor, VS Code, and Windsurf.
-CogniGraph auto-configures the right MCP file for your IDE:
+Graqle auto-configures the right MCP file for your IDE:
 
 ```bash
-kogni init                    # Auto-detect IDE
-kogni init --ide cursor       # .cursor/mcp.json
-kogni init --ide vscode       # .vscode/mcp.json
-kogni init --ide claude       # .mcp.json + CLAUDE.md
-kogni init --ide windsurf     # .mcp.json + .windsurfrules
+graq init                    # Auto-detect IDE
+graq init --ide cursor       # .cursor/mcp.json
+graq init --ide vscode       # .vscode/mcp.json
+graq init --ide claude       # .mcp.json + CLAUDE.md
+graq init --ide windsurf     # .mcp.json + .windsurfrules
 ```
 
 MCP tools available inside your IDE:
 | Tool | What it does |
 |------|-------------|
-| `kogni_context` | 500-token focused context for any entity |
-| `kogni_reason` | Multi-agent graph reasoning |
-| `kogni_inspect` | Graph structure inspection |
-| `kogni_preflight` | Pre-change safety check ("is this safe to change?") |
-| `kogni_impact` | Impact analysis ("what breaks if I change X?") |
-| `kogni_lessons` | Surface past mistakes before you repeat them |
-| `kogni_learn` | Teach the graph new knowledge |
+| `graq_context` | 500-token focused context for any entity |
+| `graq_reason` | Multi-agent graph reasoning |
+| `graq_inspect` | Graph structure inspection |
+| `graq_preflight` | Pre-change safety check ("is this safe to change?") |
+| `graq_impact` | Impact analysis ("what breaks if I change X?") |
+| `graq_lessons` | Surface past mistakes before you repeat them |
+| `graq_learn` | Teach the graph new knowledge |
 
 ---
 
 ## Integration Examples
 
 ### GitHub Copilot (via REST API)
-1. Start `kogni serve` in your project
+1. Start `graq serve` in your project
 2. Copilot Chat can reference the API via custom instructions
-3. Or use the Copilot Extensions API to wrap CogniGraph
+3. Or use the Copilot Extensions API to wrap Graqle
 
 ### JetBrains AI Assistant
-1. `kogni init --ide generic`
-2. Use CLI in the built-in terminal: `kogni run "query"`
-3. Or start `kogni serve` and query via HTTP
+1. `graq init --ide generic`
+2. Use CLI in the built-in terminal: `graq run "query"`
+3. Or start `graq serve` and query via HTTP
 
 ### Replit
-1. `pip install cognigraph[api]`
-2. `kogni init --ide generic`
+1. `pip install graqle[api]`
+2. `graq init --ide generic`
 3. Use CLI or Python SDK in your Replit shell
 
 ### OpenAI Codex
-1. `pip install cognigraph[api]`
+1. `pip install graqle[api]`
 2. Use the Python SDK in your Codex environment
-3. Or `kogni serve` + HTTP queries
+3. Or `graq serve` + HTTP queries
 
 ### Custom Tools / Bots / Slack
 ```python

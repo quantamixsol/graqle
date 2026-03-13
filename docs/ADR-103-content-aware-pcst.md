@@ -96,6 +96,6 @@ When the query explicitly mentions a filename (e.g., "What does auth.ts do?"), b
 ## References
 
 - Patent EP26162901.8 — Innovation #1 (PCST Activation), Innovation #9 (Adaptive Activation)
-- `cognigraph/activation/relevance.py` — Layer 1 + Layer 3 partial
-- `cognigraph/activation/pcst.py` — Layer 2
-- `cognigraph/core/graph.py` — Layer 3 full (direct file lookup bypass)
+- `graqle/activation/relevance.py` — Layer 1 + Layer 3 partial
+- `graqle/activation/pcst.py` — Layer 2
+- `graqle/core/graph.py` — Layer 3 full (direct file lookup bypass)

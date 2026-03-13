@@ -1,6 +1,6 @@
 """Tests for server Pydantic request/response models."""
 
-from cognigraph.server.models import (
+from graqle.server.models import (
     BatchReasonRequest,
     ReasonRequest,
 )

@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.backends.mock import MockBackend
-from cognigraph.orchestration.message_passing import MessagePassingProtocol
+from graqle.core.graph import Graqle
+from graqle.backends.mock import MockBackend
+from graqle.orchestration.message_passing import MessagePassingProtocol
 
 
 @pytest.mark.asyncio

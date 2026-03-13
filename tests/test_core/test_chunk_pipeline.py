@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.node import CogniNode
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ class TestAutoLoadChunks:
             description="A sample module",
             properties={"source_file": str(py_source)},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         chunks = graph.nodes["mod::sample"].properties.get("chunks", [])
         assert len(chunks) > 0, "Auto-load should have created chunks"
         # Verify chunk content is from the file
@@ -72,7 +72,7 @@ class TestAutoLoadChunks:
             description="A sample module",
             properties={"file_path": str(py_source)},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         chunks = graph.nodes["mod::sample"].properties.get("chunks", [])
         assert len(chunks) > 0
 
@@ -86,7 +86,7 @@ class TestAutoLoadChunks:
             description="A sample module",
             properties={"source_file": str(py_source), "chunks": existing},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         chunks = graph.nodes["mod::sample"].properties["chunks"]
         assert chunks == existing
 
@@ -99,7 +99,7 @@ class TestAutoLoadChunks:
             description="Missing file",
             properties={"source_file": "/nonexistent/path.py"},
         )
-        graph = CogniGraph(nodes={"mod::gone": node})
+        graph = Graqle(nodes={"mod::gone": node})
         chunks = graph.nodes["mod::gone"].properties.get("chunks", [])
         assert chunks == []
 
@@ -111,7 +111,7 @@ class TestAutoLoadChunks:
             description="Project notes",
             properties={"source_file": str(md_source)},
         )
-        graph = CogniGraph(nodes={"doc::notes": node})
+        graph = Graqle(nodes={"doc::notes": node})
         chunks = graph.nodes["doc::notes"].properties.get("chunks", [])
         assert len(chunks) == 1
         assert "Project Notes" in chunks[0]["text"]
@@ -128,7 +128,7 @@ class TestRebuildChunks:
             description="A sample module",
             properties={"source_file": str(py_source)},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         # Chunks should already exist from auto-load
         assert graph.nodes["mod::sample"].properties.get("chunks")
 
@@ -147,7 +147,7 @@ class TestRebuildChunks:
             description="A sample module",
             properties={"source_file": str(py_source), "chunks": old_chunks},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         updated = graph.rebuild_chunks(force=True)
         assert updated == 1
         new_chunks = graph.nodes["mod::sample"].properties["chunks"]
@@ -164,28 +164,28 @@ class TestChunkSourceCode:
             "def foo():\n    pass\n\n"
             "def bar():\n    pass\n"
         )
-        chunks = CogniGraph._chunk_source_code(code)
+        chunks = Graqle._chunk_source_code(code)
         assert len(chunks) >= 2
         types = [c["type"] for c in chunks]
         assert "function" in types
 
     def test_splits_on_classes(self) -> None:
         code = "class MyClass:\n    def method(self):\n        pass\n"
-        chunks = CogniGraph._chunk_source_code(code)
+        chunks = Graqle._chunk_source_code(code)
         assert any(c["type"] == "class" for c in chunks)
 
     def test_respects_max_chunks(self) -> None:
         code = "\n\n".join(f"def func_{i}():\n    pass" for i in range(20))
-        chunks = CogniGraph._chunk_source_code(code, max_chunks=3)
+        chunks = Graqle._chunk_source_code(code, max_chunks=3)
         assert len(chunks) <= 3
 
     def test_empty_content(self) -> None:
-        chunks = CogniGraph._chunk_source_code("")
+        chunks = Graqle._chunk_source_code("")
         assert chunks == []
 
     def test_no_definitions_returns_single_chunk(self) -> None:
         code = "x = 1\ny = 2\nprint(x + y)\n"
-        chunks = CogniGraph._chunk_source_code(code)
+        chunks = Graqle._chunk_source_code(code)
         assert len(chunks) == 1
         assert chunks[0]["type"] in ("source", "module_header")
 
@@ -201,7 +201,7 @@ class TestToNetworkxFreshness:
             description="A sample module",
             properties={"source_file": str(py_source)},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         G = graph.to_networkx()
         nx_chunks = G.nodes["mod::sample"].get("chunks", [])
         assert len(nx_chunks) > 0, "to_networkx must include auto-loaded chunks"
@@ -214,7 +214,7 @@ class TestToNetworkxFreshness:
             description="A sample module",
             properties={"source_file": str(py_source)},
         )
-        graph = CogniGraph(nodes={"mod::sample": node})
+        graph = Graqle(nodes={"mod::sample": node})
         # Clear and rebuild
         graph.nodes["mod::sample"].properties.pop("chunks", None)
         graph.rebuild_chunks(force=True)

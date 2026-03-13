@@ -2,11 +2,11 @@
 
 import pytest
 
-from cognigraph.core.message import Message
-from cognigraph.core.types import ReasoningType
-from cognigraph.optimization.token_optimizer import TokenOptimizer
-from cognigraph.optimization.message_compressor import MessageCompressor
-from cognigraph.backends.mock import MockBackend
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
+from graqle.optimization.token_optimizer import TokenOptimizer
+from graqle.optimization.message_compressor import MessageCompressor
+from graqle.backends.mock import MockBackend
 
 
 def _msg(nid: str, content: str, conf: float = 0.7) -> Message:
