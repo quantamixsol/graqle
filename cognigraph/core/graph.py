@@ -1138,7 +1138,26 @@ class CogniGraph:
                 )
             else:
                 self._activator.max_nodes = adaptive_max
-            return self._activator.activate(self, query)
+
+            # v0.12.1: Pass activation memory boosts if available
+            activation_boosts = None
+            try:
+                from cognigraph.learning.activation_memory import ActivationMemory
+                if self._activation_memory is None:
+                    self._activation_memory = ActivationMemory()
+                    self._activation_memory.load()
+                activation_boosts = self._activation_memory.get_boosts(query)
+                if activation_boosts:
+                    logger.info(
+                        "ActivationMemory: %d node boosts for query",
+                        len(activation_boosts),
+                    )
+            except Exception:
+                pass
+
+            return self._activator.activate(
+                self, query, activation_boosts=activation_boosts
+            )
 
     def _direct_file_lookup(self, query: str) -> list[str] | None:
         """Layer 3 (ADR-103): Directly activate nodes matching filenames in the query.
