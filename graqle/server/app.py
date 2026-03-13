@@ -100,10 +100,10 @@ def create_app(
         from fastapi import FastAPI, HTTPException
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import StreamingResponse
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
-            "FastAPI not installed. Install with: pip install graqle[server]"
-        )
+            f"FastAPI import failed: {exc}. Install with: pip install graqle[server]"
+        ) from exc
 
     from graqle.__version__ import __version__
     from graqle.config.settings import GraqleConfig
