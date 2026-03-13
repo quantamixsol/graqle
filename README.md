@@ -10,7 +10,7 @@ One command. Any IDE. Any AI tool. Zero cloud infrastructure.
 [![PyPI version](https://badge.fury.io/py/cognigraph.svg)](https://pypi.org/project/cognigraph/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Tests: 760 passing](https://img.shields.io/badge/tests-760%20passing-brightgreen.svg)]()
+[![Tests: 763 passing](https://img.shields.io/badge/tests-763%20passing-brightgreen.svg)]()
 [![MCP Compatible](https://img.shields.io/badge/MCP-compatible-8A2BE2.svg)]()
 [![Patent: EP26162901.8](https://img.shields.io/badge/patent-EP26162901.8-orange.svg)](NOTICE)
 
@@ -270,6 +270,25 @@ See [examples/governance_example.py](examples/governance_example.py) for a compl
 CogniGraph implements methods described in **European Patent Application EP26162901.8** (filed 6 March 2026, Quantamix Solutions B.V.). See [NOTICE](NOTICE) for details.
 
 All 14 innovations are free to use under Apache 2.0. The patent protects the specific methods — you can use CogniGraph freely in any project, commercial or otherwise.
+
+---
+
+## What's New in v0.12.1
+
+**The "Last Mile" Release — every tester bug fixed, adaptive features now actually adapt.**
+
+All remaining bugs from the v0.12.0 feedback report resolved:
+
+### Bug Fixes
+- **Bug 27: Studio node detail routes** — Nodes with `/` or `:` in IDs (85% of scanned nodes) now accessible. Changed `{node_id}` → `{node_id:path}` in all API + Studio routes.
+- **Bug 5: QueryComplexityScorer always "simple"** — Thresholds lowered from 0.3/0.6/0.8 to 0.15/0.35/0.55. Added dev-specific entity markers (service, component, endpoint, auth, etc.) and depth patterns (what depends on, where is used, explain how). "How does the auth service work?" now scores **moderate**, not simple.
+- **Bug 26: ActivationMemory boosts not wired** — `get_boosts()` now called during ChunkScorer activation, passing memory-guided boosts to node scoring. Cross-query learning is no longer session-only.
+- **Bug 28: Examples not in pip package** — `examples/` directory now force-included in wheel via hatch build config.
+- **Bug 7: Init overwrites cognigraph.yaml** — Now deep-merges new defaults into existing config. User's API keys, Neo4j credentials, and custom model overrides are preserved.
+- **Bug 11: `kogni serve` missing FastAPI check** — Now checks for both `uvicorn` AND `fastapi` before starting, with clear install instructions.
+- **Bug 25: Budget ceiling config exposed** — `dynamic_ceiling` and `hard_ceiling_multiplier` now in init template so users can configure them.
+
+**763 tests passing** (3 new regression tests for adaptive scoring + init merge logic).
 
 ---
 

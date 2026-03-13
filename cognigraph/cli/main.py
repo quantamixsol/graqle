@@ -331,11 +331,18 @@ def serve(
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on changes"),
 ) -> None:
     """Start the CogniGraph API server."""
+    missing = []
     try:
-        import uvicorn
+        import uvicorn  # noqa: F401
     except ImportError:
+        missing.append("uvicorn")
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        missing.append("fastapi")
+    if missing:
         console.print(
-            "[red]Server dependencies not installed.[/red]\n"
+            f"[red]Missing server dependencies: {', '.join(missing)}[/red]\n"
             "\n"
             "  Install with:\n"
             "    [cyan]pip install 'cognigraph\\[server]'[/cyan]\n"
