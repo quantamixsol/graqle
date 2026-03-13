@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cognigraph.activation.adaptive import (
+from graqle.activation.adaptive import (
     AdaptiveActivation,
     AdaptiveConfig,
     ComplexityProfile,
@@ -173,7 +173,7 @@ def test_activate_delegates_to_pcst(activator: AdaptiveActivation) -> None:
     expected_nodes = ["node_1", "node_2", "node_3"]
 
     with patch(
-        "cognigraph.activation.adaptive.PCSTActivation"
+        "graqle.activation.adaptive.PCSTActivation"
     ) as MockPCST:
         mock_instance = MockPCST.return_value
         mock_instance.activate.return_value = expected_nodes
@@ -203,7 +203,7 @@ def test_last_profile_stored(activator: AdaptiveActivation) -> None:
     mock_graph = MagicMock()
 
     with patch(
-        "cognigraph.activation.adaptive.PCSTActivation"
+        "graqle.activation.adaptive.PCSTActivation"
     ) as MockPCST:
         mock_instance = MockPCST.return_value
         mock_instance.activate.return_value = ["n1", "n2"]
@@ -253,7 +253,7 @@ def test_simple_queries_stay_simple(scorer: QueryComplexityScorer) -> None:
 
 def test_deep_merge() -> None:
     """_deep_merge preserves existing values and fills gaps."""
-    from cognigraph.cli.commands.init import _deep_merge
+    from graqle.cli.commands.init import _deep_merge
 
     base = {"a": 1, "b": {"x": 10, "y": 20}, "c": 3}
     override = {"a": 99, "b": {"x": 99, "z": 30}, "d": 4}

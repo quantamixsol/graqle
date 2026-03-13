@@ -2,11 +2,11 @@
 
 import pytest
 
-from cognigraph.agents.base_agent import BaseAgent
-from cognigraph.agents.slm_agent import SLMAgent
-from cognigraph.backends.mock import MockBackend
-from cognigraph.core.message import Message
-from cognigraph.core.types import ReasoningType
+from graqle.agents.base_agent import BaseAgent
+from graqle.agents.slm_agent import SLMAgent
+from graqle.backends.mock import MockBackend
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
 
 
 @pytest.mark.asyncio

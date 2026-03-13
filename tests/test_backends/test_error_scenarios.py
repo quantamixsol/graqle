@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cognigraph.backends.api import (
+from graqle.backends.api import (
     BackendError,
     _retry_with_backoff,
     AnthropicBackend,
@@ -19,12 +19,12 @@ from cognigraph.backends.api import (
     OllamaBackend,
     CustomBackend,
 )
-from cognigraph.backends.fallback import BackendFallbackChain
-from cognigraph.backends.base import BaseBackend
-from cognigraph.backends.mock import MockBackend
-from cognigraph.config.settings import CogniGraphConfig, CostConfig
-from cognigraph.core.graph import CogniGraph
-from cognigraph.orchestration.orchestrator import Orchestrator
+from graqle.backends.fallback import BackendFallbackChain
+from graqle.backends.base import BaseBackend
+from graqle.backends.mock import MockBackend
+from graqle.config.settings import GraqleConfig, CostConfig
+from graqle.core.graph import Graqle
+from graqle.orchestration.orchestrator import Orchestrator
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ async def test_budget_exceeded_halts_early(sample_graph):
 
     # Set a tiny budget that will be exceeded after 1 round.
     # Disable dynamic ceiling for deterministic test behavior.
-    config = CogniGraphConfig(cost=CostConfig(
+    config = GraqleConfig(cost=CostConfig(
         budget_per_query=0.0000001,
         dynamic_ceiling=False,
         hard_ceiling_multiplier=2.0,
@@ -281,7 +281,7 @@ async def test_dynamic_ceiling_respects_hard_limit(sample_graph):
     sample_graph.set_default_backend(backend)
 
     # Tiny budget, dynamic ceiling ON, hard limit at 3x
-    config = CogniGraphConfig(cost=CostConfig(
+    config = GraqleConfig(cost=CostConfig(
         budget_per_query=0.0000001,
         dynamic_ceiling=True,
         continuation_base_prob=1.0,  # always continue (deterministic)
@@ -310,7 +310,7 @@ async def test_dynamic_ceiling_respects_hard_limit(sample_graph):
 @pytest.mark.asyncio
 async def test_dynamic_ceiling_config_fields():
     """CostConfig exposes dynamic ceiling fields with correct defaults."""
-    from cognigraph.config.settings import CostConfig
+    from graqle.config.settings import CostConfig
 
     cfg = CostConfig()
     assert cfg.dynamic_ceiling is True

@@ -1,11 +1,11 @@
-"""End-to-end integration tests for CogniGraph."""
+"""End-to-end integration tests for Graqle."""
 
 import pytest
 import networkx as nx
 
-from cognigraph import CogniGraph, CogniNode, CogniEdge, Message, ReasoningType
-from cognigraph.backends.mock import MockBackend
-from cognigraph.config.settings import CogniGraphConfig
+from graqle import Graqle, CogniNode, CogniEdge, Message, ReasoningType
+from graqle.backends.mock import MockBackend
+from graqle.config.settings import GraqleConfig
 
 
 @pytest.mark.asyncio
@@ -33,8 +33,8 @@ async def test_full_reasoning_pipeline():
     G.add_edge("ai_act", "transparency", relationship="REQUIRES")
     G.add_edge("consent", "transparency", relationship="RELATED_TO")
 
-    # Build CogniGraph
-    graph = CogniGraph.from_networkx(G)
+    # Build Graqle
+    graph = Graqle.from_networkx(G)
     assert len(graph) == 6
 
     # Assign mock backend
@@ -72,12 +72,12 @@ async def test_per_node_backend_assignment():
     G.add_edge("hub", "leaf1", relationship="CONTAINS")
     G.add_edge("hub", "leaf2", relationship="CONTAINS")
 
-    graph = CogniGraph.from_networkx(G)
+    graph = Graqle.from_networkx(G)
 
     hub_backend = MockBackend(response="Hub reasoning with smart model. Confidence: 95%")
     leaf_backend = MockBackend(response="Leaf reasoning with cheap model. Confidence: 70%")
 
-    from cognigraph.core.types import NodeConfig
+    from graqle.core.types import NodeConfig
     graph.configure_nodes({
         "hub": NodeConfig(backend=hub_backend),
         "leaf*": NodeConfig(backend=leaf_backend),
@@ -106,10 +106,10 @@ orchestration:
 
 domain: regulatory
 """
-    config_file = tmp_path / "cognigraph.yaml"
+    config_file = tmp_path / "graqle.yaml"
     config_file.write_text(config_content)
 
-    cfg = CogniGraphConfig.from_yaml(str(config_file))
+    cfg = GraqleConfig.from_yaml(str(config_file))
     assert cfg.model.model == "Qwen/Qwen2.5-0.5B-Instruct"
     assert cfg.orchestration.max_rounds == 3
     assert cfg.domain == "regulatory"
@@ -117,8 +117,8 @@ domain: regulatory
 
 def test_imports():
     """Test that all public imports work."""
-    from cognigraph import (
-        CogniGraph,
+    from graqle import (
+        Graqle,
         CogniNode,
         CogniEdge,
         Message,
@@ -127,13 +127,13 @@ def test_imports():
         NodeStatus,
         ReasoningResult,
     )
-    from cognigraph.backends import BaseBackend, MockBackend
-    from cognigraph.config import CogniGraphConfig
-    from cognigraph.orchestration import Orchestrator, ConvergenceDetector
-    from cognigraph.activation import PCSTActivation, RelevanceScorer
-    from cognigraph.connectors import BaseConnector, NetworkXConnector
+    from graqle.backends import BaseBackend, MockBackend
+    from graqle.config import GraqleConfig
+    from graqle.orchestration import Orchestrator, ConvergenceDetector
+    from graqle.activation import PCSTActivation, RelevanceScorer
+    from graqle.connectors import BaseConnector, NetworkXConnector
 
     # All imports successful
-    assert CogniGraph is not None
+    assert Graqle is not None
     assert MockBackend is not None
     assert Orchestrator is not None

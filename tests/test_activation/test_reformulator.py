@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cognigraph.activation.reformulator import (
+from graqle.activation.reformulator import (
     Attachment,
     QueryReformulator,
     ReformulationContext,
@@ -614,11 +614,11 @@ class TestEdgeCases:
 # ── Test Graph Integration ──────────────────────────────────────
 
 class TestGraphIntegration:
-    """Test that reformulator integrates correctly with CogniGraph.reason()."""
+    """Test that reformulator integrates correctly with Graqle.reason()."""
 
     def test_config_has_reformulator_field(self):
-        from cognigraph.config.settings import CogniGraphConfig, ReformulatorConfig
-        config = CogniGraphConfig.default()
+        from graqle.config.settings import GraqleConfig, ReformulatorConfig
+        config = GraqleConfig.default()
         assert hasattr(config, "reformulator")
         assert isinstance(config.reformulator, ReformulatorConfig)
         assert config.reformulator.enabled is True
@@ -634,14 +634,14 @@ reformulator:
         yaml_file = tmp_path / "test_config.yaml"
         yaml_file.write_text(yaml_content)
 
-        from cognigraph.config.settings import CogniGraphConfig
-        config = CogniGraphConfig.from_yaml(yaml_file)
+        from graqle.config.settings import GraqleConfig
+        config = GraqleConfig.from_yaml(yaml_file)
         assert config.reformulator.enabled is True
         assert config.reformulator.mode == "llm"
         assert config.reformulator.graph_summary == "My knowledge graph about services"
 
     def test_reformulator_export_from_activation(self):
-        from cognigraph.activation import (
+        from graqle.activation import (
             QueryReformulator,
             ReformulationContext,
             ReformulationResult,

@@ -11,7 +11,7 @@ import pytest
 def _make_connector(**kwargs):
     """Create a Neo4jConnector with a mocked driver."""
     with patch.dict("sys.modules", {"neo4j": MagicMock()}):
-        from cognigraph.connectors.neo4j import Neo4jConnector
+        from graqle.connectors.neo4j import Neo4jConnector
         connector = Neo4jConnector(**kwargs)
         # Inject mock driver
         mock_driver = MagicMock()

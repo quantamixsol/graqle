@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognigraph.ontology.upper import UpperOntology, UPPER_HIERARCHY
+from graqle.ontology.upper import UpperOntology, UPPER_HIERARCHY
 
 
 class TestUpperOntology:

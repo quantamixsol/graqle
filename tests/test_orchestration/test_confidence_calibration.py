@@ -25,8 +25,8 @@ def _make_message(nid, confidence=0.9, content="answer", tokens=100):
 
 def _make_orchestrator():
     """Create an Orchestrator with mocked sub-components."""
-    from cognigraph.orchestration.orchestrator import Orchestrator
-    from cognigraph.config.settings import OrchestrationConfig, ObserverConfig
+    from graqle.orchestration.orchestrator import Orchestrator
+    from graqle.config.settings import OrchestrationConfig, ObserverConfig
 
     orch = Orchestrator(
         config=OrchestrationConfig(max_rounds=1),
@@ -36,7 +36,7 @@ def _make_orchestrator():
 
 
 def _make_graph(node_ids):
-    """Create a mock CogniGraph with specified nodes."""
+    """Create a mock Graqle with specified nodes."""
     graph = MagicMock()
     graph.config = MagicMock()
     graph.config.cost = MagicMock()

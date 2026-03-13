@@ -1,4 +1,4 @@
-"""Tests for cognigraph.learning.graph_learner module."""
+"""Tests for graqle.learning.graph_learner module."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from cognigraph.learning.graph_learner import EdgeUpdate, GraphLearner, LearningConfig
+from graqle.learning.graph_learner import EdgeUpdate, GraphLearner, LearningConfig
 
 
 # ---------------------------------------------------------------------------

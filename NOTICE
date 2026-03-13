@@ -1,4 +1,4 @@
-CogniGraph — Governed Intelligence through Graph-of-Agents Reasoning
+Graqle — Governed Intelligence through Graph-of-Agents Reasoning
 Copyright 2026 Quantamix Solutions B.V.
 
 INTELLECTUAL PROPERTY NOTICE
@@ -24,7 +24,7 @@ The following components are covered by the patent claims:
 OPEN SOURCE LICENSE
 ===================
 
-The CogniGraph SDK source code is licensed under the Apache License 2.0.
+The Graqle SDK source code is licensed under the Apache License 2.0.
 You may use, modify, and distribute this software in accordance with the
 Apache 2.0 license terms.
 
@@ -41,8 +41,8 @@ patented methods, is permitted without additional licensing.
 CITATION
 ========
 
-If you use CogniGraph in academic work, please cite:
+If you use Graqle in academic work, please cite:
 
-  H. Kumar, "CogniGraph: Governed Intelligence through Graph-of-Agents
+  H. Kumar, "Graqle: Governed Intelligence through Graph-of-Agents
   Reasoning over Knowledge Graph Topologies with Semantic SHACL Validation,"
   arXiv preprint, March 2026. Quantamix Solutions B.V.

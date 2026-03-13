@@ -4,8 +4,8 @@ import json
 import pytest
 from pathlib import Path
 
-from cognigraph.adapters.config import AdapterConfig
-from cognigraph.adapters.registry import AdapterRegistry
+from graqle.adapters.config import AdapterConfig
+from graqle.adapters.registry import AdapterRegistry
 
 
 def test_adapter_config_defaults():

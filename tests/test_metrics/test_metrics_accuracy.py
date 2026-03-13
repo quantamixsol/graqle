@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from cognigraph.metrics.engine import MetricsEngine, _DEFAULT_TOKENS_WITHOUT
+from graqle.metrics.engine import MetricsEngine, _DEFAULT_TOKENS_WITHOUT
 
 
 @pytest.fixture

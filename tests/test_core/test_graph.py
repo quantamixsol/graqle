@@ -1,14 +1,14 @@
-"""Tests for CogniGraph."""
+"""Tests for Graqle."""
 
 import pytest
 import networkx as nx
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.backends.mock import MockBackend
+from graqle.core.graph import Graqle
+from graqle.backends.mock import MockBackend
 
 
 def test_graph_from_networkx(sample_nx_graph):
-    graph = CogniGraph.from_networkx(sample_nx_graph)
+    graph = Graqle.from_networkx(sample_nx_graph)
     assert len(graph.nodes) == 5
     assert len(graph.edges) == 7
     assert graph.nodes["n1"].label == "Node A"
@@ -42,7 +42,7 @@ def test_graph_to_networkx(sample_graph):
 
 
 def test_graph_add_node(sample_graph):
-    from cognigraph.core.node import CogniNode
+    from graqle.core.node import CogniNode
     new_node = CogniNode(id="n6", label="New Node")
     sample_graph.add_node(new_node)
     assert "n6" in sample_graph.nodes
@@ -66,5 +66,5 @@ async def test_graph_reason(sample_graph):
 
 def test_graph_repr(sample_graph):
     r = repr(sample_graph)
-    assert "CogniGraph" in r
+    assert "Graqle" in r
     assert "nodes=5" in r

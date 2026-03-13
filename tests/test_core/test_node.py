@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognigraph.core.node import CogniNode
-from cognigraph.core.types import NodeStatus
-from cognigraph.backends.mock import MockBackend
+from graqle.core.node import CogniNode
+from graqle.core.types import NodeStatus
+from graqle.backends.mock import MockBackend
 
 
 def test_node_creation():

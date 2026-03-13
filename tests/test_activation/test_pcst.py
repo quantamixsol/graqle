@@ -2,10 +2,10 @@
 
 import pytest
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.activation.pcst import PCSTActivation
-from cognigraph.activation.relevance import RelevanceScorer
-from cognigraph.activation.embeddings import EmbeddingEngine, cosine_similarity
+from graqle.core.graph import Graqle
+from graqle.activation.pcst import PCSTActivation
+from graqle.activation.relevance import RelevanceScorer
+from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 
 import numpy as np
 

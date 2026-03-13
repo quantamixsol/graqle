@@ -1,6 +1,6 @@
 """Tests for mandatory KG quality validation.
 
-These tests ensure that CogniGraph enforces node description completeness.
+These tests ensure that Graqle enforces node description completeness.
 Nodes without descriptions produce agents that cannot reason, leading to
 low-confidence garbage answers. This was discovered during the CrawlQ POC
 where 291 nodes with empty descriptions produced 22% confidence answers,
@@ -10,8 +10,8 @@ vs 72% after enrichment. (LESSON-094)
 import pytest
 import networkx as nx
 
-from cognigraph.core.graph import CogniGraph
-from cognigraph.core.node import CogniNode
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
 
 
 class TestNodeDescriptionEnforcement:
@@ -24,7 +24,7 @@ class TestNodeDescriptionEnforcement:
         G.add_node("b", label="Beta", type="Test", description="Beta node does Y")
         G.add_edge("a", "b", relationship="RELATED_TO")
 
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         assert len(graph.nodes) == 2
         assert graph.nodes["a"].description == "Alpha node does X"
 
@@ -38,7 +38,7 @@ class TestNodeDescriptionEnforcement:
         G.add_edge("svc1", "svc2", relationship="CALLS")
 
         # Should NOT raise because auto-enrichment fills descriptions
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         assert graph.nodes["svc1"].description  # auto-enriched
         assert "SERVICE" in graph.nodes["svc1"].description
         assert "AuthService" in graph.nodes["svc1"].description
@@ -52,7 +52,7 @@ class TestNodeDescriptionEnforcement:
         # No edges either, so no edge context
 
         with pytest.raises(ValueError, match="KG Quality Error"):
-            CogniGraph.from_networkx(G)
+            Graqle.from_networkx(G)
 
     def test_auto_enrichment_uses_properties(self):
         """Auto-enrichment should include property values in description."""
@@ -60,7 +60,7 @@ class TestNodeDescriptionEnforcement:
         G.add_node("lambda1", label="UploadHandler", type="LAMBDA",
                     memory_mb="512", runtime="python3.10",
                     region="eu-central-1")
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
 
         desc = graph.nodes["lambda1"].description
         assert "LAMBDA" in desc
@@ -75,7 +75,7 @@ class TestNodeDescriptionEnforcement:
                     description="B handles chat")
         G.add_edge("a", "b", relationship="CALLS")
 
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         desc_a = graph.nodes["a"].description
         # Should mention the connection to ServiceB
         assert "ServiceB" in desc_a or "CALLS" in desc_a
@@ -93,7 +93,7 @@ class TestValidateMethod:
                     description="A detailed description of node B that is long enough")
         G.add_edge("a", "b")
 
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         report = graph.validate()
 
         assert report["total_nodes"] == 2
@@ -109,7 +109,7 @@ class TestValidateMethod:
         G.add_node("b", label="B", type="T")
         G.add_edge("a", "b")
 
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         report = graph.validate()
 
         # Auto-enriched descriptions are short, so quality should be moderate
@@ -119,7 +119,7 @@ class TestValidateMethod:
         """Validate report should have all required fields."""
         G = nx.Graph()
         G.add_node("a", label="A", type="T", description="Good description here")
-        graph = CogniGraph.from_networkx(G)
+        graph = Graqle.from_networkx(G)
         report = graph.validate()
 
         required_fields = [
@@ -156,7 +156,7 @@ class TestFromJsonValidation:
         json_path = tmp_path / "test_kg.json"
         json_path.write_text(json.dumps(data))
 
-        graph = CogniGraph.from_json(str(json_path))
+        graph = Graqle.from_json(str(json_path))
         assert len(graph.nodes) == 2
         assert graph.nodes["a"].description == "First test node"
 
@@ -182,5 +182,5 @@ class TestFromJsonValidation:
         json_path = tmp_path / "test_kg.json"
         json_path.write_text(json.dumps(data))
 
-        graph = CogniGraph.from_json(str(json_path))
+        graph = Graqle.from_json(str(json_path))
         assert graph.nodes["svc1"].description  # should be auto-enriched

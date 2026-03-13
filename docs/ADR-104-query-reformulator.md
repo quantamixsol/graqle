@@ -5,14 +5,14 @@
 
 ## Context
 
-CogniGraph receives raw user queries and uses them directly for PCST node activation (embedding → cosine similarity → prize assignment). This works well for clear, specific queries but degrades significantly for:
+Graqle receives raw user queries and uses them directly for PCST node activation (embedding → cosine similarity → prize assignment). This works well for clear, specific queries but degrades significantly for:
 
 1. **Vague queries** — "what does this do?" produces unfocused embeddings
 2. **Follow-up questions** — "and what about that service?" loses conversational referent
 3. **Multimodal inputs** — screenshots, error logs, and diagrams carry crucial context that a text-only query ignores
 4. **Domain ambiguity** — "the database" could mean DynamoDB, Neo4j, or RDS depending on project context
 
-**Key insight:** When CogniGraph runs inside an AI tool (Claude Code, Cursor, Codex), the tool already has rich conversation history, project context, and attachment descriptions. This context is **free** — the AI tool has already processed it. CogniGraph just needs to receive and use it.
+**Key insight:** When Graqle runs inside an AI tool (Claude Code, Cursor, Codex), the tool already has rich conversation history, project context, and attachment descriptions. This context is **free** — the AI tool has already processed it. Graqle just needs to receive and use it.
 
 ## Decision
 
@@ -38,7 +38,7 @@ The reformulator applies four enhancement steps:
 
 ### Mode 2: LLM Mode (standalone SDK, configurable)
 
-For users running CogniGraph outside an AI tool (Python SDK, API, CI):
+For users running Graqle outside an AI tool (Python SDK, API, CI):
 - Single lightweight model call (Haiku-class) to interpret and clarify
 - Configurable backend via `reformulator.llm_backend` in YAML
 - Prompt instructs model to return query unchanged if already clear
@@ -77,7 +77,7 @@ The `Attachment` dataclass supports:
 | `pdf` | Document attachments | "Deployment runbook for EU services" |
 | `file` | Generic file reference | filename-only fallback |
 
-The AI tool is responsible for pre-describing attachments (using vision/OCR). CogniGraph receives only the textual descriptions.
+The AI tool is responsible for pre-describing attachments (using vision/OCR). Graqle receives only the textual descriptions.
 
 ### Fail-Open Design
 
@@ -95,9 +95,9 @@ reformulator:
 
 ## Integration Points
 
-- `CogniGraph.reason(query, context=...)` — accepts optional `ReformulationContext`
-- `CogniGraph.areason(query, context=...)` — async version
-- `CogniGraph.areason_stream(query, context=...)` — streaming version
+- `Graqle.reason(query, context=...)` — accepts optional `ReformulationContext`
+- `Graqle.areason(query, context=...)` — async version
+- `Graqle.areason_stream(query, context=...)` — streaming version
 - Reformulation happens in `_reformulate_query()` before `_activate_subgraph()`
 
 ## Consequences
@@ -108,7 +108,7 @@ reformulator:
 - Follow-up questions correctly resolve to the discussed entity
 - Zero additional cost when running inside an AI tool
 - Fully backward compatible — existing code passes no context → no change
-- AI tools don't need to format queries for CogniGraph — just pass context
+- AI tools don't need to format queries for Graqle — just pass context
 
 ### Negative
 - AI Tool Mode adds ~1ms string processing latency (negligible)
@@ -138,6 +138,6 @@ reformulator:
 
 - Patent EP26162901.8 — Innovation #1 (PCST Activation), Innovation #9 (Adaptive Activation)
 - ADR-103 — Content-Aware PCST (predecessor, query flows into reformulated activation)
-- `cognigraph/activation/reformulator.py` — Full implementation
-- `cognigraph/config/settings.py` — ReformulatorConfig
-- `cognigraph/core/graph.py` — Integration into reason() entry points
+- `graqle/activation/reformulator.py` — Full implementation
+- `graqle/config/settings.py` — ReformulatorConfig
+- `graqle/core/graph.py` — Integration into reason() entry points

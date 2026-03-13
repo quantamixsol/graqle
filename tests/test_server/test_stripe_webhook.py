@@ -1,4 +1,4 @@
-"""Tests for cognigraph.server.stripe_webhook — Stripe integration."""
+"""Tests for graqle.server.stripe_webhook — Stripe integration."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class TestStripeSignatureVerification:
         return f"t={timestamp},v1={sig}"
 
     def test_valid_signature(self) -> None:
-        from cognigraph.server.stripe_webhook import verify_stripe_signature
+        from graqle.server.stripe_webhook import verify_stripe_signature
         secret = "whsec_test123"
         payload = b'{"type": "checkout.session.completed"}'
         sig = self._make_signature(payload, secret)
@@ -33,16 +33,16 @@ class TestStripeSignatureVerification:
         assert verify_stripe_signature(payload, sig, secret) is True
 
     def test_invalid_signature(self) -> None:
-        from cognigraph.server.stripe_webhook import verify_stripe_signature
+        from graqle.server.stripe_webhook import verify_stripe_signature
         payload = b'{"type": "test"}'
         assert verify_stripe_signature(payload, "t=123,v1=invalid", "secret") is False
 
     def test_empty_signature(self) -> None:
-        from cognigraph.server.stripe_webhook import verify_stripe_signature
+        from graqle.server.stripe_webhook import verify_stripe_signature
         assert verify_stripe_signature(b"payload", "", "secret") is False
 
     def test_old_timestamp_rejected(self) -> None:
-        from cognigraph.server.stripe_webhook import verify_stripe_signature
+        from graqle.server.stripe_webhook import verify_stripe_signature
         secret = "whsec_test"
         payload = b"test"
 
@@ -63,14 +63,14 @@ class TestLicenseGeneration:
     """Tests for license key generation from Stripe checkout."""
 
     def test_generate_from_checkout_session(self) -> None:
-        from cognigraph.server.stripe_webhook import generate_license_from_checkout
+        from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {
             "id": "cs_test_123",
             "customer_email": "buyer@company.com",
             "customer_details": {"name": "Jane Buyer"},
             "customer": "cus_abc123",
-            "metadata": {"cognigraph_tier": "team"},
+            "metadata": {"graqle_tier": "team"},
             "payment_status": "paid",
         }
 
@@ -83,7 +83,7 @@ class TestLicenseGeneration:
         assert "." in result["license_key"]  # payload.signature format
 
         # Verify the generated key is valid
-        from cognigraph.licensing.manager import LicenseManager
+        from graqle.licensing.manager import LicenseManager
         manager = LicenseManager.__new__(LicenseManager)
         manager._license = None
         license_obj = manager._verify_key(result["license_key"])
@@ -94,14 +94,14 @@ class TestLicenseGeneration:
         assert license_obj.is_valid is True
 
     def test_enterprise_tier_mapping(self) -> None:
-        from cognigraph.server.stripe_webhook import generate_license_from_checkout
+        from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {
             "id": "cs_ent_456",
             "customer_email": "admin@bigcorp.com",
             "customer_details": {"name": "Big Corp Admin"},
             "customer": "cus_def456",
-            "metadata": {"cognigraph_tier": "enterprise"},
+            "metadata": {"graqle_tier": "enterprise"},
             "payment_status": "paid",
         }
 
@@ -109,7 +109,7 @@ class TestLicenseGeneration:
         assert result["tier"] == "enterprise"
 
     def test_default_tier_is_team(self) -> None:
-        from cognigraph.server.stripe_webhook import generate_license_from_checkout
+        from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {
             "id": "cs_no_meta",
@@ -128,7 +128,7 @@ class TestWebhookEventHandler:
     """Tests for the main event handler."""
 
     def test_checkout_completed_generates_license(self) -> None:
-        from cognigraph.server.stripe_webhook import handle_webhook_event
+        from graqle.server.stripe_webhook import handle_webhook_event
 
         data = {
             "object": {
@@ -136,7 +136,7 @@ class TestWebhookEventHandler:
                 "customer_email": "dev@test.com",
                 "customer_details": {"name": "Dev"},
                 "customer": "cus_test",
-                "metadata": {"cognigraph_tier": "team"},
+                "metadata": {"graqle_tier": "team"},
                 "payment_status": "paid",
             }
         }
@@ -147,7 +147,7 @@ class TestWebhookEventHandler:
         assert result["license_key"]
 
     def test_unpaid_session_skipped(self) -> None:
-        from cognigraph.server.stripe_webhook import handle_webhook_event
+        from graqle.server.stripe_webhook import handle_webhook_event
 
         data = {
             "object": {
@@ -160,12 +160,12 @@ class TestWebhookEventHandler:
         assert result["status"] == "skipped"
 
     def test_unknown_event_ignored(self) -> None:
-        from cognigraph.server.stripe_webhook import handle_webhook_event
+        from graqle.server.stripe_webhook import handle_webhook_event
         result = handle_webhook_event("some.random.event", {})
         assert result["status"] == "ignored"
 
     def test_subscription_deleted_logged(self) -> None:
-        from cognigraph.server.stripe_webhook import handle_webhook_event
+        from graqle.server.stripe_webhook import handle_webhook_event
         result = handle_webhook_event("customer.subscription.deleted", {
             "object": {"id": "sub_test"}
         })
@@ -177,7 +177,7 @@ class TestLambdaHandler:
     """Tests for the AWS Lambda handler wrapper."""
 
     def test_lambda_handler_invalid_json(self) -> None:
-        from cognigraph.server.stripe_webhook import lambda_handler
+        from graqle.server.stripe_webhook import lambda_handler
 
         event = {
             "body": "not json",
@@ -188,7 +188,7 @@ class TestLambdaHandler:
         assert result["statusCode"] == 400
 
     def test_lambda_handler_valid_event(self) -> None:
-        from cognigraph.server.stripe_webhook import lambda_handler
+        from graqle.server.stripe_webhook import lambda_handler
 
         stripe_event = {
             "type": "checkout.session.completed",
@@ -198,7 +198,7 @@ class TestLambdaHandler:
                     "customer_email": "lambda@test.com",
                     "customer_details": {"name": "Lambda"},
                     "customer": "cus_lambda",
-                    "metadata": {"cognigraph_tier": "team"},
+                    "metadata": {"graqle_tier": "team"},
                     "payment_status": "paid",
                 }
             }

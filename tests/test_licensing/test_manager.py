@@ -1,4 +1,4 @@
-"""Tests for cognigraph.licensing.manager — tiers, features, decorators, LicenseManager."""
+"""Tests for graqle.licensing.manager — tiers, features, decorators, LicenseManager."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cognigraph.licensing.manager import (
+from graqle.licensing.manager import (
     TIER_FEATURES,
     License,
     LicenseError,
@@ -320,7 +320,7 @@ class TestLicenseManagerLoading:
 
     def test_load_from_user_file(self, tmp_path):
         key = _generate_key("enterprise")
-        license_dir = tmp_path / ".cognigraph"
+        license_dir = tmp_path / ".graqle"
         license_dir.mkdir()
         license_file = license_dir / "license.key"
         license_file.write_text(key, encoding="utf-8")
@@ -380,7 +380,7 @@ class TestHasFeature:
 
     def test_check_feature_raises_on_missing(self):
         mgr = _make_manager_safe()
-        with pytest.raises(LicenseError, match="requires CogniGraph Team"):
+        with pytest.raises(LicenseError, match="requires Graqle Team"):
             mgr.check_feature("shared_kg_sync")
 
     def test_check_feature_ok_for_free(self):
@@ -394,7 +394,7 @@ class TestHasFeature:
 
     def test_check_feature_error_includes_upgrade_url(self):
         mgr = _make_manager_safe()
-        with pytest.raises(LicenseError, match="cognigraph.dev/pricing"):
+        with pytest.raises(LicenseError, match="graqle.dev/pricing"):
             mgr.check_feature("private_deployment")
 
 
@@ -451,7 +451,7 @@ class TestGenerateKey:
 class TestRequireLicenseDecorator:
     def _swap_manager(self, mgr):
         """Context manager to temporarily swap the module-level LicenseManager."""
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         mod._manager = mgr
         return old
@@ -461,7 +461,7 @@ class TestRequireLicenseDecorator:
         def my_func():
             return "ok"
 
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -474,7 +474,7 @@ class TestRequireLicenseDecorator:
         def my_func():
             return "ok"
 
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -489,7 +489,7 @@ class TestRequireLicenseDecorator:
         async def my_async():
             return "async_ok"
 
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -504,7 +504,7 @@ class TestRequireLicenseDecorator:
         async def my_async():
             return "should_not_reach"
 
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -529,7 +529,7 @@ class TestRequireLicenseDecorator:
 
 class TestModuleLevelAPI:
     def test_has_feature_free(self):
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -540,7 +540,7 @@ class TestModuleLevelAPI:
             mod._manager = old
 
     def test_check_license_raises(self):
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = _make_manager_safe()
@@ -550,7 +550,7 @@ class TestModuleLevelAPI:
             mod._manager = old
 
     def test_get_manager_singleton(self):
-        import cognigraph.licensing.manager as mod
+        import graqle.licensing.manager as mod
         old = mod._manager
         try:
             mod._manager = None

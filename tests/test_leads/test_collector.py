@@ -1,4 +1,4 @@
-"""Tests for cognigraph.leads.collector — lead capture and telemetry."""
+"""Tests for graqle.leads.collector — lead capture and telemetry."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ import pytest
 def _isolated_profile(tmp_path, monkeypatch):
     """Redirect profile storage to a temp directory for test isolation."""
     monkeypatch.setattr(
-        "cognigraph.leads.collector.PROFILE_DIR", tmp_path
+        "graqle.leads.collector.PROFILE_DIR", tmp_path
     )
     monkeypatch.setattr(
-        "cognigraph.leads.collector.PROFILE_PATH", tmp_path / "profile.json"
+        "graqle.leads.collector.PROFILE_PATH", tmp_path / "profile.json"
     )
     monkeypatch.setattr(
-        "cognigraph.leads.collector.EVENTS_PATH", tmp_path / "events.jsonl"
+        "graqle.leads.collector.EVENTS_PATH", tmp_path / "events.jsonl"
     )
 
 
@@ -27,30 +27,30 @@ class TestProfile:
     """Tests for profile load/save and install ID."""
 
     def test_load_empty_profile(self) -> None:
-        from cognigraph.leads.collector import load_profile
+        from graqle.leads.collector import load_profile
         profile = load_profile()
         assert profile == {}
 
     def test_save_and_load_profile(self, tmp_path) -> None:
-        from cognigraph.leads.collector import load_profile, save_profile
+        from graqle.leads.collector import load_profile, save_profile
         save_profile({"email": "test@example.com", "name": "Test"})
         profile = load_profile()
         assert profile["email"] == "test@example.com"
         assert profile["name"] == "Test"
 
     def test_get_install_id_stable(self) -> None:
-        from cognigraph.leads.collector import get_install_id
+        from graqle.leads.collector import get_install_id
         id1 = get_install_id()
         id2 = get_install_id()
         assert id1 == id2
         assert len(id1) == 36  # UUID format
 
     def test_is_registered_false_by_default(self) -> None:
-        from cognigraph.leads.collector import is_registered
+        from graqle.leads.collector import is_registered
         assert is_registered() is False
 
     def test_is_telemetry_enabled_false_by_default(self) -> None:
-        from cognigraph.leads.collector import is_telemetry_enabled
+        from graqle.leads.collector import is_telemetry_enabled
         assert is_telemetry_enabled() is False
 
 
@@ -58,7 +58,7 @@ class TestRegistration:
     """Tests for the register() function."""
 
     def test_register_saves_email(self) -> None:
-        from cognigraph.leads.collector import is_registered, register
+        from graqle.leads.collector import is_registered, register
         assert is_registered() is False
 
         profile = register(
@@ -76,13 +76,13 @@ class TestRegistration:
         assert profile["telemetry_opt_in"] is True
 
     def test_register_creates_install_id(self) -> None:
-        from cognigraph.leads.collector import register
+        from graqle.leads.collector import register
         profile = register(email="dev@test.com")
         assert "install_id" in profile
         assert len(profile["install_id"]) == 36
 
     def test_register_queues_event(self, tmp_path) -> None:
-        from cognigraph.leads.collector import register
+        from graqle.leads.collector import register
         register(email="dev@test.com", source="cli")
 
         events_path = tmp_path / "events.jsonl"
@@ -98,7 +98,7 @@ class TestProjectTracking:
     """Tests for track_project_init()."""
 
     def test_track_project_init(self, tmp_path) -> None:
-        from cognigraph.leads.collector import load_profile, save_profile, track_project_init
+        from graqle.leads.collector import load_profile, save_profile, track_project_init
 
         # Enable telemetry first
         save_profile({"email": "dev@test.com", "telemetry_opt_in": True})
@@ -122,7 +122,7 @@ class TestProjectTracking:
         assert "/home/user/my-project" not in json.dumps(profile)
 
     def test_track_project_init_updates_existing(self, tmp_path) -> None:
-        from cognigraph.leads.collector import load_profile, track_project_init
+        from graqle.leads.collector import load_profile, track_project_init
 
         track_project_init("/p", 10, 5, "ollama", "claude")
         track_project_init("/p", 20, 10, "anthropic", "cursor")
@@ -136,7 +136,7 @@ class TestUsageTracking:
     """Tests for track_usage() and milestone detection."""
 
     def test_track_usage_increments_counters(self) -> None:
-        from cognigraph.leads.collector import load_profile, track_usage
+        from graqle.leads.collector import load_profile, track_usage
         track_usage("reason_query")
         track_usage("reason_query")
         track_usage("context_lookup")
@@ -146,7 +146,7 @@ class TestUsageTracking:
         assert profile["usage_counters"]["context_lookup"] == 1
 
     def test_check_milestone_at_50(self) -> None:
-        from cognigraph.leads.collector import check_milestone, save_profile
+        from graqle.leads.collector import check_milestone, save_profile
 
         # Simulate 50 queries
         save_profile({"usage_counters": {"reason_query": 50}})
@@ -159,7 +159,7 @@ class TestUsageTracking:
         assert milestone2 is None
 
     def test_check_milestone_returns_none_below_threshold(self) -> None:
-        from cognigraph.leads.collector import check_milestone, save_profile
+        from graqle.leads.collector import check_milestone, save_profile
         save_profile({"usage_counters": {"reason_query": 10}})
         assert check_milestone() is None
 
@@ -168,19 +168,19 @@ class TestNudges:
     """Tests for nudge message generation."""
 
     def test_registration_nudge_when_unregistered(self) -> None:
-        from cognigraph.leads.collector import get_registration_nudge
+        from graqle.leads.collector import get_registration_nudge
         nudge = get_registration_nudge()
         assert nudge is not None
-        assert "kogni register" in nudge
+        assert "graq register" in nudge
 
     def test_registration_nudge_none_when_registered(self) -> None:
-        from cognigraph.leads.collector import get_registration_nudge, register
+        from graqle.leads.collector import get_registration_nudge, register
         register(email="dev@test.com")
         nudge = get_registration_nudge()
         assert nudge is None
 
     def test_milestone_nudge_messages(self) -> None:
-        from cognigraph.leads.collector import get_milestone_nudge
+        from graqle.leads.collector import get_milestone_nudge
         msg_50 = get_milestone_nudge(50)
         assert "50" in msg_50
 
@@ -196,7 +196,7 @@ class TestEventQueue:
     """Tests for the offline event queue."""
 
     def test_queue_event_creates_file(self, tmp_path) -> None:
-        from cognigraph.leads.collector import _queue_event
+        from graqle.leads.collector import _queue_event
         _queue_event("test_event", {"key": "value"})
 
         events_path = tmp_path / "events.jsonl"
@@ -206,7 +206,7 @@ class TestEventQueue:
         assert event["data"]["key"] == "value"
 
     def test_sync_graceful_failure(self, tmp_path) -> None:
-        from cognigraph.leads.collector import _queue_event, _try_sync_leads
+        from graqle.leads.collector import _queue_event, _try_sync_leads
         _queue_event("test", {"x": 1})
 
         # Sync should fail gracefully (no server running)
