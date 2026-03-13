@@ -128,7 +128,7 @@ class OntologyRouter:
                 self._stats["filtered"] += 1
                 logger.debug(
                     f"Filtered: {source_node.label} ({source_type}) "
-                    f"→ {neighbor_node.label} ({target_type})"
+                    f"-> {neighbor_node.label} ({target_type})"
                 )
 
         return valid_recipients

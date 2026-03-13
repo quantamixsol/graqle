@@ -164,7 +164,7 @@ class QueryReformulator:
     Usage (standalone SDK):
         reformulator = QueryReformulator(mode="llm", backend=my_backend)
         result = await reformulator.areformulate("fix the upload bug")
-        # result.reformulated_query = "fix the upload bug"  (no context → pass-through)
+        # result.reformulated_query = "fix the upload bug"  (no context -> pass-through)
     """
 
     def __init__(
@@ -421,7 +421,7 @@ class QueryReformulator:
         confidence = min(confidence, 1.0)
 
         logger.info(
-            "Query reformulated [%s]: '%s' → '%s' (confidence=%.2f)",
+            "Query reformulated [%s]: '%s' -> '%s' (confidence=%.2f)",
             context.tool_name or self._detected_tool or "ai_tool",
             query[:80],
             reformulated[:80],
@@ -467,7 +467,7 @@ class QueryReformulator:
                     reformulated = reformulated[:_MAX_REFORMULATED_LENGTH - 3] + "..."
 
                 logger.info(
-                    "Query reformulated [llm]: '%s' → '%s'",
+                    "Query reformulated [llm]: '%s' -> '%s'",
                     query[:80],
                     reformulated[:80],
                 )

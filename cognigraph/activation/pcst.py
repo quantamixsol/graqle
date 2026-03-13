@@ -253,19 +253,19 @@ class PCSTActivation:
         neighbours that have ≥1 chunk) and swaps it in.
 
         Edge cases:
-        - Node has no neighbours at all → kept as-is (removing would lose
+        - Node has no neighbours at all -> kept as-is (removing would lose
           the slot entirely; the agent will use its description).
-        - No neighbour has chunks → original node is kept.
-        - Replacement is already in the selection → original is dropped
+        - No neighbour has chunks -> original node is kept.
+        - Replacement is already in the selection -> original is dropped
           (no duplicates) and the slot is freed.
-        - All selected nodes have chunks → no-op.
-        - Graph has zero edges → no-op (cannot find neighbours).
+        - All selected nodes have chunks -> no-op.
+        - Graph has zero edges -> no-op (cannot find neighbours).
         """
         if not selected:
             return selected
 
         selected_set = set(selected)
-        replacements: dict[str, str | None] = {}  # old_id → new_id or None
+        replacements: dict[str, str | None] = {}  # old_id -> new_id or None
 
         for nid in selected:
             node = graph.nodes.get(nid)
@@ -312,7 +312,7 @@ class PCSTActivation:
                     result.append(replacement)
                     seen.add(replacement)
                     logger.debug(
-                        "Content filter: replaced %s (0 chunks) → %s",
+                        "Content filter: replaced %s (0 chunks) -> %s",
                         nid, replacement,
                     )
                 # else: replacement already in result, or None — drop the slot
