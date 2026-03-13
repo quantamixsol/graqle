@@ -296,7 +296,7 @@ def create_app(
             hub_nodes=s.hub_nodes,
         )
 
-    @app.get("/nodes/{node_id}")
+    @app.get("/nodes/{node_id:path}")
     async def get_node(node_id: str) -> dict:
         graph = state.get("graph")
         if graph is None:

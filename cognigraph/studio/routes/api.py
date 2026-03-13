@@ -140,7 +140,7 @@ async def graph_nodes(
     return {"nodes": filtered[start:end], "total": total, "page": page, "size": size}
 
 
-@router.get("/graph/node/{node_id}")
+@router.get("/graph/node/{node_id:path}")
 async def graph_node_detail(request: Request, node_id: str):
     """Single node detail with neighbors."""
     state = request.app.state.studio_state
@@ -268,7 +268,7 @@ async def partial_metrics_cards(request: Request):
     """
 
 
-@router.get("/partials/node-detail/{node_id}", response_class=HTMLResponse)
+@router.get("/partials/node-detail/{node_id:path}", response_class=HTMLResponse)
 async def partial_node_detail(request: Request, node_id: str):
     """Node detail panel for HTMX."""
     state = request.app.state.studio_state

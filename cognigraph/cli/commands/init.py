@@ -605,6 +605,8 @@ def _build_cognigraph_yaml(
         },
         "cost": {
             "budget_per_query": 0.10,
+            "dynamic_ceiling": True,
+            "hard_ceiling_multiplier": 3.0,
         },
         "observer": {
             "enabled": True,
@@ -1193,28 +1195,61 @@ def _install_kogni_skill(root: Path) -> bool:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Deep merge two dicts. Override values win over base values."""
+    result = dict(base)
+    for key, val in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = _deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+
 def _write_cognigraph_yaml(
     root: Path, content: str, *, force: bool = False
 ) -> bool:
-    """Write cognigraph.yaml.
+    """Write cognigraph.yaml, merging with existing config if present.
 
-    Returns True if written, False if skipped (user declined overwrite).
-    Bug 15 fix: prompts before overwriting an existing config.
+    v0.12.1: Merges new defaults into existing config instead of overwriting.
+    User's custom values (API keys, Neo4j credentials, model overrides) are
+    preserved. Only missing keys are added from the new template.
     """
+    import yaml as _yaml
+
     target = root / "cognigraph.yaml"
-    if target.exists() and not force:
+    if target.exists():
         try:
-            from rich.prompt import Confirm
-            overwrite = Confirm.ask(
-                "  [yellow]cognigraph.yaml already exists.[/yellow] Overwrite?",
-                default=False,
+            existing_raw = target.read_text(encoding="utf-8")
+            existing = _yaml.safe_load(existing_raw) or {}
+            new_config = _yaml.safe_load(content) or {}
+
+            # Deep merge: existing user values win, new defaults fill gaps
+            merged = _deep_merge(new_config, existing)
+            merged_content = _yaml.dump(
+                merged, default_flow_style=False, sort_keys=False,
             )
-            if not overwrite:
-                console.print("  [dim]Keeping existing cognigraph.yaml[/dim]")
-                return False
+
+            if not force:
+                try:
+                    from rich.prompt import Confirm
+                    update = Confirm.ask(
+                        "  [yellow]cognigraph.yaml exists.[/yellow] "
+                        "Merge new defaults (your settings preserved)?",
+                        default=True,
+                    )
+                    if not update:
+                        console.print("  [dim]Keeping existing cognigraph.yaml unchanged[/dim]")
+                        return False
+                except Exception:
+                    pass  # Non-interactive: merge silently
+
+            target.write_text(merged_content, encoding="utf-8")
+            console.print("  [green]Merged new defaults into existing cognigraph.yaml[/green]")
+            return True
         except Exception:
-            # Non-interactive mode (e.g., CI) — overwrite silently
-            pass
+            pass  # If merge fails, fall through to fresh write
+
     target.write_text(content, encoding="utf-8")
     return True
 

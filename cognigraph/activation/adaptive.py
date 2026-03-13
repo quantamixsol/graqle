@@ -7,10 +7,10 @@ Queries are scored on 4 complexity dimensions:
 4. Question depth (multi-hop indicators: "how does X affect Y", "compare")
 
 The complexity score maps to Kmax via a configurable tier system:
-- Simple (score < 0.3): Kmax = min_nodes (e.g., 4)
-- Moderate (0.3-0.6): Kmax = mid_nodes (e.g., 8)
-- Complex (0.6-0.8): Kmax = max_nodes (e.g., 12)
-- Expert (score > 0.8): Kmax = expert_nodes (e.g., 16)
+- Simple (score < 0.15): Kmax = min_nodes (e.g., 4)
+- Moderate (0.15-0.35): Kmax = mid_nodes (e.g., 8)
+- Complex (0.35-0.55): Kmax = max_nodes (e.g., 12)
+- Expert (score > 0.55): Kmax = expert_nodes (e.g., 16)
 """
 
 from __future__ import annotations
@@ -26,25 +26,41 @@ logger = logging.getLogger("cognigraph.activation.adaptive")
 
 # Multi-hop / complexity indicator patterns
 _MULTI_HOP_PATTERNS = [
-    r"\bhow\s+does\s+\w+\s+(?:affect|impact|interact|relate)\b",
+    r"\bhow\s+does\s+\w+\s+(?:affect|impact|interact|relate|work|connect)\b",
+    r"\bhow\s+do\s+\w+\s+(?:affect|impact|interact|relate|work|connect)\b",
     r"\bcompare\s+and\s+contrast\b",
     r"\bwhat\s+are\s+the\s+(?:combined|joint|dual|total)\b",
     r"\bboth\s+\w+\s+and\s+\w+\b",
     r"\bacross\s+(?:multiple|different|several)\b",
-    r"\binter-?\w*\s+(?:domain|framework|regulation)\b",
+    r"\binter-?\w*\s+(?:domain|framework|regulation|service)\b",
     r"\bsupply\s+chain\b",
     r"\bend-to-end\b",
-    r"\bcomprehensive\s+compliance\b",
+    r"\bcomprehensive\b",
+    # Dev-specific multi-hop
+    r"\bwhat\s+(?:depends|calls|imports|uses)\b",
+    r"\bwhere\s+is\s+\w+\s+(?:used|called|imported|defined)\b",
+    r"\bwhat\s+happens\s+when\b",
+    r"\btrace\s+(?:the|through)\b",
+    r"\bimpact\s+(?:of|analysis)\b",
+    r"\brelationship\s+between\b",
+    r"\bwhat\s+(?:files|components|services|modules)\b",
+    r"\bexplain\s+(?:how|the|this)\b",
 ]
 
-# Entity/framework markers (EU regulatory domain + general)
+# Entity/framework markers (EU regulatory domain + general dev)
 _ENTITY_MARKERS = [
     r"\bAI\s+Act\b", r"\bGDPR\b", r"\bDORA\b", r"\bNIS2?\b",
     r"\bPSD[23]?\b", r"\bCRR\b", r"\bCRD\b", r"\bMiCA\b",
     r"\beIDAS\b", r"\bMDR\b", r"\bIVDR\b",
-    # General
+    # General regulatory/compliance
     r"\bregulation\b", r"\bdirective\b", r"\bframework\b",
     r"\bstandard\b", r"\bcompliance\b",
+    # Dev-specific entities (files, services, components)
+    r"\bservice\b", r"\bcomponent\b", r"\bmodule\b", r"\bfunction\b",
+    r"\bendpoint\b", r"\broute\b", r"\bhandler\b", r"\bmiddleware\b",
+    r"\bdatabase\b", r"\bschema\b", r"\bAPI\b", r"\bauth\b",
+    r"\bconfig\b", r"\btest\b", r"\bdeploy\b", r"\bpipeline\b",
+    r"\b\w+\.\w{2,4}\b",  # filename patterns like "auth.ts", "api.py"
 ]
 
 # Conjunction / cross-reference signals
@@ -52,6 +68,7 @@ _CONJUNCTION_PATTERNS = [
     r"\band\b", r"\bor\b", r"\bwhile\b", r"\bwhereas\b",
     r"\bin\s+addition\b", r"\balong\s+with\b", r"\bcombined\s+with\b",
     r"\binteract(?:s|ion)?\s+with\b", r"\boverlap\b",
+    r"\bbetween\b", r"\bwith\b", r"\bthrough\b",
 ]
 
 
@@ -75,12 +92,19 @@ class ComplexityProfile:
 
     @property
     def tier(self) -> str:
+        """Map composite score to tier.
+
+        v0.12.1: Thresholds lowered based on real-world testing.
+        Typical dev queries ("how does auth work?") scored 0.07-0.14
+        with old thresholds, always landing in "simple". New thresholds
+        ensure moderate/complex tiers actually trigger for real queries.
+        """
         s = self.composite
-        if s < 0.3:
+        if s < 0.15:
             return "simple"
-        elif s < 0.6:
+        elif s < 0.35:
             return "moderate"
-        elif s < 0.8:
+        elif s < 0.55:
             return "complex"
         return "expert"
 
@@ -97,8 +121,8 @@ class AdaptiveConfig:
     cost_scaling: float = 1.0
     pruning: str = "strong"
     # Complexity scoring
-    token_low: int = 15    # tokens below this = simple
-    token_high: int = 60   # tokens above this = max complexity
+    token_low: int = 5     # tokens below this = simple
+    token_high: int = 30   # tokens above this = max complexity
 
     def kmax_for_tier(self, tier: str) -> int:
         return {
@@ -132,15 +156,15 @@ class QueryComplexityScorer:
 
         # 2. Entity score: count distinct entity markers
         entity_hits = sum(1 for p in self._entities if p.search(query))
-        entity_score = min(1.0, entity_hits / 4.0)  # 4+ entities = max
+        entity_score = min(1.0, entity_hits / 3.0)  # 3+ entities = max
 
         # 3. Conjunction score: cross-reference density
         conj_hits = sum(1 for p in self._conjunctions if p.search(query))
-        conjunction_score = min(1.0, conj_hits / 3.0)  # 3+ conjunctions = max
+        conjunction_score = min(1.0, conj_hits / 2.0)  # 2+ conjunctions = max
 
         # 4. Depth score: multi-hop pattern matches
         depth_hits = sum(1 for p in self._multi_hop if p.search(query))
-        depth_score = min(1.0, depth_hits / 2.0)  # 2+ multi-hop = max
+        depth_score = min(1.0, depth_hits / 1.5)  # 2+ multi-hop = max
 
         return ComplexityProfile(
             token_score=round(token_score, 3),

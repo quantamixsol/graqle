@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognigraph"
-version = "0.12.0"
+version = "0.12.1"
 description = "Dev Intelligence Layer — turn any codebase into a reasoning-ready knowledge graph. Works with any IDE, any AI tool, or plain terminal."
 readme = "README.md"
 license = "Apache-2.0"
@@ -106,6 +106,9 @@ exclude = ["cognigraph/benchmarks/data/*", "paper/*", "patent/*"]
 [tool.hatch.build.targets.wheel]
 packages = ["cognigraph"]
 exclude = ["cognigraph/benchmarks/data/*"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"examples" = "cognigraph/examples"
 
 [tool.ruff]
 target-version = "py310"
