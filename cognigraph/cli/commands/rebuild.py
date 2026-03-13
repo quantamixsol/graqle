@@ -92,6 +92,16 @@ def rebuild_command(
             "properties pointing to readable files."
         )
 
+
+    # Rebuild embedding cache for fast query-time activation (v0.12.3)
+    try:
+        from cognigraph.activation.chunk_scorer import ChunkScorer
+        scorer = ChunkScorer()
+        scorer.build_cache(graph)
+        _print(f"  [green]Embedding cache rebuilt[/green]")
+    except Exception as exc:
+        _print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
+
     return updated
 
 
