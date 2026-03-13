@@ -273,6 +273,33 @@ All 14 innovations are free to use under Apache 2.0. The patent protects the spe
 
 ---
 
+## What's New in v0.12.3
+
+**Studio overhaul + Embedding cache + Mobile-ready.**
+
+### Studio Dashboard Fixed
+- **CSS class mismatches resolved:** Dashboard cards, metrics, node types, and graph preview now render correctly. The `main-content` / `metric-card` / `node-types-grid` classes were mismatched between HTML templates and CSS -- all aligned now.
+- **HTMX partials fixed:** Auto-refreshing metrics cards use correct CSS grid layout.
+
+### Mobile Responsiveness + QR Code
+- **Full mobile support:** Hamburger menu, responsive grids (4-col -> 2-col -> 1-col), touch-friendly targets (44px min), sidebar overlay.
+- **QR code on dashboard:** Scan from your phone to access Studio while reasoning runs. Like Claude Code's QR feature.
+- **Tablet/phone breakpoints:** 1024px, 768px, 480px with landscape-specific layouts.
+
+### Embedding Cache (Performance)
+- **10-100x faster activation for large repos:** Chunk embeddings precomputed during `kogni init` and saved to `.cognigraph/chunk_embeddings.npz`. At query time, only the query is embedded (1 call), then fast numpy batch cosine similarity against all cached chunks.
+- **11K nodes: ~30s -> <1s** per query activation (was embedding every chunk live).
+- **Automatic:** Built during `kogni init`, loaded transparently by ChunkScorer.
+- **Fallback:** If cache is missing, falls back to live embedding (works always, just slower).
+
+### Windows Unicode (from v0.12.2)
+- 7 Unicode crash locations fixed (runtime print/logger output).
+- LLM ontology JSON repair added.
+
+**763 tests passing.**
+
+---
+
 ## What's New in v0.12.2
 
 **Windows compatibility + JSON repair.**

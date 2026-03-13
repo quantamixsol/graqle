@@ -1668,6 +1668,18 @@ def init_command(
         except Exception as exc:
             console.print(f"  [yellow]![/yellow] Chunk rebuild skipped: {exc}")
 
+        # Build embedding cache for fast query-time activation (v0.12.3)
+        try:
+            from cognigraph.core.graph import CogniGraph
+            from cognigraph.activation.chunk_scorer import ChunkScorer
+            graph_obj = CogniGraph.from_json(str(root / "cognigraph.json"))
+            scorer = ChunkScorer()
+            scorer.build_cache(graph_obj)
+            console.print(f"  [green]+[/green] Embedding cache built (.cognigraph/chunk_embeddings.npz)")
+        except Exception as exc:
+            console.print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
+
+
     # MCP config (IDE-specific location)
     if not no_mcp:
         mcp_path = _get_mcp_path(root, ide)

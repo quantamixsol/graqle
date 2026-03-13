@@ -257,13 +257,27 @@ async def partial_metrics_cards(request: Request):
     savings_usd = tokens_saved * 0.000015  # $0.015 per 1K tokens
 
     return f"""
-    <div class="metrics-cards">
-        <div class="card"><div class="card-value">{node_count}</div><div class="card-label">Nodes</div></div>
-        <div class="card"><div class="card-value">{edge_count}</div><div class="card-label">Edges</div></div>
-        <div class="card"><div class="card-value">{_format_number(tokens_saved)}</div><div class="card-label">Tokens Saved</div></div>
-        <div class="card"><div class="card-value">${savings_usd:,.0f}</div><div class="card-label">Cost Saved</div></div>
-        <div class="card"><div class="card-value">{queries}</div><div class="card-label">Queries</div></div>
-        <div class="card"><div class="card-value">{context_loads}</div><div class="card-label">Context Loads</div></div>
+    <div class="grid-4">
+        <div class="metric-card blue">
+            <div class="icon">&#9673;</div>
+            <div class="label">Nodes</div>
+            <div class="value">{node_count}</div>
+        </div>
+        <div class="metric-card green">
+            <div class="icon">&#8596;</div>
+            <div class="label">Edges</div>
+            <div class="value">{edge_count}</div>
+        </div>
+        <div class="metric-card purple">
+            <div class="icon">&#9889;</div>
+            <div class="label">Tokens Saved</div>
+            <div class="value">{_format_number(tokens_saved)}</div>
+        </div>
+        <div class="metric-card yellow">
+            <div class="icon">$</div>
+            <div class="label">Cost Saved</div>
+            <div class="value">${savings_usd:,.2f}</div>
+        </div>
     </div>
     """
 
