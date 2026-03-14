@@ -102,11 +102,12 @@ class TitanV2Engine:
 
     def __init__(
         self,
-        region: str = "eu-central-1",
+        region: str | None = None,
         model_id: str = "amazon.titan-embed-text-v2:0",
         dimension: int = 1024,
     ) -> None:
-        self._region = region
+        import os as _os
+        self._region = region or _os.environ.get("AWS_DEFAULT_REGION") or _os.environ.get("AWS_REGION") or "us-east-1"
         self._model_id = model_id
         self._dimension = dimension
         self._client = None

@@ -54,7 +54,10 @@ except Exception:
 
 _SENSITIVE_KEYS = frozenset({"api_key", "secret", "password", "token", "credential"})
 
-_LESSON_ENTITY_TYPES = frozenset({"LESSON", "MISTAKE", "SAFETY", "ADR", "DECISION"})
+_LESSON_ENTITY_TYPES = frozenset({
+    "LESSON", "MISTAKE", "SAFETY", "ADR", "DECISION",
+    "REQUIREMENT", "PROCEDURE", "DEFINITION",
+})
 
 _MAX_BFS_DEPTH = 3
 _MAX_RESULTS = 50
@@ -88,6 +91,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "Context depth: minimal (~200 tokens), "
                         "standard (~400 tokens), deep (~800 tokens)"
                     ),
+                },
+                "caller": {
+                    "type": "string",
+                    "description": "Caller identifier for multi-agent tracking (e.g., 'agent-1', 'ci-pipeline')",
                 },
             },
             "required": ["task"],
@@ -134,6 +141,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "default": 2,
                     "description": "Maximum message-passing rounds (1-5)",
                 },
+                "caller": {
+                    "type": "string",
+                    "description": "Caller identifier for multi-agent tracking (e.g., 'agent-1', 'ci-pipeline')",
+                },
             },
             "required": ["question"],
         },
@@ -158,6 +169,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Files being changed (optional)",
+                },
+                "caller": {
+                    "type": "string",
+                    "description": "Caller identifier for multi-agent tracking (e.g., 'agent-1', 'ci-pipeline')",
                 },
             },
             "required": ["action"],
@@ -299,15 +314,28 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
 # ---------------------------------------------------------------------------
 
 
+_WRITE_TOOLS = frozenset({"graq_learn", "graq_reload"})
+
+
 class KogniDevServer:
     """MCP server exposing 7 governed development tools over stdio.
 
     Implements the Model Context Protocol JSON-RPC transport.
     Graph is lazily loaded on first tool call.
+
+    Parameters
+    ----------
+    config_path:
+        Path to graqle.yaml configuration file.
+    read_only:
+        If ``True``, mutation tools (graq_learn, graq_reload) are blocked.
+        Only read-only tools are exposed: graq_context, graq_inspect,
+        graq_reason, graq_preflight, graq_lessons, graq_impact.
     """
 
-    def __init__(self, config_path: str = "graqle.yaml") -> None:
+    def __init__(self, config_path: str = "graqle.yaml", read_only: bool = False) -> None:
         self.config_path = config_path
+        self.read_only = read_only
         self._graph: Any = None  # Graqle, loaded lazily
         self._config: Any = None  # GraqleConfig
         self._graph_file: str | None = None  # path to the loaded graph JSON
@@ -409,9 +437,7 @@ class KogniDevServer:
 
             elif backend_name == "bedrock":
                 from graqle.backends.api import BedrockBackend
-                region = getattr(cfg.model, "region", None) or os.environ.get(
-                    "AWS_DEFAULT_REGION", "eu-central-1"
-                )
+                region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
                 graph.set_default_backend(BedrockBackend(model=model_name, region=region))
                 logger.info("Backend: Bedrock (%s in %s)", model_name, region)
                 return
@@ -524,7 +550,12 @@ class KogniDevServer:
     # ------------------------------------------------------------------
 
     def list_tools(self) -> list[dict[str, Any]]:
-        """Return MCP tool definitions."""
+        """Return MCP tool definitions.
+
+        In read-only mode, mutation tools (graq_learn, graq_reload) are excluded.
+        """
+        if self.read_only:
+            return [t for t in TOOL_DEFINITIONS if t["name"] not in _WRITE_TOOLS]
         return TOOL_DEFINITIONS
 
     # ------------------------------------------------------------------
@@ -533,6 +564,13 @@ class KogniDevServer:
 
     async def handle_tool(self, name: str, arguments: dict[str, Any]) -> str:
         """Route a tool call to the correct handler. Returns JSON string."""
+        # Block write tools in read-only mode
+        if self.read_only and name in _WRITE_TOOLS:
+            return json.dumps({
+                "error": f"Tool '{name}' is blocked in read-only mode. "
+                "The MCP server was started with --read-only.",
+            })
+
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
@@ -547,6 +585,16 @@ class KogniDevServer:
         handler = handlers.get(name)
         if handler is None:
             return json.dumps({"error": f"Unknown tool: {name}"})
+
+        # Track caller in metrics if provided
+        caller = arguments.get("caller", "")
+        if caller:
+            try:
+                from graqle.metrics.engine import MetricsEngine
+                metrics = MetricsEngine()
+                metrics.record_query(f"mcp:{name}", 0, caller=caller)
+            except Exception:
+                pass  # Never fail on metrics tracking
 
         try:
             return await handler(arguments)

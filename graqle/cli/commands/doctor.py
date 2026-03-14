@@ -141,7 +141,8 @@ def _check_embedding_models() -> List[CheckResult]:
     # Check Titan V2 (best quality)
     try:
         import boto3
-        client = boto3.client("bedrock-runtime", region_name="eu-central-1")
+        region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
+        client = boto3.client("bedrock-runtime", region_name=region)
         # Don't actually call — just check credentials
         sts = boto3.client("sts")
         sts.get_caller_identity()
@@ -321,6 +322,100 @@ def _check_mcp_registration() -> List[CheckResult]:
     return results
 
 
+def _check_bedrock_model_id() -> List[CheckResult]:
+    """Validate configured Bedrock model ID against available models."""
+    results = []
+
+    # Only check if backend is bedrock
+    config_path = Path("graqle.yaml")
+    if not config_path.exists():
+        return results
+
+    try:
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        model_cfg = data.get("model", {})
+        if model_cfg.get("backend") != "bedrock":
+            return results
+        configured_model = model_cfg.get("model", "")
+        if not configured_model:
+            return results
+    except Exception:
+        return results
+
+    try:
+        import boto3
+        region = (
+            model_cfg.get("region")
+            or os.environ.get("AWS_DEFAULT_REGION")
+            or os.environ.get("AWS_REGION")
+            or "us-east-1"
+        )
+        client = boto3.client("bedrock", region_name=region)
+        response = client.list_foundation_models()
+        available_ids = {
+            m["modelId"] for m in response.get("modelSummaries", [])
+        }
+
+        # Also check inference profile format (e.g. eu.anthropic.claude-*)
+        # These won't appear in list_foundation_models but are valid
+        is_profile = any(
+            configured_model.startswith(prefix)
+            for prefix in ("us.", "eu.", "ap.", "global.")
+        )
+
+        if configured_model in available_ids:
+            results.append((
+                PASS,
+                "Bedrock: model ID",
+                f"{configured_model} (valid in {region})",
+            ))
+        elif is_profile:
+            # Cross-region inference profiles are valid but not in the list
+            base_model = configured_model.split(".", 1)[1] if "." in configured_model else configured_model
+            if base_model in available_ids:
+                results.append((
+                    PASS,
+                    "Bedrock: model ID",
+                    f"{configured_model} (inference profile, base model valid)",
+                ))
+            else:
+                results.append((
+                    WARN,
+                    "Bedrock: model ID",
+                    f"{configured_model} (inference profile — cannot verify base model '{base_model}')",
+                ))
+        else:
+            # Find close matches for suggestion
+            import difflib
+            suggestions = difflib.get_close_matches(
+                configured_model, list(available_ids), n=3, cutoff=0.4
+            )
+            hint = ""
+            if suggestions:
+                hint = f" Did you mean: {', '.join(suggestions)}"
+            results.append((
+                WARN,
+                "Bedrock: model ID",
+                f"'{configured_model}' not found in {region}.{hint} "
+                f"Format: provider.model-name-version (e.g. anthropic.claude-haiku-4-5-20251001-v1:0)",
+            ))
+
+    except ImportError:
+        # boto3 not installed — skip silently
+        pass
+    except Exception as e:
+        err = str(e)[:80]
+        results.append((
+            INFO,
+            "Bedrock: model ID",
+            f"could not validate ({err})",
+        ))
+
+    return results
+
+
 def _check_skill_system() -> List[CheckResult]:
     """Check skill admin readiness."""
     results = []
@@ -370,6 +465,7 @@ def doctor_command(
     all_results.extend(_check_api_keys())
     all_results.extend(_check_embedding_models())
     all_results.extend(_check_config_file())
+    all_results.extend(_check_bedrock_model_id())
     all_results.extend(_check_graph_file())
     all_results.extend(_check_mcp_registration())
     all_results.extend(_check_skill_system())

@@ -19,6 +19,8 @@ class ModelConfig(BaseModel):
     device: str = "auto"
     max_concurrent_adapters: int = 16
     api_key: str | None = None
+    region: str | None = None  # AWS region (e.g. us-east-1, eu-west-1). Only used by Bedrock backend.
+    host: str | None = None  # Ollama/vLLM host URL. Only used by local backends.
 
 
 class GraphConfig(BaseModel):
@@ -127,6 +129,88 @@ class NamedModelConfig(BaseModel):
     api_key: str | None = None
 
 
+class RedactionConfig(BaseModel):
+    """Privacy redaction configuration for document scanning."""
+
+    enabled: bool = True
+    patterns: list[str] = Field(default_factory=list)
+    redact_api_keys: bool = True
+    redact_passwords: bool = True
+    redact_tokens: bool = True
+
+
+class LinkingConfig(BaseModel):
+    """Auto-linking configuration for document-to-code connections."""
+
+    exact: bool = True
+    fuzzy: bool = True
+    semantic: bool = False
+    llm_assisted: bool = False
+    semantic_threshold: float = 0.70
+    fuzzy_threshold: float = 0.60
+    llm_max_docs: int = 20
+    max_edges_per_doc: int = 50
+
+
+class DocScanConfig(BaseModel):
+    """Document scanning configuration."""
+
+    enabled: bool = True
+    background: bool = True
+    extensions: list[str] = Field(
+        default_factory=lambda: [".pdf", ".docx", ".pptx", ".xlsx", ".md", ".txt"]
+    )
+    exclude_extensions: list[str] = Field(default_factory=list)
+    exclude_patterns: list[str] = Field(default_factory=list)
+    scan_dirs: list[str] = Field(default_factory=lambda: ["."])
+    max_file_size_mb: float = 50.0
+    chunk_max_chars: int = 1500
+    chunk_overlap_chars: int = 100
+    chunk_min_chars: int = 100
+    linking: LinkingConfig = Field(default_factory=LinkingConfig)
+    redaction: RedactionConfig = Field(default_factory=RedactionConfig)
+    incremental: bool = True
+    max_nodes: int = 0
+    max_files: int = 0
+
+
+class JSONScanConfig(BaseModel):
+    """JSON file scanning configuration."""
+
+    enabled: bool = True
+    auto_detect: bool = True
+    max_file_size_mb: float = 10.0
+    exclude_patterns: list[str] = Field(
+        default_factory=lambda: [
+            "package-lock.json", "yarn.lock", "*.min.json",
+            "node_modules/", ".git/", "__pycache__/", "dist/", ".next/",
+        ]
+    )
+    categories: dict[str, bool] = Field(
+        default_factory=lambda: {
+            "DEPENDENCY_MANIFEST": True,
+            "API_SPEC": True,
+            "TOOL_CONFIG": True,
+            "APP_CONFIG": True,
+            "INFRA_CONFIG": True,
+            "SCHEMA_FILE": True,
+            "DATA_FILE": False,
+        }
+    )
+
+
+class ScanConfig(BaseModel):
+    """Top-level scan configuration (code + docs + JSON)."""
+
+    model_config = {"populate_by_name": True}
+
+    docs: DocScanConfig = Field(default_factory=DocScanConfig)
+    json_files: JSONScanConfig = Field(
+        default_factory=JSONScanConfig,
+        alias="json",
+    )
+
+
 class GraqleConfig(BaseModel):
     """Root configuration for a Graqle instance."""
 
@@ -138,6 +222,7 @@ class GraqleConfig(BaseModel):
     cost: CostConfig = Field(default_factory=CostConfig)
     reformulator: ReformulatorConfig = Field(default_factory=ReformulatorConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    scan: ScanConfig = Field(default_factory=ScanConfig)
     domain: str = "custom"
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)
     node_models: dict[str, str] = Field(default_factory=dict)

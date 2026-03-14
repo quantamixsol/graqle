@@ -61,9 +61,7 @@ def _create_backend_from_config(cfg: Any) -> Any:
 
         elif backend_name == "bedrock":
             from graqle.backends.api import BedrockBackend
-            region = getattr(cfg.model, "region", None) or os.environ.get(
-                "AWS_DEFAULT_REGION", "eu-central-1"
-            )
+            region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
             return BedrockBackend(model=model_name, region=region)
 
         elif backend_name == "ollama":
@@ -316,6 +314,9 @@ def create_app(
             "neighbors": graph.get_neighbors(node_id),
         }
 
+    # Read-only mode: check env var set by CLI
+    _read_only = os.environ.get("GRAQLE_READ_ONLY", "").strip() in ("1", "true", "yes")
+
     @app.post("/reload")
     async def reload_graph() -> dict:
         """Hot-reload the knowledge graph from disk without restarting the server.
@@ -323,6 +324,8 @@ def create_app(
         FEEDBACK: MCP server doesn't hot-reload KG — after swapping graqle.json,
         must restart. This endpoint fixes that.
         """
+        if _read_only:
+            raise HTTPException(status_code=403, detail="Server is in read-only mode. /reload is disabled.")
         gpath = graph_path or "graqle.json"
         if not Path(gpath).exists():
             raise HTTPException(status_code=404, detail=f"Graph file not found: {gpath}")
@@ -356,6 +359,8 @@ def create_app(
           edges: [{source, target, relation}]
           auto_connect: bool (default true) — auto-discover edges to existing nodes
         """
+        if _read_only:
+            raise HTTPException(status_code=403, detail="Server is in read-only mode. /learn is disabled.")
         graph = state.get("graph")
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")

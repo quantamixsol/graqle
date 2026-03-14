@@ -67,6 +67,7 @@ def _build_graph_with_structural_edges():
 def server():
     srv = KogniDevServer.__new__(KogniDevServer)
     srv.config_path = "graqle.yaml"
+    srv.read_only = False
     srv._graph = _build_graph_with_structural_edges()
     srv._config = None
     srv._graph_file = "graqle.json"

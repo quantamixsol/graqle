@@ -69,6 +69,7 @@ def _build_mock_graph() -> MagicMock:
 def server():
     srv = KogniDevServer.__new__(KogniDevServer)
     srv.config_path = "graqle.yaml"
+    srv.read_only = False
     srv._graph = _build_mock_graph()
     srv._config = None
     srv._graph_file = "graqle.json"
