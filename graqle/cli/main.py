@@ -5,7 +5,7 @@ from __future__ import annotations
 # Universal Unicode fix — MUST be first import (before Rich, before typer)
 # This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
 # preventing the cp1252 UnicodeEncodeError on Windows.
-from graqle.cli.console import create_console  # noqa: E402 — intentionally first
+from graqle.cli.console import create_console, BRAND_NAME  # noqa: E402 — intentionally first
 
 import os
 import sys
@@ -32,13 +32,13 @@ from graqle.cli.commands.login import login_command, logout_command
 def _version_callback(value: bool) -> None:
     if value:
         from graqle.__version__ import __version__
-        print(f"graq {__version__}")
+        print(f"graQle v{__version__}")
         raise typer.Exit()
 
 
 app = typer.Typer(
     name="graq",
-    help="Graqle — Graphs that think. Turn any KG into a reasoning network.",
+    help="graQle — Graphs that think. Turn any KG into a reasoning network.",
     no_args_is_help=True,
 )
 
@@ -166,7 +166,7 @@ def run(
     # Use config strategy if not overridden by CLI flag
     strategy = strategy or cfg.activation.strategy
 
-    console.print(f"[bold cyan]Graqle[/bold cyan] -- Graphs that think")
+    console.print(f"{BRAND_NAME} -- Graphs that think")
     console.print(f"Query: [green]{query}[/green]")
     console.print(f"Strategy: {strategy} | Protocol: {protocol} | Max rounds: {max_rounds}")
 
@@ -418,7 +418,7 @@ def inspect(
 
     if stats:
         s = graph.stats
-        console.print(f"[bold]Graqle Stats[/bold]")
+        console.print(f"{BRAND_NAME} Stats")
         console.print(f"  Nodes: {s.total_nodes}")
         console.print(f"  Edges: {s.total_edges}")
         console.print(f"  Avg degree: {s.avg_degree:.1f}")
@@ -426,7 +426,7 @@ def inspect(
         console.print(f"  Components: {s.connected_components}")
         console.print(f"  Hub nodes: {', '.join(s.hub_nodes)}")
     else:
-        console.print(f"[bold]Graqle[/bold]: {graph}")
+        console.print(f"{BRAND_NAME}: {graph}")
         for nid, node in list(graph.nodes.items())[:20]:
             console.print(f"  [{node.entity_type}] {nid}: {node.label} (degree={node.degree})")
         if len(graph.nodes) > 20:
@@ -471,7 +471,7 @@ def serve(
     if read_only:
         os.environ["GRAQLE_READ_ONLY"] = "1"
 
-    console.print(f"[bold cyan]Graqle Server[/bold cyan] starting on {host}:{port}")
+    console.print(f"{BRAND_NAME} Server starting on {host}:{port}")
     if read_only:
         console.print("[yellow]  Read-only mode: /learn and /reload endpoints disabled[/yellow]")
     uvicorn.run(
@@ -539,7 +539,7 @@ def studio(
     except Exception:
         pass
 
-    console.print(f"[bold cyan]Graqle Studio[/bold cyan] — Graphs that think")
+    console.print(f"{BRAND_NAME} Studio — Graphs that think")
     if graph:
         console.print(f"  Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
     else:
@@ -720,7 +720,7 @@ def validate(
 def version() -> None:
     """Show Graqle version."""
     from graqle.__version__ import __version__
-    console.print(f"Graqle v{__version__}")
+    console.print(f"{BRAND_NAME} v{__version__}")
 
 
 # ---------------------------------------------------------------------------
@@ -928,7 +928,7 @@ def reason(
     backend = OllamaBackend(model=model, host=host)
     graph.set_default_backend(backend)
 
-    console.print(f"[bold cyan]Graqle[/bold cyan] reasoning with {model}")
+    console.print(f"{BRAND_NAME} reasoning with {model}")
     console.print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
     console.print(f"Query: [green]{query}[/green]")
 

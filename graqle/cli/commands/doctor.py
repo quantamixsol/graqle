@@ -25,6 +25,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from graqle.cli.console import BRAND_NAME
 
 console = Console()
 
@@ -529,11 +530,11 @@ def doctor_command(
     # Summary
     console.print()
     if fails == 0 and warns == 0:
-        console.print("[bold green]All checks passed! Graqle is ready.[/bold green]")
+        console.print(f"[bold green]All checks passed! {BRAND_NAME} is ready.[/bold green]")
     elif fails == 0:
-        console.print(f"[bold yellow]{warns} warning(s) — Graqle will work but with reduced quality.[/bold yellow]")
+        console.print(f"[bold yellow]{warns} warning(s) — {BRAND_NAME} will work but with reduced quality.[/bold yellow]")
     else:
-        console.print(f"[bold red]{fails} failure(s), {warns} warning(s) — fix failures before using Graqle.[/bold red]")
+        console.print(f"[bold red]{fails} failure(s), {warns} warning(s) — fix failures before using {BRAND_NAME}.[/bold red]")
 
     # Fix suggestions
     if fix and (fails > 0 or warns > 0):

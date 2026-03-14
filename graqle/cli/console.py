@@ -122,3 +122,9 @@ CHECK = safe_symbol("\u2713", "[OK]")   # checkmark
 CROSS = safe_symbol("\u2717", "[X]")    # X mark
 ARROW = safe_symbol("\u2192", "->")     # arrow
 BULLET = safe_symbol("\u2022", "*")     # bullet
+
+# ── Brand constants (Rich markup) ──────────────────────────────────
+# The Q is the visual anchor — Ring Blue (#1998D5), always bold.
+# Use BRAND_NAME in all console.print() calls for consistent branding.
+BRAND_NAME = "gra[bold #1998D5]Q[/bold #1998D5]le"
+BRAND_NAME_PLAIN = "graQle"  # for non-Rich contexts (logs, plain text)

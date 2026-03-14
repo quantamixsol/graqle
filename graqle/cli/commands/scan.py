@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import typer
 from rich.console import Console
+from graqle.cli.console import BRAND_NAME
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
@@ -1203,7 +1204,7 @@ def scan_repo(
         raise typer.Exit(1)
 
     console.print(Panel(
-        f"[bold cyan]Graqle Repository Scanner[/bold cyan]\n"
+        f"{BRAND_NAME} Repository Scanner\n"
         f"Path: {repo}\n"
         f"Depth: {depth} | Tests: {'yes' if include_tests else 'no'}",
         border_style="cyan",
