@@ -26,6 +26,7 @@ from graqle.cli.commands.rebuild import rebuild_command
 from graqle.cli.commands.learn import learn_app as learn_sub_app
 from graqle.cli.commands.learned import learned_command
 from graqle.cli.commands.link import link_app as link_sub_app
+from graqle.cli.commands.audit import audit_command
 from graqle.cli.commands.selfupdate import selfupdate_command
 from graqle.cli.commands.login import login_command, logout_command
 from graqle.cli.commands.sync import sync_app as sync_sub_app
@@ -66,6 +67,7 @@ app.command(name="register")(register_command)
 app.command(name="activate")(activate_command)
 app.command(name="billing")(billing_command)
 app.command(name="rebuild")(rebuild_command)
+app.command(name="audit")(audit_command)
 app.add_typer(learn_sub_app, name="learn")
 app.command(name="learned")(learned_command)
 app.add_typer(link_sub_app, name="link")
@@ -700,6 +702,16 @@ def validate(
     console.print(f"  With descriptions: {report['nodes_with_descriptions']}")
     console.print(f"  Without descriptions: {report['nodes_without_descriptions']}")
     console.print(f"  Avg description length: {report['avg_description_length']} chars")
+
+    # Chunk coverage (if available from updated validate())
+    if "nodes_with_chunks" in report:
+        chunk_pct = report.get("chunk_coverage_pct", 0)
+        cc = "green" if chunk_pct >= 80 else "yellow" if chunk_pct >= 50 else "red"
+        console.print(f"  With chunks: {report['nodes_with_chunks']} | "
+                      f"Without chunks: {report['nodes_without_chunks']}")
+        console.print(f"  Total chunks: {report['total_chunks']} | "
+                      f"Chunk coverage: [{cc}]{chunk_pct}%[/{cc}]")
+
     console.print(f"  Quality score: [{color}]{score}/100[/{color}]")
 
     if report["warnings"]:

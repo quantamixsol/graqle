@@ -227,6 +227,26 @@ class BedrockBackend(BaseBackend):
         self.total_cost_usd = 0.0
         self.call_count = 0
 
+    @staticmethod
+    def adaptive_read_timeout(
+        activated_nodes: int = 0,
+        *,
+        floor: float = 300.0,
+        per_node: float = 5.0,
+        cap: float = 900.0,
+    ) -> float:
+        """Calculate adaptive read timeout based on activated node count.
+
+        Prevents ReadTimeoutError when large subgraphs trigger long
+        reasoning chains on Sonnet/Opus.
+
+        Formula: clamp(floor, activated_nodes * per_node, cap)
+        Default: clamp(300, nodes * 5, 900) → 50 nodes = 300s, 100 nodes = 500s, max 900s
+        """
+        if activated_nodes <= 0:
+            return floor
+        return min(cap, max(floor, activated_nodes * per_node))
+
     def _get_client(self):
         if self._client is None:
             try:
@@ -235,6 +255,8 @@ class BedrockBackend(BaseBackend):
                 # Increase connection pool for parallel node reasoning (20+ concurrent calls)
                 boto_config = BotoConfig(
                     max_pool_connections=50,
+                    read_timeout=300,    # 5 min — large graph reasoning (hub nodes) can take 60-180s on Sonnet/Opus
+                    connect_timeout=10,
                     retries={"max_attempts": 3, "mode": "adaptive"},
                 )
                 self._client = boto3.client(

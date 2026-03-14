@@ -49,6 +49,36 @@ BACKENDS: dict[str, dict[str, Any]] = {
         ],
         "api_key_env": "OPENAI_API_KEY",
     },
+    "groq": {
+        "name": "Groq (Fast Inference)",
+        "models": [
+            ("llama-3.3-70b-versatile", "Llama 3.3 70B — Fast + capable ($0.0006/query)", True),
+            ("llama-3.1-8b-instant", "Llama 3.1 8B — Ultra-fast ($0.00005/query)", False),
+            ("gemma2-9b-it", "Gemma 2 9B — Lightweight ($0.0002/query)", False),
+            ("mixtral-8x7b-32768", "Mixtral 8x7B — 32K context ($0.0002/query)", False),
+        ],
+        "api_key_env": "GROQ_API_KEY",
+    },
+    "gemini": {
+        "name": "Google Gemini",
+        "models": [
+            ("gemini-2.0-flash", "Gemini 2.0 Flash — Fast + cheap ($0.0001/query)", True),
+            ("gemini-2.5-pro", "Gemini 2.5 Pro — Most capable ($0.001/query)", False),
+            ("gemini-2.5-flash", "Gemini 2.5 Flash — Balanced ($0.00015/query)", False),
+            ("gemini-2.0-flash-lite", "Gemini 2.0 Flash Lite — Ultra-cheap ($0.00004/query)", False),
+        ],
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "ollama": {
+        "name": "Ollama (Local / Free)",
+        "models": [
+            ("qwen2.5:7b", "Qwen 2.5 7B — Good general purpose (free, local)", True),
+            ("llama3.2:3b", "Llama 3.2 3B — Fast + lightweight (free, local)", False),
+            ("codestral:22b", "Codestral 22B — Code-focused (free, local)", False),
+            ("deepseek-r1:8b", "DeepSeek R1 8B — Reasoning (free, local)", False),
+        ],
+        "api_key_env": None,
+    },
     "bedrock": {
         "name": "AWS Bedrock",
         "models": [
@@ -64,6 +94,57 @@ BACKENDS: dict[str, dict[str, Any]] = {
             ),
         ],
         "api_key_env": "AWS_ACCESS_KEY_ID",
+    },
+    "deepseek": {
+        "name": "DeepSeek",
+        "models": [
+            ("deepseek-chat", "DeepSeek Chat — Ultra-cheap ($0.00014/query)", True),
+            ("deepseek-reasoner", "DeepSeek Reasoner — Chain-of-thought ($0.0006/query)", False),
+        ],
+        "api_key_env": "DEEPSEEK_API_KEY",
+    },
+    "together": {
+        "name": "Together AI",
+        "models": [
+            ("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B Turbo ($0.0009/query)", True),
+            ("meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "Llama 3.1 8B Turbo ($0.0002/query)", False),
+            ("Qwen/Qwen2.5-72B-Instruct-Turbo", "Qwen 2.5 72B ($0.0012/query)", False),
+        ],
+        "api_key_env": "TOGETHER_API_KEY",
+    },
+    "mistral": {
+        "name": "Mistral AI",
+        "models": [
+            ("mistral-small-latest", "Mistral Small — Fast + cheap ($0.0002/query)", True),
+            ("mistral-large-latest", "Mistral Large — Most capable ($0.002/query)", False),
+            ("codestral-latest", "Codestral — Code-focused ($0.0003/query)", False),
+        ],
+        "api_key_env": "MISTRAL_API_KEY",
+    },
+    "openrouter": {
+        "name": "OpenRouter (Multi-provider)",
+        "models": [
+            ("meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B ($0.0004/query)", True),
+            ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash ($0.0001/query)", False),
+            ("deepseek/deepseek-chat-v3-0324", "DeepSeek Chat ($0.00014/query)", False),
+        ],
+        "api_key_env": "OPENROUTER_API_KEY",
+    },
+    "fireworks": {
+        "name": "Fireworks AI",
+        "models": [
+            ("accounts/fireworks/models/llama-v3p3-70b-instruct", "Llama 3.3 70B ($0.0009/query)", True),
+            ("accounts/fireworks/models/llama-v3p1-8b-instruct", "Llama 3.1 8B ($0.0002/query)", False),
+        ],
+        "api_key_env": "FIREWORKS_API_KEY",
+    },
+    "cohere": {
+        "name": "Cohere",
+        "models": [
+            ("command-r-plus", "Command R+ — Most capable ($0.0025/query)", True),
+            ("command-r", "Command R — Fast ($0.00015/query)", False),
+        ],
+        "api_key_env": "COHERE_API_KEY",
     },
     "custom": {
         "name": "Custom OpenAI-compatible endpoint",
@@ -594,6 +675,9 @@ def _build_graqle_yaml(
             or os.environ.get("AWS_REGION")
             or "us-east-1"  # Last resort — user can change in graqle.yaml
         )
+    elif backend == "ollama":
+        # Ollama is local — no API key needed
+        pass
     else:
         model_cfg["api_key"] = api_key_ref
 
@@ -1068,12 +1152,20 @@ def _prompt_backend() -> str:
     """Ask the user to pick a backend, with auto-detection of what's available."""
     import importlib
 
-    # Auto-detect which backends are ready
+    # Auto-detect which backends are ready (package installed + API key set)
     detection = {
         "anthropic": {"pkg": "anthropic", "env": "ANTHROPIC_API_KEY"},
         "openai": {"pkg": "openai", "env": "OPENAI_API_KEY"},
-        "bedrock": {"pkg": "boto3", "env": "AWS_ACCESS_KEY_ID"},
+        "groq": {"pkg": "httpx", "env": "GROQ_API_KEY"},
+        "gemini": {"pkg": "httpx", "env": "GEMINI_API_KEY"},
         "ollama": {"pkg": "httpx", "env": None},
+        "bedrock": {"pkg": "boto3", "env": "AWS_ACCESS_KEY_ID"},
+        "deepseek": {"pkg": "httpx", "env": "DEEPSEEK_API_KEY"},
+        "together": {"pkg": "httpx", "env": "TOGETHER_API_KEY"},
+        "mistral": {"pkg": "httpx", "env": "MISTRAL_API_KEY"},
+        "openrouter": {"pkg": "httpx", "env": "OPENROUTER_API_KEY"},
+        "fireworks": {"pkg": "httpx", "env": "FIREWORKS_API_KEY"},
+        "cohere": {"pkg": "httpx", "env": "COHERE_API_KEY"},
         "custom": {"pkg": None, "env": None},
     }
 
@@ -1160,7 +1252,13 @@ def _prompt_model(backend: str) -> str:
 
 def _prompt_api_key(backend: str) -> str:
     """Ask the user how to provide their API key. Returns a ${VAR} reference or raw key."""
-    env_var = BACKENDS[backend]["api_key_env"]
+    env_var = BACKENDS[backend].get("api_key_env")
+
+    # Ollama and other local backends don't need an API key
+    if not env_var:
+        console.print("[green]No API key needed — this backend runs locally.[/green]")
+        return ""
+
     existing = os.environ.get(env_var)
 
     if existing:
@@ -1574,7 +1672,8 @@ def init_command(
         elif api_key_env:
             api_key_ref = f"${{{api_key_env}}}"
         else:
-            api_key_ref = f"${{{BACKENDS[chosen_backend]['api_key_env']}}}"
+            env_name = BACKENDS[chosen_backend].get("api_key_env")
+            api_key_ref = f"${{{env_name}}}" if env_name else ""
     else:
         # Interactive
         console.print(Panel.fit(

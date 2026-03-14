@@ -82,8 +82,8 @@ def server():
 # ---------------------------------------------------------------------------
 
 class TestToolDefinitionsV015:
-    def test_eight_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 8
+    def test_nine_tools_defined(self):
+        assert len(TOOL_DEFINITIONS) == 9
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

@@ -49,6 +49,15 @@ class ActivationConfig(BaseModel):
     cost_scaling: float = 1.0
 
 
+class SkillConfig(BaseModel):
+    """Skill assignment configuration."""
+
+    mode: str = "auto"  # "auto" (type-first + semantic fallback), "type_only", "semantic", "hybrid"
+    max_per_node: int = 5
+    domains: list[str] = []  # Empty = auto-discover all registered domains
+    use_titan: bool = True  # Prefer Titan V2 for semantic matching
+
+
 class OrchestrationConfig(BaseModel):
     """Message passing orchestration configuration."""
 
@@ -255,6 +264,7 @@ class GraqleConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     graph: GraphConfig = Field(default_factory=GraphConfig)
     activation: ActivationConfig = Field(default_factory=ActivationConfig)
+    skills: SkillConfig = Field(default_factory=SkillConfig)
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     observer: ObserverConfig = Field(default_factory=ObserverConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
