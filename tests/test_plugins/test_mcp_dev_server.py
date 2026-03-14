@@ -114,12 +114,13 @@ def server(mock_graph):
 # ---------------------------------------------------------------------------
 
 class TestToolDefinitions:
-    def test_nine_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 9
+    def test_tools_defined(self):
+        # 9 graq_* tools + 7 kogni_* backward-compat aliases
+        assert len(TOOL_DEFINITIONS) == 16
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
-        expected = {
+        expected_graq = {
             "graq_context",
             "graq_inspect",
             "graq_reason",
@@ -130,7 +131,16 @@ class TestToolDefinitions:
             "graq_reload",
             "graq_audit",
         }
-        assert names == expected
+        expected_kogni = {
+            "kogni_context",
+            "kogni_inspect",
+            "kogni_reason",
+            "kogni_preflight",
+            "kogni_lessons",
+            "kogni_impact",
+            "kogni_learn",
+        }
+        assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
         for tool in TOOL_DEFINITIONS:
@@ -159,7 +169,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 9
+        assert len(tools) == 16  # 9 graq_* + 7 kogni_* aliases
 
 
 # ---------------------------------------------------------------------------

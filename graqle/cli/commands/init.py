@@ -166,6 +166,36 @@ AI_INSTRUCTIONS_SECTION = r"""
 
 ---
 
+## MANDATORY: When to Use Graqle (Trigger Rules)
+
+**If the user says any of these, you MUST use Graqle MCP tools — do NOT fall back to your own file reading/grep/agent tools:**
+
+- "use graqle", "ask graqle", "graqle reason", "graq reason"
+- "use the knowledge graph", "check the KG", "what does the graph say"
+- "kogni reason", "kogni impact", "kogni preflight", "kogni context"
+- "/graq", "/kogni" (slash commands)
+
+**When triggered, follow this protocol:**
+1. Classify the question (see Smart Query Routing below)
+2. Call the appropriate Graqle MCP tool (`kogni_reason`, `kogni_impact`, `kogni_preflight`, `kogni_context`, `kogni_lessons`, `kogni_learn`, `kogni_inspect`)
+3. Present the Graqle answer to the user
+4. Only supplement with your own tools if Graqle's answer is incomplete
+
+**Auto-trigger (use Graqle without being asked) when:**
+- The question spans 3+ services, modules, or files ("what depends on X?")
+- The question is about impact analysis ("what breaks if I change X?")
+- The question is about past mistakes or lessons learned
+- The question requires multi-hop reasoning across the architecture
+- You would otherwise need to read 5+ files to answer
+
+**Do NOT use Graqle for:**
+- Single-file edits where you already know the file
+- Git operations, deployment commands
+- Questions about code you're currently looking at in the editor
+- Simple lookups that a grep can answer
+
+---
+
 ## What Graqle Does
 
 Graqle turns your codebase into a **knowledge graph** where every module,
@@ -181,6 +211,20 @@ service, config, and dependency is a node. It then provides:
 
 ## Available Tools
 
+### MCP Tools (Claude Code, Cursor, VS Code, and MCP-compatible IDEs)
+
+These are the PRIMARY tools. Use them when Graqle is triggered.
+
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `kogni_context` | Focused context for a service/module | "Tell me about X", "What does X do?" |
+| `kogni_reason` | Multi-agent graph reasoning | "Why does X?", "How does X work end-to-end?" |
+| `kogni_inspect` | Graph structure inspection | "How many nodes?", "Graph stats" |
+| `kogni_preflight` | Pre-change safety check | "What should I check before changing X?" |
+| `kogni_impact` | Impact analysis for changes | "What breaks if I change X?" |
+| `kogni_lessons` | Past mistake patterns | "What went wrong with X?", "Common failures?" |
+| `kogni_learn` | Teach the graph new knowledge | "Remember that X depends on Y" |
+
 ### CLI (works in any terminal)
 | Command | What it does |
 |---------|-------------|
@@ -190,17 +234,6 @@ service, config, and dependency is a node. It then provides:
 | `graq scan repo .` | Re-scan codebase and rebuild the KG |
 | `graq doctor` | Health check your installation |
 | `graq setup-guide` | Step-by-step backend setup |
-
-### MCP Tools (Claude Code, Cursor, VS Code, and MCP-compatible IDEs)
-| Tool | Purpose |
-|------|---------|
-| `graq_context` | Focused context for a service/module |
-| `graq_reason` | Multi-agent graph reasoning |
-| `graq_inspect` | Graph structure inspection |
-| `graq_preflight` | Pre-change safety check |
-| `graq_impact` | Impact analysis for changes |
-| `graq_lessons` | Past mistake patterns |
-| `graq_learn` | Teach the graph new knowledge |
 
 ### Python SDK (works everywhere)
 ```python
@@ -223,15 +256,16 @@ Always pick the **cheapest correct approach** before calling expensive tools:
 |-----------|-------|------|------|
 | **LOOKUP** | `grep` or read KG files | ~200 tokens | Single fact, named entity |
 | **CROSS-CUT** | Read specific KG section | ~300-800 tokens | Spans 2-3 known entities |
-| **IMPACT** | `graq_impact` | ~800-1500 tokens | "What breaks if..." |
-| **REASONING** | `graq_reason` | ~1500-3000 tokens | Multi-hop "why/how" questions |
-| **PREFLIGHT** | `graq_preflight` | ~500-1000 tokens | Pre-change safety check |
-| **LESSONS** | `graq_lessons` | ~400-800 tokens | Past mistake patterns |
+| **IMPACT** | `kogni_impact` | ~800-1500 tokens | "What breaks if..." |
+| **REASONING** | `kogni_reason` | ~1500-3000 tokens | Multi-hop "why/how" questions |
+| **PREFLIGHT** | `kogni_preflight` | ~500-1000 tokens | Pre-change safety check |
+| **LESSONS** | `kogni_lessons` | ~400-800 tokens | Past mistake patterns |
 
 **Rules:**
 1. **Cheapest first.** Always try grep/read before MCP tools.
-2. **Never use graq_reason for lookups.** A grep is 10x cheaper.
+2. **Never use kogni_reason for lookups.** A grep is 10x cheaper.
 3. **Escalate, don't guess.** If grep finds nothing, escalate to next tier.
+4. **When the user explicitly asks for Graqle, skip to the right MCP tool.** Don't second-guess — they want graph reasoning.
 
 ---
 
@@ -880,9 +914,24 @@ def _build_gcc_metadata_yaml() -> str:
 # /graq skill — smart query router for Claude Code
 # ──────────────────────────────────────────────────────────────────────
 
-KOGNI_SKILL_CONTENT = r"""Smart query router for project knowledge. Classifies the user's question and picks the cheapest approach that gives a correct answer. NEVER default to Graqle for simple lookups.
+KOGNI_SKILL_CONTENT = r"""Smart query router for project knowledge. Classifies the user's question and picks the cheapest approach that gives a correct answer.
+
+IMPORTANT: When the user explicitly says "use graqle", "ask graqle", "graqle reason", or "use the knowledge graph" — skip classification and go directly to the appropriate Graqle MCP tool. Do NOT fall back to grep/read when the user explicitly wants Graqle.
 
 ## Decision Tree — Execute in order, stop at first match
+
+### Step 0: Check for explicit Graqle request
+
+If the user said "use graqle" or similar, go directly to Step 2 and pick the MCP tool that matches:
+- Impact/dependency questions -> `kogni_impact`
+- "What breaks / what depends" -> `kogni_impact`
+- "Why / how / explain" -> `kogni_reason`
+- Safety / preflight checks -> `kogni_preflight`
+- Past mistakes / lessons -> `kogni_lessons`
+- "Tell me about X" / context -> `kogni_context`
+- "Remember / teach" -> `kogni_learn`
+- Graph stats -> `kogni_inspect`
+- Everything else -> `kogni_reason`
 
 ### Step 1: Classify the query
 
@@ -897,7 +946,7 @@ Read the user's question (passed as $ARGUMENTS) and classify it into ONE of thes
 | **PREFLIGHT** | About to change code, need safety check | "What should I check before modifying L03?", "Any gotchas for CORS changes?" |
 | **LESSONS** | Past mistakes, failure patterns | "What went wrong with document naming?", "Common deployment failures?" |
 
-### Step 2: Route to cheapest approach
+### Step 2: Route to the right approach
 
 #### LOOKUP -> Direct grep/read (cost: 100-500 tokens)
 ```
@@ -907,46 +956,38 @@ Read the user's question (passed as $ARGUMENTS) and classify it into ONE of thes
 4. If still not found -> escalate to CROSS-CUT
 ```
 **Tools:** Grep, Read (targeted lines only)
-**DO NOT** use Graqle MCP tools for lookups. They are 5-10x more expensive than a grep.
 
-#### CROSS-CUT -> Targeted read of project-kg.md sections (cost: 300-800 tokens)
+#### CROSS-CUT -> Targeted read or kogni_context (cost: 300-800 tokens)
 ```
-1. Read only the relevant section(s) of .gcc/project-kg.md:
-   - Lambda info -> LAMBDA NODES table
-   - Dependencies -> SHARED MODULES + DEPENDENCY GRAPH tables
-   - Env vars -> ENVVAR REQUIREMENTS table
-   - Invocations -> INVOCATION CHAIN table
-   - Errors -> MISTAKE NODES table
-2. Synthesize answer from the table data. DONE.
-3. Only if the answer requires info NOT in project-kg.md -> escalate to REASONING
+1. Read only the relevant section(s) of .gcc/project-kg.md
+2. If project-kg.md doesn't have the relationships -> call kogni_context
+3. Synthesize answer. DONE.
 ```
-**Tools:** Read (with offset/limit to target specific sections)
-**Use Graqle only if** project-kg.md doesn't have the relationships needed.
 
-#### IMPACT -> graq_impact MCP tool (cost: ~800-1500 tokens)
+#### IMPACT -> kogni_impact MCP tool (cost: ~800-1500 tokens)
 ```
-1. Call mcp__graqle__graq_impact with the component name
+1. Call kogni_impact with the component name
 2. Present the impact trace to the user
 ```
 **This is where Graqle earns its keep** — traversing dependency chains automatically.
 
-#### REASONING -> graq_reason MCP tool (cost: ~1500-3000 tokens)
+#### REASONING -> kogni_reason MCP tool (cost: ~1500-3000 tokens)
 ```
-1. Call mcp__graqle__graq_reason with the question, max_rounds=2
+1. Call kogni_reason with the question
 2. If confidence < 0.5, supplement with targeted file reads
 3. Present synthesized answer
 ```
 **This is Graqle's sweet spot** — multi-hop reasoning across nodes.
 
-#### PREFLIGHT -> graq_preflight MCP tool (cost: ~500-1000 tokens)
+#### PREFLIGHT -> kogni_preflight MCP tool (cost: ~500-1000 tokens)
 ```
-1. Call mcp__graqle__graq_preflight with the action and files
+1. Call kogni_preflight with the action and files
 2. Present warnings, lessons, and safety boundaries
 ```
 
-#### LESSONS -> graq_lessons MCP tool (cost: ~400-800 tokens)
+#### LESSONS -> kogni_lessons MCP tool (cost: ~400-800 tokens)
 ```
-1. Call mcp__graqle__graq_lessons with the operation
+1. Call kogni_lessons with the operation
 2. Present matched lessons with severity
 ```
 
@@ -955,13 +996,13 @@ Read the user's question (passed as $ARGUMENTS) and classify it into ONE of thes
 Always start your response with a one-line routing tag so the user sees the cost/benefit:
 
 ```
-[KOGNI: {CATEGORY} -> {approach} | ~{estimated_tokens} tokens]
+[GRAQLE: {CATEGORY} -> {approach} | ~{estimated_tokens} tokens]
 ```
 
 Examples:
-- `[KOGNI: LOOKUP -> grep project-kg.md | ~200 tokens]`
-- `[KOGNI: IMPACT -> graq_impact | ~1200 tokens]`
-- `[KOGNI: REASONING -> graq_reason (3 rounds) | ~2500 tokens]`
+- `[GRAQLE: LOOKUP -> grep project-kg.md | ~200 tokens]`
+- `[GRAQLE: IMPACT -> kogni_impact | ~1200 tokens]`
+- `[GRAQLE: REASONING -> kogni_reason (3 rounds) | ~2500 tokens]`
 
 ### Step 4: Answer the question
 
@@ -972,16 +1013,16 @@ After routing, answer the user's question using the chosen approach. Be concise.
 | Approach | Typical cost | When to use |
 |----------|-------------|-------------|
 | Grep project-kg.md | 100-300 tokens | Single fact, named entity |
-| Read section of project-kg.md | 300-800 tokens | Cross-referencing 2-3 tables |
-| graq_lessons | 400-800 tokens | Past mistake patterns |
-| graq_preflight | 500-1000 tokens | Pre-change safety check |
-| graq_impact | 800-1500 tokens | Change impact analysis |
-| graq_reason | 1500-3000 tokens | Multi-hop reasoning, "why" questions |
+| Read section of KG | 300-800 tokens | Cross-referencing 2-3 tables |
+| kogni_lessons | 400-800 tokens | Past mistake patterns |
+| kogni_preflight | 500-1000 tokens | Pre-change safety check |
+| kogni_impact | 800-1500 tokens | Change impact analysis |
+| kogni_reason | 1500-3000 tokens | Multi-hop reasoning, "why" questions |
 
 ## Rules
 
-1. **Cheapest first.** Always try grep before Graqle.
-2. **Never use graq_reason for lookups.** It's 10x the cost of a grep.
+1. **User says "use graqle" = use Graqle.** No second-guessing. Call the MCP tool.
+2. **Cheapest first (when auto-routing).** Try grep before MCP tools.
 3. **Always show the routing tag.** Transparency builds trust.
 4. **Escalate, don't guess.** If grep returns nothing, escalate to the next tier — don't fabricate.
 5. **Cache awareness.** If project-kg.md was already read this session, reuse from memory — don't re-read.

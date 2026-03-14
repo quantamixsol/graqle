@@ -333,13 +333,24 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 ]
 
+# Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
+# Each kogni_* tool mirrors the corresponding graq_* tool exactly.
+_KOGNI_ALIASES: list[dict[str, Any]] = []
+for _tool in TOOL_DEFINITIONS:
+    if _tool["name"].startswith("graq_") and _tool["name"] not in ("graq_reload", "graq_audit"):
+        _alias = dict(_tool)
+        _alias["name"] = _tool["name"].replace("graq_", "kogni_", 1)
+        _KOGNI_ALIASES.append(_alias)
+TOOL_DEFINITIONS.extend(_KOGNI_ALIASES)
+del _KOGNI_ALIASES
+
 
 # ---------------------------------------------------------------------------
 # Server
 # ---------------------------------------------------------------------------
 
 
-_WRITE_TOOLS = frozenset({"graq_learn", "graq_reload"})
+_WRITE_TOOLS = frozenset({"graq_learn", "graq_reload", "kogni_learn"})
 
 
 class KogniDevServer:
@@ -606,6 +617,14 @@ class KogniDevServer:
             "graq_learn": self._handle_learn,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
+            # Backward-compat aliases (kogni_* → graq_*)
+            "kogni_context": self._handle_context,
+            "kogni_inspect": self._handle_inspect,
+            "kogni_reason": self._handle_reason,
+            "kogni_preflight": self._handle_preflight,
+            "kogni_lessons": self._handle_lessons,
+            "kogni_impact": self._handle_impact,
+            "kogni_learn": self._handle_learn,
         }
 
         handler = handlers.get(name)
