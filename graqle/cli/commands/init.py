@@ -588,7 +588,11 @@ def _build_graqle_yaml(
     # AWS authentication uses IAM credentials (via aws configure or
     # env vars AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY), not an API key.
     if backend == "bedrock":
-        model_cfg["region"] = api_key_ref if not api_key_ref.startswith("${") else (os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1")
+        model_cfg["region"] = (
+            os.environ.get("AWS_DEFAULT_REGION")
+            or os.environ.get("AWS_REGION")
+            or "us-east-1"  # Last resort — user can change in graqle.yaml
+        )
     else:
         model_cfg["api_key"] = api_key_ref
 
@@ -673,10 +677,22 @@ def _resolve_graq_command() -> str:
     if scripts_path.exists():
         return str(scripts_path)
 
+    # Ultimate fallback: derive from sys.executable (the Python running us)
+    # pip always installs console_scripts next to the Python executable
+    py_dir = Path(sys.executable).parent
+    for candidate in [
+        py_dir / "Scripts" / "graq.exe",  # Windows pip
+        py_dir / "Scripts" / "graq",      # Windows
+        py_dir / "graq",                  # Unix venv
+        py_dir / "bin" / "graq",          # Unix system
+    ]:
+        if candidate.exists():
+            return str(candidate)
+
     console.print(
-        "  [yellow]WARNING:[/yellow] Could not find 'graq' on PATH. "
-        "Using bare 'graq' — MCP may fail if it is not resolvable.\n"
-        "  [dim]Fix: ensure 'graq' (or 'graq.exe') is on your PATH.[/dim]"
+        "  [yellow]WARNING:[/yellow] Could not find 'graq' executable. "
+        "MCP server may fail to start.\n"
+        "  [dim]Fix: ensure 'graq' is on your PATH, or reinstall: pip install graqle[/dim]"
     )
     return "graq"
 
@@ -956,7 +972,11 @@ def _verify_backend(
 
         elif backend == "bedrock":
             import boto3
-            region = resolved_key or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            region = (
+                os.environ.get("AWS_DEFAULT_REGION")
+                or os.environ.get("AWS_REGION")
+                or "us-east-1"
+            )
             client = boto3.client("bedrock-runtime", region_name=region)
             import json as _json
             client.invoke_model(
@@ -1556,6 +1576,20 @@ def init_command(
             api_key_ref = f"${{{BACKENDS[chosen_backend]['api_key_env']}}}"
     else:
         # Interactive
+        console.print(Panel.fit(
+            "[bold cyan]Why Graqle needs an LLM backend[/bold cyan]\n\n"
+            "Graqle builds a knowledge graph of your codebase so your AI\n"
+            "assistant reads [bold]500-token focused summaries[/bold] instead of\n"
+            "[bold]20,000+ token brute-force file scans[/bold].\n\n"
+            "[green]One-time setup cost, long-term savings:[/green]\n"
+            "  * 33x faster context retrieval\n"
+            "  * 541x more token-efficient per query\n"
+            "  * Cross-source reasoning (code + docs + configs)\n\n"
+            "[dim]Choose any backend below — all work equally well.[/dim]",
+            border_style="cyan",
+            title="Context Intelligence",
+        ))
+        console.print()
         console.print("[bold]Step 1/3:[/bold] Choose your AI backend\n")
         chosen_backend = _prompt_backend()
 

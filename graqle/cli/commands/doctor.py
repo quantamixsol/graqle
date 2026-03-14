@@ -141,7 +141,22 @@ def _check_embedding_models() -> List[CheckResult]:
     # Check Titan V2 (best quality)
     try:
         import boto3
-        region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
+        region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+        if not region:
+            # Try reading from graqle.yaml
+            try:
+                import yaml
+                cfg_path = Path("graqle.yaml")
+                if cfg_path.exists():
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = yaml.safe_load(f) or {}
+                    region = cfg.get("model", {}).get("region")
+            except Exception:
+                pass
+        if not region:
+            results.append((WARN, "Embeddings: Titan V2",
+                            "no AWS region configured — set AWS_DEFAULT_REGION or add region to graqle.yaml"))
+            raise Exception("skip")
         client = boto3.client("bedrock-runtime", region_name=region)
         # Don't actually call — just check credentials
         sts = boto3.client("sts")
@@ -350,8 +365,14 @@ def _check_bedrock_model_id() -> List[CheckResult]:
             model_cfg.get("region")
             or os.environ.get("AWS_DEFAULT_REGION")
             or os.environ.get("AWS_REGION")
-            or "us-east-1"
         )
+        if not region:
+            results.append((
+                WARN,
+                "Bedrock: model ID",
+                "no AWS region configured — set region in graqle.yaml or AWS_DEFAULT_REGION",
+            ))
+            return results
         client = boto3.client("bedrock", region_name=region)
         response = client.list_foundation_models()
         available_ids = {
@@ -408,7 +429,7 @@ def _check_bedrock_model_id() -> List[CheckResult]:
     except Exception as e:
         err = str(e)[:80]
         results.append((
-            INFO,
+            WARN,
             "Bedrock: model ID",
             f"could not validate ({err})",
         ))

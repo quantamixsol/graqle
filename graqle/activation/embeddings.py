@@ -107,7 +107,29 @@ class TitanV2Engine:
         dimension: int = 1024,
     ) -> None:
         import os as _os
-        self._region = region or _os.environ.get("AWS_DEFAULT_REGION") or _os.environ.get("AWS_REGION") or "us-east-1"
+        self._region = (
+            region
+            or _os.environ.get("AWS_DEFAULT_REGION")
+            or _os.environ.get("AWS_REGION")
+        )
+        if not self._region:
+            # Try reading from graqle.yaml config
+            try:
+                from pathlib import Path
+                import yaml
+                cfg_path = Path("graqle.yaml")
+                if cfg_path.exists():
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = yaml.safe_load(f) or {}
+                    self._region = cfg.get("model", {}).get("region")
+            except Exception:
+                pass
+        if not self._region:
+            raise ValueError(
+                "No AWS region configured for Titan V2 embeddings. "
+                "Set AWS_DEFAULT_REGION env var or add 'region' to "
+                "model config in graqle.yaml."
+            )
         self._model_id = model_id
         self._dimension = dimension
         self._client = None

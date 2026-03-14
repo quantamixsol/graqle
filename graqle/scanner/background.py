@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -98,10 +99,16 @@ class BackgroundScanManager:
         """Persist current progress to the state file."""
         try:
             self._state_dir.mkdir(parents=True, exist_ok=True)
-            self._state_path.write_text(
-                json.dumps(asdict(self._progress), indent=2, default=str),
-                encoding="utf-8",
-            )
+            data = json.dumps(asdict(self._progress), indent=2, default=str)
+            # Write-then-flush to avoid partial writes on Windows
+            with open(self._state_path, "w", encoding="utf-8") as f:
+                f.write(data)
+                f.flush()
+                try:
+                    import os
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
         except OSError as exc:
             logger.warning("Failed to write scan state: %s", exc)
 
@@ -174,8 +181,9 @@ class BackgroundScanManager:
                 self._progress.status = "cancelled"
             except Exception as exc:
                 self._progress.status = "failed"
-                self._progress.errors.append(str(exc))
-                logger.exception("Background scan failed: %s", exc)
+                err_msg = f"{type(exc).__name__}: {exc}"
+                self._progress.errors.append(err_msg)
+                logger.exception("Background scan failed: %s", err_msg)
             finally:
                 t1 = time.time()
                 # Parse started_at back to compute duration
@@ -188,7 +196,13 @@ class BackgroundScanManager:
                     pass
                 self._write_state()
 
-        self._thread = threading.Thread(target=_run, daemon=True, name="graqle-doc-scan")
+        # On Windows, daemon threads with file I/O can be killed mid-write
+        # when the main process exits, causing hangs or corrupt state files.
+        # Use non-daemon threads on Windows so the thread completes safely.
+        is_windows = sys.platform == "win32"
+        self._thread = threading.Thread(
+            target=_run, daemon=not is_windows, name="graqle-doc-scan",
+        )
         self._thread.start()
 
     def get_progress(self) -> ScanProgress:

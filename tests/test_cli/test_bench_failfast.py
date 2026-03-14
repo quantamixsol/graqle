@@ -283,13 +283,14 @@ class TestBedrockModelIdValidation:
     def test_check_graceful_on_boto3_error(self, tmp_path):
         """Should skip gracefully when boto3 can't connect."""
         import os
-        from graqle.cli.commands.doctor import _check_bedrock_model_id, INFO
+        from graqle.cli.commands.doctor import _check_bedrock_model_id, WARN
 
         config = tmp_path / "graqle.yaml"
         config.write_text(
             "model:\n"
             "  backend: bedrock\n"
             "  model: anthropic.claude-haiku-4-5-20251001-v1:0\n"
+            "  region: eu-north-1\n"
         )
 
         old_cwd = os.getcwd()
@@ -298,7 +299,7 @@ class TestBedrockModelIdValidation:
             with patch("boto3.client", side_effect=Exception("connection refused")):
                 results = _check_bedrock_model_id()
             assert len(results) == 1
-            assert results[0][0] == INFO
+            assert results[0][0] == WARN
             assert "could not validate" in results[0][2].lower()
         finally:
             os.chdir(old_cwd)
