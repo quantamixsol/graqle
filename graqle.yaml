@@ -1,0 +1,43 @@
+# Graqle configuration — dogfooding on the Graqle SDK itself
+# "Evolving Graqle with Graqle"
+
+graph:
+  path: graqle.json
+  auto_grow: true
+
+model:
+  backend: anthropic
+  model: claude-haiku-4-5-20251001
+  region: eu-central-1
+
+activation:
+  strategy: top_k
+  top_k: 15
+  embedding_engine: simple
+
+scan:
+  docs:
+    enabled: true
+    background: true
+    extensions: [".md", ".txt", ".pdf"]
+    exclude_patterns:
+      - "node_modules/"
+      - "dist/"
+      - "__pycache__/"
+      - ".git/"
+      - "*.pyc"
+      - ".gcc/"
+      - ".gsm/external/"
+    scan_dirs: ["."]
+    max_file_size_mb: 25
+    chunk_max_chars: 1500
+    linking:
+      exact: true
+      fuzzy: true
+      semantic: false
+    redaction:
+      enabled: true
+
+server:
+  port: 8077
+  host: 127.0.0.1
