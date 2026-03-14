@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+# Universal Unicode fix — MUST be first import (before Rich, before typer)
+# This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
+# preventing the cp1252 UnicodeEncodeError on Windows.
+from graqle.cli.console import create_console  # noqa: E402 — intentionally first
+
 import os
 import sys
 
-# Ensure Unicode output works on Windows cp1252 consoles (P0-2 fix).
-# Rich renders Unicode arrows/symbols from graph data; without this,
-# Windows terminals crash with UnicodeEncodeError on non-ASCII chars.
-if sys.platform == "win32" and not os.environ.get("PYTHONIOENCODING"):
-    os.environ["PYTHONIOENCODING"] = "utf-8"
-
 import typer
-from rich.console import Console
 
 from graqle.cli.commands.init import init_command
 from graqle.cli.commands.ingest import ingest_command
@@ -72,7 +70,7 @@ app.add_typer(link_sub_app, name="link")
 app.command(name="self-update")(selfupdate_command)
 app.command(name="login")(login_command)
 app.command(name="logout")(logout_command)
-console = Console()
+console = create_console()
 
 # ---------------------------------------------------------------------------
 # MCP subcommand group: graq mcp serve
@@ -91,12 +89,19 @@ def mcp_serve(
     config: str = typer.Option(
         "graqle.yaml", "--config", "-c", help="Config file path"
     ),
+    read_only: bool = typer.Option(
+        False, "--read-only", help="Read-only mode: blocks mutation tools (graq_learn, graq_reload)"
+    ),
 ) -> None:
     """Start the Graqle MCP development server (stdio transport).
 
     Exposes 7 development intelligence tools over JSON-RPC stdio:
       graq_context, graq_inspect, graq_reason, graq_preflight,
       graq_lessons, graq_impact, graq_learn
+
+    Use --read-only to block all mutation tools (graq_learn, graq_reload).
+    Only read tools remain: graq_context, graq_inspect, graq_reason,
+    graq_preflight, graq_lessons, graq_impact.
 
     All tools are free for all users. Works with Claude Code, Cursor,
     VS Code, and Windsurf.
@@ -107,7 +112,7 @@ def mcp_serve(
     import asyncio
     from graqle.plugins.mcp_dev_server import KogniDevServer
 
-    server = KogniDevServer(config_path=config)
+    server = KogniDevServer(config_path=config, read_only=read_only)
     asyncio.run(server.run_stdio())
 
 
@@ -254,14 +259,21 @@ def context(
     service: str = typer.Argument(..., help="Service/entity to get context for"),
     config: str = typer.Option("graqle.yaml", "--config", "-c"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, yaml"),
+    json_output: bool = typer.Option(False, "--json", help="Output clean JSON (no ANSI, no embeddings). Overrides --format."),
 ) -> None:
     """Get structured context for a service (Claude Code integration).
 
     Returns focused, 500-token context instead of loading 20-60K tokens
     of raw files. Designed to be called from CLAUDE.md rules.
+
+    Use --json for machine-readable output suitable for subagent parsing.
     """
     from graqle.config.settings import GraqleConfig
     from pathlib import Path
+
+    # --json overrides --format
+    if json_output:
+        format = "json"
 
     if Path(config).exists():
         cfg = GraqleConfig.from_yaml(config)
@@ -271,9 +283,12 @@ def context(
     graph = _load_graph(cfg)
 
     if graph is None:
-        # Fallback: generate context from service name
-        console.print(f"# Context for: {service}")
-        console.print(f"No graph loaded. Run 'graq scan --repo .' first.")
+        if format == "json":
+            import json
+            print(json.dumps({"error": "No graph loaded. Run 'graq scan --repo .' first."}, indent=2))
+        else:
+            console.print(f"# Context for: {service}")
+            console.print(f"No graph loaded. Run 'graq scan --repo .' first.")
         return
 
     # Find the service node
@@ -299,45 +314,87 @@ def context(
                 # Map lowered IDs back to original IDs
                 lower_to_orig = {nid.lower(): nid for nid in graph.nodes}
                 suggestions = [lower_to_orig[c] for c in close]
-                console.print(f"Service '{service}' not found in graph.")
-                console.print(f"Did you mean: {', '.join(suggestions)}")
+                if format == "json":
+                    import json
+                    print(json.dumps({"error": f"Service '{service}' not found", "suggestions": suggestions}, indent=2))
+                else:
+                    console.print(f"Service '{service}' not found in graph.")
+                    console.print(f"Did you mean: {', '.join(suggestions)}")
             else:
-                console.print(f"Service '{service}' not found in graph.")
+                if format == "json":
+                    import json
+                    print(json.dumps({"error": f"Service '{service}' not found in graph."}, indent=2))
+                else:
+                    console.print(f"Service '{service}' not found in graph.")
             return
 
-    # Build context output
+    # Build neighbor and relationship data
     neighbors = graph.get_neighbors(node.id)
-    context_parts = [
-        f"# {node.label} ({node.entity_type})",
-        f"Description: {node.description}",
-    ]
+    relationships = []
+    for nid in neighbors[:10]:
+        n = graph.nodes[nid]
+        edges = graph.get_edges_between(node.id, nid)
+        rel = edges[0].relationship if edges else "RELATED_TO"
+        relationships.append({
+            "target": nid,
+            "target_label": n.label,
+            "target_type": n.entity_type,
+            "relationship": rel,
+            "target_description": n.description[:200] if n.description else "",
+        })
 
+    # Filter properties: remove embeddings, chunks, and other large/binary data
+    _HIDDEN_PROPS = {"_embedding_cache", "chunks", "_chunks", "_embeddings",
+                     "embedding", "embeddings", "vector", "vectors"}
+    filtered_props = {}
     if node.properties:
-        context_parts.append("Properties:")
         for k, v in node.properties.items():
-            context_parts.append(f"  {k}: {v}")
-
-    if neighbors:
-        context_parts.append(f"Connected to: {', '.join(neighbors)}")
-        for nid in neighbors[:5]:
-            n = graph.nodes[nid]
-            edges = graph.get_edges_between(node.id, nid)
-            rel = edges[0].relationship if edges else "RELATED_TO"
-            context_parts.append(f"  -> {rel} -> {n.label}: {n.description[:100]}")
-
-    output = "\n".join(context_parts)
+            if k in _HIDDEN_PROPS:
+                continue
+            # Skip large list/dict values that are likely embeddings
+            if isinstance(v, list) and len(v) > 50:
+                continue
+            v_str = str(v)
+            if len(v_str) > 500:
+                v_str = v_str[:500] + "..."
+            filtered_props[k] = v_str if len(str(v)) > 500 else v
 
     if format == "json":
         import json
-        console.print(json.dumps({
-            "service": node.id,
+        json_data = {
+            "name": node.id,
             "label": node.label,
-            "type": node.entity_type,
+            "entity_type": node.entity_type,
             "description": node.description,
-            "neighbors": neighbors,
-        }, indent=2))
+            "properties": filtered_props,
+            "relationships": relationships,
+        }
+        # Use print() not console.print() to avoid ANSI codes
+        print(json.dumps(json_data, indent=2, default=str))
     else:
-        console.print(output)
+        # Text output (original behavior)
+        context_parts = [
+            f"# {node.label} ({node.entity_type})",
+            f"Description: {node.description}",
+        ]
+
+        if filtered_props:
+            context_parts.append("Properties:")
+            for k, v in filtered_props.items():
+                v_str = str(v)
+                if len(v_str) > 200:
+                    v_str = v_str[:200] + "..."
+                context_parts.append(f"  {k}: {v_str}")
+
+        if neighbors:
+            context_parts.append(f"Connected to: {', '.join(neighbors)}")
+            for rel_info in relationships[:5]:
+                context_parts.append(
+                    f"  -> {rel_info['relationship']} -> {rel_info['target_label']}: "
+                    f"{rel_info['target_description'][:100]}"
+                )
+
+        console.print("\n".join(context_parts))
 
 
 @app.command()
@@ -383,8 +440,13 @@ def serve(
     port: int = typer.Option(8000, "--port", "-p", help="Bind port"),
     workers: int = typer.Option(1, "--workers", "-w", help="Number of workers"),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on changes"),
+    read_only: bool = typer.Option(False, "--read-only", help="Read-only mode: disables /learn and /reload endpoints"),
 ) -> None:
-    """Start the Graqle API server."""
+    """Start the Graqle API server.
+
+    Use --read-only to disable mutation endpoints (/learn, /reload).
+    This is useful for multi-agent setups where only one agent should write.
+    """
     missing = []
     try:
         import uvicorn  # noqa: F401
@@ -405,7 +467,13 @@ def serve(
         )
         raise typer.Exit(1)
 
+    # Set env var so create_app can pick it up
+    if read_only:
+        os.environ["GRAQLE_READ_ONLY"] = "1"
+
     console.print(f"[bold cyan]Graqle Server[/bold cyan] starting on {host}:{port}")
+    if read_only:
+        console.print("[yellow]  Read-only mode: /learn and /reload endpoints disabled[/yellow]")
     uvicorn.run(
         "graqle.server.app:create_app",
         host=host,
@@ -550,11 +618,25 @@ def bench(
 
     console.print(f"[cyan]Benchmarking {queries} queries, {max_rounds} max rounds...[/cyan]")
 
+    # Run queries sequentially with fail-fast: stop on first backend error
     start = time.perf_counter()
-    results = asyncio.run(
-        graph.areason_batch(test_queries, max_rounds=max_rounds)
-    )
+    results = []
+    for i, q in enumerate(test_queries):
+        try:
+            r = asyncio.run(graph.areason(q, max_rounds=max_rounds))
+            results.append(r)
+        except Exception as e:
+            console.print(f"\n[red]Query {i + 1}/{queries} failed: {e}[/red]")
+            console.print(
+                "[yellow]Stopping benchmark early — backend is misconfigured or unavailable.[/yellow]"
+            )
+            console.print("[yellow]Run 'graq doctor' to diagnose the issue.[/yellow]")
+            raise typer.Exit(1)
     elapsed = time.perf_counter() - start
+
+    if not results:
+        console.print("[yellow]No results returned. Backend may have failed silently.[/yellow]")
+        raise typer.Exit(1)
 
     # Report
     avg_conf = sum(r.confidence for r in results) / len(results)
@@ -950,7 +1032,11 @@ def _create_backend_from_config(cfg, verbose: bool = False):
 
         elif backend_name == "bedrock":
             from graqle.backends.api import BedrockBackend
-            region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION", "eu-central-1")
+            region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+            if not region:
+                console.print("[yellow]No AWS region configured. Set 'region' in graqle.yaml or AWS_DEFAULT_REGION env var.[/yellow]")
+                console.print("[yellow]Defaulting to us-east-1. Run 'graq init' to configure.[/yellow]")
+                region = "us-east-1"
             backend = BedrockBackend(model=model_name, region=region)
             if verbose:
                 console.print(f"[green]Backend: Bedrock ({model_name} in {region})[/green]")

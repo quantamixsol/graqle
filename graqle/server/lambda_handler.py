@@ -40,7 +40,7 @@ def _download_from_s3(s3_uri: str, local_path: str) -> str:
     parts = s3_uri[5:].split("/", 1)
     bucket, key = parts[0], parts[1]
 
-    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1")
     s3.download_file(bucket, key, local_path)
     logger.info("Downloaded %s → %s", s3_uri, local_path)
     return local_path

@@ -43,6 +43,9 @@ class MockBackend(BaseBackend):
         self._latency_ms = latency_ms
         self._is_fallback = is_fallback
         self._fallback_reason = fallback_reason
+        # Expose as public properties for fail-fast checks (e.g. graq bench)
+        self.is_fallback = is_fallback
+        self.fallback_reason = fallback_reason
 
     def _warn_fallback(self) -> None:
         """Emit a loud warning if this mock is being used as a fallback."""

@@ -233,7 +233,10 @@ def learn_entity(
 
     edges_added = 0
     if connects:
-        targets = [t.strip() for t in connects.split(",") if t.strip()]
+        # Support multiple delimiters: comma, semicolon, " and ", " + "
+        import re
+        raw_targets = re.split(r'[,;]\s*|\s+and\s+|\s*\+\s*', connects)
+        targets = [t.strip() for t in raw_targets if t.strip()]
         for target in targets:
             if target not in graph.nodes:
                 # Fuzzy match
@@ -775,3 +778,69 @@ def learn_batch(
 
     console.print(f"[green]{CHECK} Batch learned:[/green] {nodes_added} nodes, {edges_added} edges")
     console.print(f"  Graph: {len(graph)} nodes total")
+
+
+@learn_app.command("doc")
+def learn_doc(
+    path: str = typer.Argument(..., help="Document file or directory to ingest"),
+    graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
+    no_link: bool = typer.Option(False, "--no-link", help="Skip auto-linking to code nodes"),
+    no_redact: bool = typer.Option(False, "--no-redact", help="Skip privacy redaction"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview without modifying graph"),
+) -> None:
+    """On-demand document ingestion into the knowledge graph.
+
+    Parses the document (or all supported documents in a directory),
+    creates Document and Section nodes, auto-links to existing code
+    nodes, and saves the graph immediately.
+
+    Examples:
+        graq learn doc architecture.pdf
+        graq learn doc ./compliance-docs/
+        graq learn doc spec.md --no-link --dry-run
+    """
+    from graqle.cli.commands.scan import _load_graph_data, _save_graph_data, _print_doc_scan_summary
+    from graqle.scanner.docs import DocScanOptions, DocumentScanner
+
+    target = Path(path).resolve()
+    if not target.exists():
+        console.print(f"[red]Path not found:[/red] {target}")
+        raise typer.Exit(1)
+
+    gp = Path(graph_path)
+    nodes, edges = _load_graph_data(gp)
+    manifest_path = gp.parent / ".graqle-doc-manifest.json"
+
+    opts = DocScanOptions(
+        link_exact=not no_link,
+        link_fuzzy=not no_link,
+        redaction_enabled=not no_redact,
+        incremental=False,  # On-demand always re-processes
+    )
+
+    scanner = DocumentScanner(nodes, edges, options=opts, manifest_path=manifest_path)
+
+    from rich.progress import Progress
+
+    with Progress(console=console) as progress:
+        task = progress.add_task("[cyan]Ingesting documents...", total=0)
+
+        def progress_cb(fp, idx, total):
+            progress.update(task, total=total, completed=idx,
+                            description=f"[cyan]{fp.name}")
+
+        if target.is_file():
+            result = scanner.scan_file(target, base_dir=target.parent)
+        else:
+            result = scanner.scan_directory(target, progress_callback=progress_cb)
+
+        progress.update(task, completed=result.files_total)
+
+    if dry_run:
+        console.print("[yellow]Dry run — no changes saved.[/yellow]")
+        _print_doc_scan_summary(result)
+        return
+
+    _save_graph_data(gp, nodes, edges)
+    _print_doc_scan_summary(result)
+    console.print(f"[green]{CHECK} Documents ingested into graph.[/green]")

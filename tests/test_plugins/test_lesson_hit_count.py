@@ -108,6 +108,7 @@ def server(mock_graph):
     """KogniDevServer with graph pre-injected."""
     srv = KogniDevServer.__new__(KogniDevServer)
     srv.config_path = "graqle.yaml"
+    srv.read_only = False
     srv._graph = mock_graph
     srv._config = None
     srv._graph_file = "graqle.json"

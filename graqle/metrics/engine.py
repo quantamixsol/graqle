@@ -103,14 +103,34 @@ class MetricsEngine:
 
         self.save()
 
-    def record_query(self, query: str, result_tokens: int) -> None:
+    def record_query(self, query: str, result_tokens: int, caller: str = "") -> None:
         """Record a reasoning query.
 
         Token savings are tracked only via ``record_context_load()`` to
         avoid double-counting.  This method increments query counters only.
+
+        Parameters
+        ----------
+        query:
+            The query text.
+        result_tokens:
+            Number of tokens in the result.
+        caller:
+            Optional caller identifier for multi-agent tracking
+            (e.g., "agent-1", "ci-pipeline", "claude-code").
         """
         self.queries += 1
         self._session_queries += 1
+
+        # Track caller if provided
+        if caller:
+            if not hasattr(self, "caller_stats"):
+                self.caller_stats: dict[str, dict[str, Any]] = {}
+            if caller not in self.caller_stats:
+                self.caller_stats[caller] = {"queries": 0, "last_seen": ""}
+            self.caller_stats[caller]["queries"] += 1
+            self.caller_stats[caller]["last_seen"] = datetime.now(timezone.utc).isoformat()
+
         self.save()
 
     def record_mistake_prevented(self, mistake_id: str, service: str) -> None:
@@ -248,6 +268,7 @@ class MetricsEngine:
             "init_timestamp": self.init_timestamp,
             "graph_stats": self.graph_stats,
             "graph_stats_current": self.graph_stats_current,
+            "caller_stats": getattr(self, "caller_stats", {}),
         }
 
     def get_roi_report(self) -> str:
@@ -321,6 +342,7 @@ class MetricsEngine:
             "node_access": self.node_access,
             "graph_stats": self.graph_stats,
             "graph_stats_current": self.graph_stats_current,
+            "caller_stats": getattr(self, "caller_stats", {}),
         }
         try:
             self._metrics_path.write_text(
@@ -353,6 +375,7 @@ class MetricsEngine:
         self.node_access = data.get("node_access", {})
         self.graph_stats = data.get("graph_stats", {})
         self.graph_stats_current = data.get("graph_stats_current", {})
+        self.caller_stats: dict[str, dict[str, Any]] = data.get("caller_stats", {})
 
     def reset(self) -> None:
         """Reset all metrics to zero and persist."""
@@ -367,6 +390,7 @@ class MetricsEngine:
         self.node_access = {}
         self.graph_stats = {}
         self.graph_stats_current = {}
+        self.caller_stats = {}
         self.init_timestamp = datetime.now(timezone.utc).isoformat()
         self._session_active = False
         self.save()

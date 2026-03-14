@@ -24,6 +24,77 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
+def _write_with_lock(file_path: str, content: str) -> None:
+    """Write content to a file with cross-platform file locking.
+
+    Uses ``msvcrt.locking`` on Windows and ``fcntl.flock`` on Unix to
+    prevent concurrent write corruption when multiple agents or processes
+    access the same graph file.
+
+    Parameters
+    ----------
+    file_path:
+        Path to the file to write.
+    content:
+        The string content to write (UTF-8 encoded).
+    """
+    import sys as _sys
+    import time as _time
+
+    lock_path = file_path + ".lock"
+
+    if _sys.platform == "win32":
+        import msvcrt
+        # On Windows, use msvcrt.locking with a lock file
+        fd = None
+        try:
+            fd = open(lock_path, "w")
+            # Retry locking up to 10 times with 100ms delay
+            for attempt in range(10):
+                try:
+                    msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except (IOError, OSError):
+                    if attempt == 9:
+                        raise
+                    _time.sleep(0.1)
+            # Write the actual file
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            # Unlock
+            try:
+                fd.seek(0)
+                msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
+            except (IOError, OSError):
+                pass
+        finally:
+            if fd is not None:
+                fd.close()
+            # Clean up lock file (best effort)
+            try:
+                import os
+                os.unlink(lock_path)
+            except OSError:
+                pass
+    else:
+        import fcntl
+        fd = None
+        try:
+            fd = open(lock_path, "w")
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+        finally:
+            if fd is not None:
+                fd.close()
+            try:
+                import os
+                os.unlink(lock_path)
+            except OSError:
+                pass
+
+
 class Graqle:
     """The reasoning graph — a knowledge graph where every node is an agent.
 
@@ -707,7 +778,7 @@ class Graqle:
                     return OpenAIBackend(model=model_name, api_key=api_key)
             elif backend_name == "bedrock":
                 from graqle.backends.api import BedrockBackend
-                region = os.environ.get("AWS_DEFAULT_REGION", "eu-central-1")
+                region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
                 return BedrockBackend(model=model_name, region=region)
             elif backend_name == "ollama":
                 from graqle.backends.api import OllamaBackend
@@ -1545,16 +1616,24 @@ class Graqle:
         return edges_added
 
     def to_json(self, path: str) -> None:
-        """Save the graph to a JSON file (node_link_data format)."""
+        """Save the graph to a JSON file (node_link_data format).
+
+        Uses file-level locking to prevent concurrent write corruption
+        when multiple agents access the same graph file. Cross-platform:
+        uses ``msvcrt`` on Windows and ``fcntl`` on Unix.
+        """
         import json as _json
         from pathlib import Path as _Path
 
         G = self.to_networkx()
         data = nx.node_link_data(G, edges="links")
-        _Path(path).write_text(
-            _json.dumps(data, indent=2, default=str),
-            encoding="utf-8",
-        )
+        content = _json.dumps(data, indent=2, default=str)
+
+        file_path = _Path(path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write with file locking for multi-agent safety
+        _write_with_lock(str(file_path), content)
         logger.info("Saved graph to %s: %d nodes", path, len(self))
 
     def get_neighbors(self, node_id: str) -> list[str]:
