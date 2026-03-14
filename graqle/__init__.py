@@ -1,7 +1,8 @@
-"""Graqle — Graphs that think.
+"""graQle — Graphs that think.
 
 Turn any knowledge graph into a reasoning network where each node
 is an autonomous agent powered by a model-agnostic backend.
+The Q stands for Query, Quality, and Quantified reasoning.
 """
 
 from graqle.__version__ import __version__

@@ -1,11 +1,11 @@
 <div align="center">
 
-# Graqle
+# gra**Q**le
 
-**Your codebase has answers. Stop digging for them.**
+**Query your architecture, not your files.**
 
 Turn any codebase into a knowledge graph where every module is a reasoning agent.<br/>
-Code, documents, configs — one unified graph. Any IDE. Any AI tool. Zero cloud infrastructure.
+The **Q** stands for Query, Quality, and Quantified reasoning. Zero cloud. Any IDE. Any AI.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)

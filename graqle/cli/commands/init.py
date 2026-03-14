@@ -22,6 +22,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import IntPrompt, Prompt
 from rich.table import Table
+from graqle.cli.console import BRAND_NAME, BRAND_NAME_PLAIN
 
 console = Console()
 logger = logging.getLogger("graqle.cli.init")
@@ -1172,7 +1173,7 @@ def _prompt_api_key(backend: str) -> str:
         if use_existing == "y":
             return f"${{{env_var}}}"
 
-    console.print(f"\nHow should Graqle access your API key?")
+    console.print(f"\nHow should {BRAND_NAME} access your API key?")
     console.print(f"  [bold]1.[/bold] Environment variable ${{{env_var}}} (recommended)")
     console.print(f"  [bold]2.[/bold] Enter the key now (stored in graqle.yaml)")
 
@@ -1361,12 +1362,12 @@ def _write_claude_md(root: Path, ide: str = "claude") -> bool:
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if marker in existing or old_marker in existing:
-            console.print(f"  [dim]{target.name} already has Graqle section — skipping[/dim]")
+            console.print(f"  [dim]{target.name} already has graQle section — skipping[/dim]")
             return False
         # Append
         with open(target, "a", encoding="utf-8") as f:
             f.write("\n\n" + AI_INSTRUCTIONS_SECTION + "\n")
-        console.print(f"  [green]Appended Graqle section to existing {target.name}[/green]")
+        console.print(f"  [green]Appended graQle section to existing {target.name}[/green]")
         return True
 
     target.write_text(AI_INSTRUCTIONS_SECTION + "\n", encoding="utf-8")
