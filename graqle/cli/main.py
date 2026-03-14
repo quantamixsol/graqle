@@ -28,6 +28,8 @@ from graqle.cli.commands.learned import learned_command
 from graqle.cli.commands.link import link_app as link_sub_app
 from graqle.cli.commands.selfupdate import selfupdate_command
 from graqle.cli.commands.login import login_command, logout_command
+from graqle.cli.commands.sync import sync_app as sync_sub_app
+from graqle.cli.commands.team import team_app as team_sub_app
 
 def _version_callback(value: bool) -> None:
     if value:
@@ -70,6 +72,8 @@ app.add_typer(link_sub_app, name="link")
 app.command(name="self-update")(selfupdate_command)
 app.command(name="login")(login_command)
 app.command(name="logout")(logout_command)
+app.add_typer(sync_sub_app, name="sync")
+app.add_typer(team_sub_app, name="team")
 console = create_console()
 
 # ---------------------------------------------------------------------------

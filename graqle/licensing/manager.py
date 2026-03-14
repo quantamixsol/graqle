@@ -91,6 +91,12 @@ TIER_FEATURES: dict[LicenseTier, set[str]] = {
         "cross_dev_lessons",
         "team_analytics",
         "custom_ontologies",
+        # Cloud sync + Neptune (ADR-112)
+        "cloud_sync",
+        "cloud_observability",
+        "cloud_metrics",
+        "shared_graph",
+        "cross_repo",
     },
     LicenseTier.ENTERPRISE: {
         "private_deployment",
