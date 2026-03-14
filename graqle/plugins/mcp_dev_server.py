@@ -742,7 +742,9 @@ class KogniDevServer:
 
         # Try full areason if a backend is configured
         try:
-            result = await graph.areason(question, max_rounds=max_rounds)
+            result = await graph.areason(
+                question, max_rounds=max_rounds, task_type="reason",
+            )
             return json.dumps({
                 "answer": result.answer,
                 "confidence": round(result.confidence, 3),

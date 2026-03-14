@@ -9,7 +9,7 @@ The **Q** stands for Query, Quality, and Quantified reasoning. Zero cloud. Any I
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 1484 passing](https://img.shields.io/badge/tests-1484%20passing-06b6d4.svg)]()
+[![Tests: 1655 passing](https://img.shields.io/badge/tests-1655%20passing-06b6d4.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
 [![Patent](https://img.shields.io/badge/patent-EP26162901.8-06b6d4.svg)](NOTICE)
@@ -46,17 +46,17 @@ Not 60 files. Not 50,000 tokens. Not $0.15. Not "maybe".
 
 ---
 
-## What's new in v0.20.0
+## What's new in v0.22.0
 
-Graqle now understands **code + documents + configs** in a single unified graph — the first tool to connect all three.
+**Multi-provider LLM support + task-based model routing.** Use the right model for the right task — at the right cost.
 
-- **Document scanning** — PDFs, DOCX, PPTX, XLSX, Markdown, plain text. Heading-aware chunking, auto-linking to code, privacy redaction. Background scanning with incremental manifest.
-- **JSON ingestion** — package.json, openapi.json, CloudFormation, tsconfig, app configs. Category-specific extractors produce typed nodes (Endpoint, Dependency, Resource, etc.).
-- **Cross-source deduplication** — 3-layer pipeline: canonical IDs prevent re-scan duplicates, entity unifier matches naming variants (`verify_token` ↔ `verifyToken`), contradiction detector finds stale docs.
-- **Frictionless UX** — Auto-detects backend, languages, IDE, machine capacity. Zero config needed. Natural language routing: `graq "what depends on auth?"` → routes to the right tool at zero LLM cost.
-- **Auto-scale to Neo4j** — At 5,000 nodes, auto-migrates from JSON to Neo4j Community Edition. No questions asked — just notifies you.
+- **10 LLM providers** — Anthropic, OpenAI, Bedrock, Ollama, Gemini, Groq, DeepSeek, Mistral, Together, OpenRouter, Fireworks, Cohere. One config line: `backend: groq`.
+- **Google Gemini backend** — Native `generateContent` API support. Not a wrapper — proper Gemini integration with per-model pricing.
+- **Task-based routing** — Map task types (context, reason, preflight, impact, lessons, learn) to different providers. Fast lookups → Groq. Deep reasoning → Anthropic. Your rules, your choice.
+- **Built-in recommendations** — `graq doctor` detects configured providers and suggests which models suit which tasks. Never auto-switches — you decide.
+- **Provider presets** — `create_provider_backend("groq")` auto-resolves endpoint, env var, and per-model pricing. Zero config for 7 OpenAI-compatible providers.
 
-**1,484 tests passing.** See the full [Changelog](CHANGELOG.md).
+**1,655 tests passing.** See the full [Changelog](CHANGELOG.md).
 
 ---
 
@@ -168,7 +168,7 @@ from graqle.backends.api import AnthropicBackend
 
 graph = Graqle.from_json("graqle.json")
 graph.set_default_backend(
-    AnthropicBackend(model="claude-haiku-4-5-20251001")
+    AnthropicBackend(model="claude-sonnet-4-6")
 )
 
 result = graph.reason(
@@ -376,7 +376,7 @@ pip install graqle && graq init    # Auto-detects everything
 # graqle.yaml — only override what you need
 model:
   backend: bedrock
-  model: anthropic.claude-haiku-4-5-20251001
+  model: anthropic.claude-sonnet-4-6
   region: eu-central-1
 
 scan:
@@ -399,7 +399,7 @@ cost:
 
 ```yaml
 model:
-  backend: local               # local, bedrock, anthropic, openai
+  backend: local               # local, anthropic, openai, bedrock, gemini, groq, deepseek, mistral, +5 more
   model: Qwen/Qwen2.5-0.5B-Instruct
   quantization: none
   device: auto
@@ -553,21 +553,59 @@ pip install graqle[all]            # Everything: api, docs, neo4j, embeddings, g
 
 ## Backends
 
-Use whatever model you want. Graqle routes simple queries to cheap models and complex ones to capable models.
+Use whatever model you want. Mix providers per task type — fast models for lookups, smart models for reasoning.
 
-| Backend | Models | Cost |
-|---------|--------|------|
-| **Ollama** | Qwen, Llama, Mistral (local) | **$0** |
-| **Anthropic** | Claude Haiku / Sonnet / Opus | ~$0.001/query |
-| **OpenAI** | GPT-4o / GPT-4o-mini | ~$0.001/query |
-| **AWS Bedrock** | Claude, Titan, Llama | AWS pricing |
-| **vLLM** | GPU inference + LoRA | Your GPU |
-| **llama.cpp** | GGUF models (CPU) | **$0** |
+| Backend | Models | Cost | Setup |
+|---------|--------|------|-------|
+| **Ollama** | Qwen, Llama, Mistral (local) | **$0** | `backend: ollama` |
+| **Anthropic** | Claude Sonnet / Haiku / Opus | ~$0.001/query | `backend: anthropic` |
+| **OpenAI** | GPT-4o / GPT-4o-mini | ~$0.001/query | `backend: openai` |
+| **AWS Bedrock** | Claude, Titan, Llama | AWS pricing | `backend: bedrock` |
+| **Google Gemini** | Gemini 2.5 Pro / 2.0 Flash | ~$0.0001/query | `backend: gemini` |
+| **Groq** | Llama 3.3 70B, Mixtral (fast) | ~$0.0005/query | `backend: groq` |
+| **DeepSeek** | DeepSeek Chat / Reasoner | ~$0.0001/query | `backend: deepseek` |
+| **Mistral** | Mistral Small / Large | ~$0.0002/query | `backend: mistral` |
+| **Together** | Llama, Qwen, Mixtral | ~$0.0005/query | `backend: together` |
+| **OpenRouter** | 100+ models via one key | Varies | `backend: openrouter` |
+| **Fireworks** | Llama, Mixtral (fast) | ~$0.0005/query | `backend: fireworks` |
+| **Cohere** | Command R / R+ | ~$0.0003/query | `backend: cohere` |
+| **vLLM** | GPU inference + LoRA | Your GPU | `backend: local` |
+| **llama.cpp** | GGUF models (CPU) | **$0** | `backend: local` |
 
 ```bash
 graq setup-guide              # See all options
 graq setup-guide ollama       # Free, local, no API key
-graq doctor                   # Verify everything works
+graq doctor                   # Verify everything works + detect providers
+```
+
+### Task-based routing (v0.22.0)
+
+Map different providers to different task types in `graqle.yaml`:
+
+```yaml
+routing:
+  default_provider: groq
+  rules:
+    - task: reason
+      provider: anthropic
+      model: claude-sonnet-4-6
+      reason: "Deep reasoning needs the best model"
+    - task: context
+      provider: groq
+      model: llama-3.1-8b-instant
+      reason: "Lookups are simple — use fast/cheap"
+    - task: impact
+      provider: deepseek
+      model: deepseek-chat
+```
+
+Or via SDK:
+
+```python
+from graqle.backends.providers import create_provider_backend
+
+groq = create_provider_backend("groq", model="llama-3.3-70b-versatile")
+graph.set_default_backend(groq)
 ```
 
 ---
@@ -580,7 +618,7 @@ graqle/
 │   ├── graph.py               # Graqle class — main entry point
 │   ├── node.py                # CogniNode — autonomous reasoning agent
 │   └── edge.py                # CogniEdge — with message queue
-├── backends/                  # LLM backends (Anthropic, OpenAI, Bedrock, Ollama, vLLM)
+├── backends/                  # LLM backends (Anthropic, OpenAI, Bedrock, Ollama, Gemini, Groq, DeepSeek, +7 more)
 ├── connectors/                # Graph storage (JSON, NetworkX, Neo4j)
 │   └── upgrade.py             # Auto-upgrade advisor (5K node threshold)
 ├── scanner/                   # Multi-source scanning
@@ -602,6 +640,7 @@ graqle/
 ├── governance/                # SHACL/OWL validation
 ├── plugins/                   # MCP server
 ├── server/                    # REST API + Lambda handler
+├── routing.py                 # Task-based model routing (v0.22)
 ├── cli/                       # CLI commands
 └── config/                    # Pydantic settings + YAML loading
 ```
@@ -724,7 +763,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and PR gu
 git clone https://github.com/quantamixsol/graqle
 cd graqle
 pip install -e ".[dev]"
-pytest                         # 1,484 tests
+pytest                         # 1,655 tests
 ```
 
 ## License

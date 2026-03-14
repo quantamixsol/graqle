@@ -4,6 +4,130 @@ All notable changes to Graqle are documented in this file.
 
 ---
 
+## v0.22.0 — Multi-Provider LLM + Task-Based Routing (2026-03-14)
+
+**Use any LLM provider. Route tasks to the right model.** The biggest backend expansion since launch — 10+ providers, task-based routing, and Google Gemini native support.
+
+### Multi-Provider LLM Support
+
+7 new OpenAI-compatible providers added via **provider presets** — named configurations that auto-resolve to `CustomBackend` with the correct endpoint, env var, and per-model pricing. No new dependencies required (all use `httpx`).
+
+| Provider | Env Var | Default Model | Cost/1K tokens |
+|----------|---------|---------------|----------------|
+| **Groq** | `GROQ_API_KEY` | llama-3.3-70b-versatile | $0.00059 |
+| **DeepSeek** | `DEEPSEEK_API_KEY` | deepseek-chat | $0.00014 |
+| **Together** | `TOGETHER_API_KEY` | Llama-3.3-70B-Instruct-Turbo | $0.00088 |
+| **Mistral** | `MISTRAL_API_KEY` | mistral-small-latest | $0.00020 |
+| **OpenRouter** | `OPENROUTER_API_KEY` | llama-3.3-70b-instruct | $0.00050 |
+| **Fireworks** | `FIREWORKS_API_KEY` | llama-v3p3-70b-instruct | $0.00090 |
+| **Cohere** | `COHERE_API_KEY` | command-r-plus | $0.00300 |
+
+**Usage — one line in `graqle.yaml`:**
+```yaml
+model:
+  backend: groq
+  model: llama-3.3-70b-versatile
+```
+
+**Or via SDK:**
+```python
+from graqle.backends.providers import create_provider_backend
+backend = create_provider_backend("groq", model="llama-3.3-70b-versatile")
+graph.set_default_backend(backend)
+```
+
+**Files:**
+- `graqle/backends/providers.py` — Provider preset registry with `PROVIDER_PRESETS`, `create_provider_backend()`, `get_provider_names()`, `get_provider_env_var()`
+- `graqle/backends/registry.py` — 15 new entries in `BUILTIN_BACKENDS`
+- `graqle/backends/__init__.py` — Lazy imports for new exports
+- `graqle/core/graph.py` — `_auto_create_backend()` handles provider presets
+- `graqle/cli/commands/doctor.py` — Detects all provider API keys
+
+### Google Gemini Backend
+
+Gemini uses Google's own `generateContent` API format (not OpenAI-compatible), so it gets its own backend class with proper request/response translation.
+
+- Supports `GEMINI_API_KEY` and `GOOGLE_API_KEY` env vars
+- Per-model pricing: Gemini 2.5 Pro, 2.5 Flash, 2.0 Flash, 2.0 Flash-Lite, 1.5 Pro, 1.5 Flash
+- Retry with backoff (shared with other API backends)
+
+**Files:**
+- `graqle/backends/gemini.py` — `GeminiBackend` class with `GEMINI_PRICING`
+
+### Task-Based Model Routing
+
+Users define rules that map task types to providers — never auto-assigned, always explicit opt-in.
+
+**8 task types:** `context`, `reason`, `preflight`, `impact`, `lessons`, `learn`, `code`, `docs`
+
+**Built-in recommendations** suggest which providers suit which tasks, with reasoning:
+- Context lookups → fast/cheap (Groq, Gemini, DeepSeek)
+- Reasoning → smart/thorough (Anthropic, OpenAI, DeepSeek)
+- Preflight checks → reliable (Anthropic, Mistral)
+- Impact analysis → fast/structured (Groq, Together, Fireworks)
+- Document tasks → long-context (Gemini, Anthropic, Together)
+
+**Configuration:**
+```yaml
+routing:
+  default_provider: groq
+  rules:
+    - task: reason
+      provider: anthropic
+      model: claude-sonnet-4-6
+      reason: "Reasoning needs strong multi-step logic"
+    - task: context
+      provider: groq
+      model: llama-3.1-8b-instant
+      reason: "Context lookups are simple — use fast model"
+```
+
+**Files:**
+- `graqle/routing.py` — `TaskRouter`, `RoutingRule`, `TASK_RECOMMENDATIONS`, `MCP_TOOL_TO_TASK`
+- `graqle/config/settings.py` — `RoutingConfig`, `RoutingRuleConfig` added to `GraqleConfig`
+- `graqle/core/graph.py` — `areason()` and `reason()` accept `task_type` parameter
+- `graqle/plugins/mcp_dev_server.py` — `_handle_reason()` passes `task_type="reason"`
+- `graqle/plugins/mcp_server.py` — Same
+
+### Config Changes
+
+New `routing` section in `graqle.yaml`:
+```yaml
+routing:
+  default_provider: null         # fallback provider if no task rule matches
+  default_model: null             # fallback model
+  rules: []                       # list of {task, provider, model, reason}
+```
+
+New `endpoint` field on `ModelConfig`:
+```yaml
+model:
+  endpoint: https://my-proxy.example.com/v1/chat/completions  # for custom/self-hosted
+```
+
+### Tests
+
+**1,655 tests passing.** Up from 1,627 in v0.21.2.
+
+| Area | New Tests | What |
+|------|-----------|------|
+| Routing | 27 | TaskRouter, RoutingRule, recommendations, RoutingConfig, YAML validation |
+| Providers | 19 | Preset structure, endpoint validation, create_provider_backend |
+| Gemini | 11 | Init, pricing, API key resolution, request body, response parsing |
+
+### Breaking Changes
+
+None. All new features are additive. Existing configs work unchanged.
+
+---
+
+## v0.21.2 — Bugfix Release (2026-03-14)
+
+- DF-005: Fixed `graq scan docs` crash when no doc manifest exists
+- DF-006: Fixed background scan state file not being cleaned up
+
+---
+
 ## v0.20.0 — Document Intelligence + Auto-Scaling (2026-03-14)
 
 **The biggest release since v0.9.0.** Graqle now understands documents, JSON configs, and code in a single unified graph — and auto-scales to Neo4j when your graph grows past 5,000 nodes.

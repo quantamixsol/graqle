@@ -261,7 +261,9 @@ class MCPServer:
         if not query:
             return MCPToolResult("Query is required", is_error=True)
 
-        result = await self._graph.areason(query, max_rounds=max_rounds)
+        result = await self._graph.areason(
+            query, max_rounds=max_rounds, task_type="reason",
+        )
 
         output = {
             "answer": result.answer,

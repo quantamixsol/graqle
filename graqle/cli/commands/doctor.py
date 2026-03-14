@@ -104,6 +104,28 @@ def _check_backend_packages() -> List[CheckResult]:
         except ImportError:
             results.append((INFO, f"Backend: {label}", f"{pkg} not installed"))
 
+    # Check provider presets (env-var based, no package needed)
+    provider_env_vars = {
+        "GROQ_API_KEY": "Groq",
+        "DEEPSEEK_API_KEY": "DeepSeek",
+        "GEMINI_API_KEY": "Google Gemini",
+        "GOOGLE_API_KEY": "Google Gemini",
+        "MISTRAL_API_KEY": "Mistral AI",
+        "TOGETHER_API_KEY": "Together AI",
+        "OPENROUTER_API_KEY": "OpenRouter",
+        "FIREWORKS_API_KEY": "Fireworks AI",
+        "COHERE_API_KEY": "Cohere",
+    }
+    seen_providers: set[str] = set()
+    for env_var, label in provider_env_vars.items():
+        if label in seen_providers:
+            continue  # skip duplicate labels (GEMINI/GOOGLE)
+        has_key = bool(os.environ.get(env_var))
+        if has_key:
+            results.append((PASS, f"Provider: {label}", f"{env_var}: set"))
+            any_backend = True
+            seen_providers.add(label)
+
     if not any_backend:
         results.append((
             FAIL,

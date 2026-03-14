@@ -211,6 +211,7 @@ class Graqle:
         self._orchestrator: Any = None  # set lazily
         self._activator: Any = None  # set lazily
         self._reformulator: Any = None  # set lazily (ADR-104)
+        self._task_router: Any = None  # set lazily (v0.22: task-based routing)
         self._activation_memory: Any = None  # v0.12: cross-query learning
         self._neo4j_connector: Any = None  # set by from_neo4j / to_neo4j
         self._nx_graph: nx.Graph | None = None
@@ -824,11 +825,40 @@ class Graqle:
                     if node_config.temperature != 0.3:
                         node.temperature = node_config.temperature
 
-    def _get_backend_for_node(self, node_id: str) -> ModelBackend:
+    def _get_task_router(self) -> Any:
+        """Lazily create and return the task router from config."""
+        if self._task_router is None:
+            from graqle.routing import TaskRouter
+            routing_cfg = self.config.routing
+            config_dict: dict[str, Any] = {}
+            if routing_cfg.default_provider:
+                config_dict["default_provider"] = routing_cfg.default_provider
+            if routing_cfg.default_model:
+                config_dict["default_model"] = routing_cfg.default_model
+            if routing_cfg.rules:
+                config_dict["rules"] = [
+                    {"task": r.task, "provider": r.provider,
+                     "model": r.model, "reason": r.reason}
+                    for r in routing_cfg.rules
+                ]
+            self._task_router = TaskRouter.from_config(config_dict or None)
+        return self._task_router
+
+    def _get_backend_for_node(
+        self, node_id: str, *, task_type: str | None = None,
+    ) -> ModelBackend:
         """Get the model backend for a specific node.
 
         Bug 5 fix: If no backend is set, auto-create one from config.
+        v0.22: If task_type is provided, check task-based routing first.
         """
+        # v0.22: Task-based routing takes precedence over node-level assignment
+        if task_type:
+            router = self._get_task_router()
+            routed = router.get_backend_for_task(task_type)
+            if routed is not None:
+                return routed
+
         if node_id in self._node_backends:
             return self._node_backends[node_id]
         if self._default_backend is not None:
@@ -877,6 +907,17 @@ class Graqle:
             elif backend_name == "ollama":
                 from graqle.backends.api import OllamaBackend
                 return OllamaBackend(model=model_name)
+            elif backend_name == "gemini":
+                from graqle.backends.gemini import GeminiBackend
+                return GeminiBackend(model=model_name, api_key=api_key)
+            else:
+                # Check provider presets (groq, deepseek, together, etc.)
+                from graqle.backends.providers import PROVIDER_PRESETS
+                if backend_name in PROVIDER_PRESETS:
+                    from graqle.backends.providers import create_provider_backend
+                    return create_provider_backend(
+                        backend_name, model=model_name, api_key=api_key
+                    )
         except (ImportError, Exception) as e:
             logger.debug("Auto-backend creation failed: %s", e)
 
@@ -911,12 +952,14 @@ class Graqle:
         strategy: str | None = None,
         node_ids: list[str] | None = None,
         context: Any = None,
+        task_type: str | None = None,
     ) -> ReasoningResult:
         """Run synchronous reasoning query (convenience wrapper).
 
         Args:
             context: Optional ``ReformulationContext`` from an AI tool
                      (Claude Code, Cursor, Codex) for query enhancement.
+            task_type: Optional task type for routing (e.g. "reason", "context").
         """
         return asyncio.run(
             self.areason(
@@ -925,6 +968,7 @@ class Graqle:
                 strategy=strategy,
                 node_ids=node_ids,
                 context=context,
+                task_type=task_type,
             )
         )
 
@@ -936,6 +980,7 @@ class Graqle:
         strategy: str | None = None,
         node_ids: list[str] | None = None,
         context: Any = None,
+        task_type: str | None = None,
     ) -> ReasoningResult:
         """Run async reasoning query — the core entry point.
 
@@ -943,6 +988,7 @@ class Graqle:
             context: Optional ``ReformulationContext`` from an AI tool
                      (Claude Code, Cursor, Codex) for query enhancement
                      before PCST activation (ADR-104).
+            task_type: Optional task type for task-based model routing (v0.22).
         """
         from graqle.orchestration.orchestrator import Orchestrator
 
@@ -985,7 +1031,7 @@ class Graqle:
 
         # 2. Assign backends to activated nodes
         for nid in node_ids:
-            backend = self._get_backend_for_node(nid)
+            backend = self._get_backend_for_node(nid, task_type=task_type)
             self.nodes[nid].activate(backend)
 
         # 3. Run orchestrator (with MasterObserver if configured)

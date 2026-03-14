@@ -36,6 +36,34 @@ BUILTIN_BACKENDS = {
         "class": "graqle.backends.api.OllamaBackend",
         "kwargs": {"model": "qwen2.5:0.5b"},
     },
+    # --- Provider presets (OpenAI-compatible via CustomBackend) ---
+    "groq:llama-70b": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+    "groq:llama-8b": {"provider": "groq", "model": "llama-3.1-8b-instant"},
+    "deepseek:chat": {"provider": "deepseek", "model": "deepseek-chat"},
+    "deepseek:reasoner": {"provider": "deepseek", "model": "deepseek-reasoner"},
+    "together:llama-70b": {
+        "provider": "together",
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    },
+    "together:llama-8b": {
+        "provider": "together",
+        "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    },
+    "mistral:small": {"provider": "mistral", "model": "mistral-small-latest"},
+    "mistral:large": {"provider": "mistral", "model": "mistral-large-latest"},
+    "openrouter:llama-70b": {
+        "provider": "openrouter",
+        "model": "meta-llama/llama-3.3-70b-instruct",
+    },
+    "fireworks:llama-70b": {
+        "provider": "fireworks",
+        "model": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+    },
+    "cohere:command-r": {"provider": "cohere", "model": "command-r-plus"},
+    # --- Google Gemini (separate API format) ---
+    "gemini:flash": {"provider": "gemini", "model": "gemini-2.0-flash"},
+    "gemini:pro": {"provider": "gemini", "model": "gemini-2.5-pro"},
+    "gemini:flash-lite": {"provider": "gemini", "model": "gemini-2.0-flash-lite"},
 }
 
 
@@ -77,6 +105,19 @@ class BackendRegistry:
     def _create_builtin(self, name: str) -> ModelBackend:
         """Create a backend from builtin configuration."""
         config = BUILTIN_BACKENDS[name]
+
+        # Provider preset — resolve via providers.py or gemini.py
+        if "provider" in config:
+            provider = config["provider"]
+            model = config.get("model")
+            if provider == "gemini":
+                from graqle.backends.gemini import GeminiBackend
+                return GeminiBackend(model=model)
+            else:
+                from graqle.backends.providers import create_provider_backend
+                return create_provider_backend(provider, model=model)
+
+        # Class-based backend (legacy pattern)
         module_path, class_name = config["class"].rsplit(".", 1)
 
         import importlib

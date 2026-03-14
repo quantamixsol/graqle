@@ -65,7 +65,7 @@ class AnthropicBackend(BaseBackend):
 
     def __init__(
         self,
-        model: str = "claude-haiku-4-5-20251001",
+        model: str = "claude-sonnet-4-6",
         api_key: str | None = None,
         max_retries: int = MAX_RETRIES,
     ) -> None:
@@ -213,7 +213,7 @@ class BedrockBackend(BaseBackend):
 
     def __init__(
         self,
-        model: str = "anthropic.claude-haiku-4-5-20251001-v1:0",
+        model: str = "anthropic.claude-sonnet-4-6-v1:0",
         region: str | None = None,
         max_retries: int = MAX_RETRIES,
     ) -> None:

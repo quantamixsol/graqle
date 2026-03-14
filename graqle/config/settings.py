@@ -21,6 +21,7 @@ class ModelConfig(BaseModel):
     api_key: str | None = None
     region: str | None = None  # AWS region (e.g. us-east-1, eu-west-1). Only used by Bedrock backend.
     host: str | None = None  # Ollama/vLLM host URL. Only used by local backends.
+    endpoint: str | None = None  # Custom endpoint URL. Used by custom/self-hosted providers.
 
 
 class GraphConfig(BaseModel):
@@ -110,6 +111,43 @@ class ReformulatorConfig(BaseModel):
     mode: str = "auto"  # "auto", "ai_tool", "llm", "off"
     llm_backend: str | None = None  # named model profile for LLM reformulation
     graph_summary: str = ""  # brief KG description to help LLM mode
+
+
+class RoutingRuleConfig(BaseModel):
+    """A single task-to-provider routing rule."""
+
+    task: str
+    provider: str
+    model: str | None = None
+    reason: str = ""
+
+
+class RoutingConfig(BaseModel):
+    """Task-based model routing configuration.
+
+    Users define rules that map task types (context, reason, preflight,
+    impact, lessons, learn, code, docs) to specific providers and models.
+    The router never auto-assigns — all rules are explicit opt-in.
+
+    Example YAML::
+
+        routing:
+          default_provider: groq
+          default_model: llama-3.3-70b-versatile
+          rules:
+            - task: reason
+              provider: anthropic
+              model: claude-sonnet-4-6
+              reason: "Reasoning needs strong multi-step logic"
+            - task: context
+              provider: groq
+              model: llama-3.1-8b-instant
+              reason: "Context lookups are simple — use fast model"
+    """
+
+    default_provider: str | None = None
+    default_model: str | None = None
+    rules: list[RoutingRuleConfig] = Field(default_factory=list)
 
 
 class LoggingConfig(BaseModel):
@@ -221,6 +259,7 @@ class GraqleConfig(BaseModel):
     observer: ObserverConfig = Field(default_factory=ObserverConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
     reformulator: ReformulatorConfig = Field(default_factory=ReformulatorConfig)
+    routing: RoutingConfig = Field(default_factory=RoutingConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     scan: ScanConfig = Field(default_factory=ScanConfig)
     domain: str = "custom"

@@ -12,4 +12,11 @@ def __getattr__(name: str):
                 "OllamaBackend", "CustomBackend"):
         from graqle.backends import api
         return getattr(api, name)
+    if name == "GeminiBackend":
+        from graqle.backends.gemini import GeminiBackend
+        return GeminiBackend
+    if name in ("create_provider_backend", "PROVIDER_PRESETS",
+                "get_provider_names"):
+        from graqle.backends import providers
+        return getattr(providers, name)
     raise AttributeError(f"module 'graqle.backends' has no attribute {name!r}")

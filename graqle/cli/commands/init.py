@@ -35,8 +35,8 @@ BACKENDS: dict[str, dict[str, Any]] = {
     "anthropic": {
         "name": "Anthropic (Claude)",
         "models": [
-            ("claude-haiku-4-5-20251001", "Claude Haiku — Fast + cheap ($0.001/query)", True),
-            ("claude-sonnet-4-6", "Claude Sonnet — Balanced ($0.01/query)", False),
+            ("claude-sonnet-4-6", "Claude Sonnet — Balanced, recommended ($0.003/query)", True),
+            ("claude-haiku-4-5-20251001", "Claude Haiku — Fast + cheap ($0.001/query)", False),
             ("claude-opus-4-6", "Claude Opus — Most capable ($0.05/query)", False),
         ],
         "api_key_env": "ANTHROPIC_API_KEY",
@@ -53,13 +53,13 @@ BACKENDS: dict[str, dict[str, Any]] = {
         "name": "AWS Bedrock",
         "models": [
             (
-                "anthropic.claude-haiku-4-5-20251001-v1:0",
-                "Claude Haiku on Bedrock",
+                "anthropic.claude-sonnet-4-6-v1:0",
+                "Claude Sonnet on Bedrock — Recommended",
                 True,
             ),
             (
-                "anthropic.claude-sonnet-4-6-v1:0",
-                "Claude Sonnet on Bedrock",
+                "anthropic.claude-haiku-4-5-20251001-v1:0",
+                "Claude Haiku on Bedrock — Fast + cheap",
                 False,
             ),
         ],
@@ -127,7 +127,7 @@ from graqle import Graqle
 from graqle.backends.api import AnthropicBackend
 
 graph = Graqle.from_json("graqle.json")
-graph.set_default_backend(AnthropicBackend(model="claude-haiku-4-5-20251001"))
+graph.set_default_backend(AnthropicBackend(model="claude-sonnet-4-6"))
 result = graph.reason("What depends on the auth service?")
 print(result.answer)
 ```
@@ -1514,7 +1514,7 @@ def init_command(
 
     \b
     Non-interactive:
-        graq init --backend anthropic --model claude-haiku-4-5-20251001 \\
+        graq init --backend anthropic --model claude-sonnet-4-6 \\
                    --api-key-env ANTHROPIC_API_KEY --no-interactive
     """
     root = Path(path).resolve()
