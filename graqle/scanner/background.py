@@ -11,6 +11,7 @@ from a separate CLI invocation.
 
 from __future__ import annotations
 
+import calendar
 import json
 import logging
 import sys
@@ -188,7 +189,7 @@ class BackgroundScanManager:
                 t1 = time.time()
                 # Parse started_at back to compute duration
                 try:
-                    t0 = time.mktime(time.strptime(
+                    t0 = calendar.timegm(time.strptime(
                         self._progress.started_at, "%Y-%m-%dT%H:%M:%SZ"
                     ))
                     self._progress.duration_seconds = t1 - t0

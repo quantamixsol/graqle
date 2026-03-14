@@ -34,52 +34,46 @@
 
 ## Open Issues
 
-### DF-001: Background scan duration_seconds is wildly wrong
-- **Severity:** P2
-- **Found:** 2026-03-14
-- **Version:** v0.21.0
-- **Status:** OPEN
-- **Repro:** `graq scan all .` then `graq scan status`
-- **Expected:** Duration shows ~1s (doc scan took <1s)
-- **Actual:** Duration shows 3601.7s (1 hour off — likely UTC vs local time bug)
-- **Workaround:** Ignore the duration field
-- **Root cause:** `background.py` uses `time.mktime(time.strptime(...))` which converts UTC string to local time, then subtracts from `time.time()` (also local). The timezone offset creates a 1-hour error per hour of UTC offset.
-
-### DF-002: No `graq inspect --stats` command
-- **Severity:** P2
-- **Found:** 2026-03-14
-- **Version:** v0.21.0
-- **Status:** OPEN
-- **Repro:** `graq inspect --stats` or `graq scan inspect --stats`
-- **Expected:** Shows graph statistics (node/edge counts by type, density, etc.)
-- **Actual:** "No such command 'inspect'"
-- **Workaround:** Read graqle.json directly with Python
-
-### DF-003: `graq learn doc` accepts only one path
-- **Severity:** P3
-- **Found:** 2026-03-14
-- **Version:** v0.21.0
-- **Status:** OPEN
-- **Repro:** `graq learn doc file1.md file2.md file3.md`
-- **Expected:** Ingests all 3 files
-- **Actual:** "Got unexpected extra arguments"
-- **Workaround:** Run `graq learn doc` once per file, or use `graq learn doc <directory>/`
-
-### DF-004: `graq init` has no non-interactive mode
-- **Severity:** P3
-- **Found:** 2026-03-14
-- **Version:** v0.21.0
-- **Status:** OPEN
-- **Repro:** Try to automate `graq init` in CI or scripting
-- **Expected:** `graq init --defaults` creates config with sensible defaults
-- **Actual:** Always prompts interactively
-- **Workaround:** Manually create `graqle.yaml`
+_None — all resolved in v0.21.1._
 
 ---
 
 ## Resolved Issues
 
-_None yet._
+### DF-001: Background scan duration_seconds is wildly wrong
+- **Severity:** P2
+- **Found:** 2026-03-14
+- **Version:** v0.21.0
+- **Status:** FIXED (v0.21.1)
+- **Repro:** `graq scan all .` then `graq scan status`
+- **Expected:** Duration shows ~1s (doc scan took <1s)
+- **Actual:** Duration shows 3601.7s (1 hour off — UTC vs local time bug)
+- **Root cause:** `background.py` used `time.mktime(time.strptime(...))` which interprets UTC string as local time. `calendar.timegm()` is the correct function for UTC parsing.
+- **Fix:** Replaced `time.mktime()` with `calendar.timegm()` in `background.py`.
+
+### DF-002: No `graq inspect --stats` command
+- **Severity:** P2
+- **Found:** 2026-03-14
+- **Version:** v0.21.0
+- **Status:** WONTFIX (user error)
+- **Resolution:** Command exists as `graq inspect --stats` (top-level command). Was tested as `graq scan inspect --stats` which doesn't exist. Correct usage: `graq inspect` or `graq inspect --stats`.
+
+### DF-003: `graq learn doc` accepts only one path
+- **Severity:** P3
+- **Found:** 2026-03-14
+- **Version:** v0.21.0
+- **Status:** FIXED (v0.21.1)
+- **Repro:** `graq learn doc file1.md file2.md file3.md`
+- **Expected:** Ingests all 3 files
+- **Actual:** "Got unexpected extra arguments"
+- **Fix:** Changed `path: str` argument to `paths: list[str]` — now accepts multiple file and directory paths. Results are merged across all inputs.
+
+### DF-004: `graq init` has no non-interactive mode
+- **Severity:** P3
+- **Found:** 2026-03-14
+- **Version:** v0.21.0
+- **Status:** WONTFIX (already implemented)
+- **Resolution:** `graq init --no-interactive` already exists (with `--backend`, `--model` flags). Also auto-detects non-TTY stdin and switches to non-interactive mode automatically.
 
 ---
 

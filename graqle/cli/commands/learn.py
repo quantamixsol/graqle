@@ -782,7 +782,7 @@ def learn_batch(
 
 @learn_app.command("doc")
 def learn_doc(
-    path: str = typer.Argument(..., help="Document file or directory to ingest"),
+    paths: list[str] = typer.Argument(..., help="Document file(s) or directory(ies) to ingest"),
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
     no_link: bool = typer.Option(False, "--no-link", help="Skip auto-linking to code nodes"),
     no_redact: bool = typer.Option(False, "--no-redact", help="Skip privacy redaction"),
@@ -790,22 +790,29 @@ def learn_doc(
 ) -> None:
     """On-demand document ingestion into the knowledge graph.
 
-    Parses the document (or all supported documents in a directory),
+    Parses documents (or all supported documents in directories),
     creates Document and Section nodes, auto-links to existing code
     nodes, and saves the graph immediately.
 
+    Accepts one or more file/directory paths.
+
     Examples:
         graq learn doc architecture.pdf
+        graq learn doc file1.md file2.md file3.md
         graq learn doc ./compliance-docs/
         graq learn doc spec.md --no-link --dry-run
     """
     from graqle.cli.commands.scan import _load_graph_data, _save_graph_data, _print_doc_scan_summary
-    from graqle.scanner.docs import DocScanOptions, DocumentScanner
+    from graqle.scanner.docs import DocScanOptions, DocumentScanner, ScanResult
 
-    target = Path(path).resolve()
-    if not target.exists():
-        console.print(f"[red]Path not found:[/red] {target}")
-        raise typer.Exit(1)
+    # Resolve and validate all paths
+    targets: list[Path] = []
+    for p in paths:
+        t = Path(p).resolve()
+        if not t.exists():
+            console.print(f"[red]Path not found:[/red] {t}")
+            raise typer.Exit(1)
+        targets.append(t)
 
     gp = Path(graph_path)
     nodes, edges = _load_graph_data(gp)
@@ -822,6 +829,9 @@ def learn_doc(
 
     from rich.progress import Progress
 
+    # Accumulate results across all paths
+    combined = ScanResult()
+
     with Progress(console=console) as progress:
         task = progress.add_task("[cyan]Ingesting documents...", total=0)
 
@@ -829,18 +839,29 @@ def learn_doc(
             progress.update(task, total=total, completed=idx,
                             description=f"[cyan]{fp.name}")
 
-        if target.is_file():
-            result = scanner.scan_file(target, base_dir=target.parent)
-        else:
-            result = scanner.scan_directory(target, progress_callback=progress_cb)
+        for target in targets:
+            if target.is_file():
+                result = scanner.scan_file(target, base_dir=target.parent)
+            else:
+                result = scanner.scan_directory(target, progress_callback=progress_cb)
 
-        progress.update(task, completed=result.files_total)
+            # Merge into combined result
+            combined.files_scanned += result.files_scanned
+            combined.files_skipped += result.files_skipped
+            combined.files_errored += result.files_errored
+            combined.nodes_added += result.nodes_added
+            combined.edges_added += result.edges_added
+            combined.file_results.extend(result.file_results)
+            combined.duration_seconds += result.duration_seconds
+            combined.stale_removed += result.stale_removed
+
+        progress.update(task, completed=combined.files_total)
 
     if dry_run:
         console.print("[yellow]Dry run — no changes saved.[/yellow]")
-        _print_doc_scan_summary(result)
+        _print_doc_scan_summary(combined)
         return
 
     _save_graph_data(gp, nodes, edges)
-    _print_doc_scan_summary(result)
+    _print_doc_scan_summary(combined)
     console.print(f"[green]{CHECK} Documents ingested into graph.[/green]")
