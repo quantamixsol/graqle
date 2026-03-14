@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.21.1"
+version = "0.21.2"
 description = "Dev Intelligence Layer — turn any codebase into a reasoning-ready knowledge graph. Query your architecture, not your files."
 readme = "README.md"
 license = "Apache-2.0"
