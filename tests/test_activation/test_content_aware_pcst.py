@@ -43,7 +43,7 @@ def directory_vs_jsmodule_graph() -> Graqle:
             label="src",
             entity_type="Directory",
             description="Source directory containing all service modules",
-            properties={},
+            properties={"chunks": []},  # explicit empty — no content to cite
         ),
         "mod::auth.ts": CogniNode(
             id="mod::auth.ts",

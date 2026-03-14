@@ -23,6 +23,23 @@ from typing import Any
 logger = logging.getLogger("graqle.connectors.neptune")
 
 
+def _sanitize_gremlin(value: str) -> str:
+    """Sanitize a string value for safe use in Gremlin queries.
+
+    Prevents Gremlin injection by escaping special characters.
+    """
+    # Escape backslashes first, then single quotes
+    return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
+
+
+def _sanitize_cypher(value: str) -> str:
+    """Sanitize a string value for safe use in OpenCypher queries.
+
+    Prevents Cypher injection by escaping special characters.
+    """
+    return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
+
+
 # ---------------------------------------------------------------------------
 # Neptune configuration
 # ---------------------------------------------------------------------------
@@ -103,22 +120,22 @@ class NeptuneAdapter:
         """Generate Gremlin query to upsert a node.
 
         Uses Neptune's MERGE semantics: create if not exists, update if exists.
+        All string values are sanitized to prevent Gremlin injection.
         """
-        node_id = node.get("id", "")
-        entity_type = node.get("entity_type", node.get("type", "Unknown"))
-        label = node.get("label", node_id)
+        node_id = _sanitize_gremlin(node.get("id", ""))
+        entity_type = _sanitize_gremlin(node.get("entity_type", node.get("type", "Unknown")))
 
         props = []
         for key, value in node.items():
             if key in ("id",):
                 continue
+            safe_key = _sanitize_gremlin(key)
             if isinstance(value, str):
-                escaped = value.replace("'", "\\'")
-                props.append(f".property('{key}', '{escaped}')")
+                props.append(f".property('{safe_key}', '{_sanitize_gremlin(value)}')")
             elif isinstance(value, (int, float)):
-                props.append(f".property('{key}', {value})")
+                props.append(f".property('{safe_key}', {value})")
             elif isinstance(value, bool):
-                props.append(f".property('{key}', {'true' if value else 'false'})")
+                props.append(f".property('{safe_key}', {'true' if value else 'false'})")
 
         prop_str = "".join(props)
         return (
@@ -131,21 +148,24 @@ class NeptuneAdapter:
         )
 
     def generate_upsert_edge(self, edge: dict[str, Any]) -> str:
-        """Generate Gremlin query to upsert an edge."""
-        edge_id = edge.get("id", "")
-        source = edge.get("source", "")
-        target = edge.get("target", "")
-        relationship = edge.get("relationship", "RELATES_TO")
+        """Generate Gremlin query to upsert an edge.
+
+        All string values are sanitized to prevent Gremlin injection.
+        """
+        edge_id = _sanitize_gremlin(edge.get("id", ""))
+        source = _sanitize_gremlin(edge.get("source", ""))
+        target = _sanitize_gremlin(edge.get("target", ""))
+        relationship = _sanitize_gremlin(edge.get("relationship", "RELATES_TO"))
 
         props = []
         for key, value in edge.items():
             if key in ("id", "source", "target", "relationship"):
                 continue
+            safe_key = _sanitize_gremlin(key)
             if isinstance(value, str):
-                escaped = value.replace("'", "\\'")
-                props.append(f".property('{key}', '{escaped}')")
+                props.append(f".property('{safe_key}', '{_sanitize_gremlin(value)}')")
             elif isinstance(value, (int, float)):
-                props.append(f".property('{key}', {value})")
+                props.append(f".property('{safe_key}', {value})")
 
         prop_str = "".join(props)
         return (
@@ -162,26 +182,27 @@ class NeptuneAdapter:
 
     def generate_delete_node(self, node_id: str) -> str:
         """Generate Gremlin query to delete a node and its edges."""
-        return f"g.V().has('id', '{node_id}').drop()"
+        return f"g.V().has('id', '{_sanitize_gremlin(node_id)}').drop()"
 
     def generate_delete_edge(self, edge_id: str) -> str:
         """Generate Gremlin query to delete an edge."""
-        return f"g.E().has('id', '{edge_id}').drop()"
+        return f"g.E().has('id', '{_sanitize_gremlin(edge_id)}').drop()"
 
     def generate_team_query(self, team_id: str, entity_type: str | None = None) -> str:
         """Generate Gremlin query to get all nodes for a team."""
+        safe_team = _sanitize_gremlin(team_id)
         if entity_type:
             return (
-                f"g.V().has('team_id', '{team_id}')"
-                f".has('entity_type', '{entity_type}')"
+                f"g.V().has('team_id', '{safe_team}')"
+                f".has('entity_type', '{_sanitize_gremlin(entity_type)}')"
                 f".valueMap(true)"
             )
-        return f"g.V().has('team_id', '{team_id}').valueMap(true)"
+        return f"g.V().has('team_id', '{safe_team}').valueMap(true)"
 
     def generate_cross_repo_edges(self, team_id: str) -> str:
         """Generate Gremlin query to find cross-repo edges."""
         return (
-            f"g.V().has('team_id', '{team_id}')"
+            f"g.V().has('team_id', '{_sanitize_gremlin(team_id)}')"
             f".outE().has('cross_repo', true)"
             f".project('source', 'target', 'relationship', 'source_repo', 'target_repo')"
             f".by(outV().values('id'))"
@@ -235,13 +256,16 @@ class NeptuneAdapter:
     # -- OpenCypher query generation ------------------------------------------
 
     def generate_cypher_upsert_node(self, node: dict[str, Any]) -> str:
-        """Generate OpenCypher MERGE query for a node."""
-        node_id = node.get("id", "")
-        entity_type = node.get("entity_type", "Unknown")
+        """Generate OpenCypher MERGE query for a node.
+
+        All string values are sanitized to prevent Cypher injection.
+        """
+        node_id = _sanitize_cypher(node.get("id", ""))
+        entity_type = _sanitize_cypher(node.get("entity_type", "Unknown"))
 
         props = {k: v for k, v in node.items() if k != "id"}
         set_clause = ", ".join(
-            f"n.{k} = {json.dumps(v)}" for k, v in props.items()
+            f"n.{_sanitize_cypher(k)} = {json.dumps(v)}" for k, v in props.items()
             if isinstance(v, (str, int, float, bool))
         )
 
@@ -252,8 +276,9 @@ class NeptuneAdapter:
 
     def generate_cypher_stats(self, team_id: str) -> str:
         """Generate OpenCypher query for team graph statistics."""
+        safe_team = _sanitize_cypher(team_id)
         return (
-            f"MATCH (n {{team_id: '{team_id}'}}) "
+            f"MATCH (n {{team_id: '{safe_team}'}}) "
             f"RETURN labels(n) AS type, count(n) AS count "
             f"ORDER BY count DESC"
         )

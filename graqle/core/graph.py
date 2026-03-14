@@ -247,11 +247,15 @@ class Graqle:
             etype = data.get(node_type_key) or data.get("entity_type", "Entity")
             # Remove entity_type from props if it leaked in
             props.pop("entity_type", None)
-            # Flatten nested "properties" dict (NetworkX preserves it as a node attr)
-            if "properties" in props and isinstance(props["properties"], dict):
-                nested = props.pop("properties")
-                nested.update(props)  # existing props override nested
-                props = nested
+            # Flatten nested "properties" or "metadata" dict
+            # (NetworkX preserves it as a node attr; hand-built KGs may use
+            # "metadata" instead of "properties" — normalize both)
+            for _alias in ("properties", "metadata"):
+                if _alias in props and isinstance(props[_alias], dict):
+                    nested = props.pop(_alias)
+                    nested.update(props)  # existing props override nested
+                    props = nested
+                    break
             nodes[nid] = CogniNode(
                 id=nid,
                 label=data.get(node_label_key, nid),
@@ -628,57 +632,81 @@ class Graqle:
                 )
 
     def _auto_load_chunks(self) -> None:
-        """Auto-load chunks from source files for nodes that have none.
+        """Auto-load chunks for nodes that have none.
 
-        When a KG node has a ``source_file`` (or ``file_path``) property
-        pointing to a readable file but carries no ``chunks``, this method
-        reads the file and creates chunks so that reasoning agents have
-        evidence to cite.  This is the critical bridge between hand-built
-        KGs (which often omit chunks) and the evidence pipeline that
-        agents depend on.
+        Three-tier chunk resolution:
+        T1. Node already has ``chunks`` in properties → skip.
+        T2. Node has ``source_file`` / ``file_path`` → read file, chunk it.
+        T3. Node has only a description (hand-built KG) → synthesize a
+            single chunk from description + metadata so the agent has
+            *some* evidence to cite during reasoning.
+
+        T3 is the critical safety net for hand-built / curated KGs where
+        nodes represent concepts, decisions, or entities rather than code
+        files.  Without T3, these nodes pass validation but produce hollow
+        reasoning because agents have no evidence chunks.
         """
         from pathlib import Path as _P
 
-        loaded = 0
+        file_loaded = 0
+        desc_loaded = 0
         for node in self.nodes.values():
-            # Skip nodes that already have chunks
-            if node.properties.get("chunks"):
+            # T1: Skip nodes that already have chunks (non-empty list),
+            # OR nodes that explicitly set chunks=[] (opt-out from T3 synthesis)
+            if "chunks" in node.properties:
                 continue
 
-            # Find a file reference
+            # T2: Try to load from a referenced file
             file_path = (
                 node.properties.get("file_path")
                 or node.properties.get("source_file")
             )
-            if not file_path:
-                continue
+            if file_path:
+                try:
+                    fp = _P(file_path)
+                    if fp.exists() and fp.is_file():
+                        content = fp.read_text(encoding="utf-8", errors="ignore")
+                        if content.strip():
+                            suffix = fp.suffix.lower()
+                            if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
+                                chunks = self._chunk_source_code(content, max_chunks=5)
+                            else:
+                                chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
+                            if chunks:
+                                node.properties["chunks"] = chunks
+                                file_loaded += 1
+                                continue
+                except Exception:
+                    pass
 
-            try:
-                fp = _P(file_path)
-                if not fp.exists() or not fp.is_file():
-                    continue
-                content = fp.read_text(encoding="utf-8", errors="ignore")
-                if not content.strip():
-                    continue
+            # T3: Synthesize chunk from description + metadata for hand-built nodes
+            desc = (node.description or "").strip()
+            if desc and len(desc) > 30:
+                # Build a richer chunk by combining description with key properties
+                parts = [desc]
+                # Include select metadata fields that add context
+                skip_keys = {"chunks", "chunk_count", "file_path", "source_file"}
+                for k, v in node.properties.items():
+                    if k in skip_keys:
+                        continue
+                    if isinstance(v, (str, int, float, bool)):
+                        parts.append(f"{k}: {v}")
+                    elif isinstance(v, list) and len(v) <= 10:
+                        parts.append(f"{k}: {', '.join(str(x) for x in v)}")
+                chunk_text = "\n".join(parts)
+                node.properties["chunks"] = [
+                    {"text": chunk_text, "type": "synthesized"}
+                ]
+                desc_loaded += 1
 
-                # For source code files, try semantic chunking
-                suffix = fp.suffix.lower()
-                if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
-                    chunks = self._chunk_source_code(content, max_chunks=5)
-                else:
-                    # For markdown, config, etc. — single chunk, capped at 4000 chars
-                    chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
-
-                if chunks:
-                    node.properties["chunks"] = chunks
-                    loaded += 1
-            except Exception:
-                continue
-
-        if loaded:
+        if file_loaded or desc_loaded:
             logger.info(
-                "Auto-loaded chunks for %d/%d nodes from source files.",
-                loaded, len(self.nodes),
+                "Auto-loaded chunks: %d from files, %d from descriptions "
+                "(%d/%d nodes now have chunks).",
+                file_loaded, desc_loaded,
+                sum(1 for n in self.nodes.values()
+                    if n.properties.get("chunks")),
+                len(self.nodes),
             )
 
     @staticmethod
@@ -765,10 +793,37 @@ class Graqle:
                 f"Richer descriptions (100+ chars) produce better reasoning."
             )
 
-        # Quality score: 0-100
+        # Chunk coverage check
+        nodes_with_chunks = 0
+        total_chunks = 0
+        no_chunk_ids = []
+        for nid, node in self.nodes.items():
+            chunks = node.properties.get("chunks", [])
+            if chunks:
+                nodes_with_chunks += 1
+                total_chunks += len(chunks)
+            else:
+                no_chunk_ids.append(nid)
+
+        chunk_pct = (nodes_with_chunks / total * 100) if total > 0 else 0
+        if chunk_pct == 0:
+            warnings.append(
+                "CRITICAL: No nodes have chunks. Reasoning agents will have "
+                "descriptions only — no evidence to cite. Add chunks via "
+                "'properties.chunks' or use 'graph.rebuild_chunks()'."
+            )
+        elif chunk_pct < 50:
+            warnings.append(
+                f"WARNING: Only {chunk_pct:.0f}% of nodes have chunks. "
+                f"Agents without chunks produce lower-quality reasoning. "
+                f"Nodes missing chunks: {no_chunk_ids[:10]}"
+            )
+
+        # Quality score: 0-100 (description 40% + chunks 40% + avg_len 20%)
         score = min(100, int(
-            (pct_with * 0.6) +
-            (min(avg_len, 200) / 200 * 40)
+            (pct_with * 0.4) +
+            (chunk_pct * 0.4) +
+            (min(avg_len, 200) / 200 * 20)
         ))
 
         result = {
@@ -777,6 +832,9 @@ class Graqle:
             "nodes_with_descriptions": with_desc,
             "nodes_without_descriptions": len(no_desc_ids),
             "avg_description_length": round(avg_len, 1),
+            "nodes_with_chunks": nodes_with_chunks,
+            "nodes_without_chunks": len(no_chunk_ids),
+            "total_chunks": total_chunks,
             "quality_score": score,
             "warnings": warnings,
         }
@@ -787,7 +845,9 @@ class Graqle:
         else:
             logger.info(
                 f"KG quality: {score}/100 — {with_desc}/{total} nodes with "
-                f"descriptions (avg {avg_len:.0f} chars)"
+                f"descriptions (avg {avg_len:.0f} chars), "
+                f"{nodes_with_chunks}/{total} nodes with chunks "
+                f"({total_chunks} total)"
             )
 
         return result
@@ -1036,23 +1096,40 @@ class Graqle:
 
         # 3. Run orchestrator (with MasterObserver if configured)
         if self._orchestrator is None:
-            # Create SkillAdmin with hybrid scoring (Titan V2 preferred)
-            skill_admin = None
+            # Create unified SkillPipeline (type-first, semantic fallback)
+            skill_pipeline = None
             try:
-                from graqle.ontology.skill_admin import SkillAdmin
-                # SkillAdmin auto-initializes Titan V2 -> sentence-transformers -> regex
-                skill_admin = SkillAdmin(use_titan=True)
+                from graqle.ontology.skill_pipeline import SkillPipeline
+                from graqle.ontology.domains import collect_all_skills, register_all_domains
+                from graqle.ontology.domain_registry import DomainRegistry
+
+                # Build registry with all available domains
+                registry = DomainRegistry()
+                skill_config = self.config.skills
+                domain_filter = skill_config.domains or None
+                register_all_domains(registry, only=domain_filter)
+
+                # Create pipeline with config
+                skill_pipeline = SkillPipeline(
+                    mode=skill_config.mode,
+                    max_per_node=skill_config.max_per_node,
+                    use_titan=skill_config.use_titan,
+                    registry=registry,
+                )
+                # Register all domain skills into the pipeline
+                skill_pipeline.register_domain_skills(collect_all_skills(only=domain_filter))
             except Exception:
+                # Fallback: try legacy SkillAdmin if pipeline fails
                 try:
                     from graqle.ontology.skill_admin import SkillAdmin
-                    skill_admin = SkillAdmin(use_titan=False)
+                    skill_pipeline = SkillAdmin(use_titan=True)
                 except Exception:
                     pass
 
             self._orchestrator = Orchestrator(
                 config=self.config.orchestration,
                 observer_config=self.config.observer,
-                skill_admin=skill_admin,
+                skill_admin=skill_pipeline,
             )
 
         result = await self._orchestrator.run(
