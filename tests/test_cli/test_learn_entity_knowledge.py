@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,7 +29,16 @@ def _mock_graph():
     graph.get_edges_between = MagicMock(return_value=[])
     graph.get_neighbors = MagicMock(return_value=[])
     graph.to_json = MagicMock()
+    graph.to_networkx = MagicMock()
     return graph
+
+
+def _mock_graph_lock(graph):
+    """Create a mock _graph_lock context manager that yields the given graph."""
+    @contextmanager
+    def mock_lock(graph_path="graqle.json"):
+        yield graph, "test.json"
+    return mock_lock
 
 
 class TestLearnEntity:
@@ -84,10 +94,10 @@ class TestLearnEntity:
 
 
 class TestLearnKnowledge:
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_basic(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_basic(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "knowledge",
@@ -99,10 +109,10 @@ class TestLearnKnowledge:
         assert "brand" in result.output
         graph.add_node_simple.assert_called_once()
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_with_tags(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_with_tags(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "knowledge",
@@ -113,10 +123,10 @@ class TestLearnKnowledge:
         call_kwargs = graph.add_node_simple.call_args[1]
         assert "tags" in call_kwargs["properties"]
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_default_domain(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_default_domain(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "knowledge", "Some fact",
@@ -125,10 +135,10 @@ class TestLearnKnowledge:
         call_kwargs = graph.add_node_simple.call_args[1]
         assert call_kwargs["properties"]["domain"] == "general"
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_uses_semantic_auto_connect(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_uses_semantic_auto_connect(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         runner.invoke(learn_app, [
             "knowledge",
@@ -137,10 +147,10 @@ class TestLearnKnowledge:
         ])
         graph.semantic_auto_connect.assert_called_once()
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_extracts_entities(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_extracts_entities(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "knowledge",
@@ -153,10 +163,10 @@ class TestLearnKnowledge:
         assert isinstance(entities, list)
         assert len(entities) > 0
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_no_extract(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_no_extract(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "knowledge",
@@ -168,10 +178,10 @@ class TestLearnKnowledge:
         entities = call_kwargs["properties"].get("extracted_entities", [])
         assert entities == []
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_knowledge_no_semantic(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_knowledge_no_semantic(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         runner.invoke(learn_app, [
             "knowledge",

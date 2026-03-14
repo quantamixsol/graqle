@@ -1547,8 +1547,11 @@ def _load_graph_data(graph_path: Path) -> tuple[dict, dict]:
 
 
 def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
-    """Save nodes and edges back to graph JSON."""
-    from graqle.core.graph import _write_with_lock
+    """Save nodes and edges back to graph JSON.
+
+    Validates graph data before writing to prevent corruption (DF-005).
+    """
+    from graqle.core.graph import _write_with_lock, _validate_graph_data
 
     graph_nodes = []
     for n in nodes.values():
@@ -1576,6 +1579,9 @@ def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
         "nodes": graph_nodes,
         "links": graph_edges,
     }
+
+    # Validate before saving (DF-005)
+    _validate_graph_data(data, existing_path=str(graph_path))
 
     content = json.dumps(data, indent=2, default=str)
     graph_path.parent.mkdir(parents=True, exist_ok=True)

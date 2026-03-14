@@ -24,75 +24,169 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
+def _acquire_lock(lock_path: str):
+    """Acquire a cross-platform file lock. Returns the lock file descriptor.
+
+    The caller MUST call ``_release_lock(fd, lock_path)`` when done.
+    This enables atomic read-modify-write operations on graph files.
+    """
+    import sys as _sys
+    import time as _time
+
+    if _sys.platform == "win32":
+        import msvcrt
+        fd = open(lock_path, "w")
+        for attempt in range(10):
+            try:
+                msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
+                return fd
+            except (IOError, OSError):
+                if attempt == 9:
+                    fd.close()
+                    raise
+                _time.sleep(0.1)
+        return fd
+    else:
+        import fcntl
+        fd = open(lock_path, "w")
+        fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
+        return fd
+
+
+def _release_lock(fd, lock_path: str) -> None:
+    """Release a file lock acquired by ``_acquire_lock``."""
+    import sys as _sys
+
+    if fd is None:
+        return
+    try:
+        if _sys.platform == "win32":
+            import msvcrt
+            fd.seek(0)
+            msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+    except (IOError, OSError):
+        pass
+    finally:
+        fd.close()
+        try:
+            import os
+            os.unlink(lock_path)
+        except OSError:
+            pass
+
+
+def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
+    """Validate graph data before saving. Raises ValueError on corruption.
+
+    Checks:
+    1. ``directed`` and ``multigraph`` are booleans (not MagicMock strings)
+    2. ``nodes`` is a non-empty list
+    3. If existing graph exists, refuse to save if node count drops >50%
+       (prevents accidental data wipe)
+    """
+    if not isinstance(data.get("directed"), bool):
+        raise ValueError(
+            f"Graph validation failed: 'directed' is {type(data.get('directed')).__name__}, expected bool. "
+            "This may indicate test mock contamination."
+        )
+    if not isinstance(data.get("multigraph"), bool):
+        raise ValueError(
+            f"Graph validation failed: 'multigraph' is {type(data.get('multigraph')).__name__}, expected bool."
+        )
+
+    nodes_key = "nodes" if "nodes" in data else None
+    if nodes_key is None or not isinstance(data[nodes_key], list):
+        raise ValueError("Graph validation failed: 'nodes' must be a list.")
+
+    new_count = len(data[nodes_key])
+
+    # Check for catastrophic node loss
+    if existing_path:
+        import json as _json
+        from pathlib import Path as _P
+        existing = _P(existing_path)
+        if existing.exists():
+            try:
+                old_data = _json.loads(existing.read_text(encoding="utf-8"))
+                old_count = len(old_data.get("nodes", []))
+                if old_count > 0 and new_count == 0:
+                    raise ValueError(
+                        f"Graph validation failed: saving 0 nodes would wipe {old_count} existing nodes. "
+                        "Use force=True to override."
+                    )
+                if old_count > 10 and new_count < old_count * 0.5:
+                    raise ValueError(
+                        f"Graph validation failed: node count dropping from {old_count} to {new_count} "
+                        f"({100*new_count/old_count:.0f}%). This may indicate data corruption. "
+                        "Use force=True to override."
+                    )
+            except (_json.JSONDecodeError, KeyError):
+                pass  # Existing file is already corrupt, allow overwrite
+
+
 def _write_with_lock(file_path: str, content: str) -> None:
     """Write content to a file with cross-platform file locking.
 
     Uses ``msvcrt.locking`` on Windows and ``fcntl.flock`` on Unix to
     prevent concurrent write corruption when multiple agents or processes
     access the same graph file.
+    """
+    lock_path = file_path + ".lock"
+    fd = None
+    try:
+        fd = _acquire_lock(lock_path)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    finally:
+        _release_lock(fd, lock_path)
+
+
+def _read_modify_write(file_path: str, modify_fn) -> None:
+    """Atomically read a JSON file, modify it, and write it back under lock.
+
+    This prevents the read-modify-write race condition (DF-006) where
+    concurrent processes read the same state and overwrite each other.
 
     Parameters
     ----------
     file_path:
-        Path to the file to write.
-    content:
-        The string content to write (UTF-8 encoded).
+        Path to the JSON file.
+    modify_fn:
+        Callable that receives the parsed JSON data dict, modifies it
+        in-place (or returns a new dict), and returns the modified data.
     """
-    import sys as _sys
-    import time as _time
+    import json as _json
 
     lock_path = file_path + ".lock"
+    fd = None
+    try:
+        fd = _acquire_lock(lock_path)
 
-    if _sys.platform == "win32":
-        import msvcrt
-        # On Windows, use msvcrt.locking with a lock file
-        fd = None
+        # Read current state under lock
         try:
-            fd = open(lock_path, "w")
-            # Retry locking up to 10 times with 100ms delay
-            for attempt in range(10):
-                try:
-                    msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except (IOError, OSError):
-                    if attempt == 9:
-                        raise
-                    _time.sleep(0.1)
-            # Write the actual file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            # Unlock
-            try:
-                fd.seek(0)
-                msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
-            except (IOError, OSError):
-                pass
-        finally:
-            if fd is not None:
-                fd.close()
-            # Clean up lock file (best effort)
-            try:
-                import os
-                os.unlink(lock_path)
-            except OSError:
-                pass
-    else:
-        import fcntl
-        fd = None
-        try:
-            fd = open(lock_path, "w")
-            fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-        finally:
-            if fd is not None:
-                fd.close()
-            try:
-                import os
-                os.unlink(lock_path)
-            except OSError:
-                pass
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+        except (FileNotFoundError, _json.JSONDecodeError):
+            data = {"directed": True, "multigraph": False, "graph": {},
+                    "nodes": [], "links": []}
+
+        # Modify
+        result = modify_fn(data)
+        if result is not None:
+            data = result
+
+        # Validate before writing
+        _validate_graph_data(data, existing_path=None)
+
+        # Write back under same lock
+        content = _json.dumps(data, indent=2, default=str)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    finally:
+        _release_lock(fd, lock_path)
 
 
 class Graqle:
@@ -1621,12 +1715,18 @@ class Graqle:
         Uses file-level locking to prevent concurrent write corruption
         when multiple agents access the same graph file. Cross-platform:
         uses ``msvcrt`` on Windows and ``fcntl`` on Unix.
+
+        Validates graph data before writing to prevent corruption (DF-005).
         """
         import json as _json
         from pathlib import Path as _Path
 
         G = self.to_networkx()
         data = nx.node_link_data(G, edges="links")
+
+        # Validate before saving (DF-005: prevent MagicMock/corruption writes)
+        _validate_graph_data(data, existing_path=path)
+
         content = _json.dumps(data, indent=2, default=str)
 
         file_path = _Path(path)

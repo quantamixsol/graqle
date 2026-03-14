@@ -40,6 +40,12 @@ Thumbs.db
 # Traces
 traces/
 
+# Graph data (large, user-specific)
+graqle.json
+.graqle-scan-state.json
+.graqle-doc-manifest.json
+*.json.lock
+
 # Benchmark data (large files)
 graqle/benchmarks/data/
 benchmarks/data/

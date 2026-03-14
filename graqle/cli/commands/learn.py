@@ -71,6 +71,67 @@ def _load_graph(graph_path: str = "graqle.json"):
     return Graqle.from_json(str(gpath), config=config), str(gpath)
 
 
+class _graph_lock:
+    """Context manager for atomic graph read-modify-write (DF-006).
+
+    Holds a file lock across the entire load → modify → save sequence
+    to prevent concurrent processes from overwriting each other's changes.
+
+    Usage::
+
+        with _graph_lock(graph_path) as (graph, gpath):
+            graph.add_node_simple(...)
+            # Lock is held until save completes
+        # Lock released, graph saved
+    """
+
+    def __init__(self, graph_path: str = "graqle.json"):
+        from graqle.core.graph import _acquire_lock
+        self._graph_path = graph_path
+        self._lock_path = graph_path + ".lock"
+        self._fd = None
+
+    def __enter__(self):
+        from graqle.core.graph import Graqle, _acquire_lock
+        from graqle.config.settings import GraqleConfig
+
+        # Acquire lock BEFORE reading
+        self._fd = _acquire_lock(self._lock_path)
+
+        config = GraqleConfig.default()
+        config_file = Path("graqle.yaml")
+        if config_file.exists():
+            config = GraqleConfig.from_yaml(str(config_file))
+
+        gpath = Path(self._graph_path)
+        if not gpath.exists():
+            console.print(f"[red]Graph file not found: {self._graph_path}[/red]")
+            raise typer.Exit(1)
+
+        graph = Graqle.from_json(str(gpath), config=config)
+        self._graph = graph
+        self._gpath = str(gpath)
+        return graph, self._gpath
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        from graqle.core.graph import _release_lock, _validate_graph_data
+        import json as _json
+
+        try:
+            if exc_type is None:
+                # Save under the same lock (no race window)
+                G = self._graph.to_networkx()
+                import networkx as _nx
+                data = _nx.node_link_data(G, edges="links")
+                _validate_graph_data(data)
+                content = _json.dumps(data, indent=2, default=str)
+                with open(self._gpath, "w", encoding="utf-8") as f:
+                    f.write(content)
+        finally:
+            _release_lock(self._fd, self._lock_path)
+        return False
+
+
 @learn_app.command("node")
 def learn_node(
     node_id: str = typer.Argument(..., help="Unique node ID"),
@@ -299,49 +360,48 @@ def learn_knowledge(
     """
     from datetime import datetime, timezone
 
-    graph, gpath = _load_graph(graph_path)
+    # Use _graph_lock for atomic read-modify-write (DF-006)
+    with _graph_lock(graph_path) as (graph, gpath):
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        node_id = f"knowledge_{domain}_{ts}"
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    node_id = f"knowledge_{domain}_{ts}"
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+        # Extract entities from the fact text
+        extracted_entities: list[str] = []
+        if extract_entities:
+            extracted_entities = _extract_entities(fact)
 
-    # Extract entities from the fact text
-    extracted_entities: list[str] = []
-    if extract_entities:
-        extracted_entities = _extract_entities(fact)
-
-    graph.add_node_simple(
-        node_id,
-        label=fact[:80],
-        entity_type="KNOWLEDGE",
-        description=fact,
-        properties={
-            "source": "graq_learn_knowledge",
-            "domain": domain,
-            "tags": tag_list,
-            "created": ts,
-            "manual": True,
-            "extracted_entities": extracted_entities,
-        },
-    )
-
-    # Semantic auto-connect to existing nodes
-    auto_edges = 0
-    if hasattr(graph, "semantic_auto_connect"):
-        method = "auto" if semantic else "keyword"
-        auto_edges = graph.semantic_auto_connect(
-            [node_id], threshold=threshold, method=method,
+        graph.add_node_simple(
+            node_id,
+            label=fact[:80],
+            entity_type="KNOWLEDGE",
+            description=fact,
+            properties={
+                "source": "graq_learn_knowledge",
+                "domain": domain,
+                "tags": tag_list,
+                "created": ts,
+                "manual": True,
+                "extracted_entities": extracted_entities,
+            },
         )
 
-    # Entity-based connections: link extracted entities to matching nodes
-    entity_edges = 0
-    if extracted_entities:
-        entity_edges = _connect_extracted_entities(
-            graph, node_id, extracted_entities, domain,
-        )
+        # Semantic auto-connect to existing nodes
+        auto_edges = 0
+        if hasattr(graph, "semantic_auto_connect"):
+            method = "auto" if semantic else "keyword"
+            auto_edges = graph.semantic_auto_connect(
+                [node_id], threshold=threshold, method=method,
+            )
 
-    graph.to_json(gpath)
+        # Entity-based connections: link extracted entities to matching nodes
+        entity_edges = 0
+        if extracted_entities:
+            entity_edges = _connect_extracted_entities(
+                graph, node_id, extracted_entities, domain,
+            )
 
+    # Lock released, graph saved — now print results
     console.print(f"[green]{CHECK} Knowledge taught:[/green] {fact[:60]}...")
     console.print(f"  Domain: {domain} | Node: {node_id}")
     if tag_list:
