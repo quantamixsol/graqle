@@ -1,26 +1,6 @@
 Graqle — Governed Intelligence through Graph-of-Agents Reasoning
 Copyright 2026 Quantamix Solutions B.V.
 
-INTELLECTUAL PROPERTY NOTICE
-============================
-
-This software implements methods described in:
-
-  European Patent Application EP26162901.8
-  "Method and system for trust-aware multi-signal document retrieval
-   with graph-based compliance scoring and gap attribution for
-   regulatory AI systems"
-  Filed: 6 March 2026
-  Applicant: Quantamix Solutions B.V.
-  Inventor: Harish Kumar
-
-The following components are covered by the patent claims:
-
-  - Prize-Collecting Steiner Tree (PCST) activation for subgraph selection
-  - TRACE score computation (Trust, Relevance, Accuracy, Completeness, Evidence)
-  - Gap attribution scoring for regulatory compliance
-  - TAMRConnector integration pipeline (TRACE priors -> PCST activation)
-
 OPEN SOURCE LICENSE
 ===================
 
@@ -28,21 +8,12 @@ The Graqle SDK source code is licensed under the Apache License 2.0.
 You may use, modify, and distribute this software in accordance with the
 Apache 2.0 license terms.
 
-The patent rights are separately held. Use of the patented methods in
-commercial products or services may require a separate patent license
-from Quantamix Solutions B.V. Contact: harish.kumar@quantamixsolutions.com
+Certain methods implemented in this software are protected by patent rights
+held by Quantamix Solutions B.V. Commercial use of patented methods may
+require a separate license. Contact: harish.kumar@quantamixsolutions.com
 
 ACADEMIC AND RESEARCH USE
 =========================
 
-Academic and non-commercial research use of all components, including
-patented methods, is permitted without additional licensing.
-
-CITATION
-========
-
-If you use Graqle in academic work, please cite:
-
-  H. Kumar, "Graqle: Governed Intelligence through Graph-of-Agents
-  Reasoning over Knowledge Graph Topologies with Semantic SHACL Validation,"
-  arXiv preprint, March 2026. Quantamix Solutions B.V.
+Academic and non-commercial research use of all components is permitted
+without additional licensing.

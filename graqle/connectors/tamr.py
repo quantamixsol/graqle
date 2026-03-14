@@ -51,10 +51,10 @@ class PipelineConfig:
     # TAMR+ API settings (for live mode)
     tamr_api_url: str = ""
     tamr_api_key: str = ""
-    # TRACE score -> node prior mapping
-    trace_weight: float = 0.5  # How much TRACE influences activation prize
-    relevance_weight: float = 0.3
-    gap_weight: float = 0.2
+    # TRACE score -> node prior mapping (weights configured externally)
+    trace_weight: float = 0.0
+    relevance_weight: float = 0.0
+    gap_weight: float = 0.0
     # Graqle reasoning settings
     max_rounds: int = 3
     activation_strategy: str = "pcst"
@@ -71,7 +71,7 @@ class TAMRConnector:
 
     Usage (live — via API):
         connector = TAMRConnector(PipelineConfig(
-            tamr_api_url="https://api.tracegov.ai/tamr",
+            tamr_api_url="https://your-tamr-api.example.com",
             tamr_api_key="..."
         ))
         result = await connector.retrieve_and_reason(query)
@@ -103,11 +103,11 @@ class TAMRConnector:
         return self.load_from_dict(data)
 
     def compute_node_prior(self, doc: TAMRDocument) -> float:
-        """Compute activation prior from TRACE scores.
-
-        Higher TRACE score -> higher prior -> more likely to be activated.
-        """
+        """Compute activation prior from TRACE scores."""
+        # Proprietary scoring — configure weights via PipelineConfig
         cfg = self._config
+        if not any([cfg.trace_weight, cfg.relevance_weight, cfg.gap_weight]):
+            return doc.trace_score  # passthrough if no weights configured
         prior = (
             cfg.trace_weight * doc.trace_score
             + cfg.relevance_weight * doc.relevance_score

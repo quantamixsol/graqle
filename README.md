@@ -12,7 +12,6 @@ The **Q** stands for Query, Quality, and Quantified reasoning. Zero cloud. Any I
 [![Tests: 1655 passing](https://img.shields.io/badge/tests-1655%20passing-06b6d4.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
-[![Patent](https://img.shields.io/badge/patent-EP26162901.8-06b6d4.svg)](NOTICE)
 
 [Website](https://graqle.com) · [PyPI](https://pypi.org/project/graqle/) · [GitHub](https://github.com/quantamixsol/graqle) · [Changelog](CHANGELOG.md)
 
