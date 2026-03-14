@@ -70,12 +70,38 @@ class AsyncMessageProtocol:
     def __init__(
         self,
         max_waves: int = 5,
-        wave_timeout: float = 30.0,
+        wave_timeout: float = 120.0,
         mailbox_capacity: int = 100,
     ) -> None:
         self.max_waves = max_waves
         self.wave_timeout = wave_timeout
         self.mailbox_capacity = mailbox_capacity
+
+    @staticmethod
+    def adaptive_wave_timeout(
+        node_count: int,
+        activated_nodes: int = 0,
+        *,
+        floor: float = 120.0,
+        scale: float = 0.03,
+    ) -> float:
+        """Calculate adaptive wave timeout based on graph size.
+
+        Prevents premature wave cancellation on large graphs where
+        Sonnet/Opus reasoning takes longer due to more context.
+
+        Formula: max(floor, node_count * scale) seconds
+        Default: max(120, nodes * 0.03) → 3,749 nodes = 120s, 10K nodes = 300s
+
+        Parameters
+        ----------
+        node_count : total nodes in the graph
+        activated_nodes : nodes activated for this query (0 = use node_count)
+        floor : minimum timeout in seconds (default 120)
+        scale : seconds per node (default 0.03)
+        """
+        basis = activated_nodes if activated_nodes > 0 else node_count
+        return max(floor, basis * scale)
 
     async def run(
         self,

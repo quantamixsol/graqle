@@ -114,8 +114,8 @@ def server(mock_graph):
 # ---------------------------------------------------------------------------
 
 class TestToolDefinitions:
-    def test_eight_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 8
+    def test_nine_tools_defined(self):
+        assert len(TOOL_DEFINITIONS) == 9
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -128,6 +128,7 @@ class TestToolDefinitions:
             "graq_impact",
             "graq_learn",
             "graq_reload",
+            "graq_audit",
         }
         assert names == expected
 
@@ -158,7 +159,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 8
+        assert len(tools) == 9
 
 
 # ---------------------------------------------------------------------------

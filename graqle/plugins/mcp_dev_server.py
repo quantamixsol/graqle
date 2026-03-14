@@ -306,6 +306,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {},
         },
     },
+    {
+        "name": "graq_audit",
+        "description": (
+            "Deep health audit of knowledge graph chunk coverage. "
+            "Goes beyond validate (which checks descriptions) to audit "
+            "the actual evidence chunks that reasoning agents depend on. "
+            "Catches hollow KGs where nodes have descriptions but no chunks. "
+            "Returns health status: CRITICAL, WARNING, MODERATE, or HEALTHY."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fix": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Auto-synthesize chunks for hollow nodes",
+                },
+                "verbose": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Include per-node chunk details in output",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -580,6 +605,7 @@ class KogniDevServer:
             "graq_impact": self._handle_impact,
             "graq_learn": self._handle_learn,
             "graq_reload": self._handle_reload,
+            "graq_audit": self._handle_audit,
         }
 
         handler = handlers.get(name)
@@ -1229,6 +1255,46 @@ class KogniDevServer:
             "current_nodes": new_count,
             "graph_file": self._graph_file,
         })
+
+    # ── 9. graq_audit ─────────────────────────────────────────────
+
+    async def _handle_audit(self, args: dict[str, Any]) -> str:
+        """Deep chunk health audit of the knowledge graph."""
+        graph = self._load_graph()
+        if graph is None:
+            return json.dumps({"error": "No graph loaded."})
+
+        fix = args.get("fix", False)
+        verbose = args.get("verbose", False)
+
+        # Reuse the audit logic from the CLI command
+        from graqle.cli.commands.audit import _run_audit
+
+        report = _run_audit(graph)
+
+        # Apply fix if requested
+        if fix and report["nodes_without_chunks"]:
+            before = report["nodes_with_chunks"]
+            graph.rebuild_chunks(force=False)
+            report = _run_audit(graph)
+            report["fix_applied"] = True
+            report["nodes_gained_chunks"] = report["nodes_with_chunks"] - before
+
+            # Persist if graph file is known
+            if self._graph_file:
+                try:
+                    graph.to_json(self._graph_file)
+                    report["saved_to"] = self._graph_file
+                except Exception as exc:
+                    report["save_error"] = str(exc)
+
+        # Trim hollow_nodes detail unless verbose
+        if not verbose and report.get("hollow_nodes"):
+            report["hollow_nodes_sample"] = report["hollow_nodes"][:5]
+            report["hollow_nodes_total"] = len(report["hollow_nodes"])
+            del report["hollow_nodes"]
+
+        return json.dumps(report, indent=2)
 
     # ------------------------------------------------------------------
     # Shared helpers
