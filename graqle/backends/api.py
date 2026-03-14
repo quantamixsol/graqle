@@ -214,11 +214,11 @@ class BedrockBackend(BaseBackend):
     def __init__(
         self,
         model: str = "anthropic.claude-haiku-4-5-20251001-v1:0",
-        region: str = "eu-central-1",
+        region: str | None = None,
         max_retries: int = MAX_RETRIES,
     ) -> None:
         self._model = model
-        self._region = region
+        self._region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
         self._client = None
         self._max_retries = max_retries
         # Cumulative token/cost tracking

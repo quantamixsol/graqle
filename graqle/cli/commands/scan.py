@@ -1230,3 +1230,386 @@ def scan_repo(
     console.print(f"[green bold]Scan complete.[/green bold] "
                   f"{len(data['nodes'])} nodes, {len(data['links'])} edges")
     console.print(f"[dim]Saved to:[/dim] {out_path.resolve()}")
+
+
+# ---------------------------------------------------------------------------
+# Document scan commands
+# ---------------------------------------------------------------------------
+
+
+@scan_app.command("docs")
+def scan_docs(
+    path: str = typer.Argument(".", help="Directory to scan for documents"),
+    output: str = typer.Option("graqle.json", "--output", "-o", help="Graph file path"),
+    background: bool = typer.Option(False, "--background", "-b", help="Run in background"),
+    no_link: bool = typer.Option(False, "--no-link", help="Skip auto-linking to code"),
+    no_redact: bool = typer.Option(False, "--no-redact", help="Skip privacy redaction"),
+    max_files: int = typer.Option(0, "--max-files", help="Max files to scan (0=unlimited)"),
+    max_nodes: int = typer.Option(0, "--max-nodes", help="Max nodes to create (0=unlimited)"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+) -> None:
+    """Scan documents (MD, TXT, PDF, DOCX, ...) and add to the knowledge graph.
+
+    Discovers documents recursively, parses them into sections, creates
+    Document and Section nodes, and auto-links to existing code nodes.
+    """
+    from graqle.scanner.docs import DocScanOptions, DocumentScanner
+
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    root = Path(path).resolve()
+    if not root.exists():
+        console.print(f"[red]Path not found:[/red] {root}")
+        raise typer.Exit(1)
+
+    graph_path = Path(output)
+    nodes, edges = _load_graph_data(graph_path)
+    manifest_path = graph_path.parent / ".graqle-doc-manifest.json"
+
+    opts = DocScanOptions(
+        link_exact=not no_link,
+        link_fuzzy=not no_link,
+        redaction_enabled=not no_redact,
+        max_files=max_files,
+        max_nodes=max_nodes,
+    )
+
+    scanner = DocumentScanner(nodes, edges, options=opts, manifest_path=manifest_path)
+
+    if background:
+        from graqle.scanner.background import BackgroundScanManager
+
+        files = scanner._discover_files(root)
+        mgr = BackgroundScanManager(graph_path.parent)
+
+        def run_scan(progress_cb):
+            return scanner.scan_files(files, root, progress_callback=progress_cb)
+
+        mgr.start(run_scan, len(files))
+        console.print(f"[cyan]Background doc scan started:[/cyan] {len(files)} files")
+        console.print("[dim]Use 'graq scan status' to check progress.[/dim]")
+        return
+
+    # Foreground scan with progress
+    from rich.progress import Progress
+
+    with Progress(console=console) as progress:
+        task = progress.add_task("[cyan]Scanning documents...", total=0)
+
+        def progress_cb(fp, idx, total):
+            progress.update(task, total=total, completed=idx,
+                            description=f"[cyan]{fp.name}")
+
+        result = scanner.scan_directory(root, progress_callback=progress_cb)
+        progress.update(task, completed=result.files_total)
+
+    _save_graph_data(graph_path, nodes, edges)
+    _print_doc_scan_summary(result)
+
+
+@scan_app.command("file")
+def scan_file(
+    path: str = typer.Argument(..., help="Path to a single document file"),
+    output: str = typer.Option("graqle.json", "--output", "-o", help="Graph file path"),
+    no_link: bool = typer.Option(False, "--no-link", help="Skip auto-linking"),
+    no_redact: bool = typer.Option(False, "--no-redact", help="Skip redaction"),
+) -> None:
+    """Scan a single document file and add to the knowledge graph."""
+    from graqle.scanner.docs import DocScanOptions, DocumentScanner
+
+    fp = Path(path).resolve()
+    if not fp.is_file():
+        console.print(f"[red]File not found:[/red] {fp}")
+        raise typer.Exit(1)
+
+    graph_path = Path(output)
+    nodes, edges = _load_graph_data(graph_path)
+    manifest_path = graph_path.parent / ".graqle-doc-manifest.json"
+
+    opts = DocScanOptions(
+        link_exact=not no_link,
+        link_fuzzy=not no_link,
+        redaction_enabled=not no_redact,
+    )
+    scanner = DocumentScanner(nodes, edges, options=opts, manifest_path=manifest_path)
+    result = scanner.scan_file(fp)
+
+    _save_graph_data(graph_path, nodes, edges)
+    _print_doc_scan_summary(result)
+
+
+@scan_app.command("all")
+def scan_all(
+    path: str = typer.Argument(".", help="Repository path"),
+    output: str = typer.Option("graqle.json", "--output", "-o", help="Output file"),
+    depth: int = typer.Option(5, "--depth", "-d", help="Max directory depth for code"),
+    include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
+    no_docs: bool = typer.Option(False, "--no-docs", help="Skip document scanning"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    exclude: Optional[list[str]] = typer.Option(
+        None, "--exclude", "-e", help="Patterns to exclude"),
+) -> None:
+    """Scan code (foreground) + JSON (foreground) + documents (background).
+
+    Scanning order: Code AST → JSON configs → Documents.
+    JSON is scanned immediately after code because it's fast and produces
+    bridge nodes that help document linking.
+    """
+    # Step 1: Code scan (foreground)
+    scan_repo(path=path, output=output, depth=depth,
+              include_tests=include_tests, verbose=verbose, exclude=exclude)
+
+    # Step 2: JSON scan (foreground — fast, produces bridge nodes)
+    console.print()
+    console.print("[bold cyan]Phase 2:[/bold cyan] Scanning JSON configs...")
+    try:
+        from graqle.scanner.json_parser import JSONScanner
+
+        root = Path(path).resolve()
+        gp = Path(output)
+        nodes, edges = _load_graph_data(gp)
+        json_scanner = JSONScanner(nodes, edges)
+        json_result = json_scanner.scan_directory(root)
+        if json_result.nodes_added > 0:
+            _save_graph_data(gp, nodes, edges)
+            console.print(
+                f"  [green]✓[/green] JSON: {json_result.files_scanned} files, "
+                f"{json_result.nodes_added} nodes, {json_result.edges_added} edges "
+                f"({json_result.duration_seconds:.1f}s)"
+            )
+        else:
+            console.print("  [dim]No JSON knowledge files found.[/dim]")
+    except Exception as exc:
+        console.print(f"  [yellow]JSON scan skipped: {exc}[/yellow]")
+
+    if no_docs:
+        return
+
+    # Step 3: Doc scan (background)
+    console.print()
+    scan_docs(path=path, output=output, background=True, no_link=False,
+              no_redact=False, max_files=0, max_nodes=0, verbose=verbose)
+
+
+@scan_app.command("status")
+def scan_status() -> None:
+    """Show background document scan progress."""
+    from graqle.scanner.background import BackgroundScanManager
+
+    mgr = BackgroundScanManager(".")
+    progress = mgr.get_progress()
+
+    if progress.status == "idle":
+        console.print("[dim]No background scan in progress.[/dim]")
+        return
+
+    pct = (progress.processed / progress.total * 100) if progress.total > 0 else 0
+
+    table = Table(title="Document Scan Status")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("Status", f"[bold]{progress.status}[/bold]")
+    table.add_row("Progress", f"{progress.processed}/{progress.total} ({pct:.0f}%)")
+    table.add_row("Current File", progress.current_file or "-")
+    table.add_row("Nodes Added", str(progress.nodes_added))
+    table.add_row("Edges Added", str(progress.edges_added))
+    table.add_row("Started", progress.started_at or "-")
+    if progress.completed_at:
+        table.add_row("Completed", progress.completed_at)
+    if progress.duration_seconds > 0:
+        table.add_row("Duration", f"{progress.duration_seconds:.1f}s")
+    if progress.errors:
+        table.add_row("Errors", str(len(progress.errors)))
+
+    console.print(table)
+
+
+@scan_app.command("wait")
+def scan_wait(
+    timeout: int = typer.Option(300, "--timeout", "-t", help="Max seconds to wait"),
+) -> None:
+    """Block until background document scan completes."""
+    from graqle.scanner.background import BackgroundScanManager
+    import time as _time
+
+    mgr = BackgroundScanManager(".")
+    progress = mgr.get_progress()
+
+    if progress.status not in ("running",):
+        console.print(f"[dim]No scan running (status: {progress.status}).[/dim]")
+        return
+
+    console.print("[cyan]Waiting for background scan to complete...[/cyan]")
+    deadline = _time.time() + timeout
+
+    while _time.time() < deadline:
+        progress = mgr.get_progress()
+        if progress.status != "running":
+            break
+        _time.sleep(1)
+
+    progress = mgr.get_progress()
+    console.print(f"[bold]Scan {progress.status}.[/bold] "
+                  f"{progress.nodes_added} nodes, {progress.edges_added} edges.")
+
+
+@scan_app.command("cancel")
+def scan_cancel() -> None:
+    """Cancel a running background document scan."""
+    from graqle.scanner.background import BackgroundScanManager
+
+    mgr = BackgroundScanManager(".")
+    progress = mgr.get_progress()
+
+    if progress.status != "running":
+        console.print("[dim]No scan running to cancel.[/dim]")
+        return
+
+    mgr.cancel()
+    console.print("[yellow]Background scan cancellation requested.[/yellow]")
+
+
+@scan_app.command("json")
+def scan_json(
+    path: str = typer.Argument(".", help="Directory to scan for JSON files"),
+    graph_path: str = typer.Option("graqle.json", "--graph", "-g"),
+) -> None:
+    """Scan JSON files (package.json, openapi.json, configs) for knowledge.
+
+    JSON is the bridge layer between code and documents — small, fast,
+    structured, and knowledge-dense. Extracts dependencies, API endpoints,
+    infrastructure resources, tool rules, and app config values.
+
+    Examples:
+        graq scan json .
+        graq scan json ./configs --graph my_graph.json
+    """
+    from graqle.scanner.json_parser import JSONScanner
+
+    root = Path(path).resolve()
+    if not root.is_dir():
+        console.print(f"[red]Not a directory:[/red] {root}")
+        raise typer.Exit(1)
+
+    gp = Path(graph_path)
+    nodes, edges = _load_graph_data(gp)
+
+    scanner = JSONScanner(nodes, edges)
+
+    from rich.progress import Progress
+
+    with Progress(console=console) as progress:
+        task = progress.add_task("[cyan]Scanning JSON files...", total=0)
+
+        def progress_cb(fp, idx, total):
+            progress.update(task, total=total, completed=idx,
+                            description=f"[cyan]{fp.name}")
+
+        result = scanner.scan_directory(root, progress_callback=progress_cb)
+        progress.update(task, completed=result.files_scanned + result.files_skipped)
+
+    _save_graph_data(gp, nodes, edges)
+    _print_json_scan_summary(result)
+
+
+# ---------------------------------------------------------------------------
+# Helpers for doc scan CLI commands
+# ---------------------------------------------------------------------------
+
+
+def _load_graph_data(graph_path: Path) -> tuple[dict, dict]:
+    """Load nodes and edges from an existing graph JSON file."""
+    nodes: dict = {}
+    edges: dict = {}
+    if graph_path.is_file():
+        data = json.loads(graph_path.read_text(encoding="utf-8"))
+        for node in data.get("nodes", []):
+            nid = node.get("id", "")
+            nodes[nid] = {
+                "id": nid,
+                "label": node.get("label", nid),
+                "entity_type": node.get("type", node.get("entity_type", "CONCEPT")),
+                "description": node.get("description", ""),
+                "properties": {k: v for k, v in node.items()
+                               if k not in ("id", "label", "type", "entity_type", "description")},
+            }
+        for edge in data.get("links", data.get("edges", [])):
+            eid = f"{edge.get('source', '')}___{edge.get('relationship', 'RELATES_TO')}___{edge.get('target', '')}"
+            edges[eid] = {
+                "id": eid,
+                "source": edge.get("source", ""),
+                "target": edge.get("target", ""),
+                "relationship": edge.get("relationship", "RELATES_TO"),
+            }
+    return nodes, edges
+
+
+def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
+    """Save nodes and edges back to graph JSON."""
+    from graqle.core.graph import _write_with_lock
+
+    graph_nodes = []
+    for n in nodes.values():
+        node_data = {
+            "id": n["id"],
+            "label": n.get("label", n["id"]),
+            "type": n.get("entity_type", "CONCEPT"),
+            "description": n.get("description", ""),
+        }
+        node_data.update(n.get("properties", {}))
+        graph_nodes.append(node_data)
+
+    graph_edges = []
+    for e in edges.values():
+        graph_edges.append({
+            "source": e.get("source", ""),
+            "target": e.get("target", ""),
+            "relationship": e.get("relationship", "RELATES_TO"),
+        })
+
+    data = {
+        "directed": True,
+        "multigraph": False,
+        "graph": {},
+        "nodes": graph_nodes,
+        "links": graph_edges,
+    }
+
+    content = json.dumps(data, indent=2, default=str)
+    graph_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_with_lock(str(graph_path), content)
+    console.print(f"[dim]Saved graph:[/dim] {graph_path} ({len(nodes)} nodes, {len(edges)} edges)")
+
+
+def _print_json_scan_summary(result) -> None:
+    """Print a summary table for a JSON scan result."""
+    table = Table(title="JSON Scan Summary")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", justify="right")
+    table.add_row("Files Scanned", str(result.files_scanned))
+    table.add_row("Files Skipped", str(result.files_skipped))
+    table.add_row("Files Errored", str(result.files_errored))
+    table.add_row("Nodes Added", str(result.nodes_added))
+    table.add_row("Edges Added", str(result.edges_added))
+    table.add_row("Duration", f"{result.duration_seconds:.2f}s")
+    if result.categories_found:
+        table.add_row("", "")
+        for cat, count in sorted(result.categories_found.items()):
+            table.add_row(f"  {cat}", str(count))
+    console.print(table)
+
+
+def _print_doc_scan_summary(result) -> None:
+    """Print a summary table for a document scan result."""
+    table = Table(title="Document Scan Summary")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", justify="right")
+    table.add_row("Files Scanned", str(result.files_scanned))
+    table.add_row("Files Skipped", str(result.files_skipped))
+    table.add_row("Files Errored", str(result.files_errored))
+    table.add_row("Nodes Added", str(result.nodes_added))
+    table.add_row("Edges Added", str(result.edges_added))
+    table.add_row("Stale Removed", str(result.stale_removed))
+    table.add_row("Duration", f"{result.duration_seconds:.2f}s")
+    console.print(table)

@@ -588,7 +588,7 @@ def _build_graqle_yaml(
     # AWS authentication uses IAM credentials (via aws configure or
     # env vars AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY), not an API key.
     if backend == "bedrock":
-        model_cfg["region"] = api_key_ref if not api_key_ref.startswith("${") else "eu-central-1"
+        model_cfg["region"] = api_key_ref if not api_key_ref.startswith("${") else (os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1")
     else:
         model_cfg["api_key"] = api_key_ref
 
@@ -655,9 +655,24 @@ def _resolve_graq_command() -> str:
     ``C:\\Users\\...\\Scripts\\graq.exe``.  Falls back to bare ``"graq"``
     with a console warning when the executable is not on PATH.
     """
+    # Try standard PATH lookup
     full_path = shutil.which("graq")
     if full_path:
         return full_path
+
+    # On Windows, try explicit .exe lookup
+    full_path = shutil.which("graq.exe")
+    if full_path:
+        return full_path
+
+    # Try common pip install paths
+    bin_path = Path(sys.prefix) / "bin" / "graq"
+    if bin_path.exists():
+        return str(bin_path)
+    scripts_path = Path(sys.prefix) / "Scripts" / "graq.exe"
+    if scripts_path.exists():
+        return str(scripts_path)
+
     console.print(
         "  [yellow]WARNING:[/yellow] Could not find 'graq' on PATH. "
         "Using bare 'graq' — MCP may fail if it is not resolvable.\n"
