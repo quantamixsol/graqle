@@ -4,12 +4,12 @@
 
 **Query your architecture, not your files.**
 
-Turn any codebase into a knowledge graph where every module is a reasoning agent.<br/>
-The **Q** stands for Query, Quality, and Quantified reasoning. Zero cloud. Any IDE. Any AI.
+The dev intelligence layer that turns any codebase into a self-learning knowledge graph.<br/>
+2,000+ tests. 396 modules compiled. 201 skills. Zero cloud required.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 1655 passing](https://img.shields.io/badge/tests-1655%20passing-06b6d4.svg)]()
+[![Tests: 2000+ passing](https://img.shields.io/badge/tests-2000%2B%20passing-06b6d4.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-06b6d4.svg)]()
 
@@ -19,65 +19,89 @@ The **Q** stands for Query, Quality, and Quantified reasoning. Zero cloud. Any I
 
 ---
 
-## The problem
-
-Every time you ask your AI assistant "what depends on the auth service?", it reads 60 files, burns 50,000 tokens, takes 20 minutes, and still gives you a best-guess answer.
-
-It doesn't understand your architecture. It just reads text.
-
-## The fix
+## 3 commands. That's it.
 
 ```bash
 pip install graqle[api]
-cd your-project
 graq init
-```
-
-That's it. Graqle scans your codebase, builds a knowledge graph, and wires up your IDE. Now ask:
-
-```bash
 graq reason "what breaks if I change auth?"
 ```
 
 **3 nodes activated. 500 tokens. 5 seconds. $0.0003.**
 
-Not 60 files. Not 50,000 tokens. Not $0.15. Not "maybe".
+Not 60 files. Not 50,000 tokens. Not $0.15. Not guessing.
 
 ---
 
-## What's new in v0.22.0
+## What Graqle does
 
-**Multi-provider LLM support + task-based model routing.** Use the right model for the right task — at the right cost.
+Your AI assistant reads files one at a time. It doesn't understand your architecture — it reads text.
 
-- **10 LLM providers** — Anthropic, OpenAI, Bedrock, Ollama, Gemini, Groq, DeepSeek, Mistral, Together, OpenRouter, Fireworks, Cohere. One config line: `backend: groq`.
-- **Google Gemini backend** — Native `generateContent` API support. Not a wrapper — proper Gemini integration with per-model pricing.
-- **Task-based routing** — Map task types (context, reason, preflight, impact, lessons, learn) to different providers. Fast lookups → Groq. Deep reasoning → Anthropic. Your rules, your choice.
-- **Built-in recommendations** — `graq doctor` detects configured providers and suggests which models suit which tasks. Never auto-switches — you decide.
-- **Provider presets** — `create_provider_backend("groq")` auto-resolves endpoint, env var, and per-model pricing. Zero config for 7 OpenAI-compatible providers.
+Graqle builds a **knowledge graph** of your entire codebase. Every module becomes a reasoning agent. When you ask a question, only the relevant nodes activate, reason about their domain, and synthesize one answer.
 
-**1,655 tests passing.** See the full [Changelog](CHANGELOG.md).
+```
+pip install graqle → graq init → Knowledge Graph
+                                       │
+             ┌──────────┬──────────────┼──────────┐
+             ▼          ▼              ▼          ▼
+           CLI      Python SDK     MCP Server  Studio UI
+        (terminal)  (scripts)      (any IDE)   (dashboard)
+```
+
+**The graph is the product.** Your machine, your API keys, your data.
 
 ---
 
-## How it works
+## What's new in v0.26.0
 
-**Graqle turns your codebase into a graph where every module is an autonomous reasoning agent.** When you ask a question:
+### Intelligence Compilation
 
-1. The right nodes activate (3 instead of 300)
-2. Each agent reasons about its own domain
-3. Agents cross-reference and synthesize one answer
-4. You get the answer, confidence score, and cost — transparently
+Graqle now **compiles** your knowledge graph into actionable intelligence:
 
-```
-Your Codebase ──→ graq init ──→ Knowledge Graph
-                                      │
-              ┌──────────┬────────────┼──────────┐
-              ▼          ▼            ▼          ▼
-            CLI      Python SDK   MCP Server  REST API
-         (terminal)  (scripts)    (IDE)       (HTTP)
+```bash
+graq compile                    # Compile intelligence from your graph
 ```
 
-**The graph is the product.** Query it from any IDE, any terminal, any script. Your machine, your API keys, your data.
+This produces a `.graqle/intelligence/` directory with:
+- **396 module packets** — risk scores, impact radius, consumers, dependencies
+- **135 insights** — warnings, suggestions, connections, superlatives
+- **Risk heatmap data** — LOW/MEDIUM/HIGH/CRITICAL per module
+- **CLAUDE.md auto-injection** — your AI assistant learns your architecture automatically
+
+### Governance Gate (DRACE)
+
+Every reasoning session is scored on 5 axes: **D**ata quality, **R**elevance, **A**ccuracy, **C**ompleteness, **E**vidence strength.
+
+```bash
+graq verify                     # Pre-commit governance check
+```
+
+- Hash-chained audit trails (tamper-evident)
+- Evidence chains linking decisions to source
+- Scope gates preventing out-of-domain reasoning
+- Auto-recompile when intelligence goes stale
+
+### Multi-Signal Activation (Neo4j)
+
+Gate + Rerank: semantic score gates everything, topology signals only amplify.
+
+```
+final = semantic × (1 + authority + memory + link + freshness)
+```
+
+Max amplification: 1.45×. An irrelevant node can never sneak through.
+
+### Self-Learning Loop
+
+```
+graq learn → graph grows → git commit → auto-recompile → CLAUDE.md updates → AI gets smarter
+```
+
+The graph remembers which nodes produce useful answers. Gets better with every query.
+
+### Studio Dashboards
+
+6 new visual dashboards: Intelligence, Governance, Health, Learning, Control, Share.
 
 ---
 
@@ -98,65 +122,30 @@ No cloud account. No infrastructure. No config files to write.
 
 ## CLI
 
-### Reasoning & context
-
 ```bash
+# Reasoning
 graq reason "what depends on auth?"          # Graph reasoning
 graq context auth-lambda                      # 500-token focused context
 graq inspect --stats                          # Graph statistics
 graq "what is safe to refactor?"              # Natural language (auto-routed)
-```
 
-### Build & scan
-
-```bash
+# Build & compile
 graq init                                     # Scan repo, build graph, wire IDE
-graq scan repo .                              # Rescan codebase (code AST)
+graq scan repo .                              # Rescan codebase
 graq scan all .                               # Code + JSON + documents
-graq scan docs .                              # Documents only
-graq scan json .                              # JSON configs only
-graq scan file report.pdf                     # Single file
-graq scan status                              # Background scan progress
-graq scan wait                                # Block until background done
-graq scan cancel                              # Stop background scan
-graq rebuild --force                          # Rebuild all chunks
-```
+graq compile                                  # Compile intelligence layer
+graq verify                                   # Governance gate + staleness check
 
-### Teach the graph
-
-```bash
+# Teach
 graq learn node "auth-service" --type SERVICE
-graq learn entity "Payments" --type SERVICE
-graq learn knowledge "Auth uses RSA-256" --domain technical
-graq learn edge "Payments" "auth-service" -r DEPENDS_ON
+graq learn edge "Payments" "auth" -r DEPENDS_ON
 graq learn discover --from "auth-service"     # Auto-discover connections
-graq learn doc architecture.pdf               # On-demand document ingestion
-graq learn doc ./compliance-docs/             # Bulk directory ingestion
-```
+graq learn doc architecture.pdf               # Document ingestion
 
-### Multi-project
-
-```bash
-graq link merge proj1/kg.json proj2/kg.json   # Merge knowledge graphs
-graq link edge crawlq/sdk myapp/retrieval     # Cross-project edges
-```
-
-### Dashboard & server
-
-```bash
-graq studio                                   # Launch local web UI
+# Studio & server
+graq studio                                   # Launch visual dashboard
 graq serve                                    # Start REST API
-graq serve --read-only                        # Safe for subagents
-```
-
-### Utilities
-
-```bash
 graq doctor                                   # Health check
-graq setup-guide                              # Backend setup
-graq learned                                  # List taught knowledge
-graq self-update                              # Upgrade (handles exe locks)
-graq --version                                # Show version
 ```
 
 ## Python SDK
@@ -181,97 +170,6 @@ print(f"Confidence: {result.confidence:.0%}")
 print(f"Cost: ${result.cost_usd:.4f}")
 ```
 
-### Document scanning (SDK)
-
-```python
-from graqle.scanner.docs import DocumentScanner
-from graqle.scanner.json_parser import JSONScanner
-
-# Scan documents into existing graph
-scanner = DocumentScanner(graph_nodes, graph_edges)
-result = scanner.scan_directory("./docs")
-print(f"Added {result.nodes_added} nodes, {result.edges_added} edges")
-
-# Scan JSON configs
-json_scanner = JSONScanner(graph_nodes, graph_edges)
-json_result = json_scanner.scan_directory(".")
-print(f"Found {json_result.files_scanned} JSON knowledge files")
-```
-
-### Deduplication (SDK)
-
-```python
-from graqle.scanner.dedup import DedupOrchestrator
-
-dedup = DedupOrchestrator(graph_nodes, graph_edges)
-report = dedup.run()
-print(f"Merged {report.canonical_merges + report.unifier_merges} duplicates")
-print(f"Found {len(report.contradictions)} contradictions")
-```
-
-### Auto-detection (SDK)
-
-```python
-from graqle.scanner.autodetect import detect_environment
-
-env = detect_environment(".")
-print(f"Backend: {env.backend} ({env.region})")
-print(f"Languages: {env.languages}")
-print(f"IDE: {env.ide}")
-print(f"Capacity: {env.capacity} ({env.ram_gb}GB RAM)")
-```
-
-### Backend upgrade check (SDK)
-
-```python
-from graqle.connectors.upgrade import assess_upgrade
-
-assessment = assess_upgrade(
-    node_count=len(graph.nodes),
-    edge_count=len(graph.edges),
-    current_backend="networkx",
-)
-if assessment.should_upgrade:
-    print(assessment.summary)
-    # "Recommended: upgrade from networkx → neo4j. Reason: Graph has 6,200 nodes"
-```
-
-## REST API
-
-```bash
-graq serve                    # Start on localhost:8000
-
-curl -X POST localhost:8000/reason \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What depends on auth?"}'
-```
-
-```json
-{
-  "answer": "billing-api and notifications depend on auth via JWT...",
-  "confidence": 0.87,
-  "cost_usd": 0.0023,
-  "latency_ms": 1250
-}
-```
-
-Interactive docs at `localhost:8000/docs`. Auth via `X-API-Key` header.
-
-## Studio (Visual Dashboard)
-
-```bash
-pip install graqle[studio]         # Adds uvicorn, fastapi, jinja2
-graq studio                        # Opens http://127.0.0.1:8888/studio/
-```
-
-| Page | URL | What it does |
-|------|-----|-------------|
-| **Dashboard** | `/studio/` | Overview: node/edge counts, type distribution, metrics |
-| **Graph Explorer** | `/studio/graph` | Interactive D3 force-directed visualization |
-| **Reasoning** | `/studio/reasoning` | Live reasoning with SSE streaming |
-| **Metrics** | `/studio/metrics` | Token usage, cost tracking, ROI calculations |
-| **Settings** | `/studio/settings` | Model config, Neo4j connection, graph reload |
-
 ## MCP Tools
 
 Available automatically in Claude Code, Cursor, VS Code, and Windsurf after `graq init`:
@@ -281,7 +179,7 @@ Available automatically in Claude Code, Cursor, VS Code, and Windsurf after `gra
 | `graq_context` | 500-token focused context (replaces reading entire files) |
 | `graq_reason` | Multi-agent graph reasoning |
 | `graq_impact` | "What breaks if I change X?" |
-| `graq_preflight` | Pre-change safety check (surfaces decisions & requirements) |
+| `graq_preflight` | Pre-change safety check |
 | `graq_lessons` | Surface past mistakes before you repeat them |
 | `graq_learn` | Teach the graph new knowledge |
 | `graq_inspect` | Graph structure inspection |
@@ -289,297 +187,51 @@ Available automatically in Claude Code, Cursor, VS Code, and Windsurf after `gra
 
 ---
 
-## Document-Aware Intelligence
+## Studio Dashboard
 
-Graqle is the first tool that connects **code intelligence** to **document intelligence** in one graph.
-
-### What it scans
-
-| Source | Format | What it extracts |
-|--------|--------|-----------------|
-| **Code** | Python, TypeScript, JavaScript, Go, Rust, Java | Functions, classes, modules, imports, call graphs |
-| **Documents** | PDF, DOCX, PPTX, XLSX, Markdown, TXT | Sections, decisions, requirements, procedures, stakeholders |
-| **JSON configs** | package.json, openapi.json, tsconfig, CDK, SAM | Dependencies, API endpoints, infrastructure resources, tool rules |
-
-### Scanning order
-
-```
-Phase 1 (immediate):   Code AST scan → user starts working
-Phase 2 (foreground):  JSON configs → bridge nodes created (fast)
-Phase 3 (background):  Documents → linked to code AND JSON nodes
+```bash
+graq studio                        # Opens http://127.0.0.1:8888/studio/
 ```
 
-### Auto-linking
-
-Documents are automatically linked to code:
-
-1. **Exact match** (free) — `auth_service.py` mentioned in doc → `REFERENCED_IN` edge
-2. **Fuzzy match** (free) — `AuthService` in doc ↔ `auth_service.py` in code
-3. **Semantic match** (opt-in) — embedding similarity > threshold → edge
-4. **LLM-assisted** (opt-in, budget-controlled) — structured relationship extraction
-
-### Cross-source deduplication
-
-When the same entity appears across code, docs, and configs:
-
-```
-Code:    verify_token()     ─┐
-Doc:     "verifyToken"       ├── Unified into single node
-Config:  verify-token        ─┘  (code is authoritative)
-```
-
-Source priority: Code > API spec > JSON config > User-taught > Documents.
-
-### Contradiction detection
-
-Finds stale docs nobody knew were wrong:
-
-```
-CONFIG  config/auth.json   timeout = 3600
-DOC     docs/security.pdf  timeout = 1800
-→ CONTRADICTION: numeric mismatch on "timeout"
-```
+| Page | What you see |
+|------|-------------|
+| **Intelligence** | Risk heatmap, module packets, 135 insights, impact matrix |
+| **Governance** | DRACE radar chart, audit timeline, evidence chains, shareable badge |
+| **Health** | Streak calendar, improvement suggestions, graph health trends |
+| **Learning** | Skill activations, domain breakdown, recompile history |
+| **Graph Explorer** | Interactive force-directed graph with intelligence overlay |
+| **Control** | Multi-instance management, cross-repo insights |
 
 ---
 
-## Auto-Scaling Backend
-
-Graqle starts with JSON/NetworkX (zero deps, instant). When your graph grows:
-
-| Graph size | Backend | What happens |
-|-----------|---------|-------------|
-| < 5,000 nodes | JSON/NetworkX | Default. Instant. Zero config. |
-| 5,000+ nodes | Neo4j Community | **Auto-recommended.** Migration handled. Backup created. |
-| Team/Enterprise | Neo4j / Neptune | Opt-in. Shared graphs, vector search, GDS analytics. |
-
-The upgrade is transparent — same API, same CLI, same MCP tools. Just faster.
-
-```bash
-pip install graqle[neo4j]     # Adds neo4j driver
-# Graqle auto-detects threshold and migrates
-```
-
----
-
-## Configuration
-
-### Zero config (default — works for 80% of users)
-
-```bash
-pip install graqle && graq init    # Auto-detects everything
-```
-
-### Light config (power users)
+## 14 backends, one config line
 
 ```yaml
-# graqle.yaml — only override what you need
+# graqle.yaml
 model:
-  backend: bedrock
-  model: anthropic.claude-sonnet-4-6
-  region: eu-central-1
-
-scan:
-  docs:
-    extensions: [".pdf", ".md", ".txt"]
-    linking:
-      semantic: true           # Enable embedding-based linking
-  json:
-    categories:
-      DATA_FILE: true          # Include data files (off by default)
-
-cost:
-  budget_per_query: 0.10
+  backend: groq    # or: anthropic, openai, bedrock, gemini, ollama, deepseek, mistral, ...
 ```
 
-### Full config reference
+| Backend | Cost | Setup |
+|---------|------|-------|
+| **Ollama** | **$0** (local) | `backend: ollama` |
+| **Anthropic** | ~$0.001/query | `backend: anthropic` |
+| **OpenAI** | ~$0.001/query | `backend: openai` |
+| **AWS Bedrock** | AWS pricing | `backend: bedrock` |
+| **Google Gemini** | ~$0.0001/query | `backend: gemini` |
+| **Groq** | ~$0.0005/query | `backend: groq` |
+| **DeepSeek** | ~$0.0001/query | `backend: deepseek` |
+| **Mistral** | ~$0.0002/query | `backend: mistral` |
+| **Together** | ~$0.0005/query | `backend: together` |
+| **OpenRouter** | Varies | `backend: openrouter` |
+| **Fireworks** | ~$0.0005/query | `backend: fireworks` |
+| **Cohere** | ~$0.0003/query | `backend: cohere` |
+| **vLLM** | Your GPU | `backend: local` |
+| **llama.cpp** | **$0** (CPU) | `backend: local` |
 
-<details>
-<summary>Click to expand</summary>
+### Task-based routing
 
-```yaml
-model:
-  backend: local               # local, anthropic, openai, bedrock, gemini, groq, deepseek, mistral, +5 more
-  model: Qwen/Qwen2.5-0.5B-Instruct
-  quantization: none
-  device: auto
-  api_key: ${ANTHROPIC_API_KEY}
-  region: ${AWS_DEFAULT_REGION}
-
-graph:
-  connector: networkx          # networkx, neo4j
-  uri: bolt://localhost:7687
-  username: neo4j
-  password: ${NEO4J_PASSWORD}
-
-activation:
-  strategy: chunk              # chunk, pcst, full, top_k
-  max_nodes: 50
-  embedding_model: sentence-transformers/all-MiniLM-L6-v2
-
-orchestration:
-  max_rounds: 5
-  min_rounds: 2
-  convergence_threshold: 0.95
-
-observer:
-  enabled: true
-  detect_conflicts: true
-  detect_patterns: true
-  use_llm_analysis: false
-
-cost:
-  budget_per_query: 0.10
-  prefer_local: true
-  fallback_to_api: true
-
-scan:
-  docs:
-    enabled: true
-    background: true
-    extensions: [".pdf", ".docx", ".pptx", ".xlsx", ".md", ".txt"]
-    exclude_patterns: []
-    max_file_size_mb: 50.0
-    chunk_max_chars: 1500
-    chunk_overlap_chars: 100
-    incremental: true
-    linking:
-      exact: true
-      fuzzy: true
-      semantic: false
-      llm_assisted: false
-      semantic_threshold: 0.70
-      fuzzy_threshold: 0.60
-    redaction:
-      enabled: true
-      redact_api_keys: true
-      redact_passwords: true
-      redact_tokens: true
-  json:
-    enabled: true
-    auto_detect: true
-    max_file_size_mb: 10.0
-    categories:
-      DEPENDENCY_MANIFEST: true
-      API_SPEC: true
-      TOOL_CONFIG: true
-      APP_CONFIG: true
-      INFRA_CONFIG: true
-      SCHEMA_FILE: true
-      DATA_FILE: false
-
-logging:
-  level: INFO
-  trace_messages: true
-  trace_dir: ./traces
-```
-
-</details>
-
----
-
-## Why this works (and others don't)
-
-Most "AI code tools" read files one at a time. That's fundamentally the wrong approach for architectural questions — you can't understand a system by reading files in isolation.
-
-Graqle is different because:
-
-**It understands relationships, not just text.** Your codebase is a graph of dependencies, ownership, and data flow. Graqle models that structure and reasons over it — so "what depends on auth?" traces actual dependency chains instead of grep-ing for the word "auth".
-
-**It connects code to docs to configs.** When your ADR says "use JWT" but your config has "session auth", Graqle finds the contradiction. When your OpenAPI spec defines `/api/auth/login`, Graqle links it to your `auth_handler.py`. One graph, all sources.
-
-**It's 541x cheaper.** Not estimated — measured. Reading 60 files costs ~50K tokens per query. Activating 3 graph nodes costs ~500. Over hundreds of queries per day, that's the difference between $50 and $0.09.
-
-**It tells you what it doesn't know.** Every answer includes a confidence score calibrated for graph size. When confidence is low, Graqle explains which knowledge is missing — it doesn't guess and hope you don't notice.
-
-**It scales itself.** Start with zero deps on a laptop. When your graph hits 5,000 nodes, Graqle auto-migrates to Neo4j — no config, no downtime, just a notification.
-
-**It keeps learning.** The graph auto-discovers new connections, remembers which nodes produce useful answers for which query patterns, and gets smarter with every interaction. Your dev environment develops institutional memory.
-
----
-
-## The numbers
-
-| Metric | Graqle | Reading files | Difference |
-|--------|--------|---------------|------------|
-| Tokens per query | **500** | 50,000 | **100x fewer** |
-| Cost per query | **$0.0003** | $0.15 | **541x cheaper** |
-| Time to answer | **<5 seconds** | 20 minutes | — |
-| Governance accuracy | **99.7%** | N/A | — |
-| Tests passing | **1,484** | — | — |
-
----
-
-## Installation
-
-### Minimal (no API keys needed)
-
-```bash
-pip install graqle
-```
-
-### With LLM backends
-
-```bash
-pip install graqle[api]            # Anthropic + OpenAI + Bedrock
-```
-
-### With document scanning
-
-```bash
-pip install graqle[docs]           # PDF, DOCX, PPTX, XLSX
-```
-
-### Full install
-
-```bash
-pip install graqle[all]            # Everything: api, docs, neo4j, embeddings, gpu, studio
-```
-
-### Optional groups
-
-| Group | What it adds | Use case |
-|-------|-------------|----------|
-| `api` | anthropic, openai, boto3 | Cloud LLM backends |
-| `docs` | pdfplumber, python-docx, python-pptx, openpyxl | Rich document parsing |
-| `neo4j` | neo4j driver | Graph database backend |
-| `embeddings` | sentence-transformers | Local embedding models |
-| `gpu` | torch, transformers, peft, vllm | GPU inference + LoRA |
-| `cpu` | llama-cpp-python | CPU inference (GGUF models) |
-| `studio` | fastapi, uvicorn, jinja2 | Visual dashboard |
-| `dev` | pytest, ruff, mypy, coverage | Development |
-
----
-
-## Backends
-
-Use whatever model you want. Mix providers per task type — fast models for lookups, smart models for reasoning.
-
-| Backend | Models | Cost | Setup |
-|---------|--------|------|-------|
-| **Ollama** | Qwen, Llama, Mistral (local) | **$0** | `backend: ollama` |
-| **Anthropic** | Claude Sonnet / Haiku / Opus | ~$0.001/query | `backend: anthropic` |
-| **OpenAI** | GPT-4o / GPT-4o-mini | ~$0.001/query | `backend: openai` |
-| **AWS Bedrock** | Claude, Titan, Llama | AWS pricing | `backend: bedrock` |
-| **Google Gemini** | Gemini 2.5 Pro / 2.0 Flash | ~$0.0001/query | `backend: gemini` |
-| **Groq** | Llama 3.3 70B, Mixtral (fast) | ~$0.0005/query | `backend: groq` |
-| **DeepSeek** | DeepSeek Chat / Reasoner | ~$0.0001/query | `backend: deepseek` |
-| **Mistral** | Mistral Small / Large | ~$0.0002/query | `backend: mistral` |
-| **Together** | Llama, Qwen, Mixtral | ~$0.0005/query | `backend: together` |
-| **OpenRouter** | 100+ models via one key | Varies | `backend: openrouter` |
-| **Fireworks** | Llama, Mixtral (fast) | ~$0.0005/query | `backend: fireworks` |
-| **Cohere** | Command R / R+ | ~$0.0003/query | `backend: cohere` |
-| **vLLM** | GPU inference + LoRA | Your GPU | `backend: local` |
-| **llama.cpp** | GGUF models (CPU) | **$0** | `backend: local` |
-
-```bash
-graq setup-guide              # See all options
-graq setup-guide ollama       # Free, local, no API key
-graq doctor                   # Verify everything works + detect providers
-```
-
-### Task-based routing (v0.22.0)
-
-Map different providers to different task types in `graqle.yaml`:
+Different models for different tasks. Fast models for lookups, smart models for reasoning:
 
 ```yaml
 routing:
@@ -588,60 +240,120 @@ routing:
     - task: reason
       provider: anthropic
       model: claude-sonnet-4-6
-      reason: "Deep reasoning needs the best model"
     - task: context
       provider: groq
       model: llama-3.1-8b-instant
-      reason: "Lookups are simple — use fast/cheap"
-    - task: impact
-      provider: deepseek
-      model: deepseek-chat
-```
-
-Or via SDK:
-
-```python
-from graqle.backends.providers import create_provider_backend
-
-groq = create_provider_backend("groq", model="llama-3.3-70b-versatile")
-graph.set_default_backend(groq)
 ```
 
 ---
 
-## Architecture
+## Auto-scaling backend
 
+Graqle starts with JSON/NetworkX (zero deps). When your graph grows:
+
+| Graph size | Backend | What happens |
+|-----------|---------|-------------|
+| < 5,000 nodes | JSON/NetworkX | Default. Instant. Zero config. |
+| 5,000+ nodes | Neo4j | Auto-recommended. Migration handled. |
+| Team/Enterprise | Neo4j + GDS | Vector search, PageRank, Adamic-Adar proximity. |
+
+```bash
+pip install graqle[neo4j]     # Adds neo4j driver — same API, just faster
 ```
-graqle/
-├── core/                      # Graph engine
-│   ├── graph.py               # Graqle class — main entry point
-│   ├── node.py                # CogniNode — autonomous reasoning agent
-│   └── edge.py                # CogniEdge — with message queue
-├── backends/                  # LLM backends (Anthropic, OpenAI, Bedrock, Ollama, Gemini, Groq, DeepSeek, +7 more)
-├── connectors/                # Graph storage (JSON, NetworkX, Neo4j)
-│   └── upgrade.py             # Auto-upgrade advisor (5K node threshold)
-├── scanner/                   # Multi-source scanning
-│   ├── parsers/               # 6-format document parsers
-│   ├── extractors/            # JSON category extractors (5 types)
-│   ├── dedup/                 # 3-layer deduplication engine
-│   ├── docs.py                # DocumentScanner orchestrator
-│   ├── json_parser.py         # JSON classifier + scanner
-│   ├── chunker.py             # Heading-aware document chunker
-│   ├── linker.py              # Auto-linking (exact → fuzzy → semantic → LLM)
-│   ├── manifest.py            # Incremental scan tracking
-│   ├── background.py          # Background scan manager
-│   ├── privacy.py             # PII/secrets redaction
-│   ├── quality.py             # Document quality gate
-│   ├── autodetect.py          # Environment auto-detection
-│   └── nl_router.py           # Natural language query router
-├── activation/                # Subgraph activation (Chunk, PCST, Top-K)
-├── orchestration/             # Message passing + convergence
-├── governance/                # SHACL/OWL validation
-├── plugins/                   # MCP server
-├── server/                    # REST API + Lambda handler
-├── routing.py                 # Task-based model routing (v0.22)
-├── cli/                       # CLI commands
-└── config/                    # Pydantic settings + YAML loading
+
+---
+
+## Document-aware intelligence
+
+Graqle connects **code** to **documents** to **configs** in one graph.
+
+| Source | Formats | What it extracts |
+|--------|---------|-----------------|
+| **Code** | Python, TypeScript, JavaScript, Go, Rust, Java | Functions, classes, modules, imports, call graphs |
+| **Documents** | PDF, DOCX, PPTX, XLSX, Markdown, TXT | Sections, decisions, requirements, stakeholders |
+| **JSON** | package.json, OpenAPI, tsconfig, CDK, SAM | Dependencies, endpoints, infrastructure resources |
+
+Auto-linking: exact match, fuzzy match, semantic match, LLM-assisted. Cross-source deduplication. Contradiction detection.
+
+---
+
+## The numbers
+
+| Metric | Graqle | Reading files |
+|--------|--------|---------------|
+| Tokens per query | **500** | 50,000 |
+| Cost per query | **$0.0003** | $0.15 |
+| Time to answer | **<5 seconds** | 20 minutes |
+| Tests passing | **2,000+** | — |
+| Modules compiled | **396** | — |
+| Skills available | **201** | — |
+
+---
+
+## Installation
+
+```bash
+pip install graqle              # Minimal (no API keys needed)
+pip install graqle[api]         # + Anthropic, OpenAI, Bedrock
+pip install graqle[docs]        # + PDF, DOCX, PPTX, XLSX
+pip install graqle[neo4j]       # + Neo4j graph database
+pip install graqle[all]         # Everything
+```
+
+| Extra | What it adds |
+|-------|-------------|
+| `api` | anthropic, openai, boto3 |
+| `docs` | pdfplumber, python-docx, python-pptx, openpyxl |
+| `neo4j` | neo4j driver |
+| `embeddings` | sentence-transformers |
+| `gpu` | torch, transformers, peft, vllm |
+| `cpu` | llama-cpp-python |
+| `studio` | fastapi, uvicorn, jinja2 |
+| `dev` | pytest, ruff, mypy, coverage |
+
+---
+
+## 15 Innovations (Patent EP26162901.8)
+
+Every innovation is free under Apache 2.0.
+
+| # | Innovation | Why it matters |
+|---|-----------|----------------|
+| 1 | Chunk-level semantic scoring | Finds the exact function, not the file |
+| 2 | Zero-cost transparency | See which agents activated and why |
+| 3 | Convergent message passing | Agents discuss until they agree |
+| 4 | Backend fallback chain | Auto-switches models on failure |
+| 5 | Topology-aware synthesis | Answers reflect graph structure |
+| 6 | 3-layer governance (DRACE) | Domain boundaries on every output |
+| 7 | Formula-based compliance | Quantitative scores, not pass/fail |
+| 8 | Auto-generate ontologies | OWL+SHACL from your codebase |
+| 9 | Adaptive activation | 3 nodes for simple, 50 for complex |
+| 10 | Cross-query learning | Remembers what works for which patterns |
+| 11 | Per-entity model selection | Security nodes use capable models |
+| 12 | Retrieval-to-reasoning pipeline | Documents → graph reasoning |
+| 13 | Hybrid skill matching | Regex precision + semantic flexibility |
+| 14 | Neo4j vector + graph search | Embedding similarity + graph traversal in one query |
+| 15 | Activation memory | Persistent cross-session node effectiveness |
+
+---
+
+## Quick start
+
+```bash
+# Python project
+pip install graqle[api] && cd my-project && graq init
+graq reason "what depends on the database module?"
+
+# With documents
+pip install graqle[api,docs]
+graq scan all . && graq scan wait
+graq reason "what does the architecture doc say about auth?"
+
+# Claude Code (auto-wired)
+graq init    # Claude Code now has graq_context, graq_reason, graq_impact, etc.
+
+# Cursor
+graq init --ide cursor
 ```
 
 ---
@@ -650,93 +362,18 @@ graqle/
 
 **Free for individuals. Always.**
 
-| | Open Source | Team | Enterprise |
+| | Free ($0) | Pro ($19/mo) | Team ($29/dev/mo) |
 |---|:---:|:---:|:---:|
-| **Price** | **$0 forever** | $29/dev/month | Custom |
 | All 15 innovations | Yes | Yes | Yes |
-| All MCP tools | Yes | Yes | Yes |
+| CLI + SDK + MCP + API | Yes | Yes | Yes |
+| 14 LLM backends | Yes | Yes | Yes |
 | Document scanning | Yes | Yes | Yes |
-| JSON ingestion | Yes | Yes | Yes |
-| Deduplication | Yes | Yes | Yes |
-| All backends | Yes | Yes | Yes |
-| CLI + SDK + API | Yes | Yes | Yes |
-| Unlimited queries | Yes | Yes | Yes |
+| Intelligence compilation | Yes | Yes | Yes |
+| Studio dashboards | Basic | Full | Full + team |
+| Governance (DRACE) | Current session | 30-session history | Unlimited |
+| Audit trails | 3 sessions | 20 sessions | Unlimited |
+| Health streaks | 7 days | Full year | Team streaks |
 | Commercial use | Yes | Yes | Yes |
-| Auto-scale to Neo4j | Yes | Yes | Yes |
-| Shared team graphs | — | Yes | Yes |
-| Neo4j GDS intelligence | — | Yes | Yes |
-| SSO + audit trail | — | — | Yes |
-
-All 15 innovations are free. Every developer deserves intelligent tooling regardless of budget. Teams pay for collaboration — individuals never pay.
-
----
-
-## 15 Innovations (Patent EP26162901.8)
-
-Every innovation listed below is free to use under Apache 2.0.
-
-| # | What it does | Why it matters |
-|---|-------------|----------------|
-| 1 | **Chunk-level semantic scoring** | Each code chunk scored independently — finds the exact function, not just the file |
-| 2 | **Zero-cost transparency layer** | See exactly which agents activated and why, without extra LLM calls |
-| 3 | **Convergent message passing** | Agents discuss until they agree, then stop. No wasted rounds |
-| 4 | **Backend fallback chain** | Auto-switches models if one fails. Cost budgets enforced |
-| 5 | **Topology-aware synthesis** | Answers reflect graph structure, not just agent count |
-| 6 | **3-layer governance validation** | Enforces domain boundaries on every reasoning output |
-| 7 | **Formula-based compliance scoring** | Quantitative scores, not pass/fail. Gap attribution shows what's missing |
-| 8 | **Auto-generate ontologies** | Build OWL+SHACL constraints from your codebase automatically |
-| 9 | **Adaptive activation** | Simple queries use 3 nodes ($0.0001). Complex queries use 50 ($0.003) |
-| 10 | **Cross-query learning** | Remembers which nodes worked for which patterns. Gets smarter over time |
-| 11 | **Per-entity model selection** | Security nodes use capable models. Utility nodes use cheap ones |
-| 12 | **Retrieval-to-reasoning pipeline** | Connects document retrieval to graph reasoning seamlessly |
-| 13 | **Hybrid skill matching** | Combines regex precision with semantic flexibility |
-| 14 | **Neo4j vector + graph search** | Single database query for both embedding similarity and graph traversal |
-| 15 | **Activation memory** | Persistent cross-session learning about node effectiveness |
-
----
-
-## Quick start recipes
-
-### Scan a Python project
-
-```bash
-pip install graqle[api]
-cd my-python-project
-graq init
-graq reason "what depends on the database module?"
-```
-
-### Scan with documents
-
-```bash
-pip install graqle[api,docs]
-cd my-project
-graq scan all .               # Code + JSON + PDFs/DOCX (background)
-graq scan wait                # Wait for doc scan to finish
-graq reason "what does the architecture doc say about auth?"
-```
-
-### Ingest heavy docs on demand
-
-```bash
-graq learn doc ./compliance/        # Bulk ingest directory
-graq learn doc architecture.pdf     # Single file
-graq reason "what compliance requirements affect payments?"
-```
-
-### Use with Claude Code
-
-```bash
-graq init                     # Auto-writes .mcp.json
-# Claude Code now has graq_context, graq_reason, graq_impact, etc.
-```
-
-### Use with Cursor
-
-```bash
-graq init --ide cursor        # Writes .cursor/mcp.json
-# Cursor now has all Graqle MCP tools
-```
 
 ---
 
@@ -756,14 +393,14 @@ graq init --ide cursor        # Writes .cursor/mcp.json
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and PR guidelines.
-
 ```bash
 git clone https://github.com/quantamixsol/graqle
 cd graqle
 pip install -e ".[dev]"
-pytest                         # 1,655 tests
+pytest                         # 2,000+ tests
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and PR guidelines.
 
 ## License
 
