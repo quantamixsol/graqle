@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from graqle.ontology.domain_registry import DomainRegistry
 
 
-FINANCIAL_CLASS_HIERARCHY: Dict[str, str] = {
+FINANCIAL_CLASS_HIERARCHY: dict[str, str] = {
     "Financial": "Thing",
     "REVENUE_MODEL": "Financial",
     "PRICING_TIER": "Financial",
@@ -41,14 +41,14 @@ FINANCIAL_CLASS_HIERARCHY: Dict[str, str] = {
     "UNIT_ECONOMICS": "Financial",
 }
 
-FINANCIAL_ENTITY_SHAPES: Dict[str, dict] = {
+FINANCIAL_ENTITY_SHAPES: dict[str, dict] = {
     "REVENUE_MODEL": {"required": ["name", "type"], "optional": ["mrr", "arr", "churn_rate", "ltv"]},
     "PRICING_TIER": {"required": ["name", "price"], "optional": ["features", "limits", "billing_cycle"]},
     "METRIC": {"required": ["name", "value"], "optional": ["unit", "period", "trend", "benchmark"]},
     "COHORT": {"required": ["name", "start_date"], "optional": ["size", "retention_rate", "ltv"]},
 }
 
-FINANCIAL_RELATIONSHIP_SHAPES: Dict[str, dict] = {
+FINANCIAL_RELATIONSHIP_SHAPES: dict[str, dict] = {
     "GENERATES_REVENUE": {"domain": {"PRICING_TIER", "SUBSCRIPTION"}, "range": {"REVENUE_MODEL"}},
     "COSTS": {"domain": {"SERVICE", "COST_CENTER"}, "range": {"BUDGET"}},
     "TRACKS": {"domain": {"FINANCIAL_REPORT"}, "range": {"METRIC"}},
@@ -56,7 +56,7 @@ FINANCIAL_RELATIONSHIP_SHAPES: Dict[str, dict] = {
     "FORECASTS": {"domain": {"FORECAST"}, "range": {"METRIC", "REVENUE_MODEL"}},
 }
 
-FINANCIAL_SKILL_MAP: Dict[str, List[str]] = {
+FINANCIAL_SKILL_MAP: dict[str, list[str]] = {
     "Financial": ["financial_health_check", "metric_interpretation"],
     "REVENUE_MODEL": ["revenue_analysis", "churn_analysis", "ltv_calculation", "pricing_analysis"],
     "PRICING_TIER": ["pricing_analysis", "price_elasticity", "competitive_pricing"],
@@ -70,7 +70,7 @@ FINANCIAL_SKILL_MAP: Dict[str, List[str]] = {
     "UNIT_ECONOMICS": ["unit_economics_analysis", "cac_payback", "margin_analysis"],
 }
 
-FINANCIAL_SKILLS: Dict[str, Skill] = {
+FINANCIAL_SKILLS: dict[str, Skill] = {
     # -- Revenue & Pricing --
     "revenue_analysis": Skill(
         name="revenue_analysis",

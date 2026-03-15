@@ -24,7 +24,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import Response
 
 logger = logging.getLogger("graqle.studio.control")

@@ -28,28 +28,25 @@ from typing import Any
 
 import typer
 from rich.console import Console
-from rich.live import Live
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
-from rich.text import Text
 
+from graqle.intelligence.claude_section import (
+    detect_ai_tools,
+    eject_section,
+    generate_section,
+    inject_section,
+)
+from graqle.intelligence.emitter import IntelligenceEmitter
+from graqle.intelligence.headers import eject_header, generate_header, inject_header
 from graqle.intelligence.models import InsightCategory, ModulePacket
 from graqle.intelligence.pipeline import (
-    structural_pass,
     import_graph_pass,
-    stream_intelligence,
     resolve_pending_edges,
+    stream_intelligence,
+    structural_pass,
 )
 from graqle.intelligence.scorecard import RunningScorecard
-from graqle.intelligence.emitter import IntelligenceEmitter
-from graqle.intelligence.headers import generate_header, inject_header, eject_header
-from graqle.intelligence.claude_section import (
-    generate_section,
-    detect_ai_tools,
-    inject_section,
-    eject_section,
-)
 
 logger = logging.getLogger("graqle.intelligence.compile")
 console = Console()
@@ -216,7 +213,7 @@ def compile_intelligence(
                 f"# {root.name}\n\n{section}\n",
                 encoding="utf-8",
             )
-            console.print(f"\n📝 Created [bold]CLAUDE.md[/bold] with intelligence section")
+            console.print("\n📝 Created [bold]CLAUDE.md[/bold] with intelligence section")
             ai_files_injected += 1
 
     total_time = time.perf_counter() - total_start

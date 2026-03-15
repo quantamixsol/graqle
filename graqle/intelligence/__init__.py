@@ -14,19 +14,19 @@ See ADR-105 for the full architectural design.
 # constraints: none
 # ── /graqle:intelligence ──
 
+from graqle.intelligence.claude_section import eject_section, generate_section, inject_section
+from graqle.intelligence.compile import compile_intelligence
+from graqle.intelligence.emitter import IntelligenceEmitter
+from graqle.intelligence.headers import eject_header, generate_header, inject_header
 from graqle.intelligence.models import (
     CoverageReport,
     CuriosityInsight,
     FileIntelligenceUnit,
     ModulePacket,
-    ValidationGateResult,
     ValidatedEdge,
     ValidatedNode,
+    ValidationGateResult,
 )
-from graqle.intelligence.compile import compile_intelligence
-from graqle.intelligence.emitter import IntelligenceEmitter
-from graqle.intelligence.headers import generate_header, inject_header, eject_header
-from graqle.intelligence.claude_section import generate_section, inject_section, eject_section
 
 __all__ = [
     "CoverageReport",

@@ -7,18 +7,13 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import json
 from pathlib import Path
-
-import pytest
 
 from graqle.intelligence.governance.scope_gate import (
     ScopeDeclaration,
     ScopeGate,
     ScopeRule,
-    ScopeViolation,
 )
-
 
 # ── ScopeRule / ScopeDeclaration ────────────────────────────────────
 

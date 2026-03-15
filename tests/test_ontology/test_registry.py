@@ -7,9 +7,8 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
-from graqle.ontology.domain_registry import DomainRegistry, DomainOntology
+from graqle.ontology.domain_registry import DomainOntology, DomainRegistry
 
 
 class TestDomainRegistry:

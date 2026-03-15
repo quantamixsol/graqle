@@ -27,19 +27,17 @@ def mount_studio(app: Any, state: dict) -> None:
         app: FastAPI application instance.
         state: Shared state dict with 'graph', 'config', etc.
     """
-    from fastapi import Request
-    from fastapi.responses import HTMLResponse
     from fastapi.staticfiles import StaticFiles
     from fastapi.templating import Jinja2Templates
 
-    from graqle.studio.routes.dashboard import router as dashboard_router
     from graqle.studio.routes.api import router as api_router
-    from graqle.studio.routes.intelligence import router as intelligence_router
+    from graqle.studio.routes.control import router as control_router
+    from graqle.studio.routes.dashboard import router as dashboard_router
     from graqle.studio.routes.governance import router as governance_router
     from graqle.studio.routes.health import router as health_router
-    from graqle.studio.routes.traversal import router as traversal_router
-    from graqle.studio.routes.control import router as control_router
+    from graqle.studio.routes.intelligence import router as intelligence_router
     from graqle.studio.routes.learning import router as learning_router
+    from graqle.studio.routes.traversal import router as traversal_router
 
     # Mount static files
     app.mount("/studio/static", StaticFiles(directory=str(STATIC_DIR)), name="studio-static")

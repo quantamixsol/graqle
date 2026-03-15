@@ -22,20 +22,18 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from graqle.activation.reformulator import (
+    _AI_TOOL_ENV_SIGNATURES,
+    _MAX_REFORMULATED_LENGTH,
     Attachment,
     QueryReformulator,
     ReformulationContext,
     ReformulationResult,
-    _AI_TOOL_ENV_SIGNATURES,
-    _MAX_REFORMULATED_LENGTH,
-    _MIN_REFORMULATE_LENGTH,
 )
-
 
 # ── Fixtures ────────────────────────────────────────────────────
 

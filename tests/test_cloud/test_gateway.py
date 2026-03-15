@@ -9,13 +9,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 from graqle.cloud.gateway import (
     CLOUD_VALUE_PROPS,
     CloudGateway,
-    CloudServiceStatus,
-    UpsellTrigger,
     check_upsell_triggers,
 )
 

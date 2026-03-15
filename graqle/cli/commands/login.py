@@ -52,7 +52,6 @@ def login_command(
     from graqle.cloud.credentials import (
         CloudCredentials,
         get_cloud_status,
-        load_credentials,
         save_credentials,
     )
 

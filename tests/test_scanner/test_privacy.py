@@ -18,7 +18,6 @@ import pytest
 
 from graqle.scanner.privacy import RedactionEngine, RedactionMatch
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -28,7 +27,6 @@ class TestActivateCommand:
 
     def test_valid_key_accepted(self, tmp_path, monkeypatch) -> None:
         from graqle.licensing.manager import LicenseManager
-        from graqle.cli.main import app
 
         # Generate a valid key
         key = LicenseManager.generate_key(
@@ -59,8 +57,8 @@ class TestActivateCommand:
         assert license_obj.is_valid is True
 
     def test_expired_key_rejected(self) -> None:
+
         from graqle.licensing.manager import LicenseManager
-        from datetime import datetime, timezone
 
         # Generate an already-expired key
         key = LicenseManager.generate_key(

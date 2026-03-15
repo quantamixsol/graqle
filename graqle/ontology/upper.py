@@ -19,11 +19,8 @@ The upper ontology maps to OWL class hierarchy concepts:
 
 from __future__ import annotations
 
-from typing import Dict, List, Set
-
-
 # Domain-agnostic upper ontology — these types exist in every domain
-UPPER_HIERARCHY: Dict[str, str] = {
+UPPER_HIERARCHY: dict[str, str] = {
     "Thing": "",
     # Abstract branches
     "Agent": "Thing",
@@ -44,26 +41,26 @@ class UpperOntology:
     Domains extend this by registering additional types under the upper branches.
     """
 
-    def __init__(self, hierarchy: Dict[str, str] | None = None) -> None:
-        self._hierarchy: Dict[str, str] = dict(UPPER_HIERARCHY)
+    def __init__(self, hierarchy: dict[str, str] | None = None) -> None:
+        self._hierarchy: dict[str, str] = dict(UPPER_HIERARCHY)
         if hierarchy:
             self._hierarchy.update(hierarchy)
-        self._children_cache: Dict[str, List[str]] | None = None
+        self._children_cache: dict[str, list[str]] | None = None
 
     @property
-    def hierarchy(self) -> Dict[str, str]:
+    def hierarchy(self) -> dict[str, str]:
         return self._hierarchy
 
-    def extend(self, additional: Dict[str, str]) -> None:
+    def extend(self, additional: dict[str, str]) -> None:
         """Add types to the hierarchy (domain registration)."""
         self._hierarchy.update(additional)
         self._children_cache = None  # invalidate
 
-    def get_ancestors(self, entity_type: str) -> List[str]:
+    def get_ancestors(self, entity_type: str) -> list[str]:
         """Return the full ancestor chain for a type (bottom-up, excluding self)."""
         ancestors = []
         current = entity_type
-        seen: Set[str] = set()
+        seen: set[str] = set()
         while current and current in self._hierarchy:
             parent = self._hierarchy[current]
             if not parent or parent in seen:
@@ -79,7 +76,7 @@ class UpperOntology:
             return True
         return parent in self.get_ancestors(child)
 
-    def get_valid_children(self, parent: str) -> List[str]:
+    def get_valid_children(self, parent: str) -> list[str]:
         """Get all direct children of a type."""
         if self._children_cache is None:
             self._children_cache = {}
@@ -88,9 +85,9 @@ class UpperOntology:
                     self._children_cache.setdefault(par, []).append(child)
         return self._children_cache.get(parent, [])
 
-    def get_all_descendants(self, parent: str) -> Set[str]:
+    def get_all_descendants(self, parent: str) -> set[str]:
         """Get all descendants (transitive children) of a type."""
-        descendants: Set[str] = set()
+        descendants: set[str] = set()
         stack = self.get_valid_children(parent)
         while stack:
             child = stack.pop()
@@ -114,7 +111,7 @@ class UpperOntology:
         """Check if a type exists in the hierarchy."""
         return entity_type in self._hierarchy
 
-    def get_leaf_types(self) -> Set[str]:
+    def get_leaf_types(self) -> set[str]:
         """Get all leaf types (types with no children)."""
         parents = set(self._hierarchy.values())
         return {t for t in self._hierarchy if t not in parents and t != "Thing"}

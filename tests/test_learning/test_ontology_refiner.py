@@ -12,9 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
-import pytest
-
-from graqle.learning.ontology_refiner import OntologyRefiner, RefinementSuggestion
+from graqle.learning.ontology_refiner import OntologyRefiner
 
 
 @dataclass

@@ -22,14 +22,13 @@ Metrics: EM (exact match), F1, latency, cost, tokens, rounds
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
 import string
 import time
 from collections import Counter
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -407,7 +406,7 @@ class BenchmarkRunner:
         kg: nx.Graph,
         *,
         methods: list[str] | None = None,
-    ) -> dict[str, "BenchmarkSummary"]:
+    ) -> dict[str, BenchmarkSummary]:
         """Run Multi-Governance 3-Tier benchmark.
 
         Uses a shared multi-governance KG (EU AI Act + GDPR + DORA + NIS2)

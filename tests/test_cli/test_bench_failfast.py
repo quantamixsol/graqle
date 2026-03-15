@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -37,8 +37,8 @@ class TestBenchFailFast:
 
     def test_bench_smoke_test_catches_bad_backend(self):
         """Smoke test should catch backend errors before running N queries."""
-        from graqle.cli.main import bench
         from graqle.backends.api import BackendError
+        from graqle.cli.main import bench
 
         mock_backend = MagicMock()
         mock_backend.is_fallback = False
@@ -66,8 +66,8 @@ class TestBenchFailFast:
 
     def test_bench_failfast_stops_on_first_query_error(self):
         """After smoke test passes, if first real query fails, stop immediately."""
-        from graqle.cli.main import bench
         from graqle.backends.api import BackendError
+        from graqle.cli.main import bench
 
         mock_backend = MagicMock()
         mock_backend.is_fallback = False
@@ -102,8 +102,8 @@ class TestBenchFailFast:
 
     def test_bench_failfast_does_not_retry_all_queries(self):
         """Verify that fail-fast prevents running remaining queries."""
-        from graqle.cli.main import bench
         from graqle.backends.api import BackendError
+        from graqle.cli.main import bench
 
         mock_backend = MagicMock()
         mock_backend.is_fallback = False
@@ -167,6 +167,7 @@ class TestBedrockModelIdValidation:
     def test_check_skips_when_not_bedrock(self, tmp_path):
         """Should return empty results when backend is not bedrock."""
         import os
+
         from graqle.cli.commands.doctor import _check_bedrock_model_id
 
         config = tmp_path / "graqle.yaml"
@@ -183,6 +184,7 @@ class TestBedrockModelIdValidation:
     def test_check_skips_when_no_config(self, tmp_path):
         """Should return empty results when no config file exists."""
         import os
+
         from graqle.cli.commands.doctor import _check_bedrock_model_id
 
         old_cwd = os.getcwd()
@@ -196,7 +198,8 @@ class TestBedrockModelIdValidation:
     def test_check_validates_valid_model(self, tmp_path):
         """Should pass when configured model ID is in available models."""
         import os
-        from graqle.cli.commands.doctor import _check_bedrock_model_id, PASS
+
+        from graqle.cli.commands.doctor import PASS, _check_bedrock_model_id
 
         config = tmp_path / "graqle.yaml"
         config.write_text(
@@ -228,7 +231,8 @@ class TestBedrockModelIdValidation:
     def test_check_warns_invalid_model(self, tmp_path):
         """Should warn when model ID is not in available models."""
         import os
-        from graqle.cli.commands.doctor import _check_bedrock_model_id, WARN
+
+        from graqle.cli.commands.doctor import WARN, _check_bedrock_model_id
 
         config = tmp_path / "graqle.yaml"
         config.write_text(
@@ -260,7 +264,8 @@ class TestBedrockModelIdValidation:
     def test_check_handles_inference_profiles(self, tmp_path):
         """Should recognize eu./us./ap./global. prefixed inference profiles."""
         import os
-        from graqle.cli.commands.doctor import _check_bedrock_model_id, PASS
+
+        from graqle.cli.commands.doctor import PASS, _check_bedrock_model_id
 
         config = tmp_path / "graqle.yaml"
         config.write_text(
@@ -291,7 +296,8 @@ class TestBedrockModelIdValidation:
     def test_check_graceful_on_boto3_error(self, tmp_path):
         """Should skip gracefully when boto3 can't connect."""
         import os
-        from graqle.cli.commands.doctor import _check_bedrock_model_id, WARN
+
+        from graqle.cli.commands.doctor import WARN, _check_bedrock_model_id
 
         config = tmp_path / "graqle.yaml"
         config.write_text(
@@ -370,6 +376,7 @@ class TestTTYAutoDetection:
         # This is already implemented in graqle/cli/commands/init.py lines 1525-1530.
         # We verify the logic exists by checking the source code.
         import inspect
+
         from graqle.cli.commands import init
 
         source = inspect.getsource(init.init_command)
@@ -388,6 +395,7 @@ class TestWindowsUnicodeEnv:
     def test_pythonioencoding_set_on_import(self):
         """graqle.cli.main should set PYTHONIOENCODING=utf-8 on Windows."""
         import os
+
         # After importing main, the env var should be set (on Windows)
         import graqle.cli.main  # noqa: F401
         if __import__("sys").platform == "win32":

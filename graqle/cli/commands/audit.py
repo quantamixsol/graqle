@@ -192,7 +192,7 @@ def _display_report(report: dict, verbose: bool = False) -> None:
     }
     color = health_colors.get(health, "white")
 
-    console.print(f"\n[bold]Chunk Health Audit[/bold]")
+    console.print("\n[bold]Chunk Health Audit[/bold]")
     console.print(f"  Nodes: {report['total_nodes']} | Edges: {report['total_edges']}")
     console.print(
         f"  Chunk coverage: [{color}]{report['chunk_coverage_pct']}%[/{color}] "
@@ -204,12 +204,12 @@ def _display_report(report: dict, verbose: bool = False) -> None:
 
     # Chunk type distribution
     if report["chunk_types"]:
-        console.print(f"\n[bold]Chunk Types:[/bold]")
+        console.print("\n[bold]Chunk Types:[/bold]")
         for ctype, count in sorted(report["chunk_types"].items(), key=lambda x: -x[1]):
             console.print(f"    {ctype}: {count}")
 
     # Per-entity-type coverage
-    console.print(f"\n[bold]Coverage by Node Type:[/bold]")
+    console.print("\n[bold]Coverage by Node Type:[/bold]")
     for etype, stats in sorted(report["node_type_coverage"].items()):
         pct = (stats["with_chunks"] / stats["total"] * 100) if stats["total"] > 0 else 0
         ecolor = "green" if pct >= 80 else "yellow" if pct >= 50 else "red"
@@ -232,25 +232,25 @@ def _display_report(report: dict, verbose: bool = False) -> None:
                     f"desc={h['description_length']:3d}ch  fix={fix_hint}"
                 )
         else:
-            console.print(f"    Use --verbose to see all hollow nodes")
+            console.print("    Use --verbose to see all hollow nodes")
 
     # Actionable advice
     if health == "CRITICAL":
         console.print(
-            f"\n[red bold]CRITICAL: No nodes have chunks. Reasoning will be hollow.[/red bold]"
+            "\n[red bold]CRITICAL: No nodes have chunks. Reasoning will be hollow.[/red bold]"
         )
         console.print(
-            f"[red]Run 'graq audit --fix' to auto-synthesize from descriptions,[/red]"
+            "[red]Run 'graq audit --fix' to auto-synthesize from descriptions,[/red]"
         )
         console.print(
-            f"[red]or add chunks manually to your cognigraph.json nodes.[/red]"
+            "[red]or add chunks manually to your cognigraph.json nodes.[/red]"
         )
     elif health == "WARNING":
         console.print(
-            f"\n[yellow]WARNING: <50% chunk coverage. Run 'graq audit --fix' to improve.[/yellow]"
+            "\n[yellow]WARNING: <50% chunk coverage. Run 'graq audit --fix' to improve.[/yellow]"
         )
     elif health == "HEALTHY":
-        console.print(f"\n[green]KG is healthy for reasoning.[/green]")
+        console.print("\n[green]KG is healthy for reasoning.[/green]")
 
 
 def _load_graph_for_audit(cfg: Any) -> Any:

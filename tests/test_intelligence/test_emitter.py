@@ -12,14 +12,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from graqle.intelligence.emitter import IntelligenceEmitter, _packet_to_dict
 from graqle.intelligence.models import (
     CoverageReport,
     FileIntelligenceUnit,
-    ModulePacket,
     ModuleConsumer,
+    ModulePacket,
     ValidatedEdge,
     ValidatedNode,
     ValidationGateResult,

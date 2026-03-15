@@ -217,7 +217,7 @@ async def test_health_score_scales_with_node_count():
     With 20 nodes, perspective diversity is expected — the observer should
     not penalize each "conflict" at the same rate as a 2-node scenario.
     """
-    from graqle.core.observer_report import ObserverReport, ConflictPair
+    from graqle.core.observer_report import ConflictPair, ObserverReport
 
     # Simulate 20-node scenario with 100 "conflicts" (perspective diversity)
     conflicts = [

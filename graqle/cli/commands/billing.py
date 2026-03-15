@@ -35,12 +35,11 @@ def billing_command(
         graq billing
         graq billing --verbose
     """
+    from graqle.leads.collector import load_profile
     from graqle.licensing.manager import (
-        TIER_FEATURES,
         LicenseManager,
         LicenseTier,
     )
-    from graqle.leads.collector import load_profile
 
     manager = LicenseManager()
     tier = manager.current_tier

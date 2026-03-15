@@ -35,14 +35,14 @@ from pathlib import Path
 from typing import Any
 
 from graqle.ontology.schema import (
-    NodeShape,
-    EdgeShape,
-    PropertyConstraint,
     EdgeConstraint,
-    register_node_shape,
-    register_edge_shape,
-    _prop,
+    EdgeShape,
+    NodeShape,
+    PropertyConstraint,
     _edge,
+    _prop,
+    register_edge_shape,
+    register_node_shape,
 )
 
 logger = logging.getLogger("graqle.ontology.domain_detector")
@@ -914,8 +914,8 @@ def _call_anthropic_api(
     model: str = "claude-sonnet-4-6",
 ) -> str:
     """Call the Anthropic Messages API directly via HTTP to avoid SDK dependency."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     payload = json.dumps({
         "model": model,

@@ -5,9 +5,6 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.activation.pcst import PCSTActivation
-from graqle.activation.relevance import RelevanceScorer
-from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 from graqle.activation.adaptive import (
     AdaptiveActivation,
     AdaptiveConfig,
@@ -16,13 +13,16 @@ from graqle.activation.adaptive import (
 )
 from graqle.activation.chunk_scorer import ChunkScorer
 from graqle.activation.cypher_activation import CypherActivation
+from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 from graqle.activation.multi_signal import MultiSignalActivation
+from graqle.activation.pcst import PCSTActivation
 from graqle.activation.reformulator import (
     Attachment,
     QueryReformulator,
     ReformulationContext,
     ReformulationResult,
 )
+from graqle.activation.relevance import RelevanceScorer
 
 __all__ = [
     "PCSTActivation",

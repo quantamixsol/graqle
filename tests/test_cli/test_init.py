@@ -13,17 +13,16 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from graqle.cli.commands.init import (
     BACKENDS,
     CLAUDE_MD_SECTION,
-    _build_graqle_yaml,
     _build_gcc_config_yaml,
     _build_gcc_main_md,
-    _build_gcc_registry_md,
     _build_gcc_metadata_yaml,
+    _build_gcc_registry_md,
+    _build_graqle_yaml,
     _build_mcp_json,
     _detect_project_type,
     _extract_js_imports,
@@ -31,13 +30,12 @@ from graqle.cli.commands.init import (
     _resolve_graq_command,
     _should_skip,
     _write_claude_md,
+    _write_gcc_structure,
     _write_graqle_json,
     _write_graqle_yaml,
-    _write_gcc_structure,
     _write_mcp_json,
     scan_repository,
 )
-
 
 # ---------------------------------------------------------------------------
 # _should_skip

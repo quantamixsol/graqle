@@ -8,12 +8,12 @@
 # ── /graqle:intelligence ──
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from graqle.ontology.ontology_generator import OntologyGenerator
 from graqle.ontology.semantic_shacl_gate import SemanticConstraint
-
 
 MOCK_GENERATION_RESPONSE = json.dumps({
     "owl_hierarchy": {

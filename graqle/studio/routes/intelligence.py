@@ -230,7 +230,7 @@ async def intelligence_insights(
         top = by_impact[0]
         insights.append({
             "category": "superlative",
-            "title": f"Highest Impact Module",
+            "title": "Highest Impact Module",
             "message": f"**{top['module']}** has an impact radius of {top['impact_radius']} modules. Changes here cascade widely.",
             "module": top["module"],
             "severity": "info",

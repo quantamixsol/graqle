@@ -31,8 +31,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
-
+from typing import Any
 
 logger = logging.getLogger("graqle.evaluation.constrained_f1")
 
@@ -57,11 +56,11 @@ class ConstrainedF1Result:
     # Detailed breakdown
     in_scope_hits: int = 0
     out_of_scope_hits: int = 0
-    missing_coverage: List[str] = field(default_factory=list)
-    misattributions: List[str] = field(default_factory=list)
-    reasoning_rule_violations: List[str] = field(default_factory=list)
+    missing_coverage: list[str] = field(default_factory=list)
+    misattributions: list[str] = field(default_factory=list)
+    reasoning_rule_violations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to JSON-compatible dict."""
         return {
             "precision": round(self.precision, 4),
@@ -83,7 +82,7 @@ class ConstrainedF1Result:
 class BatchEvalResult:
     """Result of evaluating multiple predictions."""
 
-    results: List[ConstrainedF1Result] = field(default_factory=list)
+    results: list[ConstrainedF1Result] = field(default_factory=list)
 
     @property
     def avg_f1(self) -> float:
@@ -131,7 +130,7 @@ class ConstrainedF1Evaluator:
 
     def __init__(
         self,
-        constraints: Optional[Dict[str, Any]] = None,
+        constraints: dict[str, Any] | None = None,
         scope_weight: float = 0.3,
         attribution_weight: float = 0.3,
         coverage_weight: float = 0.2,
@@ -200,9 +199,9 @@ class ConstrainedF1Evaluator:
 
     def evaluate_batch(
         self,
-        predictions: List[str],
-        references: List[str],
-        entity_types: Optional[List[str]] = None,
+        predictions: list[str],
+        references: list[str],
+        entity_types: list[str] | None = None,
     ) -> BatchEvalResult:
         """Evaluate a batch of predictions."""
         if entity_types is None:
@@ -216,7 +215,7 @@ class ConstrainedF1Evaluator:
     # -- Internal scoring methods -----------------------------------------------
 
     @staticmethod
-    def _tokenize(text: str) -> Set[str]:
+    def _tokenize(text: str) -> set[str]:
         """Normalize and tokenize text for F1 computation."""
         text = text.lower().strip()
         # Remove punctuation except hyphens (preserve "Art. 5" as "art 5")
@@ -236,8 +235,8 @@ class ConstrainedF1Evaluator:
 
     @staticmethod
     def _compute_f1(
-        pred_tokens: Set[str], ref_tokens: Set[str]
-    ) -> Tuple[float, float, float]:
+        pred_tokens: set[str], ref_tokens: set[str]
+    ) -> tuple[float, float, float]:
         """Compute precision, recall, F1 from token sets."""
         if not pred_tokens or not ref_tokens:
             return (0.0, 0.0, 0.0)

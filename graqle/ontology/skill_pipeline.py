@@ -30,7 +30,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from graqle.ontology.skill_resolver import DEFAULT_SKILLS, Skill, SkillResolver
 
@@ -67,7 +67,7 @@ class SkillPipeline:
         mode: str = "auto",
         max_per_node: int = 5,
         use_titan: bool = True,
-        registry: Optional[DomainRegistry] = None,
+        registry: DomainRegistry | None = None,
     ) -> None:
         self.mode = mode
         self.max_per_node = max_per_node
@@ -82,13 +82,13 @@ class SkillPipeline:
         self._admin_initialized = False
 
         # Domain skill libraries (registered from domain packages)
-        self._domain_skills: Dict[str, Skill] = {}
+        self._domain_skills: dict[str, Skill] = {}
 
     @classmethod
     def from_config(
         cls,
         config: SkillConfig,
-        registry: Optional[DomainRegistry] = None,
+        registry: DomainRegistry | None = None,
     ) -> SkillPipeline:
         """Create pipeline from SkillConfig."""
         return cls(
@@ -103,7 +103,7 @@ class SkillPipeline:
         self._registry = registry
         self._resolver.set_registry(registry)
 
-    def register_domain_skills(self, skills: Dict[str, Skill]) -> None:
+    def register_domain_skills(self, skills: dict[str, Skill]) -> None:
         """Register skills from a domain package (e.g., marketing, financial).
 
         These are added to both the resolver library and the admin library
@@ -142,7 +142,7 @@ class SkillPipeline:
         self,
         node: Any,
         query: str = "",
-    ) -> List[Skill]:
+    ) -> list[Skill]:
         """Resolve skills for a node using the configured mode.
 
         This is the single entry point that replaces both SkillResolver.resolve()
@@ -189,12 +189,12 @@ class SkillPipeline:
         # Last resort: just defaults
         return type_skills
 
-    def _resolve_by_type(self, entity_type: str) -> List[Skill]:
+    def _resolve_by_type(self, entity_type: str) -> list[Skill]:
         """Fast path: resolve via OWL hierarchy + registry."""
         skills = self._resolver.resolve(entity_type)
         return skills[:self.max_per_node]
 
-    def _resolve_by_semantic(self, node: Any, query: str) -> List[Skill]:
+    def _resolve_by_semantic(self, node: Any, query: str) -> list[Skill]:
         """Slow path: resolve via SkillAdmin semantic matching."""
         admin = self._ensure_admin()
         if admin is None:
@@ -238,7 +238,7 @@ class SkillPipeline:
         return "\n".join(lines)
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return pipeline stats for diagnostics."""
         return {
             "mode": self.mode,

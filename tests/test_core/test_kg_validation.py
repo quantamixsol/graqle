@@ -14,11 +14,10 @@ vs 72% after enrichment. (LESSON-094)
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 import networkx as nx
+import pytest
 
 from graqle.core.graph import Graqle
-from graqle.core.node import CogniNode
 
 
 class TestNodeDescriptionEnforcement:

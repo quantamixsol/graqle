@@ -60,7 +60,7 @@ def _discover_sources_from_config(config_path: Path) -> list[Path]:
 
     try:
         import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     except Exception:
         return sources
@@ -296,9 +296,9 @@ def ingest_command(
         console.print(f"  [dim]{rel}[/dim]")
 
     # ── Step 2: Parse files ───────────────────────────────────────────
-    console.print(f"\n[bold]Step 2/4:[/bold] Parsing markdown files...")
+    console.print("\n[bold]Step 2/4:[/bold] Parsing markdown files...")
 
-    from graqle.ontology.markdown_parser import parse_and_infer, ExtractedEntity, ExtractedEdge
+    from graqle.ontology.markdown_parser import parse_and_infer
 
     start_time = time.perf_counter()
     entities, edges = parse_and_infer(source_files, verbose=verbose)
@@ -312,7 +312,7 @@ def ingest_command(
         _print_entity_summary(entities)
 
     # ── Step 3: Build graph ───────────────────────────────────────────
-    console.print(f"\n[bold]Step 3/4:[/bold] Building graph...")
+    console.print("\n[bold]Step 3/4:[/bold] Building graph...")
 
     new_nodes = [e.to_node_dict() for e in entities]
     new_links = [
@@ -339,7 +339,7 @@ def ingest_command(
                           f"[green]+{stats.get('edges_added', 0)}[/green] edges added")
         except (json.JSONDecodeError, KeyError) as e:
             console.print(f"  [yellow]Warning:[/yellow] Could not parse existing {output}: {e}")
-            console.print(f"  Creating new graph instead.")
+            console.print("  Creating new graph instead.")
             graph_data = _build_new_graph(new_nodes, new_links)
     else:
         graph_data = _build_new_graph(new_nodes, new_links)
@@ -349,7 +349,7 @@ def ingest_command(
 
     # ── Step 4: Validate ──────────────────────────────────────────────
     if validate:
-        console.print(f"\n[bold]Step 4/4:[/bold] Running SHACL validation...")
+        console.print("\n[bold]Step 4/4:[/bold] Running SHACL validation...")
 
         from graqle.ontology.schema import validate_graph
 
@@ -369,9 +369,9 @@ def ingest_command(
                     if v.severity == "WARNING":
                         console.print(f"    [yellow]WARN[/yellow] {v.node_id}: {v.message}")
         else:
-            console.print(f"  [green]All nodes and edges valid[/green]")
+            console.print("  [green]All nodes and edges valid[/green]")
     else:
-        console.print(f"\n[bold]Step 4/4:[/bold] [dim]Validation skipped (--no-validate)[/dim]")
+        console.print("\n[bold]Step 4/4:[/bold] [dim]Validation skipped (--no-validate)[/dim]")
 
     # ── Write output ──────────────────────────────────────────────────
     out_path.write_text(

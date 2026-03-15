@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 logger = logging.getLogger("graqle.ontology.semantic_shacl_gate")
 
@@ -45,7 +45,7 @@ class SemanticValidationResult:
     """Result of semantic SHACL validation on a node output."""
 
     valid: bool = True
-    violations: List[SemanticViolation] = field(default_factory=list)
+    violations: list[SemanticViolation] = field(default_factory=list)
     score: float = 1.0
     # Governance accuracy sub-scores (0.0 to 1.0)
     framework_fidelity_score: float = 1.0
@@ -102,32 +102,32 @@ class SemanticConstraint:
     framework: str = ""  # Which framework this entity belongs to (e.g., "EU AI Act")
 
     # Layer 1: Framework Fidelity
-    own_framework_markers: List[str] = field(default_factory=list)
+    own_framework_markers: list[str] = field(default_factory=list)
     # Keywords/phrases that identify THIS framework (e.g., ["EU AI Act", "AI Act", "Regulation 2024/1689"])
-    other_framework_markers: Dict[str, List[str]] = field(default_factory=dict)
+    other_framework_markers: dict[str, list[str]] = field(default_factory=dict)
     # Other frameworks' markers — if found, must be flagged as cross-reference
     # e.g., {"GDPR": ["GDPR", "Regulation 2016/679", "data protection"], ...}
 
     # Layer 2: Scope Boundary
-    in_scope_topics: List[str] = field(default_factory=list)
+    in_scope_topics: list[str] = field(default_factory=list)
     # Topics this node IS authorized to speak about
-    out_of_scope_topics: List[str] = field(default_factory=list)
+    out_of_scope_topics: list[str] = field(default_factory=list)
     # Topics this node must NOT claim as its own (belong to other nodes)
     scope_description: str = ""
     # Human-readable scope description
 
     # Layer 3: Reasoning Rules (semantic, not format)
-    reasoning_rules: List[str] = field(default_factory=list)
+    reasoning_rules: list[str] = field(default_factory=list)
     # Deep semantic rules: "Prohibited practices have NO risk tier — they are BANNED"
     # These are injected into the node prompt AND checked during validation.
 
     # Layer 4: Cross-Reference Rules
-    cross_reference_rules: Dict[str, str] = field(default_factory=dict)
+    cross_reference_rules: dict[str, str] = field(default_factory=dict)
     # How to reference other frameworks:
     # {"GDPR": "If mentioning GDPR, state it as 'Related: under GDPR Art. X...'"}
 
     # Relationship-derived constraints (from OWL)
-    valid_relationships: List[str] = field(default_factory=list)
+    valid_relationships: list[str] = field(default_factory=list)
     # e.g., ["DEPENDS_ON → GDPR Art. 5", "MAPS_TO → AI Act Art. 14"]
 
 
@@ -145,10 +145,10 @@ class SemanticSHACLGate:
 
     def __init__(
         self,
-        constraints: Dict[str, SemanticConstraint] | None = None,
+        constraints: dict[str, SemanticConstraint] | None = None,
         strict_mode: bool = False,
     ) -> None:
-        self._constraints: Dict[str, SemanticConstraint] = constraints or {}
+        self._constraints: dict[str, SemanticConstraint] = constraints or {}
         self._strict_mode = strict_mode
         self._stats = {
             "passes": 0,
@@ -160,14 +160,14 @@ class SemanticSHACLGate:
         }
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return dict(self._stats)
 
     def register_constraint(self, constraint: SemanticConstraint) -> None:
         """Register a semantic constraint for an entity type."""
         self._constraints[constraint.entity_type] = constraint
 
-    def register_constraints(self, constraints: Dict[str, SemanticConstraint]) -> None:
+    def register_constraints(self, constraints: dict[str, SemanticConstraint]) -> None:
         """Register multiple semantic constraints."""
         self._constraints.update(constraints)
 
@@ -176,7 +176,7 @@ class SemanticSHACLGate:
         entity_type: str,
         output_text: str,
         query: str = "",
-        node_context: Dict[str, Any] | None = None,
+        node_context: dict[str, Any] | None = None,
     ) -> SemanticValidationResult:
         """Validate a node's reasoning output against semantic governance constraints.
 
@@ -222,7 +222,7 @@ class SemanticSHACLGate:
         constraint: SemanticConstraint,
         output_lower: str,
         result: SemanticValidationResult,
-        node_context: Dict[str, Any],
+        node_context: dict[str, Any],
     ) -> None:
         """Layer 1: Does the output cite the correct framework?
 
@@ -457,9 +457,9 @@ class SemanticSHACLGate:
 
 
 def build_semantic_constraints_from_kg(
-    kg_nodes: Dict[str, Any],
-    framework_map: Dict[str, str] | None = None,
-) -> Dict[str, SemanticConstraint]:
+    kg_nodes: dict[str, Any],
+    framework_map: dict[str, str] | None = None,
+) -> dict[str, SemanticConstraint]:
     """Build semantic constraints from KG node properties.
 
     This is the bridge between the KG structure and the SHACL gate.
@@ -475,7 +475,7 @@ def build_semantic_constraints_from_kg(
     framework_map = framework_map or {}
 
     # Collect all frameworks for cross-reference detection
-    all_frameworks: Dict[str, List[str]] = {}
+    all_frameworks: dict[str, list[str]] = {}
     for nid, data in kg_nodes.items():
         fw = framework_map.get(nid, "")
         if not fw:
@@ -486,10 +486,10 @@ def build_semantic_constraints_from_kg(
                 markers.append(fw)
 
     # Build per-entity-type constraints
-    type_constraints: Dict[str, SemanticConstraint] = {}
+    type_constraints: dict[str, SemanticConstraint] = {}
 
     # Group nodes by entity type
-    nodes_by_type: Dict[str, List[Dict[str, Any]]] = {}
+    nodes_by_type: dict[str, list[dict[str, Any]]] = {}
     for nid, data in kg_nodes.items():
         etype = data.get("entity_type", data.get("type", "Entity"))
         nodes_by_type.setdefault(etype, []).append(data)

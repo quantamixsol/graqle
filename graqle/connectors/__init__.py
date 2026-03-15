@@ -6,8 +6,8 @@
 # ── /graqle:intelligence ──
 
 from graqle.connectors.base import BaseConnector
-from graqle.connectors.networkx import NetworkXConnector
 from graqle.connectors.json_graph import JSONGraphConnector
+from graqle.connectors.networkx import NetworkXConnector
 from graqle.connectors.tamr import TAMRConnector
 
 __all__ = ["BaseConnector", "NetworkXConnector", "JSONGraphConnector", "TAMRConnector"]

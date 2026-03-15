@@ -19,7 +19,6 @@ from fastapi.testclient import TestClient
 
 from graqle.studio.routes.health import router
 
-
 # ── Helpers ──────────────────────────────────────────────────────────
 
 

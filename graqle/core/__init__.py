@@ -11,8 +11,8 @@ from graqle.core.message import Message
 from graqle.core.node import CogniNode
 from graqle.core.state import NodeState
 from graqle.core.types import (
-    AggregationStrategy,
     ActivationStrategy,
+    AggregationStrategy,
     GraphStats,
     ModelBackend,
     NodeConfig,

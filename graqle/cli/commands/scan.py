@@ -22,14 +22,14 @@ import logging
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 from rich.console import Console
-from graqle.cli.console import BRAND_NAME
 from rich.panel import Panel
 from rich.table import Table
-from rich.tree import Tree
+
+from graqle.cli.console import BRAND_NAME
 
 console = Console()
 logger = logging.getLogger("graqle.cli.scan")
@@ -697,7 +697,7 @@ class RepoScanner:
 
     def scan(self) -> dict[str, Any]:
         """Execute the full scan and return networkx node_link_data dict."""
-        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+        from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
         with Progress(
             SpinnerColumn(),
@@ -1929,11 +1929,11 @@ def scan_repo(
     depth: int = typer.Option(5, "--depth", "-d", help="Max directory depth"),
     include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging output"),
-    exclude: Optional[list[str]] = typer.Option(
+    exclude: list[str] | None = typer.Option(
         None, "--exclude", "-e",
         help="Gitignore-style patterns to exclude (repeatable, e.g. --exclude '*.log' --exclude 'tmp/')",
     ),
-    config: Optional[str] = typer.Option(
+    config: str | None = typer.Option(
         None, "--config", "-c",
         help="Path to graqle.yaml config file (default: auto-detect in repo root)",
     ),
@@ -2171,7 +2171,7 @@ def scan_all(
     include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
     no_docs: bool = typer.Option(False, "--no-docs", help="Skip document scanning"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    exclude: Optional[list[str]] = typer.Option(
+    exclude: list[str] | None = typer.Option(
         None, "--exclude", "-e", help="Patterns to exclude"),
 ) -> None:
     """Scan code (foreground) + JSON (foreground) + documents (background).
@@ -2254,8 +2254,9 @@ def scan_wait(
     timeout: int = typer.Option(300, "--timeout", "-t", help="Max seconds to wait"),
 ) -> None:
     """Block until background document scan completes."""
-    from graqle.scanner.background import BackgroundScanManager
     import time as _time
+
+    from graqle.scanner.background import BackgroundScanManager
 
     mgr = BackgroundScanManager(".")
     progress = mgr.get_progress()
@@ -2374,7 +2375,7 @@ def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
 
     Validates graph data before writing to prevent corruption (DF-005).
     """
-    from graqle.core.graph import _write_with_lock, _validate_graph_data
+    from graqle.core.graph import _validate_graph_data, _write_with_lock
 
     graph_nodes = []
     for n in nodes.values():

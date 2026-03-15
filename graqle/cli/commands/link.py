@@ -184,8 +184,8 @@ def link_edge(
         graq link edge crawlq/tamr_sdk frictionmelt/retrieval --relation POWERS
         graq link edge graqle/reasoning tracegov/compliance --relation ENABLES
     """
-    from graqle.core.graph import Graqle
     from graqle.config.settings import GraqleConfig
+    from graqle.core.graph import Graqle
 
     p = Path(graph_path)
     if not p.exists():
@@ -265,7 +265,7 @@ def link_stats(
         if src_proj != tgt_proj:
             cross_edges += 1
 
-    console.print(f"\n[bold]Multi-Project Graph Stats[/bold]")
+    console.print("\n[bold]Multi-Project Graph Stats[/bold]")
     console.print(f"  File: {graph_path} ({p.stat().st_size / 1024 / 1024:.1f} MB)")
     console.print(f"  Total nodes: {len(nodes)}")
     console.print(f"  Total edges: {len(links)}")
@@ -557,7 +557,7 @@ def link_infer(
     nodes = data.get("nodes", [])
     links = data.get("links", data.get("edges", []))
 
-    console.print(f"[bold]Inferring cross-project edges...[/bold]")
+    console.print("[bold]Inferring cross-project edges...[/bold]")
     console.print(f"  Graph: {len(nodes)} nodes, {len(links)} edges")
 
     # Run all inference strategies
@@ -595,6 +595,6 @@ def link_infer(
         console.print(f"\n  {CHECK} Saved to {graph_path}")
         console.print(f"  Total edges now: {len(links)}")
     elif dry_run:
-        console.print(f"\n  [dim]Dry run — no changes saved. Remove --dry-run to apply.[/dim]")
+        console.print("\n  [dim]Dry run — no changes saved. Remove --dry-run to apply.[/dim]")
     else:
-        console.print(f"\n  [dim]No new edges to infer.[/dim]")
+        console.print("\n  [dim]No new edges to infer.[/dim]")

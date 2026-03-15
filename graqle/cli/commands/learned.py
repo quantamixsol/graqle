@@ -37,8 +37,8 @@ def learned_command(
     Shows what the graph has been taught — useful for auditing learned
     facts, reviewing domain knowledge, and checking hit counts.
     """
-    from graqle.core.graph import Graqle
     from graqle.config.settings import GraqleConfig
+    from graqle.core.graph import Graqle
 
     config = GraqleConfig.default()
     config_file = Path("graqle.yaml")

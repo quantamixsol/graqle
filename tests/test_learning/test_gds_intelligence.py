@@ -13,10 +13,7 @@ Neo4j GDS tests are skipped unless a live Neo4j instance with GDS plugin is avai
 
 from __future__ import annotations
 
-import pytest
-
 from graqle.core.graph import Graqle
-from graqle.core.node import CogniNode
 from graqle.learning.gds_intelligence import (
     Community,
     GDSIntelligence,

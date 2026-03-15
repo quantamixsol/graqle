@@ -7,14 +7,13 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
-from graqle.ontology.router import OntologyRouter
+from graqle.core.edge import CogniEdge
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
 from graqle.ontology.domain_registry import DomainRegistry
 from graqle.ontology.domains.governance import register_governance_domain
-from graqle.core.node import CogniNode
-from graqle.core.graph import Graqle
-from graqle.core.edge import CogniEdge
+from graqle.ontology.router import OntologyRouter
 
 
 def _make_governance_graph():

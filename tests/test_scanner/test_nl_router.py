@@ -7,7 +7,7 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.scanner.nl_router import route_query, is_natural_language, RouteResult
+from graqle.scanner.nl_router import is_natural_language, route_query
 
 
 class TestRouteQuery:

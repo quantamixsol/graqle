@@ -7,8 +7,8 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.metrics.engine import MetricsEngine
 from graqle.metrics.dashboard import generate_dashboard
+from graqle.metrics.engine import MetricsEngine
 
 __all__ = ["MetricsEngine", "generate_dashboard", "get_metrics"]
 

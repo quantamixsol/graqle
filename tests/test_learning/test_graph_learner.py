@@ -12,14 +12,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-from graqle.learning.graph_learner import EdgeUpdate, GraphLearner, LearningConfig
-
+from graqle.learning.graph_learner import GraphLearner, LearningConfig
 
 # ---------------------------------------------------------------------------
 # Mock helpers

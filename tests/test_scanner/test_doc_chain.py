@@ -13,16 +13,12 @@ ensuring document nodes integrate properly with existing code nodes.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from graqle.scanner.docs import DocScanOptions, DocumentScanner, ScanResult
-from graqle.scanner.linker import AutoLinker
-from graqle.scanner.manifest import ScanManifest
-
+from graqle.scanner.docs import DocScanOptions, DocumentScanner
 
 # ---------------------------------------------------------------------------
 # Fixtures

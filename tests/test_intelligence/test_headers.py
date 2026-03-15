@@ -4,17 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from graqle.intelligence.headers import (
-    generate_header,
-    inject_header,
-    eject_header,
-    has_header,
-    MAX_HEADER_BYTES,
     _find_insert_position,
+    eject_header,
+    generate_header,
+    has_header,
+    inject_header,
 )
-from graqle.intelligence.models import ModulePacket, ModuleConsumer, ModuleDependency
+from graqle.intelligence.models import ModuleConsumer, ModuleDependency, ModulePacket
 
 
 def _make_packet(

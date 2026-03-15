@@ -25,7 +25,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 logger = logging.getLogger("graqle.server")
 
@@ -90,7 +90,7 @@ def _create_backend_from_config(cfg: Any) -> Any:
 
 def create_app(
     config_path: str = "graqle.yaml",
-    graph_path: Optional[str] = None,
+    graph_path: str | None = None,
 ) -> Any:
     """Create the FastAPI application.
 
@@ -114,18 +114,18 @@ def create_app(
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
     from graqle.server.middleware import (
-        setup_auth_middleware,
-        setup_rate_limit_middleware,
+        MAX_BATCH_SIZE,
         MAX_QUERY_LENGTH,
         MAX_ROUNDS,
-        MAX_BATCH_SIZE,
+        setup_auth_middleware,
+        setup_rate_limit_middleware,
     )
     from graqle.server.models import (
-        ReasonRequest,
-        ReasonResponse,
         BatchReasonRequest,
         GraphInfoResponse,
         HealthResponse,
+        ReasonRequest,
+        ReasonResponse,
         StreamChunkResponse,
     )
 

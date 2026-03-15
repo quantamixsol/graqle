@@ -14,11 +14,7 @@ not just in isolation. Each test simulates a real user workflow.
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 class TestScanLearnQueryChain:
@@ -27,7 +23,6 @@ class TestScanLearnQueryChain:
     def test_scan_learn_context_roundtrip(self, tmp_path):
         """Full chain: create graph, learn knowledge, query context."""
         from graqle.core.graph import Graqle
-        from graqle.config.settings import GraqleConfig
 
         # Step 1: Create a minimal graph (simulating scan output)
         graph_data = {
@@ -110,8 +105,11 @@ class TestCredentialsChain:
     def test_login_status_logout_chain(self, tmp_path, monkeypatch):
         """Full chain: login, check status, logout, verify clean."""
         from graqle.cloud.credentials import (
-            CloudCredentials, save_credentials, load_credentials,
-            clear_credentials, get_cloud_status,
+            CloudCredentials,
+            clear_credentials,
+            get_cloud_status,
+            load_credentials,
+            save_credentials,
         )
 
         monkeypatch.setattr("graqle.cloud.credentials.CREDENTIALS_FILE",
@@ -147,10 +145,9 @@ class TestOntologyRefinerChain:
 
     def test_refiner_with_activation_data(self):
         """Refiner should produce suggestions from activation data."""
-        from graqle.learning.ontology_refiner import OntologyRefiner
-        from collections import defaultdict
         from dataclasses import dataclass, field
-        from unittest.mock import MagicMock
+
+        from graqle.learning.ontology_refiner import OntologyRefiner
 
         @dataclass
         class MockRecord:

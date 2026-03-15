@@ -12,15 +12,12 @@ Updated for semantic auto-connect, entity extraction, and GDS intelligence.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
-from graqle.cli.commands.learn import learn_app, _extract_entities, _connect_extracted_entities
+from graqle.cli.commands.learn import _connect_extracted_entities, _extract_entities, learn_app
 
 runner = CliRunner()
 

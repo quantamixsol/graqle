@@ -10,9 +10,8 @@
 import pytest
 
 from graqle.benchmarks.benchmark_runner import (
-    constrained_f1_score,
-    f1_score,
     QuestionResult,
+    constrained_f1_score,
 )
 
 

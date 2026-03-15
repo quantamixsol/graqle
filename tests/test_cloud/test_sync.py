@@ -9,24 +9,19 @@
 
 from __future__ import annotations
 
-import json
-import pytest
-from pathlib import Path
-
 from graqle.cloud.sync import (
+    SyncConflict,
     SyncDelta,
     SyncState,
-    SyncConflict,
-    compute_delta,
-    detect_conflicts,
     auto_resolve_conflicts,
+    compute_delta,
     compute_graph_hash,
-    load_sync_state,
-    save_sync_state,
-    save_sync_snapshot,
+    detect_conflicts,
     load_sync_snapshot,
+    load_sync_state,
+    save_sync_snapshot,
+    save_sync_state,
 )
-
 
 # ---------------------------------------------------------------------------
 # SyncDelta

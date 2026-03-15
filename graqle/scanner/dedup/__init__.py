@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from graqle.scanner.dedup.canonical import compute_canonical_id
+from graqle.scanner.dedup.merge import MergeDecision, MergeEngine
 from graqle.scanner.dedup.unifier import EntityUnifier
-from graqle.scanner.dedup.merge import MergeEngine, MergeDecision
 
 logger = logging.getLogger("graqle.scanner.dedup")
 

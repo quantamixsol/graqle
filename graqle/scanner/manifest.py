@@ -23,11 +23,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger("graqle.scanner.manifest")
 

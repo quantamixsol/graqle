@@ -14,10 +14,6 @@ versions may write "edges". The from_json loader must accept both.
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
-
-import pytest
 
 from graqle.core.graph import Graqle
 

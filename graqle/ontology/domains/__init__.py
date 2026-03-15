@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("graqle.ontology.domains")
 
 # Built-in domain modules and their registration function names
-_BUILTIN_DOMAINS: Dict[str, str] = {
+_BUILTIN_DOMAINS: dict[str, str] = {
     "graqle.ontology.domains.governance": "register_governance_domain",
     "graqle.ontology.domains.engineering": "register_engineering_domain",
     "graqle.ontology.domains.marketing": "register_marketing_domain",
@@ -46,8 +46,8 @@ _BUILTIN_DOMAINS: Dict[str, str] = {
 def register_all_domains(
     registry: DomainRegistry,
     *,
-    only: List[str] | None = None,
-) -> Dict[str, bool]:
+    only: list[str] | None = None,
+) -> dict[str, bool]:
     """Auto-discover and register all built-in domain packages.
 
     Parameters
@@ -62,7 +62,7 @@ def register_all_domains(
     -------
     Dict mapping domain module name to success (True/False).
     """
-    results: Dict[str, bool] = {}
+    results: dict[str, bool] = {}
 
     for module_path, func_name in _BUILTIN_DOMAINS.items():
         # Extract short domain name from module path
@@ -87,13 +87,13 @@ def register_all_domains(
 
 def collect_all_skills(
     *,
-    only: List[str] | None = None,
-) -> Dict[str, Skill]:
+    only: list[str] | None = None,
+) -> dict[str, Skill]:
     """Collect all Skill objects from all domain packages.
 
     Useful for registering skills into SkillPipeline without a DomainRegistry.
     """
-    all_skills: Dict[str, Skill] = {}
+    all_skills: dict[str, Skill] = {}
 
     skill_dict_names = {
         "graqle.ontology.domains.governance": "GOVERNANCE_SKILLS",

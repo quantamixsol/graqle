@@ -15,9 +15,7 @@ from __future__ import annotations
 
 import io
 import sys
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 class TestEnsureUtf8Streams:
@@ -30,21 +28,21 @@ class TestEnsureUtf8Streams:
     def test_pythonioencoding_set(self):
         """PYTHONIOENCODING env var should be set."""
         import os
-        from graqle.cli import console  # triggers _ensure_utf8_streams
+
         assert os.environ.get("PYTHONIOENCODING") == "utf-8"
 
 
 class TestCreateConsole:
     def test_returns_console_instance(self):
         """create_console() should return a Rich Console."""
-        from graqle.cli.console import create_console
         from rich.console import Console
+
+        from graqle.cli.console import create_console
         c = create_console()
         assert isinstance(c, Console)
 
     def test_windows_uses_force_terminal(self):
         """On Windows, Console should use force_terminal=True."""
-        from graqle.cli.console import create_console
         with patch("graqle.cli.console.sys") as mock_sys:
             mock_sys.platform = "win32"
             # Cannot fully test but verify it doesn't crash
@@ -99,7 +97,7 @@ class TestSafeSymbol:
 
     def test_predefined_symbols_exist(self):
         """All predefined symbols should be defined."""
-        from graqle.cli.console import CHECK, CROSS, ARROW, BULLET
+        from graqle.cli.console import ARROW, BULLET, CHECK, CROSS
         assert CHECK in ("\u2713", "[OK]")
         assert CROSS in ("\u2717", "[X]")
         assert ARROW in ("\u2192", "->")

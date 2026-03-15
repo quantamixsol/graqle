@@ -7,17 +7,15 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
 from graqle.benchmarks.benchmark_runner import (
+    BenchmarkRunner,
+    BenchmarkSummary,
+    QuestionResult,
+    _normalize_answer,
     exact_match,
     f1_score,
-    _normalize_answer,
-    QuestionResult,
-    BenchmarkSummary,
-    BenchmarkRunner,
 )
-
 
 # ── Normalization ──
 

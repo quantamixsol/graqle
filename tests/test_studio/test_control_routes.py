@@ -16,7 +16,6 @@ from fastapi.testclient import TestClient
 
 from graqle.studio.routes.control import router
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 

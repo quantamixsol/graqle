@@ -20,10 +20,9 @@ chunk vectors. This reduces 11K-node activation from ~30s to <1s.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 

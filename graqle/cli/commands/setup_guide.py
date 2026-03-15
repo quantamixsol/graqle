@@ -15,14 +15,14 @@ Designed to eliminate every "how do I set this up?" question.
 
 from __future__ import annotations
 
-import os
 import importlib
+import os
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
-from rich.markdown import Markdown
 
 console = Console()
 
@@ -355,7 +355,7 @@ def _detect_status(tier: dict) -> str:
     elif pkg_ok and not key_ok:
         return f"[yellow]need {env_var}[/yellow]"
     elif not pkg_ok:
-        return f"[dim]pip install graqle[api][/dim]"
+        return "[dim]pip install graqle[api][/dim]"
     return "[dim]not configured[/dim]"
 
 

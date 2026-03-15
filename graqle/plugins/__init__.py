@@ -5,7 +5,7 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.plugins.mcp_server import MCPServer, MCPConfig
 from graqle.plugins.mcp_dev_server import KogniDevServer
+from graqle.plugins.mcp_server import MCPConfig, MCPServer
 
 __all__ = ["MCPServer", "MCPConfig", "KogniDevServer"]

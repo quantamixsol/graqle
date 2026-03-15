@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
 
 from graqle.scanner.parsers.base import (
     BaseDocParser,
@@ -92,8 +91,8 @@ def _split_paragraphs(text: str) -> list[str]:
 
 
 def _split_long_section(
-    section: "ParsedSection",
-    out: list["ParsedSection"],
+    section: ParsedSection,
+    out: list[ParsedSection],
 ) -> None:
     """Split an oversized untitled section into chunks of ~_MAX_SECTION_CHARS.
 

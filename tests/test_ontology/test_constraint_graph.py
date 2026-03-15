@@ -7,13 +7,12 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 import numpy as np
 
-from graqle.ontology.constraint_graph import ConstraintGraph, NodeConstraints
-from graqle.core.node import CogniNode
-from graqle.core.graph import Graqle
 from graqle.core.edge import CogniEdge
+from graqle.core.graph import Graqle
+from graqle.core.node import CogniNode
+from graqle.ontology.constraint_graph import ConstraintGraph, NodeConstraints
 
 
 def _make_graph_with_nodes():

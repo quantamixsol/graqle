@@ -20,9 +20,8 @@ from textwrap import dedent
 
 import pytest
 
+from graqle.scanner.parsers.base import ParsedDocument
 from graqle.scanner.parsers.markdown import MarkdownParser
-from graqle.scanner.parsers.base import ParsedDocument, ParsedSection
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

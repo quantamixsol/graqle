@@ -16,11 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from graqle.scanner.chunker import DocumentChunk, DocumentChunker
 from graqle.scanner.parsers.base import ParsedDocument, ParsedSection
-from graqle.scanner.chunker import DocumentChunker, DocumentChunk
-
 
 # ---------------------------------------------------------------------------
 # Helpers

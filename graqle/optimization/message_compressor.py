@@ -17,7 +17,6 @@ When no LLM is available, falls back to rule-based extraction.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from graqle.core.message import Message
 from graqle.core.types import ModelBackend

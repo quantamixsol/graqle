@@ -15,13 +15,10 @@ from pathlib import Path
 import pytest
 
 from graqle.scanner.json_parser import (
-    JSONClassification,
-    JSONScanOptions,
-    JSONScanResult,
     JSONScanner,
+    JSONScanOptions,
     classify_json,
 )
-
 
 # ---------------------------------------------------------------------------
 # Classification tests

@@ -12,8 +12,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 from graqle.routing import (
     MCP_TOOL_TO_TASK,
     TASK_RECOMMENDATIONS,

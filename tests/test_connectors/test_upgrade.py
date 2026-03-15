@@ -7,15 +7,12 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import json
-from pathlib import Path
 
 from graqle.connectors.upgrade import (
+    NODE_THRESHOLD,
     assess_upgrade,
     check_neo4j_available,
     generate_migration_cypher,
-    UpgradeAssessment,
-    NODE_THRESHOLD,
 )
 
 

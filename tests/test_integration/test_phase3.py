@@ -10,7 +10,6 @@
 import pytest
 
 from graqle.backends.mock import MockBackend
-from graqle.core.graph import Graqle
 
 
 @pytest.fixture
@@ -65,15 +64,15 @@ async def test_areason_batch_concurrency(ready_graph):
 
 def test_imports_phase3():
     """Phase 3 modules import cleanly."""
-    from graqle.orchestration.async_protocol import AsyncMessageProtocol
-    from graqle.orchestration.streaming import StreamingOrchestrator
-    from graqle.orchestration.explanation import ExplanationTrace
-    from graqle.orchestration.debate import DebateProtocol
-    from graqle.orchestration.hierarchical import HierarchicalAggregation
-    from graqle.optimization.token_optimizer import TokenOptimizer
-    from graqle.optimization.message_compressor import MessageCompressor
     from graqle.backends.registry import BackendRegistry
-    from graqle.server.models import ReasonRequest, ReasonResponse
+    from graqle.optimization.message_compressor import MessageCompressor
+    from graqle.optimization.token_optimizer import TokenOptimizer
+    from graqle.orchestration.async_protocol import AsyncMessageProtocol
+    from graqle.orchestration.debate import DebateProtocol
+    from graqle.orchestration.explanation import ExplanationTrace
+    from graqle.orchestration.hierarchical import HierarchicalAggregation
+    from graqle.orchestration.streaming import StreamingOrchestrator
+    from graqle.server.models import ReasonRequest
 
     assert AsyncMessageProtocol is not None
     assert StreamingOrchestrator is not None

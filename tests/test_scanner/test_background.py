@@ -18,7 +18,6 @@ import pytest
 
 from graqle.scanner.background import BackgroundScanManager, ScanProgress
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

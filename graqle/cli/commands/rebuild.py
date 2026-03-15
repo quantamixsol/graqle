@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("graqle.cli.rebuild")
 
@@ -57,8 +56,8 @@ def rebuild_command(
         _print("Run [cyan]graq init[/cyan] first to create a graph.")
         return 0
 
-    from graqle.core.graph import Graqle
     from graqle.config.settings import GraqleConfig
+    from graqle.core.graph import Graqle
 
     # Load config
     cp = Path(config_path)
@@ -89,7 +88,7 @@ def rebuild_command(
     # Save back to JSON
     _save_graph(graph, str(gp))
 
-    _print(f"\n[green]Done![/green]")
+    _print("\n[green]Done![/green]")
     _print(f"  Nodes with chunks: {before_count} -> {after_count}")
     _print(f"  Nodes updated: {updated}")
 
@@ -106,14 +105,14 @@ def rebuild_command(
         from graqle.activation.chunk_scorer import ChunkScorer
         scorer = ChunkScorer()
         scorer.build_cache(graph)
-        _print(f"  [green]Embedding cache rebuilt[/green]")
+        _print("  [green]Embedding cache rebuilt[/green]")
     except Exception as exc:
         _print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
 
     return updated
 
 
-def _save_graph(graph: "Graqle", path: str) -> None:
+def _save_graph(graph: Graqle, path: str) -> None:
     """Save graph back to JSON, preserving node_link format."""
     import networkx as nx
 

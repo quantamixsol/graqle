@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from graqle.config.settings import ObserverConfig, OrchestrationConfig
 from graqle.core.message import Message

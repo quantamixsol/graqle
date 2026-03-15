@@ -10,38 +10,39 @@
 
 from __future__ import annotations
 
-# Universal Unicode fix — MUST be first import (before Rich, before typer)
-# This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
-# preventing the cp1252 UnicodeEncodeError on Windows.
-from graqle.cli.console import create_console, BRAND_NAME  # noqa: E402 — intentionally first
-
 import os
 import sys
 
 import typer
 
-from graqle.cli.commands.init import init_command
-from graqle.cli.commands.ingest import ingest_command
-from graqle.cli.commands.grow import grow_command
-from graqle.cli.commands.metrics_cmd import metrics_command
-from graqle.cli.commands.scan import scan_app
-from graqle.cli.commands.doctor import doctor_command
-from graqle.cli.commands.setup_guide import setup_guide_command
-from graqle.cli.commands.register import register_command
 from graqle.cli.commands.activate import activate_command
+from graqle.cli.commands.audit import audit_command
 from graqle.cli.commands.billing import billing_command
-from graqle.cli.commands.rebuild import rebuild_command
+from graqle.cli.commands.doctor import doctor_command
+from graqle.cli.commands.grow import grow_command
+from graqle.cli.commands.ingest import ingest_command
+from graqle.cli.commands.init import init_command
 from graqle.cli.commands.learn import learn_app as learn_sub_app
 from graqle.cli.commands.learned import learned_command
 from graqle.cli.commands.link import link_app as link_sub_app
-from graqle.cli.commands.audit import audit_command
-from graqle.cli.commands.selfupdate import selfupdate_command
 from graqle.cli.commands.login import login_command, logout_command
+from graqle.cli.commands.metrics_cmd import metrics_command
+from graqle.cli.commands.rebuild import rebuild_command
+from graqle.cli.commands.register import register_command
+from graqle.cli.commands.scan import scan_app
+from graqle.cli.commands.selfupdate import selfupdate_command
+from graqle.cli.commands.setup_guide import setup_guide_command
 from graqle.cli.commands.sync import sync_app as sync_sub_app
 from graqle.cli.commands.team import team_app as team_sub_app
+from graqle.cli.commands.upgrade import upgrade_command
+
+# Universal Unicode fix — MUST be first import (before Rich, before typer)
+# This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
+# preventing the cp1252 UnicodeEncodeError on Windows.
+from graqle.cli.console import BRAND_NAME, create_console  # noqa: E402 — intentionally first
 from graqle.intelligence.compile import compile_command
 from graqle.intelligence.verify import verify_command
-from graqle.cli.commands.upgrade import upgrade_command
+
 
 def _version_callback(value: bool) -> None:
     if value:
@@ -131,6 +132,7 @@ def mcp_serve(
     import asyncio
     import atexit
     from pathlib import Path
+
     from graqle.__version__ import __version__
     from graqle.plugins.mcp_dev_server import KogniDevServer
 
@@ -248,9 +250,9 @@ def run(
     else:
         logging.basicConfig(level=logging.INFO)
 
-    from graqle.config.settings import GraqleConfig
-    from graqle.core.graph import Graqle
     from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
 
     # Load config
     if Path(config).exists():
@@ -297,7 +299,7 @@ def run(
             console.print(f"  [yellow]Debate skipped: {e}[/yellow]")
 
     # Display results
-    console.print(f"\n[bold green]Answer:[/bold green]")
+    console.print("\n[bold green]Answer:[/bold green]")
     console.print(result.answer)
     console.print(f"\n[dim]Confidence: {result.confidence:.0%} | "
                   f"Rounds: {result.rounds_completed} | "
@@ -326,7 +328,7 @@ def run(
 
     # Explanation trace
     if explain:
-        console.print(f"\n[bold]Explanation Trace[/bold]")
+        console.print("\n[bold]Explanation Trace[/bold]")
         try:
             from graqle.orchestration.explanation import ExplanationTrace
             trace = ExplanationTrace(query=query)
@@ -368,8 +370,9 @@ def context(
     Returns focused, 500-token context instead of loading 20-60K tokens
     of raw files. Use --json for machine-readable output.
     """
-    from graqle.config.settings import GraqleConfig
     from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
 
     # --json overrides --format
     if json_output:
@@ -388,7 +391,7 @@ def context(
             print(json.dumps({"error": "No graph loaded. Run 'graq scan --repo .' first."}, indent=2))
         else:
             console.print(f"# Context for: {task or service}")
-            console.print(f"No graph loaded. Run 'graq scan --repo .' first.")
+            console.print("No graph loaded. Run 'graq scan --repo .' first.")
         return
 
     # Task-based context mode (matches MCP graq_context behavior)
@@ -540,8 +543,9 @@ def inspect(
     stats: bool = typer.Option(False, "--stats", help="Show graph statistics"),
 ) -> None:
     """Inspect the Graqle — show nodes, edges, stats."""
-    from graqle.config.settings import GraqleConfig
     from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
 
     if Path(config).exists():
         cfg = GraqleConfig.from_yaml(config)
@@ -657,6 +661,7 @@ def studio(
         raise typer.Exit(1)
 
     from pathlib import Path
+
     from graqle.config.settings import GraqleConfig
 
     # Load config
@@ -684,6 +689,7 @@ def studio(
 
     # Build FastAPI app with studio mounted
     from fastapi import FastAPI
+
     from graqle.studio.app import mount_studio
 
     app_instance = FastAPI(title="Graqle Studio", version="0.11.0")
@@ -716,9 +722,9 @@ def bench(
     """Run a performance benchmark on sample queries."""
     import asyncio
     import time
+    from pathlib import Path
 
     from graqle.config.settings import GraqleConfig
-    from pathlib import Path
 
     if Path(config).exists():
         cfg = GraqleConfig.from_yaml(config)
@@ -780,7 +786,7 @@ def bench(
     avg_rounds = sum(r.rounds_completed for r in results) / len(results)
     total_cost = sum(r.cost_usd for r in results)
 
-    console.print(f"\n[bold green]Benchmark Results[/bold green]")
+    console.print("\n[bold green]Benchmark Results[/bold green]")
     console.print(f"  Queries: {queries}")
     console.print(f"  Total time: {elapsed:.2f}s")
     console.print(f"  Avg per query: {elapsed / queries * 1000:.0f}ms")
@@ -806,9 +812,10 @@ def validate(
         graq validate
         graq validate --graph my_kg.json --fix
     """
+    from pathlib import Path
+
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
-    from pathlib import Path
 
     if graph_path and Path(graph_path).exists():
         graph = Graqle.from_json(graph_path)
@@ -828,7 +835,7 @@ def validate(
     # Display report
     score = report["quality_score"]
     color = "green" if score >= 70 else "yellow" if score >= 40 else "red"
-    console.print(f"\n[bold]KG Quality Report[/bold]")
+    console.print("\n[bold]KG Quality Report[/bold]")
     console.print(f"  Nodes: {report['total_nodes']} | Edges: {report['total_edges']}")
     console.print(f"  With descriptions: {report['nodes_with_descriptions']}")
     console.print(f"  Without descriptions: {report['nodes_without_descriptions']}")
@@ -846,21 +853,21 @@ def validate(
     console.print(f"  Quality score: [{color}]{score}/100[/{color}]")
 
     if report["warnings"]:
-        console.print(f"\n[yellow]Warnings:[/yellow]")
+        console.print("\n[yellow]Warnings:[/yellow]")
         for w in report["warnings"]:
             console.print(f"  ! {w}")
 
     if fix and report["nodes_without_descriptions"] > 0:
-        console.print(f"\n[cyan]Auto-enrichment already applied during load.[/cyan]")
-        console.print(f"To improve quality further, add rich descriptions to your KG nodes.")
+        console.print("\n[cyan]Auto-enrichment already applied during load.[/cyan]")
+        console.print("To improve quality further, add rich descriptions to your KG nodes.")
 
     if score >= 70:
-        console.print(f"\n[green]KG is ready for reasoning.[/green]")
+        console.print("\n[green]KG is ready for reasoning.[/green]")
     elif score >= 40:
-        console.print(f"\n[yellow]KG quality is moderate. Consider enriching node descriptions.[/yellow]")
+        console.print("\n[yellow]KG quality is moderate. Consider enriching node descriptions.[/yellow]")
     else:
-        console.print(f"\n[red]KG quality is low. Agents will produce poor reasoning.[/red]")
-        console.print(f"[red]Add descriptions to your nodes before running queries.[/red]")
+        console.print("\n[red]KG quality is low. Agents will produce poor reasoning.[/red]")
+        console.print("[red]Add descriptions to your nodes before running queries.[/red]")
 
 
 @app.command()
@@ -888,12 +895,13 @@ def ontology_detect(
 ) -> None:
     """Detect the domain of a codebase and show domain profile."""
     from pathlib import Path
+
     from graqle.ontology.domain_detector import detect_domain
 
     root = Path(path).resolve()
     profile = detect_domain(root)
 
-    console.print(f"[bold cyan]Domain Profile[/bold cyan]")
+    console.print("[bold cyan]Domain Profile[/bold cyan]")
     console.print(f"  Primary: [bold]{profile.primary_domain}[/bold] ({profile.confidence:.0%})")
     console.print(f"  Secondary: {', '.join(profile.secondary_domains[:5])}")
     console.print(f"  Language: {profile.language} | Frameworks: {', '.join(profile.frameworks[:5])}")
@@ -934,13 +942,14 @@ def ontology_generate(
     import json as json_lib
     import os
     from pathlib import Path
-    from graqle.ontology.domain_detector import auto_ontology, detect_domain
-    from graqle.ontology.schema import get_all_node_types, get_all_edge_types
+
+    from graqle.ontology.domain_detector import auto_ontology
+    from graqle.ontology.schema import get_all_edge_types, get_all_node_types
 
     root = Path(path).resolve()
     ont_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
 
-    console.print(f"[bold cyan]Generating Domain Ontology[/bold cyan]")
+    console.print("[bold cyan]Generating Domain Ontology[/bold cyan]")
 
     node_shapes, edge_shapes = auto_ontology(root, api_key=ont_key, register=True)
 
@@ -996,7 +1005,7 @@ def ontology_from_text(
     text = file_path.read_text(encoding="utf-8", errors="ignore")
     domain_name = domain if domain != "auto" else file_path.stem
 
-    console.print(f"[bold cyan]OntologyGenerator[/bold cyan] — Innovation #8")
+    console.print("[bold cyan]OntologyGenerator[/bold cyan] — Innovation #8")
     console.print(f"  Document: {file_path.name} ({len(text):,} chars)")
     console.print(f"  Domain: {domain_name}")
 
@@ -1060,8 +1069,9 @@ def impact_command(
         graq impact auth_service --change-type remove
         graq impact "graqle.core.graph" --json
     """
-    from graqle.config.settings import GraqleConfig
     from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
 
     if Path(config).exists():
         cfg = GraqleConfig.from_yaml(config)
@@ -1163,8 +1173,9 @@ def preflight_command(
         graq preflight "deploy to production" --file handler.py --file config.py
         graq preflight "database migration" --json
     """
-    from graqle.config.settings import GraqleConfig
     from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
 
     if Path(config).exists():
         cfg = GraqleConfig.from_yaml(config)
@@ -1234,17 +1245,17 @@ def preflight_command(
         console.print(f"  Risk level: [{risk_color}]{report['risk_level']}[/{risk_color}]")
 
         if report["safety_boundaries"]:
-            console.print(f"\n  [bold red]Safety Boundaries:[/bold red]")
+            console.print("\n  [bold red]Safety Boundaries:[/bold red]")
             for s in report["safety_boundaries"]:
                 console.print(f"    ! {s['label']}: {s['description']}")
 
         if report["lessons"]:
-            console.print(f"\n  [bold yellow]Relevant Lessons:[/bold yellow]")
+            console.print("\n  [bold yellow]Relevant Lessons:[/bold yellow]")
             for l in report["lessons"]:
                 console.print(f"    [{l.get('severity', 'medium')}] {l['label']}: {l['description']}")
 
         if report["warnings"]:
-            console.print(f"\n  [bold]Warnings:[/bold]")
+            console.print("\n  [bold]Warnings:[/bold]")
             for w in report["warnings"]:
                 console.print(f"    {w}")
 
@@ -1279,10 +1290,10 @@ def runtime_command(
         graq runtime "auth failures" --severity all
     """
     import asyncio
+    from pathlib import Path
 
     from graqle.config.settings import GraqleConfig
     from graqle.runtime.detector import detect_environment
-    from pathlib import Path
 
     env = detect_environment()
 
@@ -1313,7 +1324,7 @@ def runtime_command(
     region_source = config_region_source or "boto3_session"
 
     if env_only:
-        console.print(f"[bold cyan]Runtime Environment Detection[/bold cyan]")
+        console.print("[bold cyan]Runtime Environment Detection[/bold cyan]")
         console.print(f"  Provider: [bold]{env.provider}[/bold] (confidence: {env.confidence:.0%})")
         console.print(f"  Detected region: {env.region or 'N/A'} (boto3_session)")
         if config_region and config_region != env.region:
@@ -1375,19 +1386,19 @@ def runtime_command(
         console.print(f"  Severity: {' | '.join(sev_parts)}")
 
     if summary.get("by_category"):
-        console.print(f"\n  [bold]Categories:[/bold]")
+        console.print("\n  [bold]Categories:[/bold]")
         for cat, count in sorted(summary["by_category"].items(), key=lambda x: -x[1]):
             console.print(f"    {cat}: {count}")
 
     if summary.get("top_events"):
-        console.print(f"\n  [bold]Top Events:[/bold]")
+        console.print("\n  [bold]Top Events:[/bold]")
         for evt in summary["top_events"]:
             sev_c = "red" if evt["severity"] == "CRITICAL" else "yellow" if evt["severity"] == "HIGH" else "white"
             console.print(f"    [{sev_c}][{evt['severity']}][/{sev_c}] {evt['category']} in {evt['service']} ({evt['hits']}x)")
             console.print(f"      {evt['message'][:120]}")
 
     if result.errors:
-        console.print(f"\n  [yellow]Errors during fetch:[/yellow]")
+        console.print("\n  [yellow]Errors during fetch:[/yellow]")
         for err in result.errors:
             console.print(f"    ! {err}")
 
@@ -1430,7 +1441,7 @@ def route_command(
     priority_color = {"HIGH": "green", "MEDIUM": "yellow", "LOW": "red"}
     p_color = priority_color.get(rec.graqle_priority, "white")
 
-    console.print(f"[bold cyan]Query Router[/bold cyan]")
+    console.print("[bold cyan]Query Router[/bold cyan]")
     console.print(f"  Category: [bold]{rec.category}[/bold]")
     console.print(f"  Graqle priority: [{p_color}]{rec.graqle_priority}[/{p_color}]")
     console.print(f"  Strategy: [bold]{rec.recommendation}[/bold] (confidence: {rec.confidence:.0%})")
@@ -1470,10 +1481,10 @@ def reason(
         graq reason "query" --backend ollama --model qwen2.5:3b
     """
     import asyncio
+    from pathlib import Path
 
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
-    from pathlib import Path
 
     # Load config
     if Path(config).exists():
@@ -1551,8 +1562,9 @@ def reason(
 
 def _load_graph(cfg):
     """Load graph from config or auto-discover. Returns Graqle or None."""
-    from graqle.core.graph import Graqle
     from pathlib import Path
+
+    from graqle.core.graph import Graqle
 
     # 1. Neo4j backend — primary production path
     if cfg.graph.connector == "neo4j":
@@ -1585,6 +1597,7 @@ def _create_backend_from_config(cfg, verbose: bool = False):
     Ollama). Falls back to MockBackend with LOUD warning if all real backends fail.
     """
     import os
+
     from graqle.backends.mock import MockBackend
 
     backend_name = cfg.model.backend

@@ -14,19 +14,14 @@ and the full streaming pipeline — all against the real Graqle SDK codebase.
 import time
 from pathlib import Path
 
-import pytest
-
+from graqle.intelligence.models import ValidationStatus
 from graqle.intelligence.pipeline import (
-    ImportGraph,
-    ProjectShape,
     compile_module_packet,
     import_graph_pass,
     process_file_lightweight,
     stream_intelligence,
     structural_pass,
 )
-from graqle.intelligence.models import ValidationStatus
-
 
 # Use the SDK root as the test target (dogfooding!)
 SDK_ROOT = Path(__file__).parent.parent.parent  # graqle-sdk/
@@ -141,7 +136,7 @@ class TestCompileModulePacket:
     """Task 2.5: Module packets must have correct structure."""
 
     def test_basic_compilation(self):
-        from graqle.intelligence.models import ValidatedNode, ValidatedEdge
+        from graqle.intelligence.models import ValidatedEdge, ValidatedNode
         nodes = [ValidatedNode(
             id="mod.py::func", label="func", entity_type="Function",
             description="A function that does something useful for the module.",
@@ -154,7 +149,7 @@ class TestCompileModulePacket:
         assert pkt.node_count == 1
 
     def test_risk_scoring(self):
-        from graqle.intelligence.models import ValidatedNode, ValidatedEdge
+        from graqle.intelligence.models import ValidatedEdge, ValidatedNode
         # Create a module with many functions and edges
         nodes = [ValidatedNode(
             id=f"big.py::fn{i}", label=f"fn{i}", entity_type="Function",

@@ -7,9 +7,8 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
-from graqle.ontology.upper import UpperOntology, UPPER_HIERARCHY
+from graqle.ontology.upper import UpperOntology
 
 
 class TestUpperOntology:

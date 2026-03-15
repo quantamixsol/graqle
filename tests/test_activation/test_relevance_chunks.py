@@ -13,8 +13,6 @@ and uses 500 chars from top 5 chunks (was 200 chars from top 3).
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from graqle.activation.relevance import RelevanceScorer
 
 

@@ -10,9 +10,7 @@ All tests mock the neo4j driver to avoid requiring a live database.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 def _make_connector(**kwargs):

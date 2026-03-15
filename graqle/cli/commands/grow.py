@@ -61,6 +61,7 @@ def _get_changed_files() -> list[str]:
 def _incremental_scan(root: Path, changed_files: list[str]) -> tuple[list[dict], list[dict]]:
     """Scan only changed source files and return new nodes + edges."""
     import re
+
     from graqle.cli.commands.init import _should_skip
 
     nodes: list[dict[str, Any]] = []
@@ -246,11 +247,11 @@ def grow_command(
 
     # ── Knowledge ingestion ──────────────────────────────────────
     try:
-        from graqle.ontology.markdown_parser import parse_and_infer
         from graqle.cli.commands.ingest import (
-            _discover_sources_from_config,
             _discover_sources_auto,
+            _discover_sources_from_config,
         )
+        from graqle.ontology.markdown_parser import parse_and_infer
 
         config_path_obj = Path(config)
         kg_sources = _discover_sources_from_config(config_path_obj)

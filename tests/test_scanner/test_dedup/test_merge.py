@@ -7,7 +7,7 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.scanner.dedup.merge import MergeEngine, MergeDecision
+from graqle.scanner.dedup.merge import MergeEngine
 
 
 class TestMergeEngine:

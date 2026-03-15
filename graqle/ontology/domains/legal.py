@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from graqle.ontology.domain_registry import DomainRegistry
 
 
-LEGAL_CLASS_HIERARCHY: Dict[str, str] = {
+LEGAL_CLASS_HIERARCHY: dict[str, str] = {
     "Legal": "Thing",
     "CONTRACT": "Legal",
     "CLAUSE": "CONTRACT",
@@ -40,13 +40,13 @@ LEGAL_CLASS_HIERARCHY: Dict[str, str] = {
     "JURISDICTION": "Legal",
 }
 
-LEGAL_ENTITY_SHAPES: Dict[str, dict] = {
+LEGAL_ENTITY_SHAPES: dict[str, dict] = {
     "CONTRACT": {"required": ["parties", "effective_date"], "optional": ["expiry_date", "value", "governing_law", "status"]},
     "PATENT": {"required": ["title", "application_number"], "optional": ["filing_date", "status", "claims_count", "jurisdiction"]},
     "LICENSE": {"required": ["name", "type"], "optional": ["permissions", "restrictions", "compatibility"]},
 }
 
-LEGAL_RELATIONSHIP_SHAPES: Dict[str, dict] = {
+LEGAL_RELATIONSHIP_SHAPES: dict[str, dict] = {
     "GOVERNS": {"domain": {"JURISDICTION"}, "range": {"CONTRACT", "LEGAL_ENTITY"}},
     "CONTAINS_CLAUSE": {"domain": {"CONTRACT"}, "range": {"CLAUSE"}},
     "LICENSED_UNDER": {"domain": {"MODULE", "SERVICE"}, "range": {"LICENSE"}},
@@ -54,7 +54,7 @@ LEGAL_RELATIONSHIP_SHAPES: Dict[str, dict] = {
     "BOUND_BY": {"domain": {"LEGAL_ENTITY"}, "range": {"CONTRACT", "TERMS_OF_SERVICE"}},
 }
 
-LEGAL_SKILL_MAP: Dict[str, List[str]] = {
+LEGAL_SKILL_MAP: dict[str, list[str]] = {
     "Legal": ["legal_risk_assessment", "jurisdiction_analysis"],
     "CONTRACT": ["contract_review", "clause_analysis", "obligation_extraction", "risk_clause_detection"],
     "CLAUSE": ["clause_analysis", "risk_clause_detection"],
@@ -67,7 +67,7 @@ LEGAL_SKILL_MAP: Dict[str, List[str]] = {
     "PRIVACY_POLICY": ["privacy_compliance_check", "data_rights_review"],
 }
 
-LEGAL_SKILLS: Dict[str, Skill] = {
+LEGAL_SKILLS: dict[str, Skill] = {
     # -- Contract Review --
     "contract_review": Skill(
         name="contract_review",

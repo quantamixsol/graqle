@@ -27,8 +27,9 @@ import os
 import re
 import time
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from graqle.intelligence.models import (
     CoverageReport,
@@ -38,9 +39,9 @@ from graqle.intelligence.models import (
     ModuleDependency,
     ModulePacket,
     PublicInterface,
-    ValidationStatus,
     ValidatedEdge,
     ValidatedNode,
+    ValidationStatus,
 )
 from graqle.intelligence.scorecard import RunningScorecard
 from graqle.intelligence.validators import run_all_gates

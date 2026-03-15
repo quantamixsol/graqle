@@ -10,14 +10,13 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
 
 from graqle.licensing.keygen import generate_license_key, main
 from graqle.licensing.manager import LicenseManager, LicenseTier
-
 
 # ---------------------------------------------------------------------------
 # generate_license_key

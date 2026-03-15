@@ -26,7 +26,7 @@ import json
 import logging
 import re
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from graqle.ontology.semantic_shacl_gate import SemanticConstraint
 
@@ -98,7 +98,7 @@ class OntologyGenerator:
         text: str,
         domain_name: str,
         max_text_length: int = 50000,
-    ) -> Tuple[Dict[str, str], Dict[str, SemanticConstraint]]:
+    ) -> tuple[dict[str, str], dict[str, SemanticConstraint]]:
         """Read document text and generate OWL hierarchy + semantic constraints.
 
         Args:
@@ -144,10 +144,10 @@ class OntologyGenerator:
 
     async def generate_from_chunks(
         self,
-        chunks: List[Dict[str, str]],
+        chunks: list[dict[str, str]],
         domain_name: str,
         framework_name: str = "",
-    ) -> Tuple[Dict[str, str], Dict[str, SemanticConstraint]]:
+    ) -> tuple[dict[str, str], dict[str, SemanticConstraint]]:
         """Generate ontology from KG chunks (already structured).
 
         Useful when the KG already has parsed regulation chunks.
@@ -170,7 +170,7 @@ class OntologyGenerator:
         self,
         response: str,
         domain_name: str,
-    ) -> Tuple[Dict[str, str], Dict[str, SemanticConstraint]]:
+    ) -> tuple[dict[str, str], dict[str, SemanticConstraint]]:
         """Parse the model's JSON response into OWL + SHACL structures."""
         # Extract JSON from response (handle markdown code blocks)
         json_text = response.strip()
@@ -182,7 +182,7 @@ class OntologyGenerator:
         try:
             data = json.loads(json_text)
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse ontology JSON, attempting repair")
+            logger.warning("Failed to parse ontology JSON, attempting repair")
             data = self._repair_json(json_text)
 
         # Extract OWL hierarchy
@@ -192,7 +192,7 @@ class OntologyGenerator:
 
         # Extract semantic constraints
         raw_constraints = data.get("semantic_constraints", [])
-        constraints: Dict[str, SemanticConstraint] = {}
+        constraints: dict[str, SemanticConstraint] = {}
 
         if isinstance(raw_constraints, list):
             for rc in raw_constraints:
@@ -212,7 +212,7 @@ class OntologyGenerator:
         return owl_hierarchy, constraints
 
     @staticmethod
-    def _repair_json(text: str) -> Dict:
+    def _repair_json(text: str) -> dict:
         """Attempt to repair malformed JSON from LLM output.
 
         LLMs frequently produce JSON with:
@@ -221,7 +221,6 @@ class OntologyGenerator:
         - Unescaped control characters
         - Comments (// or /* */)
         """
-        import re
 
         # Try to find the outermost braces
         start = text.find("{")
@@ -297,15 +296,15 @@ class OntologyGenerator:
 
     @staticmethod
     def constraints_to_dict(
-        constraints: Dict[str, SemanticConstraint],
-    ) -> List[Dict[str, Any]]:
+        constraints: dict[str, SemanticConstraint],
+    ) -> list[dict[str, Any]]:
         """Serialize constraints to JSON-compatible dicts."""
         return [asdict(c) for c in constraints.values()]
 
     @staticmethod
     def constraints_from_dict(
-        data: List[Dict[str, Any]],
-    ) -> Dict[str, SemanticConstraint]:
+        data: list[dict[str, Any]],
+    ) -> dict[str, SemanticConstraint]:
         """Deserialize constraints from JSON dicts."""
         result = {}
         for d in data:

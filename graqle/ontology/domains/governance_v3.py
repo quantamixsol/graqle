@@ -17,7 +17,7 @@ Design: "Skills = HOW to reason. Constraints = WHERE to reason."
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from graqle.ontology.domain_registry import DomainRegistry
 from graqle.ontology.semantic_shacl_gate import SemanticConstraint
@@ -27,7 +27,7 @@ from graqle.ontology.skill_resolver import Skill
 # OWL CLASS HIERARCHY — unchanged from v2
 # ============================================================================
 
-GOVERNANCE_CLASS_HIERARCHY: Dict[str, str] = {
+GOVERNANCE_CLASS_HIERARCHY: dict[str, str] = {
     "REGULATION": "Governance",
     "POLICY": "Governance",
     "CONTROL": "Governance",
@@ -52,8 +52,8 @@ GOVERNANCE_CLASS_HIERARCHY: Dict[str, str] = {
 # ============================================================================
 
 def build_governance_semantic_constraints(
-    framework_info: Dict[str, Dict[str, Any]] | None = None,
-) -> Dict[str, SemanticConstraint]:
+    framework_info: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, SemanticConstraint]:
     """Build semantic constraints for governance entity types.
 
     If framework_info is provided (from ontology auto-generator or KG),
@@ -79,7 +79,7 @@ def build_governance_semantic_constraints(
             if "markers" in fw_data:
                 FRAMEWORK_MARKERS[fw_name] = fw_data["markers"]
 
-    constraints: Dict[str, SemanticConstraint] = {}
+    constraints: dict[str, SemanticConstraint] = {}
 
     # --- GOV_FRAMEWORK constraint ---
     constraints["GOV_FRAMEWORK"] = SemanticConstraint(
@@ -287,7 +287,7 @@ def build_governance_semantic_constraints(
 # Skills define HOW to reason. Constraints define WHERE to reason.
 # Both are injected into the node prompt together.
 
-GOVERNANCE_SKILL_MAP: Dict[str, List[str]] = {
+GOVERNANCE_SKILL_MAP: dict[str, list[str]] = {
     "Governance": [
         "check_compliance",
         "identify_gaps",
@@ -316,7 +316,7 @@ GOVERNANCE_SKILL_MAP: Dict[str, List[str]] = {
 }
 
 # Skill definitions with constraint-aware prompts
-GOVERNANCE_SKILLS: Dict[str, Skill] = {
+GOVERNANCE_SKILLS: dict[str, Skill] = {
     "check_compliance": Skill(
         name="check_compliance",
         description="Verify compliance status against regulatory requirements",
@@ -497,14 +497,14 @@ GOVERNANCE_SKILLS: Dict[str, Skill] = {
 # ENTITY SHAPES (for backward compat with DomainRegistry)
 # ============================================================================
 
-GOVERNANCE_ENTITY_SHAPES: Dict[str, Dict[str, Any]] = {
+GOVERNANCE_ENTITY_SHAPES: dict[str, dict[str, Any]] = {
     "_default": {
         "required": ["name", "type"],
         "optional": ["description", "importance", "confidence", "sourceDocument"],
     },
 }
 
-GOVERNANCE_RELATIONSHIP_SHAPES: Dict[str, Dict[str, Any]] = {
+GOVERNANCE_RELATIONSHIP_SHAPES: dict[str, dict[str, Any]] = {
     "COMPLIES_WITH": {"domain": None, "range": ["REGULATION", "POLICY", "STANDARD"]},
     "GOVERNED_BY": {"domain": None, "range": ["REGULATION", "POLICY", "CONTROL"]},
     "PART_OF": {"domain": None, "range": None},
@@ -520,13 +520,13 @@ GOVERNANCE_RELATIONSHIP_SHAPES: Dict[str, Dict[str, Any]] = {
 }
 
 # Empty output shapes — SemanticSHACLGate replaces the old format-based shapes
-GOVERNANCE_OUTPUT_SHAPES: Dict[str, Dict[str, Any]] = {}
+GOVERNANCE_OUTPUT_SHAPES: dict[str, dict[str, Any]] = {}
 
 
 def register_governance_domain_v3(
     registry: DomainRegistry,
-    framework_info: Dict[str, Dict[str, Any]] | None = None,
-) -> Dict[str, SemanticConstraint]:
+    framework_info: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, SemanticConstraint]:
     """Register governance domain v3 with semantic constraints.
 
     Returns the semantic constraints for use with SemanticSHACLGate.

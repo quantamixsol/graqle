@@ -14,17 +14,16 @@ Registers via DomainRegistry — same API any domain uses.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from graqle.ontology.domain_registry import DomainRegistry
 from graqle.ontology.skill_resolver import Skill
-
 
 # ============================================================================
 # OWL CLASS HIERARCHY — Governance entity types
 # ============================================================================
 
-GOVERNANCE_CLASS_HIERARCHY: Dict[str, str] = {
+GOVERNANCE_CLASS_HIERARCHY: dict[str, str] = {
     # Core governance types
     "REGULATION": "Governance",
     "POLICY": "Governance",
@@ -49,7 +48,7 @@ GOVERNANCE_CLASS_HIERARCHY: Dict[str, str] = {
 # SHACL ENTITY SHAPES — Property constraints per entity type
 # ============================================================================
 
-GOVERNANCE_ENTITY_SHAPES: Dict[str, Dict[str, Any]] = {
+GOVERNANCE_ENTITY_SHAPES: dict[str, dict[str, Any]] = {
     "_default": {
         "required": ["name", "type"],
         "optional": ["description", "importance", "confidence", "sourceDocument"],
@@ -156,7 +155,7 @@ GOVERNANCE_ENTITY_SHAPES: Dict[str, Dict[str, Any]] = {
 # SHACL RELATIONSHIP SHAPES — Domain/range constraints
 # ============================================================================
 
-GOVERNANCE_RELATIONSHIP_SHAPES: Dict[str, Dict[str, Any]] = {
+GOVERNANCE_RELATIONSHIP_SHAPES: dict[str, dict[str, Any]] = {
     "COMPLIES_WITH": {
         "domain": ["ORGANIZATION", "SYSTEM", "PROCESS", "PRODUCT"],
         "range": ["REGULATION", "POLICY", "STANDARD"],
@@ -216,7 +215,7 @@ GOVERNANCE_RELATIONSHIP_SHAPES: Dict[str, Dict[str, Any]] = {
 # SKILL MAP — Skills per entity type (inherit up hierarchy)
 # ============================================================================
 
-GOVERNANCE_SKILL_MAP: Dict[str, List[str]] = {
+GOVERNANCE_SKILL_MAP: dict[str, list[str]] = {
     # Branch-level skills (all governance types inherit these)
     "Governance": [
         "check_compliance",
@@ -271,7 +270,7 @@ GOVERNANCE_SKILL_MAP: Dict[str, List[str]] = {
 # OUTPUT SHAPES — SHACL gate validation for node reasoning outputs
 # ============================================================================
 
-GOVERNANCE_OUTPUT_SHAPES: Dict[str, Dict[str, Any]] = {
+GOVERNANCE_OUTPUT_SHAPES: dict[str, dict[str, Any]] = {
     "GOV_REQUIREMENT": {
         "must_reference": ["article_number"],
         "must_include_if_relevant": ["penalty", "timeline", "obligation_type"],
@@ -335,7 +334,7 @@ GOVERNANCE_OUTPUT_SHAPES: Dict[str, Dict[str, Any]] = {
 # GOVERNANCE SKILL DEFINITIONS — Full skill objects with handler prompts
 # ============================================================================
 
-GOVERNANCE_SKILLS: Dict[str, Skill] = {
+GOVERNANCE_SKILLS: dict[str, Skill] = {
     "check_compliance": Skill(
         name="check_compliance",
         description="Verify compliance status against regulatory requirements",
@@ -475,7 +474,6 @@ def register_governance_domain(registry: DomainRegistry) -> None:
     This is the canonical way to add governance ontology to Graqle.
     Call this once at startup.
     """
-    from graqle.ontology.skill_resolver import SkillResolver
 
     registry.register_domain(
         name="governance",

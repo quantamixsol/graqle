@@ -11,10 +11,7 @@ individual chunks to the query, not node-level descriptions.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from unittest.mock import MagicMock, patch
-
-import numpy as np
-import pytest
+from unittest.mock import MagicMock
 
 from graqle.activation.chunk_scorer import ChunkScorer
 

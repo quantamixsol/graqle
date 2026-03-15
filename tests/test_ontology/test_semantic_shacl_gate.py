@@ -10,8 +10,8 @@
 import pytest
 
 from graqle.ontology.semantic_shacl_gate import (
-    SemanticSHACLGate,
     SemanticConstraint,
+    SemanticSHACLGate,
     SemanticValidationResult,
     SemanticViolation,
     build_semantic_constraints_from_kg,

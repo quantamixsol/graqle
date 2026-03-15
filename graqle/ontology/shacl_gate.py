@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("graqle.ontology.shacl_gate")
 
@@ -28,8 +28,8 @@ class ValidationResult:
     """Result of SHACL gate validation on a node output."""
 
     valid: bool = True
-    violations: List[str] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
+    violations: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
     score: float = 1.0  # 0.0 = completely invalid, 1.0 = fully valid
 
     def add_violation(self, msg: str) -> None:
@@ -64,15 +64,15 @@ class SHACLGate:
     - required_patterns: regex patterns that must match (e.g., article citations)
     """
 
-    def __init__(self, output_shapes: Dict[str, Dict[str, Any]] | None = None) -> None:
-        self._shapes: Dict[str, Dict[str, Any]] = output_shapes or {}
+    def __init__(self, output_shapes: dict[str, dict[str, Any]] | None = None) -> None:
+        self._shapes: dict[str, dict[str, Any]] = output_shapes or {}
         self._stats = {"passes": 0, "failures": 0, "retries": 0}
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return dict(self._stats)
 
-    def register_shapes(self, shapes: Dict[str, Dict[str, Any]]) -> None:
+    def register_shapes(self, shapes: dict[str, dict[str, Any]]) -> None:
         """Register or update output shapes for entity types."""
         self._shapes.update(shapes)
 
@@ -181,7 +181,7 @@ class SHACLGate:
         self._stats["retries"] += 1
 
 
-def _field_to_patterns(field_name: str) -> List[str]:
+def _field_to_patterns(field_name: str) -> list[str]:
     """Convert a field name to search patterns.
 
     For compound fields like 'penalty_amount_or_percentage', also generates

@@ -185,7 +185,7 @@ class ObserverReport:
     def to_summary(self) -> str:
         """Generate a concise human-readable summary."""
         lines = [
-            f"## Observer Report",
+            "## Observer Report",
             f"Health: {self.health_score:.0%} | "
             f"Confidence: {self.overall_confidence:.0%} | "
             f"Rounds: {self.total_rounds} | "
@@ -217,7 +217,7 @@ class ObserverReport:
                 )
 
         if self.learnings:
-            lines.append(f"\n### Learnings")
+            lines.append("\n### Learnings")
             for l in self.learnings:
                 lines.append(f"- {l}")
 
@@ -228,7 +228,7 @@ class ObserverReport:
                 key=lambda c: c.influence_score,
                 reverse=True,
             )
-            lines.append(f"\n### Top Contributors")
+            lines.append("\n### Top Contributors")
             for c in sorted_contribs[:5]:
                 lines.append(
                     f"- {c.node_id}: influence={c.influence_score:.0%}, "

@@ -27,12 +27,12 @@ import importlib
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
 from graqle.cli.console import BRAND_NAME
 
 console = Console()
@@ -43,7 +43,7 @@ WARN = "warn"
 FAIL = "fail"
 INFO = "info"
 
-CheckResult = Tuple[str, str, str]  # (status, label, detail)
+CheckResult = tuple[str, str, str]  # (status, label, detail)
 
 
 def _check_python_version() -> CheckResult:
@@ -56,7 +56,7 @@ def _check_python_version() -> CheckResult:
     return (FAIL, "Python version", f"{ver_str} (requires 3.8+)")
 
 
-def _check_core_deps() -> List[CheckResult]:
+def _check_core_deps() -> list[CheckResult]:
     results = []
     core = ["networkx", "numpy", "pydantic", "pyyaml", "typer", "rich"]
     for pkg in core:
@@ -77,14 +77,14 @@ def _get_configured_backend() -> str | None:
         return None
     try:
         import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return data.get("model", {}).get("backend")
     except Exception:
         return None
 
 
-def _check_backend_packages() -> List[CheckResult]:
+def _check_backend_packages() -> list[CheckResult]:
     """Check which backend packages are available.
 
     Only warns about the configured backend; others shown as INFO.
@@ -176,7 +176,7 @@ def _check_backend_packages() -> List[CheckResult]:
     return results
 
 
-def _check_api_keys() -> List[CheckResult]:
+def _check_api_keys() -> list[CheckResult]:
     """Check API key availability and basic validity."""
     results = []
     keys = {
@@ -198,7 +198,7 @@ def _check_api_keys() -> List[CheckResult]:
     return results
 
 
-def _check_embedding_models() -> List[CheckResult]:
+def _check_embedding_models() -> list[CheckResult]:
     """Check embedding model availability for skill assignment."""
     results = []
 
@@ -212,7 +212,7 @@ def _check_embedding_models() -> List[CheckResult]:
                 import yaml
                 cfg_path = Path("graqle.yaml")
                 if cfg_path.exists():
-                    with open(cfg_path, "r", encoding="utf-8") as f:
+                    with open(cfg_path, encoding="utf-8") as f:
                         cfg = yaml.safe_load(f) or {}
                     region = cfg.get("model", {}).get("region")
             except Exception:
@@ -252,7 +252,7 @@ def _check_embedding_models() -> List[CheckResult]:
     return results
 
 
-def _check_config_file() -> List[CheckResult]:
+def _check_config_file() -> list[CheckResult]:
     """Check graqle.yaml validity."""
     results = []
     config_path = Path("graqle.yaml")
@@ -263,7 +263,7 @@ def _check_config_file() -> List[CheckResult]:
 
     try:
         import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         if not data:
@@ -278,9 +278,9 @@ def _check_config_file() -> List[CheckResult]:
         if api_key and api_key.startswith("${") and api_key.endswith("}"):
             env_var = api_key[2:-1]
             if os.environ.get(env_var):
-                results.append((PASS, f"Config: api_key ref", f"${{{env_var}}} -> set"))
+                results.append((PASS, "Config: api_key ref", f"${{{env_var}}} -> set"))
             else:
-                results.append((FAIL, f"Config: api_key ref",
+                results.append((FAIL, "Config: api_key ref",
                                 f"${{{env_var}}} -> NOT SET! Reasoning will fail"))
 
         backend = model_cfg.get("backend", "mock")
@@ -293,7 +293,7 @@ def _check_config_file() -> List[CheckResult]:
     return results
 
 
-def _check_graph_file() -> List[CheckResult]:
+def _check_graph_file() -> list[CheckResult]:
     """Check knowledge graph file existence and quality."""
     results = []
 
@@ -311,7 +311,7 @@ def _check_graph_file() -> List[CheckResult]:
     try:
         import json
         size = Path(found).stat().st_size
-        with open(found, "r", encoding="utf-8") as f:
+        with open(found, encoding="utf-8") as f:
             data = json.load(f)
 
         nodes = data.get("nodes", [])
@@ -340,7 +340,7 @@ def _check_graph_file() -> List[CheckResult]:
     return results
 
 
-def _check_mcp_registration() -> List[CheckResult]:
+def _check_mcp_registration() -> list[CheckResult]:
     """Check if MCP server is registered for any supported IDE.
 
     Bug 17 fix: checks all IDE-specific MCP config paths, not just .mcp.json.
@@ -362,7 +362,7 @@ def _check_mcp_registration() -> List[CheckResult]:
             continue
 
         try:
-            with open(mcp_path, "r", encoding="utf-8") as f:
+            with open(mcp_path, encoding="utf-8") as f:
                 data = _json.load(f)
 
             servers = data.get("mcpServers", {})
@@ -401,7 +401,7 @@ def _check_mcp_registration() -> List[CheckResult]:
     return results
 
 
-def _check_bedrock_model_id() -> List[CheckResult]:
+def _check_bedrock_model_id() -> list[CheckResult]:
     """Validate configured Bedrock model ID against available models."""
     results = []
 
@@ -412,7 +412,7 @@ def _check_bedrock_model_id() -> List[CheckResult]:
 
     try:
         import yaml
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         model_cfg = data.get("model", {})
         if model_cfg.get("backend") != "bedrock":
@@ -501,11 +501,11 @@ def _check_bedrock_model_id() -> List[CheckResult]:
     return results
 
 
-def _check_skill_system() -> List[CheckResult]:
+def _check_skill_system() -> list[CheckResult]:
     """Check skill admin readiness."""
     results = []
     try:
-        from graqle.ontology.skill_admin import SkillAdmin, SKILL_LIBRARY
+        from graqle.ontology.skill_admin import SKILL_LIBRARY, SkillAdmin
         results.append((PASS, "Skills: library", f"{len(SKILL_LIBRARY)} skills across 9 domains"))
 
         # Test that SkillAdmin can be instantiated
@@ -518,7 +518,7 @@ def _check_skill_system() -> List[CheckResult]:
     return results
 
 
-def _check_neo4j_backend() -> List[CheckResult]:
+def _check_neo4j_backend() -> list[CheckResult]:
     """Check Neo4j availability and show latency comparison."""
     import json
     import time
@@ -614,7 +614,7 @@ def _check_neo4j_backend() -> List[CheckResult]:
     return results
 
 
-def _check_governance_gate() -> List[CheckResult]:
+def _check_governance_gate() -> list[CheckResult]:
     """Check governance gate status — compile + verify + pre-commit hook."""
     results = []
 
@@ -717,7 +717,7 @@ def doctor_command(
         border_style="cyan",
     ))
 
-    all_results: List[CheckResult] = []
+    all_results: list[CheckResult] = []
 
     # Run all checks
     all_results.append(_check_python_version())
@@ -792,59 +792,59 @@ def doctor_command(
             if "not installed" in detail.lower() or "NOT INSTALLED" in detail:
                 pkg = label.split(":")[-1].strip().lower()
                 if "anthropic" in label.lower() or "openai" in label.lower():
-                    console.print(f"  pip install graqle[api]")
+                    console.print("  pip install graqle[api]")
                 elif "sentence" in label.lower():
-                    console.print(f"  pip install sentence-transformers")
+                    console.print("  pip install sentence-transformers")
                 elif "titan" in label.lower():
-                    console.print(f"  pip install boto3  # + configure AWS credentials")
+                    console.print("  pip install boto3  # + configure AWS credentials")
                 else:
                     console.print(f"  pip install {pkg}")
 
             elif "NOT SET" in detail:
                 env_var = label.split(":")[-1].strip()
                 if "ANTHROPIC" in detail or "ANTHROPIC" in label:
-                    console.print(f"  export ANTHROPIC_API_KEY=sk-ant-your-key-here")
+                    console.print("  export ANTHROPIC_API_KEY=sk-ant-your-key-here")
                 elif "OPENAI" in detail or "OPENAI" in label:
-                    console.print(f"  export OPENAI_API_KEY=sk-your-key-here")
+                    console.print("  export OPENAI_API_KEY=sk-your-key-here")
                 elif "AWS" in detail or "AWS" in label:
-                    console.print(f"  aws configure  # or export AWS_ACCESS_KEY_ID=...")
+                    console.print("  aws configure  # or export AWS_ACCESS_KEY_ID=...")
 
             elif "not found" in detail.lower() and "graq init" in detail:
-                console.print(f"  graq init")
+                console.print("  graq init")
 
             elif "empty" in detail.lower() and "graph" in label.lower():
-                console.print(f"  graq scan --repo .")
+                console.print("  graq scan --repo .")
 
             elif "regex-only" in detail.lower():
-                console.print(f"  pip install sentence-transformers  # enables hybrid skill matching")
+                console.print("  pip install sentence-transformers  # enables hybrid skill matching")
 
             elif ".mcp.json" in label and "not" in detail.lower():
-                console.print(f"  graq init  # auto-registers MCP server")
+                console.print("  graq init  # auto-registers MCP server")
 
             elif "Gate: intelligence" in label and "not compiled" in detail.lower():
-                console.print(f"  graq compile  # build intelligence layer")
+                console.print("  graq compile  # build intelligence layer")
 
             elif "Gate: scorecard" in label and "not found" in detail.lower():
-                console.print(f"  graq compile  # generates scorecard + intelligence")
+                console.print("  graq compile  # generates scorecard + intelligence")
 
             elif "Gate: pre-commit hook" in label and "not installed" in detail.lower():
-                console.print(f"  graq compile --hook  # enforce quality gate before every commit")
+                console.print("  graq compile --hook  # enforce quality gate before every commit")
 
             elif "Gate: CLAUDE.md" in label and "no intelligence" in detail.lower():
-                console.print(f"  graq compile --inject  # inject risk map into CLAUDE.md")
+                console.print("  graq compile --inject  # inject risk map into CLAUDE.md")
 
             elif "Gate: CLAUDE.md" in label and "not found" in detail.lower():
-                console.print(f"  graq compile --inject  # creates CLAUDE.md with intelligence")
+                console.print("  graq compile --inject  # creates CLAUDE.md with intelligence")
 
             elif "Backend: upgrade" in label or ("Backend: performance" in label and "Neo4j" in detail):
-                console.print(f"  graq upgrade neo4j  # 12× faster multi-hop traversal")
+                console.print("  graq upgrade neo4j  # 12× faster multi-hop traversal")
 
             elif "Neo4j: driver" in label and "not installed" in detail.lower():
-                console.print(f"  pip install graqle[neo4j]  # enables Neo4j backend")
+                console.print("  pip install graqle[neo4j]  # enables Neo4j backend")
 
     # Readiness score
     total = passes + warns + fails
-    score = int((passes / total * 100)) if total > 0 else 0
+    score = int(passes / total * 100) if total > 0 else 0
     color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
     console.print(f"\n[{color}]Readiness: {score}%[/{color}] ({passes}/{total} checks passed)")
 

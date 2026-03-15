@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from graqle.ontology.upper import UpperOntology
 
@@ -29,25 +29,25 @@ class DomainOntology:
     """A registered domain's full ontology specification."""
 
     name: str
-    class_hierarchy: Dict[str, str]
-    entity_shapes: Dict[str, Dict[str, Any]]
-    relationship_shapes: Dict[str, Dict[str, Any]]
-    skill_map: Dict[str, List[str]] = field(default_factory=dict)
-    output_shapes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    valid_entity_types: Set[str] = field(default_factory=set)
-    causal_tiers: Dict[str, Any] = field(default_factory=dict)
+    class_hierarchy: dict[str, str]
+    entity_shapes: dict[str, dict[str, Any]]
+    relationship_shapes: dict[str, dict[str, Any]]
+    skill_map: dict[str, list[str]] = field(default_factory=dict)
+    output_shapes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    valid_entity_types: set[str] = field(default_factory=set)
+    causal_tiers: dict[str, Any] = field(default_factory=dict)
 
-    def get_entity_shape(self, entity_type: str) -> Dict[str, Any]:
+    def get_entity_shape(self, entity_type: str) -> dict[str, Any]:
         """Get the SHACL shape for an entity type, with fallback to _default."""
         return self.entity_shapes.get(
             entity_type, self.entity_shapes.get("_default", {})
         )
 
-    def get_output_shape(self, entity_type: str) -> Dict[str, Any]:
+    def get_output_shape(self, entity_type: str) -> dict[str, Any]:
         """Get the output validation shape for a node's entity type."""
         return self.output_shapes.get(entity_type, {})
 
-    def get_valid_targets(self, source_type: str, relationship: str) -> List[str]:
+    def get_valid_targets(self, source_type: str, relationship: str) -> list[str]:
         """Get valid target types for a relationship from a source type."""
         shape = self.relationship_shapes.get(relationship)
         if not shape:
@@ -69,7 +69,7 @@ class DomainRegistry:
     """
 
     def __init__(self) -> None:
-        self._domains: Dict[str, DomainOntology] = {}
+        self._domains: dict[str, DomainOntology] = {}
         self._upper = UpperOntology()
 
     @property
@@ -77,18 +77,18 @@ class DomainRegistry:
         return self._upper
 
     @property
-    def registered_domains(self) -> List[str]:
+    def registered_domains(self) -> list[str]:
         return list(self._domains.keys())
 
     def register_domain(
         self,
         name: str,
-        class_hierarchy: Dict[str, str],
-        entity_shapes: Dict[str, Dict[str, Any]],
-        relationship_shapes: Dict[str, Dict[str, Any]],
-        skill_map: Dict[str, List[str]] | None = None,
-        output_shapes: Dict[str, Dict[str, Any]] | None = None,
-        causal_tiers: Dict[str, Any] | None = None,
+        class_hierarchy: dict[str, str],
+        entity_shapes: dict[str, dict[str, Any]],
+        relationship_shapes: dict[str, dict[str, Any]],
+        skill_map: dict[str, list[str]] | None = None,
+        output_shapes: dict[str, dict[str, Any]] | None = None,
+        causal_tiers: dict[str, Any] | None = None,
     ) -> DomainOntology:
         """Register a domain ontology.
 
@@ -107,7 +107,7 @@ class DomainRegistry:
         self._upper.extend(class_hierarchy)
 
         # Compute valid entity types for this domain
-        valid_types: Set[str] = set()
+        valid_types: set[str] = set()
         for t in class_hierarchy:
             if t not in ("Thing", ""):
                 valid_types.add(t)
@@ -132,45 +132,45 @@ class DomainRegistry:
         )
         return domain
 
-    def get_domain(self, name: str) -> Optional[DomainOntology]:
+    def get_domain(self, name: str) -> DomainOntology | None:
         """Get a registered domain ontology by name."""
         return self._domains.get(name)
 
-    def get_all_relationship_shapes(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_relationship_shapes(self) -> dict[str, dict[str, Any]]:
         """Get merged relationship shapes across all registered domains."""
-        merged: Dict[str, Dict[str, Any]] = {}
+        merged: dict[str, dict[str, Any]] = {}
         for domain in self._domains.values():
             merged.update(domain.relationship_shapes)
         return merged
 
-    def get_all_entity_shapes(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_entity_shapes(self) -> dict[str, dict[str, Any]]:
         """Get merged entity shapes across all registered domains."""
-        merged: Dict[str, Dict[str, Any]] = {}
+        merged: dict[str, dict[str, Any]] = {}
         for domain in self._domains.values():
             merged.update(domain.entity_shapes)
         return merged
 
-    def get_all_output_shapes(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_output_shapes(self) -> dict[str, dict[str, Any]]:
         """Get merged output shapes across all registered domains."""
-        merged: Dict[str, Dict[str, Any]] = {}
+        merged: dict[str, dict[str, Any]] = {}
         for domain in self._domains.values():
             merged.update(domain.output_shapes)
         return merged
 
-    def find_domain_for_type(self, entity_type: str) -> Optional[DomainOntology]:
+    def find_domain_for_type(self, entity_type: str) -> DomainOntology | None:
         """Find which domain owns a given entity type."""
         for domain in self._domains.values():
             if entity_type in domain.valid_entity_types:
                 return domain
         return None
 
-    def get_skills_for_type(self, entity_type: str) -> List[str]:
+    def get_skills_for_type(self, entity_type: str) -> list[str]:
         """Get all skills for an entity type, including inherited skills.
 
         Skills inherit up the OWL class hierarchy:
         GOV_ENFORCEMENT gets its own skills + Governance skills + Thing skills.
         """
-        all_skills: List[str] = []
+        all_skills: list[str] = []
 
         # Get ancestor chain
         ancestors = [entity_type] + self._upper.get_ancestors(entity_type)

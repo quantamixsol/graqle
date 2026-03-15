@@ -5,14 +5,14 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.learning.graph_learner import GraphLearner, LearningConfig, EdgeUpdate
 from graqle.learning.gds_intelligence import (
+    Community,
     GDSIntelligence,
     GDSReport,
     LinkPrediction,
-    Community,
     SimilarityPair,
 )
+from graqle.learning.graph_learner import EdgeUpdate, GraphLearner, LearningConfig
 
 __all__ = [
     "GraphLearner",

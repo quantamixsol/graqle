@@ -14,7 +14,7 @@ v2: Semantic convergence using embedding similarity + constraint-aware blocking.
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 

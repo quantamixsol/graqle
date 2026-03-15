@@ -7,14 +7,12 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
+import numpy as np
 import pytest
 
-from graqle.core.graph import Graqle
+from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 from graqle.activation.pcst import PCSTActivation
 from graqle.activation.relevance import RelevanceScorer
-from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
-
-import numpy as np
 
 
 def test_cosine_similarity():

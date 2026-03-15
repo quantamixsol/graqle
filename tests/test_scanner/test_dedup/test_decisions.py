@@ -8,9 +8,8 @@
 # ── /graqle:intelligence ──
 
 import json
-from pathlib import Path
 
-from graqle.scanner.dedup.decisions import DecisionStore, UserDecision
+from graqle.scanner.dedup.decisions import DecisionStore
 
 
 class TestDecisionStore:

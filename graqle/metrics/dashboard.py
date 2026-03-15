@@ -42,8 +42,8 @@ def generate_dashboard(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     sections: list[str] = [
-        f"# Graqle Metrics Dashboard",
-        f"",
+        "# Graqle Metrics Dashboard",
+        "",
         f"> Generated: {now}",
         f"> Tracking since: {summary['init_timestamp'][:10]}",
         "",
@@ -57,8 +57,8 @@ def generate_dashboard(
     gs_curr: dict[str, Any] = summary.get("graph_stats_current") or {}
 
     if gs_curr:
-        sections.append(f"| Metric | Initial | Current |")
-        sections.append(f"|--------|---------|---------|")
+        sections.append("| Metric | Initial | Current |")
+        sections.append("|--------|---------|---------|")
         sections.append(
             f"| Nodes  | {gs_init.get('nodes', '—')} | {gs_curr.get('nodes', '—')} |"
         )
@@ -97,10 +97,10 @@ def generate_dashboard(
     avg_returned = 25_000 - avg_saved if context_loads else 0
     reduction = round(25_000 / max(avg_returned, 1), 1) if context_loads else 0
 
-    sections.append(f"| Metric | Value |")
-    sections.append(f"|--------|-------|")
+    sections.append("| Metric | Value |")
+    sections.append("|--------|-------|")
     sections.append(f"| Context loads | {context_loads:,} |")
-    sections.append(f"| Avg tokens without Graqle | 25,000 |")
+    sections.append("| Avg tokens without Graqle | 25,000 |")
     sections.append(f"| Avg tokens with Graqle | {avg_returned:,} |")
     sections.append(f"| Avg tokens saved per load | {avg_saved:,} |")
     sections.append(f"| Total tokens saved | {tokens_saved:,} |")
@@ -111,8 +111,8 @@ def generate_dashboard(
     # Cumulative totals
     # ------------------------------------------------------------------
     sections.append("## Cumulative Totals\n")
-    sections.append(f"| Metric | Count |")
-    sections.append(f"|--------|-------|")
+    sections.append("| Metric | Count |")
+    sections.append("|--------|-------|")
     sections.append(f"| Context loads | {context_loads:,} |")
     sections.append(f"| Reasoning queries | {summary['queries']:,} |")
     sections.append(f"| Tokens saved | {tokens_saved:,} |")
@@ -180,8 +180,8 @@ def generate_dashboard(
     safety_blocks = summary["safety_blocks"]
     if safety_checks:
         block_rate = safety_blocks / safety_checks * 100
-        sections.append(f"| Metric | Value |")
-        sections.append(f"|--------|-------|")
+        sections.append("| Metric | Value |")
+        sections.append("|--------|-------|")
         sections.append(f"| Total checks | {safety_checks:,} |")
         sections.append(f"| Violations blocked | {safety_blocks:,} |")
         sections.append(f"| Block rate | {block_rate:.1f}% |")
@@ -195,8 +195,8 @@ def generate_dashboard(
     # ------------------------------------------------------------------
     sections.append("## Cost Impact Estimate\n")
     estimated_savings = (tokens_saved / 1000) * _COST_PER_1K_TOKENS
-    sections.append(f"| Parameter | Value |")
-    sections.append(f"|-----------|-------|")
+    sections.append("| Parameter | Value |")
+    sections.append("|-----------|-------|")
     sections.append(f"| Token cost rate | ${_COST_PER_1K_TOKENS}/1K input tokens |")
     sections.append(f"| Total tokens saved | {tokens_saved:,} |")
     sections.append(f"| **Estimated savings** | **${estimated_savings:,.2f}** |")

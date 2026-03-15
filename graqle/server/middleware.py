@@ -14,7 +14,7 @@ import logging
 import os
 import time
 from collections import defaultdict
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger("graqle.server.middleware")
 

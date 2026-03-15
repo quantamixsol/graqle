@@ -46,16 +46,15 @@ logger = logging.getLogger("graqle.benchmark.multigov_v3")
 
 from graqle.backends.api import BedrockBackend, OllamaBackend
 from graqle.benchmarks.benchmark_runner import (
+    BenchmarkRunner,
     BenchmarkSummary,
     QuestionResult,
+    constrained_f1_score,
     exact_match,
     f1_score,
-    constrained_f1_score,
     save_multigov_results,
-    BenchmarkRunner,
 )
 from graqle.benchmarks.multi_governance_benchmark import (
-    ALL_QUESTIONS,
     get_questions_by_tier,
 )
 from graqle.benchmarks.multi_governance_kg import build_multi_governance_kg, get_kg_stats
@@ -63,17 +62,16 @@ from graqle.config.settings import GraqleConfig
 from graqle.core.graph import Graqle
 from graqle.core.types import ReasoningResult
 from graqle.ontology import (
-    DomainRegistry,
-    SHACLGate,
     ConstraintGraph,
+    DomainRegistry,
     OntologyRouter,
+    SHACLGate,
     SkillResolver,
     UpperOntology,
 )
 from graqle.ontology.domains.governance import register_governance_domain
 from graqle.ontology.domains.governance_v3 import (
     build_governance_semantic_constraints,
-    register_governance_domain_v3,
 )
 from graqle.ontology.semantic_shacl_gate import SemanticSHACLGate
 from graqle.orchestration.aggregation import Aggregator
@@ -81,7 +79,6 @@ from graqle.orchestration.convergence import ConvergenceDetector
 from graqle.orchestration.message_passing import MessagePassingProtocol
 from graqle.orchestration.observer import MasterObserver
 from graqle.orchestration.orchestrator import Orchestrator
-
 
 # Type remapping for governance ontology
 KG_TYPE_TO_GOV_TYPE = {
@@ -184,7 +181,7 @@ async def run_v3_benchmark(
 
     print("=" * 70)
     print("Graqle v3: Governed Intelligence Benchmark")
-    print(f"Thesis: Governance-enforced reasoning at fraction of cost")
+    print("Thesis: Governance-enforced reasoning at fraction of cost")
     print("=" * 70)
     print(f"  Backend: {backend_type} | Model: {model}")
     print(f"  Observer: {observer_backend_type} | Model: {observer_model}")
@@ -224,7 +221,7 @@ async def run_v3_benchmark(
     print(f"  Total: {len(questions)} questions")
 
     # 4. Initialize backends
-    print(f"\n[4/7] Initializing backends...")
+    print("\n[4/7] Initializing backends...")
     reasoning_backend = _create_backend(backend_type, model, region, host)
     obs_backend = _create_backend(observer_backend_type, observer_model, region, host)
     print(f"  Reasoning: {reasoning_backend.name}")
@@ -239,7 +236,7 @@ async def run_v3_benchmark(
         sys.exit(1)
 
     # 5. Build context text for single-agent baseline
-    print(f"\n[5/7] Building context for single-agent baseline...")
+    print("\n[5/7] Building context for single-agent baseline...")
     context_parts = []
     for nid, data in kg.nodes(data=True):
         label = data.get("label", nid)
@@ -503,7 +500,7 @@ async def run_v3_benchmark(
         )
 
     # 7. Save results + cost report
-    print(f"\n[7/7] Saving results...")
+    print("\n[7/7] Saving results...")
     save_multigov_results(summaries, output_dir)
 
     # Save detailed cost log

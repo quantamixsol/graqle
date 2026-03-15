@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -38,7 +38,7 @@ class SharedConstraint:
 
     id: str
     description: str
-    node_ids: List[str]
+    node_ids: list[str]
     similarity_score: float
     constraint_type: str = "semantic_overlap"  # semantic_overlap, hierarchical, explicit
 
@@ -48,8 +48,8 @@ class NodeConstraints:
     """All constraints applicable to a specific node."""
 
     node_id: str
-    own_constraints: List[str] = field(default_factory=list)
-    propagated_constraints: List[SharedConstraint] = field(default_factory=list)
+    own_constraints: list[str] = field(default_factory=list)
+    propagated_constraints: list[SharedConstraint] = field(default_factory=list)
 
     def to_prompt_text(self) -> str:
         """Format constraints for injection into node prompt."""
@@ -84,23 +84,23 @@ class ConstraintGraph:
     ) -> None:
         self.similarity_threshold = similarity_threshold
         self._embedding_fn = embedding_fn  # callable: str -> np.ndarray
-        self._shared_constraints: List[SharedConstraint] = []
-        self._node_constraints: Dict[str, NodeConstraints] = {}
+        self._shared_constraints: list[SharedConstraint] = []
+        self._node_constraints: dict[str, NodeConstraints] = {}
         self._stats = {"shared_constraints": 0, "propagations": 0}
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return dict(self._stats)
 
     @property
-    def shared_constraints(self) -> List[SharedConstraint]:
+    def shared_constraints(self) -> list[SharedConstraint]:
         return list(self._shared_constraints)
 
     def set_embedding_fn(self, fn: Any) -> None:
         """Set the embedding function (e.g., Titan V2 or sentence-transformers)."""
         self._embedding_fn = fn
 
-    def build(self, graph: Graqle, active_node_ids: List[str] | None = None) -> None:
+    def build(self, graph: Graqle, active_node_ids: list[str] | None = None) -> None:
         """Build the constraint graph from node properties.
 
         Compares constraint-relevant text from each node pair using embeddings.
@@ -111,7 +111,7 @@ class ConstraintGraph:
             return
 
         # Extract constraint text for each node
-        node_texts: Dict[str, str] = {}
+        node_texts: dict[str, str] = {}
         for nid in nodes_to_check:
             node = graph.nodes[nid]
             text = self._extract_constraint_text(node)
@@ -152,7 +152,7 @@ class ConstraintGraph:
         self._build_node_constraint_map(graph, nodes_to_check)
 
     def _build_from_properties(
-        self, graph: Graqle, node_ids: List[str]
+        self, graph: Graqle, node_ids: list[str]
     ) -> None:
         """Build constraints from node properties without embeddings."""
         for nid in node_ids:
@@ -163,7 +163,7 @@ class ConstraintGraph:
             )
 
     def _build_node_constraint_map(
-        self, graph: Graqle, node_ids: List[str]
+        self, graph: Graqle, node_ids: list[str]
     ) -> None:
         """Build per-node constraint sets from shared constraints."""
         for nid in node_ids:
@@ -202,7 +202,7 @@ class ConstraintGraph:
         return " ".join(parts)
 
     @staticmethod
-    def _extract_own_constraints(node: Any) -> List[str]:
+    def _extract_own_constraints(node: Any) -> list[str]:
         """Extract a node's own constraints from its properties."""
         constraints = []
         props = node.properties

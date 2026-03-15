@@ -14,7 +14,7 @@ v2: Constraint-aware synthesis with filtering, validation, and concise output.
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.core.message import Message
 from graqle.core.types import ReasoningType

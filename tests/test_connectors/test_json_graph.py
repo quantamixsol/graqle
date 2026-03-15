@@ -8,8 +8,8 @@
 # ── /graqle:intelligence ──
 
 import json
+
 import pytest
-from pathlib import Path
 
 from graqle.connectors.json_graph import JSONGraphConnector
 

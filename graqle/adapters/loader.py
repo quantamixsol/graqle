@@ -12,8 +12,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from graqle.adapters.config import AdapterConfig
-
 logger = logging.getLogger("graqle.adapters.loader")
 
 

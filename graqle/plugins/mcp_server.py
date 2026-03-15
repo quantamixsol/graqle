@@ -168,7 +168,6 @@ class MCPServer:
         if self._graph is not None:
             return
 
-        from graqle.core.graph import Graqle
         from graqle.connectors.json_graph import JSONGraphConnector
 
         connector = JSONGraphConnector()

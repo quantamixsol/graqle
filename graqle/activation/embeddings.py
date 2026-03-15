@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -124,10 +123,11 @@ class TitanV2Engine:
             # Try reading from graqle.yaml config
             try:
                 from pathlib import Path
+
                 import yaml
                 cfg_path = Path("graqle.yaml")
                 if cfg_path.exists():
-                    with open(cfg_path, "r", encoding="utf-8") as f:
+                    with open(cfg_path, encoding="utf-8") as f:
                         cfg = yaml.safe_load(f) or {}
                     self._region = cfg.get("model", {}).get("region")
             except Exception:

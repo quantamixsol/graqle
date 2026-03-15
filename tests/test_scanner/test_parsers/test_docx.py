@@ -27,7 +27,6 @@ def parser() -> DOCXParser:
 def sample_docx(tmp_path: Path) -> Path:
     """Create a minimal DOCX file."""
     from docx import Document
-    from docx.shared import Inches
 
     p = tmp_path / "test.docx"
     doc = Document()

@@ -460,9 +460,10 @@ class AzureMonitorFetcher(LogFetcher):
             )
 
         try:
+            from datetime import timedelta
+
             from azure.identity import DefaultAzureCredential
             from azure.monitor.query import LogsQueryClient
-            from datetime import timedelta
 
             credential = DefaultAzureCredential()
             client = LogsQueryClient(credential)
@@ -719,7 +720,6 @@ class LocalLogFetcher(LogFetcher):
         custom_patterns: list[tuple[str, str, str]] | None,
     ) -> list[RuntimeEvent]:
         """Read and classify a local log file (tail)."""
-        import os
         from pathlib import Path
 
         events: list[RuntimeEvent] = []
@@ -776,8 +776,8 @@ class LocalLogFetcher(LogFetcher):
         custom_patterns: list[tuple[str, str, str]] | None,
     ) -> list[RuntimeEvent]:
         """Read logs from running Docker containers."""
-        import subprocess
         import shutil
+        import subprocess
 
         events: list[RuntimeEvent] = []
         if not shutil.which("docker"):

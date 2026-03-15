@@ -24,9 +24,7 @@ import hashlib
 import logging
 import math
 import re
-from typing import Any, TYPE_CHECKING
-
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 
@@ -237,9 +235,7 @@ class RelevanceScorer:
             # "auth" in "authentication" → NO
             # "auth" in "the auth service" → YES
             import re as _re
-            if _re.search(r"(?:^|[\s\-_/\\.,;:\"'()]){}(?:[\s\-_/\\.,;:\"'()]|$)".format(
-                _re.escape(bare_name)
-            ), query_lower):
+            if _re.search(rf"(?:^|[\s\-_/\\.,;:\"'()]){_re.escape(bare_name)}(?:[\s\-_/\\.,;:\"'()]|$)", query_lower):
                 matched = True
 
         if matched:

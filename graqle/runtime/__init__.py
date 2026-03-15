@@ -11,7 +11,7 @@ fetches logs/metrics, and builds RUNTIME_EVENT nodes in the KG.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.runtime.detector import detect_environment, EnvironmentInfo
+from graqle.runtime.detector import EnvironmentInfo, detect_environment
 from graqle.runtime.fetcher import LogFetcher, create_fetcher
 from graqle.runtime.kg_builder import RuntimeKGBuilder
 

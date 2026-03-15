@@ -10,16 +10,13 @@
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass, field
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 from graqle.plugins.mcp_server import MCPConfig, MCPServer, MCPToolResult
-
 
 # ---------------------------------------------------------------------------
 # Mock graph objects

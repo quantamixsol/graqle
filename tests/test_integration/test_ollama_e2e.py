@@ -13,14 +13,13 @@ They are marked with `pytest.mark.gpu` and skipped if Ollama is unavailable.
 
 from __future__ import annotations
 
-import asyncio
-import pytest
 import httpx
 import networkx as nx
+import pytest
 
 from graqle.backends.api import OllamaBackend
-from graqle.core.graph import Graqle
 from graqle.config.settings import GraqleConfig
+from graqle.core.graph import Graqle
 
 
 def _ollama_available() -> bool:

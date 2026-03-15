@@ -11,17 +11,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from graqle.plugins.mcp_dev_server import (
+    _SENSITIVE_KEYS,
     TOOL_DEFINITIONS,
     KogniDevServer,
-    _SENSITIVE_KEYS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mock graph objects (same pattern as test_mcp_server.py)

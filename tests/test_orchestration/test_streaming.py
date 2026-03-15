@@ -10,7 +10,7 @@
 import pytest
 
 from graqle.backends.mock import MockBackend
-from graqle.orchestration.streaming import StreamingOrchestrator, StreamChunk
+from graqle.orchestration.streaming import StreamChunk, StreamingOrchestrator
 
 
 @pytest.fixture

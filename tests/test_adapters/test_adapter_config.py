@@ -8,8 +8,6 @@
 # ── /graqle:intelligence ──
 
 import json
-import pytest
-from pathlib import Path
 
 from graqle.adapters.config import AdapterConfig
 from graqle.adapters.registry import AdapterRegistry

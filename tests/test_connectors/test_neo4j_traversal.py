@@ -12,6 +12,7 @@ Skipped if Neo4j is not available.
 # ── /graqle:intelligence ──
 
 import time
+
 import pytest
 
 # Skip entire module if Neo4j is unavailable
@@ -30,7 +31,6 @@ except Exception:
     pytest.skip("Neo4j not available", allow_module_level=True)
 
 from graqle.connectors.neo4j_traversal import Neo4jTraversal
-
 
 # ── Fixtures ────────────────────────────────────────────────────────
 

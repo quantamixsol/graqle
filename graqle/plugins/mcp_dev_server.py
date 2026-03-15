@@ -39,10 +39,10 @@ Claude Code .mcp.json:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sys
-import asyncio
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1401,8 +1401,8 @@ class KogniDevServer:
                         })
 
             if lesson_text:
-                from graqle.core.node import CogniNode
                 from graqle.core.edge import CogniEdge
+                from graqle.core.node import CogniNode
 
                 ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
                 lesson_node_id = f"lesson_{ts}"

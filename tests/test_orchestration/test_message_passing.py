@@ -9,7 +9,6 @@
 
 import pytest
 
-from graqle.core.graph import Graqle
 from graqle.backends.mock import MockBackend
 from graqle.orchestration.message_passing import MessagePassingProtocol
 

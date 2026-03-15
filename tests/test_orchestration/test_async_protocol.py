@@ -10,7 +10,6 @@
 import pytest
 
 from graqle.backends.mock import MockBackend
-from graqle.core.graph import Graqle
 from graqle.orchestration.async_protocol import AsyncMessageProtocol, NodeMailbox
 
 

@@ -29,7 +29,6 @@ import asyncio
 import logging
 import sys
 import time
-from pathlib import Path
 
 # Setup logging
 logging.basicConfig(
@@ -52,19 +51,17 @@ from graqle.benchmarks.benchmark_runner import (
     save_multigov_results,
 )
 from graqle.benchmarks.multi_governance_benchmark import (
-    ALL_QUESTIONS,
     get_questions_by_tier,
-    get_tier_stats,
 )
 from graqle.benchmarks.multi_governance_kg import build_multi_governance_kg, get_kg_stats
-from graqle.config.settings import GraqleConfig, ObserverConfig
+from graqle.config.settings import GraqleConfig
 from graqle.core.graph import Graqle
 from graqle.core.types import ReasoningResult
 from graqle.ontology import (
-    DomainRegistry,
-    SHACLGate,
     ConstraintGraph,
+    DomainRegistry,
     OntologyRouter,
+    SHACLGate,
     SkillResolver,
     UpperOntology,
 )
@@ -74,7 +71,6 @@ from graqle.orchestration.convergence import ConvergenceDetector
 from graqle.orchestration.message_passing import MessagePassingProtocol
 from graqle.orchestration.observer import MasterObserver
 from graqle.orchestration.orchestrator import Orchestrator
-
 
 # Map benchmark KG types to governance ontology types for better skill/constraint coverage
 KG_TYPE_TO_GOV_TYPE = {
@@ -187,7 +183,7 @@ async def run_v2_benchmark(
     skill_resolver = SkillResolver(registry)
 
     gov_domain = registry.get_domain("governance")
-    print(f"  Domain: governance")
+    print("  Domain: governance")
     print(f"  Entity types: {len(gov_domain.valid_entity_types)}")
     print(f"  Relationship shapes: {len(gov_domain.relationship_shapes)}")
     print(f"  Output shapes: {len(gov_domain.output_shapes)}")
@@ -203,7 +199,7 @@ async def run_v2_benchmark(
     print(f"  Total: {len(questions)} questions")
 
     # 4. Initialize backends
-    print(f"\n[4/6] Initializing backends...")
+    print("\n[4/6] Initializing backends...")
     reasoning_backend = OllamaBackend(model=model, host=host, num_ctx=8192)
     observer_backend = OllamaBackend(model=observer_model, host=host)
     print(f"  Reasoning model: {model}")
@@ -218,7 +214,7 @@ async def run_v2_benchmark(
         sys.exit(1)
 
     # 5. Run benchmark
-    print(f"\n[5/6] Running benchmark...")
+    print("\n[5/6] Running benchmark...")
     start = time.perf_counter()
 
     # Build context text for single-agent baseline
@@ -396,7 +392,7 @@ async def run_v2_benchmark(
         )
 
     # 6. Save results
-    print(f"\n[6/6] Saving results...")
+    print("\n[6/6] Saving results...")
     save_multigov_results(summaries, output_dir)
     print(f"  Results saved to {output_dir}/")
 

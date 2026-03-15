@@ -23,7 +23,6 @@ See ADR-105 §Layer C: Enforcement.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 from pathlib import Path
@@ -31,7 +30,6 @@ from typing import Any
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from graqle.intelligence.gate import IntelligenceGate

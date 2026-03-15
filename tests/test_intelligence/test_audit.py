@@ -7,17 +7,13 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import json
 from pathlib import Path
-
-import pytest
 
 from graqle.intelligence.governance.audit import (
     AuditEntry,
     AuditSession,
     AuditTrail,
 )
-
 
 # ── AuditEntry ──────────────────────────────────────────────────────
 

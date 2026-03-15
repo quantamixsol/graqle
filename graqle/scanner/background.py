@@ -25,9 +25,10 @@ import logging
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger("graqle.scanner.background")
 

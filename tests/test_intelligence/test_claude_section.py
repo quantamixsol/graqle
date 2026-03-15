@@ -11,15 +11,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from graqle.intelligence.claude_section import (
-    OPEN_MARKER,
     CLOSE_MARKER,
-    generate_section,
+    OPEN_MARKER,
     detect_ai_tools,
-    inject_section,
     eject_section,
+    generate_section,
+    inject_section,
 )
 from graqle.intelligence.models import ModulePacket
 from graqle.intelligence.scorecard import RunningScorecard

@@ -5,9 +5,9 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
+from graqle.adapters.auto_select import AdapterAutoSelector, SelectionResult
 from graqle.adapters.config import AdapterConfig
 from graqle.adapters.registry import AdapterRegistry
-from graqle.adapters.auto_select import AdapterAutoSelector, SelectionResult
 
 __all__ = ["AdapterConfig", "AdapterRegistry", "AdapterAutoSelector", "SelectionResult"]
 

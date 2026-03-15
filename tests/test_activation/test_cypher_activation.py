@@ -9,8 +9,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from graqle.activation.cypher_activation import CypherActivation
 
 

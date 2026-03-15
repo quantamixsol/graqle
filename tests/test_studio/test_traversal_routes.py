@@ -10,7 +10,6 @@ Tests against mock traversal engine (no Neo4j required).
 # constraints: none
 # ── /graqle:intelligence ──
 
-from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,7 +17,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from graqle.studio.routes.traversal import router
-
 
 # ── Mock Traversal Engine ────────────────────────────────────────────
 

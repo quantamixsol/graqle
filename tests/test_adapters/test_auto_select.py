@@ -10,9 +10,7 @@
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
-import pytest
-
-from graqle.adapters.auto_select import AdapterAutoSelector, SelectionResult
+from graqle.adapters.auto_select import AdapterAutoSelector
 
 
 @dataclass

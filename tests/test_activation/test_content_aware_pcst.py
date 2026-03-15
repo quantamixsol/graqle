@@ -19,15 +19,13 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
+from graqle.activation.pcst import PCSTActivation
+from graqle.activation.relevance import _CONTENT_RICHNESS_BASE, RelevanceScorer
+from graqle.core.edge import CogniEdge
 from graqle.core.graph import Graqle
 from graqle.core.node import CogniNode
-from graqle.core.edge import CogniEdge
-from graqle.activation.pcst import PCSTActivation
-from graqle.activation.relevance import RelevanceScorer, _CONTENT_RICHNESS_BASE
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures — graph topologies that reproduce the Directory-beats-JSModule bug

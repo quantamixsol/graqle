@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 # OWL Class Hierarchy
 # ---------------------------------------------------------------------------
 
-ENGINEERING_CLASS_HIERARCHY: Dict[str, str] = {
+ENGINEERING_CLASS_HIERARCHY: dict[str, str] = {
     "Engineering": "Thing",
     # Code entities (OWL canonical types)
     "MODULE": "Engineering",
@@ -88,7 +88,7 @@ ENGINEERING_CLASS_HIERARCHY: Dict[str, str] = {
 # Entity Shapes
 # ---------------------------------------------------------------------------
 
-ENGINEERING_ENTITY_SHAPES: Dict[str, dict] = {
+ENGINEERING_ENTITY_SHAPES: dict[str, dict] = {
     "MODULE": {"required": ["name"], "optional": ["file_path", "language", "imports", "exports"]},
     "APIEndpoint": {"required": ["path", "method"], "optional": ["auth", "rate_limit", "request_schema", "response_schema"]},
     "DATABASE": {"required": ["name", "engine"], "optional": ["tables", "connection_string"]},
@@ -100,7 +100,7 @@ ENGINEERING_ENTITY_SHAPES: Dict[str, dict] = {
 # Relationship Shapes
 # ---------------------------------------------------------------------------
 
-ENGINEERING_RELATIONSHIP_SHAPES: Dict[str, dict] = {
+ENGINEERING_RELATIONSHIP_SHAPES: dict[str, dict] = {
     "IMPORTS": {"domain": {"MODULE", "CLASS", "FUNCTION", "COMPONENT"}, "range": {"MODULE", "CLASS", "FUNCTION"}},
     "CALLS": {"domain": {"MODULE", "FUNCTION", "HANDLER"}, "range": {"APIEndpoint", "FUNCTION", "SERVICE"}},
     "DEPENDS_ON": {"domain": {"SERVICE", "LAMBDA"}, "range": {"SERVICE", "DATABASE", "QUEUE"}},
@@ -116,7 +116,7 @@ ENGINEERING_RELATIONSHIP_SHAPES: Dict[str, dict] = {
 # Skill Map
 # ---------------------------------------------------------------------------
 
-ENGINEERING_SKILL_MAP: Dict[str, List[str]] = {
+ENGINEERING_SKILL_MAP: dict[str, list[str]] = {
     # Branch level (all engineering entities)
     "Engineering": ["analyze_dependencies", "check_error_handling", "trace_data_flow"],
     # Code
@@ -170,7 +170,7 @@ ENGINEERING_SKILL_MAP: Dict[str, List[str]] = {
 # Skill Definitions (45 skills)
 # ---------------------------------------------------------------------------
 
-ENGINEERING_SKILLS: Dict[str, Skill] = {
+ENGINEERING_SKILLS: dict[str, Skill] = {
     # -- Code Quality --
     "code_review": Skill(
         name="code_review",

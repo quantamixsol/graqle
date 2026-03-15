@@ -7,10 +7,7 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import json
 from pathlib import Path
-
-import pytest
 
 from graqle.intelligence.governance.evidence import (
     DecisionRecord,
@@ -18,7 +15,6 @@ from graqle.intelligence.governance.evidence import (
     EvidenceItem,
     EvidenceStore,
 )
-
 
 # ── EvidenceItem ────────────────────────────────────────────────────
 

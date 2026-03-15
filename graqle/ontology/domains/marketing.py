@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 # OWL Class Hierarchy
 # ---------------------------------------------------------------------------
 
-MARKETING_CLASS_HIERARCHY: Dict[str, str] = {
+MARKETING_CLASS_HIERARCHY: dict[str, str] = {
     # Branch level
     "Marketing": "Thing",
     # Entity types
@@ -51,7 +51,7 @@ MARKETING_CLASS_HIERARCHY: Dict[str, str] = {
 # Entity Shapes (SHACL)
 # ---------------------------------------------------------------------------
 
-MARKETING_ENTITY_SHAPES: Dict[str, dict] = {
+MARKETING_ENTITY_SHAPES: dict[str, dict] = {
     "BRAND": {
         "required": ["name", "voice_tone"],
         "optional": ["tagline", "values", "visual_identity", "guidelines_url"],
@@ -74,7 +74,7 @@ MARKETING_ENTITY_SHAPES: Dict[str, dict] = {
 # Relationship Shapes
 # ---------------------------------------------------------------------------
 
-MARKETING_RELATIONSHIP_SHAPES: Dict[str, dict] = {
+MARKETING_RELATIONSHIP_SHAPES: dict[str, dict] = {
     "TARGETS": {"domain": {"CAMPAIGN", "CONTENT"}, "range": {"AUDIENCE", "PERSONA", "MARKET_SEGMENT"}},
     "COMPETES_WITH": {"domain": {"BRAND", "PRODUCT_POSITION"}, "range": {"COMPETITOR"}},
     "PUBLISHED_ON": {"domain": {"CONTENT", "CONTENT_PIECE"}, "range": {"CHANNEL"}},
@@ -87,7 +87,7 @@ MARKETING_RELATIONSHIP_SHAPES: Dict[str, dict] = {
 # Skill Map — which entity types get which skills
 # ---------------------------------------------------------------------------
 
-MARKETING_SKILL_MAP: Dict[str, List[str]] = {
+MARKETING_SKILL_MAP: dict[str, list[str]] = {
     # Branch-level (all marketing entities inherit)
     "Marketing": ["analyze_brand_voice", "audience_analysis", "competitive_positioning"],
     # Brand
@@ -113,7 +113,7 @@ MARKETING_SKILL_MAP: Dict[str, List[str]] = {
 # Skill Definitions
 # ---------------------------------------------------------------------------
 
-MARKETING_SKILLS: Dict[str, Skill] = {
+MARKETING_SKILLS: dict[str, Skill] = {
     # -- Brand & Positioning --
     "analyze_brand_voice": Skill(
         name="analyze_brand_voice",

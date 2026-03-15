@@ -13,12 +13,12 @@ The Q stands for Query, Quality, and Quantified reasoning.
 # ── /graqle:intelligence ──
 
 from graqle.__version__ import __version__
-from graqle.core.graph import Graqle
-from graqle.core.node import CogniNode
 from graqle.core.edge import CogniEdge
+from graqle.core.graph import Graqle
 from graqle.core.message import Message
+from graqle.core.node import CogniNode
 from graqle.core.state import NodeState
-from graqle.core.types import ReasoningType, NodeStatus, ReasoningResult
+from graqle.core.types import NodeStatus, ReasoningResult, ReasoningType
 
 __all__ = [
     "__version__",

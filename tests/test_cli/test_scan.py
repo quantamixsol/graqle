@@ -11,9 +11,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from graqle.cli.commands.scan import (
     EDGE_TYPES,
@@ -23,7 +20,6 @@ from graqle.cli.commands.scan import (
     JSAnalyzer,
     PythonAnalyzer,
     RepoScanner,
-    _attr_name,
     _is_test_file,
 )
 

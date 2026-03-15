@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from graqle.ontology.skill_resolver import Skill
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from graqle.ontology.domain_registry import DomainRegistry
 
 
-DATA_ANALYTICS_CLASS_HIERARCHY: Dict[str, str] = {
+DATA_ANALYTICS_CLASS_HIERARCHY: dict[str, str] = {
     "DataAnalytics": "Thing",
     "DATASET": "DataAnalytics",
     "DATA_PIPELINE": "DataAnalytics",
@@ -41,14 +41,14 @@ DATA_ANALYTICS_CLASS_HIERARCHY: Dict[str, str] = {
     "DATA_LAKE": "DATA_SOURCE",
 }
 
-DATA_ANALYTICS_ENTITY_SHAPES: Dict[str, dict] = {
+DATA_ANALYTICS_ENTITY_SHAPES: dict[str, dict] = {
     "DATASET": {"required": ["name"], "optional": ["schema", "row_count", "freshness", "quality_score"]},
     "ML_MODEL": {"required": ["name", "type"], "optional": ["accuracy", "framework", "version", "features"]},
     "KPI": {"required": ["name", "value"], "optional": ["target", "period", "trend", "owner"]},
     "DATA_PIPELINE": {"required": ["name"], "optional": ["schedule", "source", "destination", "sla"]},
 }
 
-DATA_ANALYTICS_RELATIONSHIP_SHAPES: Dict[str, dict] = {
+DATA_ANALYTICS_RELATIONSHIP_SHAPES: dict[str, dict] = {
     "FEEDS_INTO": {"domain": {"DATA_SOURCE", "DATASET", "DATA_PIPELINE"}, "range": {"DATA_PIPELINE", "ML_MODEL", "DASHBOARD"}},
     "PRODUCES": {"domain": {"DATA_PIPELINE", "ETL_JOB"}, "range": {"DATASET", "FEATURE"}},
     "TRAINS_ON": {"domain": {"ML_MODEL"}, "range": {"DATASET", "FEATURE_STORE"}},
@@ -56,7 +56,7 @@ DATA_ANALYTICS_RELATIONSHIP_SHAPES: Dict[str, dict] = {
     "VISUALIZES": {"domain": {"DASHBOARD"}, "range": {"DATASET", "KPI", "ML_MODEL"}},
 }
 
-DATA_ANALYTICS_SKILL_MAP: Dict[str, List[str]] = {
+DATA_ANALYTICS_SKILL_MAP: dict[str, list[str]] = {
     "DataAnalytics": ["data_quality_check", "metric_interpretation"],
     "DATASET": ["data_quality_check", "schema_evolution_check", "data_profiling", "freshness_check"],
     "DATA_PIPELINE": ["pipeline_health_check", "sla_monitoring", "data_lineage_trace"],
@@ -70,7 +70,7 @@ DATA_ANALYTICS_SKILL_MAP: Dict[str, List[str]] = {
     "DATA_SOURCE": ["data_lineage_trace", "freshness_check"],
 }
 
-DATA_ANALYTICS_SKILLS: Dict[str, Skill] = {
+DATA_ANALYTICS_SKILLS: dict[str, Skill] = {
     # -- Data Quality --
     "data_quality_check": Skill(
         name="data_quality_check",

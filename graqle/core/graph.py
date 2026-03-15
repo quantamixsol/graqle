@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import networkx as nx
 
 from graqle.config.settings import GraqleConfig
 from graqle.core.edge import CogniEdge
-from graqle.core.message import Message
 from graqle.core.node import CogniNode
-from graqle.core.state import NodeState
 from graqle.core.types import (
     GraphStats,
     ModelBackend,
@@ -48,7 +47,7 @@ def _acquire_lock(lock_path: str):
             try:
                 msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
                 return fd
-            except (IOError, OSError):
+            except OSError:
                 if attempt == 9:
                     fd.close()
                     raise
@@ -75,7 +74,7 @@ def _release_lock(fd, lock_path: str) -> None:
         else:
             import fcntl
             fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-    except (IOError, OSError):
+    except OSError:
         pass
     finally:
         fd.close()
@@ -175,7 +174,7 @@ def _read_modify_write(file_path: str, modify_fn) -> None:
 
         # Read current state under lock
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = _json.load(f)
         except (FileNotFoundError, _json.JSONDecodeError):
             data = {"directed": True, "multigraph": False, "graph": {},
@@ -1123,9 +1122,9 @@ class Graqle:
             # Create unified SkillPipeline (type-first, semantic fallback)
             skill_pipeline = None
             try:
-                from graqle.ontology.skill_pipeline import SkillPipeline
-                from graqle.ontology.domains import collect_all_skills, register_all_domains
                 from graqle.ontology.domain_registry import DomainRegistry
+                from graqle.ontology.domains import collect_all_skills, register_all_domains
+                from graqle.ontology.skill_pipeline import SkillPipeline
 
                 # Build registry with all available domains
                 registry = DomainRegistry()
@@ -1372,7 +1371,6 @@ class Graqle:
 
     def _resolve_named_backend(self, profile_name: str) -> Any:
         """Resolve a named model profile to a backend instance."""
-        from graqle.config.settings import NamedModelConfig
 
         profile = self.config.models.get(profile_name)
         if profile is None:
@@ -1459,8 +1457,8 @@ class Graqle:
 
             # ChunkScorer (new default) — chunk-level embedding search
             # v0.12: Adaptive node count — simple queries don't need max_nodes.
-            from graqle.activation.chunk_scorer import ChunkScorer
             from graqle.activation.adaptive import QueryComplexityScorer
+            from graqle.activation.chunk_scorer import ChunkScorer
 
             configured_max = self.config.activation.max_nodes
             try:
@@ -1569,9 +1567,7 @@ class Graqle:
                 continue  # Already matched by full name
             if bare in query_lower:
                 # Word boundary check to avoid substring false matches
-                pattern = r"(?:^|[\s\-_/\\.,;:\"'()]){}(?:[\s\-_/\\.,;:\"'()]|$)".format(
-                    _re.escape(bare)
-                )
+                pattern = rf"(?:^|[\s\-_/\\.,;:\"'()]){_re.escape(bare)}(?:[\s\-_/\\.,;:\"'()]|$)"
                 if _re.search(pattern, query_lower):
                     matched_nodes.add(nid)
 
@@ -1792,8 +1788,9 @@ class Graqle:
         Stores embeddings in node.properties['_embedding_cache'] to avoid
         recomputation across calls.
         """
-        import numpy as np
         import hashlib
+
+        import numpy as np
 
         results = []
         for nid in node_ids:

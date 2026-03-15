@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import hmac
@@ -22,18 +21,17 @@ from unittest.mock import patch
 import pytest
 
 from graqle.licensing.manager import (
+    _TIER_ORDER,
     TIER_FEATURES,
     License,
     LicenseError,
     LicenseManager,
     LicenseTier,
-    _TIER_ORDER,
     _get_manager,
     check_license,
     has_feature,
     require_license,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

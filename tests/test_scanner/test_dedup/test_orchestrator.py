@@ -7,7 +7,7 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.scanner.dedup import DedupOrchestrator, DedupOptions, DedupReport
+from graqle.scanner.dedup import DedupOptions, DedupOrchestrator
 
 
 class TestDedupOrchestrator:

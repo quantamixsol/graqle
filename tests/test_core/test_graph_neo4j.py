@@ -9,10 +9,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from graqle.core.graph import Graqle
-from graqle.config.settings import GraqleConfig
 
 
 def _mock_neo4j_module():
@@ -124,8 +121,8 @@ class TestToNeo4j:
         session = mock_driver.session().__enter__()
 
         # Create a simple in-memory graph
-        from graqle.core.node import CogniNode
         from graqle.core.edge import CogniEdge
+        from graqle.core.node import CogniNode
 
         nodes = {
             "a": CogniNode(id="a", label="A", entity_type="T", description="Node A"),

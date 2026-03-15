@@ -21,18 +21,13 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
 from graqle.intelligence.governance.audit import AuditEntry, AuditSession, AuditTrail
 from graqle.intelligence.governance.drace import (
     AuditabilityInput,
-    ConstraintInput,
-    DependencyInput,
     DRACEScorer,
-    ExplainabilityInput,
-    ReasoningInput,
 )
 from graqle.intelligence.governance.evidence import EvidenceStore
 
@@ -151,7 +146,6 @@ class GovernanceMiddleware:
     def _compute_session_auditability(self, session: AuditSession) -> float:
         """Compute A-pillar from actual AuditSession (typed, not heuristic)."""
         from graqle.intelligence.governance.drace import (
-            AuditabilityInput,
             evaluate_auditability,
         )
 

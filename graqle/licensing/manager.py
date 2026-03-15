@@ -26,12 +26,13 @@ import hashlib
 import hmac
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Callable, TypeVar, Any
+from typing import Any, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 

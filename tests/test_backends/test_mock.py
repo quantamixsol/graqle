@@ -8,6 +8,7 @@
 # ── /graqle:intelligence ──
 
 import pytest
+
 from graqle.backends.mock import MockBackend
 
 

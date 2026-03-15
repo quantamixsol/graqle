@@ -19,13 +19,12 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 console = Console()
 
@@ -90,7 +89,7 @@ def upgrade_command(
         console.print("[red]No graph file found. Run 'graq scan --repo .' first.[/red]")
         raise typer.Exit(1)
 
-    console.print(f"\n[bold]Step 1:[/bold] Benchmarking current JSON backend...")
+    console.print("\n[bold]Step 1:[/bold] Benchmarking current JSON backend...")
 
     # Load and time JSON
     t0 = time.perf_counter()
@@ -107,7 +106,7 @@ def upgrade_command(
 
     # ── Step 2: Check Neo4j availability ───────────────────────────
 
-    console.print(f"\n[bold]Step 2:[/bold] Checking Neo4j connection...")
+    console.print("\n[bold]Step 2:[/bold] Checking Neo4j connection...")
 
     try:
         from neo4j import GraphDatabase
@@ -127,7 +126,7 @@ def upgrade_command(
 
     # ── Step 3: Upgrade assessment ─────────────────────────────────
 
-    console.print(f"\n[bold]Step 3:[/bold] Upgrade assessment...")
+    console.print("\n[bold]Step 3:[/bold] Upgrade assessment...")
 
     from graqle.connectors.upgrade import assess_upgrade
     assessment = assess_upgrade(
@@ -207,13 +206,13 @@ def upgrade_command(
 
     # ── Step 5: Update graqle.yaml ─────────────────────────────────
 
-    console.print(f"\n[bold]Step 5:[/bold] Updating graqle.yaml...")
+    console.print("\n[bold]Step 5:[/bold] Updating graqle.yaml...")
 
     _update_config(uri, username, pw, database)
 
     # ── Step 6: Pre-compute intelligence ───────────────────────────
 
-    console.print(f"\n[bold]Step 6:[/bold] Pre-computing graph intelligence...")
+    console.print("\n[bold]Step 6:[/bold] Pre-computing graph intelligence...")
 
     try:
         from graqle.connectors.neo4j_traversal import Neo4jTraversal
@@ -234,11 +233,11 @@ def upgrade_command(
 
     # ── Step 7: Verify ─────────────────────────────────────────────
 
-    console.print(f"\n[bold]Step 7:[/bold] Verifying migration...")
+    console.print("\n[bold]Step 7:[/bold] Verifying migration...")
 
     try:
-        from graqle.core.graph import Graqle
         from graqle.config.settings import GraqleConfig
+        from graqle.core.graph import Graqle
 
         cfg = GraqleConfig.from_yaml("graqle.yaml") if Path("graqle.yaml").exists() else GraqleConfig.default()
         g = Graqle.from_neo4j(uri=uri, username=username, password=pw, database=database, config=cfg)
@@ -333,4 +332,4 @@ def _update_config(uri: str, username: str, password: str, database: str) -> Non
             encoding="utf-8",
         )
 
-    console.print(f"  [green]graqle.yaml updated with Neo4j config[/green]")
+    console.print("  [green]graqle.yaml updated with Neo4j config[/green]")

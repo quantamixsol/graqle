@@ -11,14 +11,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from graqle.intelligence.hooks import (
     HOOK_MARKER_START,
-    HOOK_MARKER_END,
+    has_hook,
     install_hook,
     uninstall_hook,
-    has_hook,
 )
 
 

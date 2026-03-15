@@ -7,12 +7,11 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
 from graqle.ontology.domains.governance_v3 import (
     GOVERNANCE_CLASS_HIERARCHY,
-    build_governance_semantic_constraints,
     GOVERNANCE_SKILL_MAP,
+    build_governance_semantic_constraints,
     register_governance_domain_v3,
 )
 from graqle.ontology.semantic_shacl_gate import SemanticConstraint, SemanticSHACLGate

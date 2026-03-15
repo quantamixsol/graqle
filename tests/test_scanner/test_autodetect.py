@@ -8,16 +8,15 @@
 # ── /graqle:intelligence ──
 
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 from graqle.scanner.autodetect import (
-    detect_environment,
-    _detect_backend,
-    _detect_languages,
-    _detect_ide,
-    _detect_machine,
     _build_smart_excludes,
+    _detect_backend,
+    _detect_ide,
+    _detect_languages,
+    _detect_machine,
+    detect_environment,
     suggest_mcp_config,
 )
 

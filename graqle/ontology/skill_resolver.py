@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from graqle.ontology.domain_registry import DomainRegistry
@@ -38,7 +38,7 @@ class Skill:
 
 
 # Default skill library — available to all entity types
-DEFAULT_SKILLS: Dict[str, Skill] = {
+DEFAULT_SKILLS: dict[str, Skill] = {
     "cite_evidence": Skill(
         name="cite_evidence",
         description="Cite specific evidence chunks by number [1], [2]",
@@ -64,9 +64,9 @@ class SkillResolver:
     Thing skills → Branch skills → Type skills → Entity-specific skills
     """
 
-    def __init__(self, registry: Optional[DomainRegistry] = None) -> None:
+    def __init__(self, registry: DomainRegistry | None = None) -> None:
         self._registry = registry
-        self._skill_library: Dict[str, Skill] = dict(DEFAULT_SKILLS)
+        self._skill_library: dict[str, Skill] = dict(DEFAULT_SKILLS)
 
     def set_registry(self, registry: DomainRegistry) -> None:
         self._registry = registry
@@ -75,11 +75,11 @@ class SkillResolver:
         """Register a skill in the library."""
         self._skill_library[skill.name] = skill
 
-    def register_skills(self, skills: Dict[str, Skill]) -> None:
+    def register_skills(self, skills: dict[str, Skill]) -> None:
         """Register multiple skills."""
         self._skill_library.update(skills)
 
-    def resolve(self, entity_type: str) -> List[Skill]:
+    def resolve(self, entity_type: str) -> list[Skill]:
         """Resolve all skills for an entity type, including inherited.
 
         Returns skills in order: entity-specific → branch → Thing (most specific first).
@@ -91,7 +91,7 @@ class SkillResolver:
         skill_names = self._registry.get_skills_for_type(entity_type)
 
         # Resolve to Skill objects
-        resolved: List[Skill] = []
+        resolved: list[Skill] = []
         seen: set = set()
         for name in skill_names:
             if name not in seen:

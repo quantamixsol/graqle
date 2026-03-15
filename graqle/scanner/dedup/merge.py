@@ -24,7 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Source type priority — lower = higher authority
 _DEFAULT_PRIORITY: dict[str, int] = {
     "code": 1,

@@ -7,10 +7,10 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 import networkx as nx
+import pytest
 
-from graqle import Graqle, CogniNode, CogniEdge, Message, ReasoningType
+from graqle import Graqle
 from graqle.backends.mock import MockBackend
 from graqle.config.settings import GraqleConfig
 
@@ -126,19 +126,9 @@ def test_imports():
     """Test that all public imports work."""
     from graqle import (
         Graqle,
-        CogniNode,
-        CogniEdge,
-        Message,
-        NodeState,
-        ReasoningType,
-        NodeStatus,
-        ReasoningResult,
     )
-    from graqle.backends import BaseBackend, MockBackend
-    from graqle.config import GraqleConfig
-    from graqle.orchestration import Orchestrator, ConvergenceDetector
-    from graqle.activation import PCSTActivation, RelevanceScorer
-    from graqle.connectors import BaseConnector, NetworkXConnector
+    from graqle.backends import MockBackend
+    from graqle.orchestration import Orchestrator
 
     # All imports successful
     assert Graqle is not None

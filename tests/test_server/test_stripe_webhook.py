@@ -14,8 +14,6 @@ import hmac
 import json
 import time
 
-import pytest
-
 
 class TestStripeSignatureVerification:
     """Tests for Stripe webhook signature verification."""

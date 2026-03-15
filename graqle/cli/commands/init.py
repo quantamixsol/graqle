@@ -30,7 +30,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import IntPrompt, Prompt
 from rich.table import Table
-from graqle.cli.console import BRAND_NAME, BRAND_NAME_PLAIN
+
+from graqle.cli.console import BRAND_NAME
 
 console = Console()
 logger = logging.getLogger("graqle.cli.init")
@@ -1128,8 +1129,8 @@ def _verify_backend(
 
         elif backend == "custom":
             console.print(
-                f"  [dim]Custom backend — skipping verification.[/dim]\n"
-                f"  [dim]Test manually: graq run \"hello\"[/dim]\n"
+                "  [dim]Custom backend — skipping verification.[/dim]\n"
+                "  [dim]Test manually: graq run \"hello\"[/dim]\n"
             )
 
     except ImportError as e:
@@ -1322,7 +1323,7 @@ def _prompt_api_key(backend: str) -> str:
 
     console.print(f"\nHow should {BRAND_NAME} access your API key?")
     console.print(f"  [bold]1.[/bold] Environment variable ${{{env_var}}} (recommended)")
-    console.print(f"  [bold]2.[/bold] Enter the key now (stored in graqle.yaml)")
+    console.print("  [bold]2.[/bold] Enter the key now (stored in graqle.yaml)")
 
     choice = IntPrompt.ask("Choice", default=1, choices=["1", "2"])
 
@@ -1461,7 +1462,7 @@ def _write_graqle_json(root: Path, graph_data: dict[str, Any]) -> bool:
     """Write graqle.json (knowledge graph)."""
     target = root / "graqle.json"
     if target.exists():
-        console.print(f"  [yellow]graqle.json already exists — overwriting with fresh scan[/yellow]")
+        console.print("  [yellow]graqle.json already exists — overwriting with fresh scan[/yellow]")
     target.write_text(json.dumps(graph_data, indent=2), encoding="utf-8")
     return True
 
@@ -1742,10 +1743,10 @@ def init_command(
         console.print("[bold]Step 1/3:[/bold] Choose your AI backend\n")
         chosen_backend = _prompt_backend()
 
-        console.print(f"\n[bold]Step 2/3:[/bold] Choose a model\n")
+        console.print("\n[bold]Step 2/3:[/bold] Choose a model\n")
         chosen_model = _prompt_model(chosen_backend)
 
-        console.print(f"\n[bold]Step 3/3:[/bold] API key configuration\n")
+        console.print("\n[bold]Step 3/3:[/bold] API key configuration\n")
         api_key_ref = _prompt_api_key(chosen_backend)
 
     console.print(
@@ -1808,12 +1809,12 @@ def init_command(
         # 2c: Knowledge ingestion (markdown KGs, .gcc/, lessons, etc.)
         console.print("\n[bold]Ingesting knowledge sources...[/bold]")
         try:
-            from graqle.ontology.markdown_parser import parse_and_infer
             from graqle.cli.commands.ingest import (
-                _discover_sources_from_config,
                 _discover_sources_auto,
+                _discover_sources_from_config,
                 _merge_graphs,
             )
+            from graqle.ontology.markdown_parser import parse_and_infer
 
             config_path_obj = root / "graqle.yaml"
             kg_sources = _discover_sources_from_config(config_path_obj)
@@ -1874,12 +1875,12 @@ def init_command(
     # graqle.yaml
     yaml_content = _build_graqle_yaml(chosen_backend, chosen_model, api_key_ref)
     _write_graqle_yaml(root, yaml_content)
-    console.print(f"  [green]+[/green] graqle.yaml")
+    console.print("  [green]+[/green] graqle.yaml")
 
     # graqle.json
     if graph_data is not None:
         _write_graqle_json(root, graph_data)
-        console.print(f"  [green]+[/green] graqle.json")
+        console.print("  [green]+[/green] graqle.json")
 
         # Auto-rebuild chunks from source files to ensure evidence is available
         try:
@@ -1896,12 +1897,12 @@ def init_command(
 
         # Build embedding cache for fast query-time activation (v0.12.3)
         try:
-            from graqle.core.graph import Graqle
             from graqle.activation.chunk_scorer import ChunkScorer
+            from graqle.core.graph import Graqle
             graph_obj = Graqle.from_json(str(root / "graqle.json"))
             scorer = ChunkScorer()
             scorer.build_cache(graph_obj)
-            console.print(f"  [green]+[/green] Embedding cache built (.graqle/chunk_embeddings.npz)")
+            console.print("  [green]+[/green] Embedding cache built (.graqle/chunk_embeddings.npz)")
         except Exception as exc:
             console.print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
 
@@ -1926,7 +1927,7 @@ def init_command(
     if not no_gcc:
         created = _write_gcc_structure(root)
         if created:
-            console.print(f"  [green]+[/green] .graq/ (session workspace)")
+            console.print("  [green]+[/green] .graq/ (session workspace)")
 
     # ── Step 4: Install auto-grow git hook ───────────────────────────
     _install_auto_grow_hook(root)

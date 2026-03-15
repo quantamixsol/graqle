@@ -37,7 +37,7 @@ team_app = typer.Typer(
 
 def _check_team_gate() -> bool:
     """Check if the current plan allows team features."""
-    from graqle.cloud.plans import check_feature, PLAN_PRICING
+    from graqle.cloud.plans import PLAN_PRICING, check_feature
     from graqle.licensing.manager import LicenseManager
 
     manager = LicenseManager()
@@ -84,8 +84,8 @@ def team_create(
     if not _check_team_gate():
         raise typer.Exit(1)
 
-    from graqle.cloud.team import create_team, load_team_config
     from graqle.cloud.credentials import load_credentials
+    from graqle.cloud.team import create_team, load_team_config
 
     # Check if already in a team
     existing = load_team_config()
@@ -156,7 +156,7 @@ def team_invite(
     try:
         member = invite_member(email, role)
         console.print(f"[green]Invited[/green] {email} as [cyan]{role}[/cyan]")
-        console.print(f"[dim]They'll receive an invitation to join the team.[/dim]")
+        console.print("[dim]They'll receive an invitation to join the team.[/dim]")
     except (RuntimeError, ValueError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
@@ -218,7 +218,7 @@ def team_leave(
         graq team leave
         graq team leave --yes
     """
-    from graqle.cloud.team import load_team_config, save_team_config, TeamConfig
+    from graqle.cloud.team import TeamConfig, load_team_config, save_team_config
 
     config = load_team_config()
     if not config.is_configured:

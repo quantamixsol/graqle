@@ -7,11 +7,11 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 import networkx as nx
+import pytest
 
-from graqle.core.graph import Graqle
 from graqle.backends.mock import MockBackend
+from graqle.core.graph import Graqle
 
 
 def test_graph_from_networkx(sample_nx_graph):

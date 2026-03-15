@@ -29,11 +29,11 @@ Usage::
 # ── /graqle:intelligence ──
 
 from graqle.licensing.manager import (
+    TIER_FEATURES,
     License,
     LicenseError,
     LicenseManager,
     LicenseTier,
-    TIER_FEATURES,
     check_license,
     has_feature,
     require_license,

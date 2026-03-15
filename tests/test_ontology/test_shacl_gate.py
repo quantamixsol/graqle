@@ -7,7 +7,6 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
 from graqle.ontology.shacl_gate import SHACLGate, ValidationResult
 

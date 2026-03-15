@@ -15,11 +15,11 @@ reasoning progresses, enabling real-time UIs and `async for` usage.
 from __future__ import annotations
 
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
 
 from graqle.core.message import Message
-from graqle.core.types import AggregationStrategy
 
 if TYPE_CHECKING:
     from graqle.core.graph import Graqle
@@ -73,8 +73,8 @@ class StreamingOrchestrator:
         active_node_ids: list[str] | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Stream reasoning results as they become available."""
-        from graqle.orchestration.message_passing import MessagePassingProtocol
         from graqle.orchestration.convergence import ConvergenceDetector
+        from graqle.orchestration.message_passing import MessagePassingProtocol
 
         start = time.perf_counter()
         protocol = MessagePassingProtocol(parallel=True)

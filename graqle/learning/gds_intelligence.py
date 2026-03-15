@@ -24,7 +24,6 @@ All algorithms work in two modes:
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -345,7 +344,6 @@ class GDSIntelligence:
         self, *, resolution: float, min_community_size: int,
     ) -> list[Community]:
         """Community detection using NetworkX Louvain."""
-        import networkx as nx
 
         try:
             from networkx.algorithms.community import louvain_communities
@@ -586,7 +584,7 @@ class GDSIntelligence:
                     f"gds.util.asNode(node2).id AS nodeB, similarity "
                 )
                 if node_id:
-                    query += f"WHERE nodeA = $focus OR nodeB = $focus "
+                    query += "WHERE nodeA = $focus OR nodeB = $focus "
                     query += "RETURN nodeA, nodeB, similarity ORDER BY similarity DESC LIMIT $top_k"
                 else:
                     query += "RETURN nodeA, nodeB, similarity ORDER BY similarity DESC LIMIT $top_k"

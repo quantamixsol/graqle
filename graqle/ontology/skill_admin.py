@@ -33,7 +33,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -49,7 +50,7 @@ logger = logging.getLogger("graqle.ontology.skill_admin")
 # description of WHEN this skill should be used (not just what it does).
 # This is the key to semantic matching quality.
 
-SKILL_LIBRARY: Dict[str, Skill] = {
+SKILL_LIBRARY: dict[str, Skill] = {
     # -- Frontend & UI -------------------------------------------------------
     "analyze_react_component": Skill(
         name="analyze_react_component",
@@ -297,7 +298,7 @@ SKILL_LIBRARY: Dict[str, Skill] = {
 # These describe WHEN to use each skill in natural language,
 # optimized for embedding similarity matching.
 
-SKILL_SEMANTIC_TEXTS: Dict[str, str] = {
+SKILL_SEMANTIC_TEXTS: dict[str, str] = {
     "analyze_react_component": (
         "React component analysis: JSX, props, state management, hooks like useState "
         "useEffect useContext, event handlers, component tree, re-renders, memo, "
@@ -430,7 +431,7 @@ SKILL_SEMANTIC_TEXTS: Dict[str, str] = {
 # Type -> Skill Mapping (structural knowledge, always applied)
 # ---------------------------------------------------------------------------
 
-TYPE_SKILL_MAP: Dict[str, List[str]] = {
+TYPE_SKILL_MAP: dict[str, list[str]] = {
     "JavaScriptModule": ["analyze_react_component", "trace_state_flow", "identify_ui_patterns"],
     "ReactComponent": ["analyze_react_component", "trace_state_flow", "analyze_css_styles"],
     "PythonModule": ["trace_data_flow", "check_error_handling"],
@@ -452,7 +453,7 @@ TYPE_SKILL_MAP: Dict[str, List[str]] = {
 # Regex fallback patterns (used ONLY when no embedding model available)
 # ---------------------------------------------------------------------------
 
-_REGEX_QUERY_BOOSTERS: Dict[str, List[str]] = {
+_REGEX_QUERY_BOOSTERS: dict[str, list[str]] = {
     r"\bsecur|\bvuln|\binject|xss|csrf|\bauth\b|\bhack|\bpenetrat|owasp": [
         "check_injection_risk", "audit_auth_flow", "flag_secrets", "check_dependency_risk",
     ],
@@ -482,12 +483,12 @@ _REGEX_QUERY_BOOSTERS: Dict[str, List[str]] = {
     ],
 }
 
-_COMPILED_REGEX_BOOSTERS: List[tuple[re.Pattern[str], List[str]]] = [
+_COMPILED_REGEX_BOOSTERS: list[tuple[re.Pattern[str], list[str]]] = [
     (re.compile(pattern, re.IGNORECASE), skills)
     for pattern, skills in _REGEX_QUERY_BOOSTERS.items()
 ]
 
-_REGEX_CONTENT_SIGNALS: Dict[str, List[str]] = {
+_REGEX_CONTENT_SIGNALS: dict[str, list[str]] = {
     r"@app\.(get|post|put|delete)|router\.|express|fastapi|flask": [
         "analyze_api_endpoint", "analyze_middleware",
     ],
@@ -517,7 +518,7 @@ _REGEX_CONTENT_SIGNALS: Dict[str, List[str]] = {
     ],
 }
 
-_COMPILED_REGEX_CONTENT: List[tuple[re.Pattern[str], List[str]]] = [
+_COMPILED_REGEX_CONTENT: list[tuple[re.Pattern[str], list[str]]] = [
     (re.compile(pattern, re.IGNORECASE), skills)
     for pattern, skills in _REGEX_CONTENT_SIGNALS.items()
 ]
@@ -545,20 +546,20 @@ class SkillAdmin:
         self,
         *,
         max_skills_per_node: int = 5,
-        embedding_fn: Optional[Callable[[str], np.ndarray]] = None,
-        custom_skills: Optional[Dict[str, Skill]] = None,
+        embedding_fn: Callable[[str], np.ndarray] | None = None,
+        custom_skills: dict[str, Skill] | None = None,
         use_titan: bool = True,
     ) -> None:
         self.max_skills_per_node = max_skills_per_node
         self._embedding_fn = embedding_fn
 
         # Build skill library
-        self._library: Dict[str, Skill] = dict(SKILL_LIBRARY)
+        self._library: dict[str, Skill] = dict(SKILL_LIBRARY)
         if custom_skills:
             self._library.update(custom_skills)
 
         # Skill embedding index (lazy, computed on first hybrid assign)
-        self._skill_embeddings: Optional[Dict[str, np.ndarray]] = None
+        self._skill_embeddings: dict[str, np.ndarray] | None = None
         self._semantic_ready = False
         self._use_titan = use_titan
         self._embedding_logged = False  # log backend selection only once
@@ -635,14 +636,14 @@ class SkillAdmin:
         entity_type: str,
         description: str,
         query: str,
-        chunks: Optional[List[Any]] = None,
-    ) -> Dict[str, float]:
+        chunks: list[Any] | None = None,
+    ) -> dict[str, float]:
         """Compute regex-based scores for all skills.
 
         Returns normalized scores (0-1 range) for each matched skill.
         Skills with exact code pattern matches get the highest scores.
         """
-        raw_scores: Dict[str, float] = {}
+        raw_scores: dict[str, float] = {}
 
         # Layer 1: Content signals — exact code patterns (highest precision)
         content_text = description or ""
@@ -677,8 +678,8 @@ class SkillAdmin:
         entity_type: str,
         description: str,
         query: str,
-        chunks: Optional[List[Any]] = None,
-    ) -> Dict[str, float]:
+        chunks: list[Any] | None = None,
+    ) -> dict[str, float]:
         """Compute semantic similarity scores for all skills.
 
         Returns cosine similarity (0-1 range) for each skill.
@@ -706,7 +707,7 @@ class SkillAdmin:
         except Exception:
             return {}
 
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
         for name, skill_emb in self._skill_embeddings.items():
             scores[name] = self._cosine_similarity(context_emb, skill_emb)
 
@@ -717,8 +718,8 @@ class SkillAdmin:
         entity_type: str,
         description: str,
         query: str,
-        chunks: Optional[List[Any]] = None,
-    ) -> List[Skill]:
+        chunks: list[Any] | None = None,
+    ) -> list[Skill]:
         """Hybrid skill assignment: regex first, then semantic, fused scoring.
 
         Strategy:
@@ -740,7 +741,7 @@ class SkillAdmin:
 
         # Fuse scores for all skills
         all_skill_names = set(self._library.keys())
-        fused: Dict[str, float] = {}
+        fused: dict[str, float] = {}
 
         for name in all_skill_names:
             r_score = regex_scores.get(name, 0.0)
@@ -762,7 +763,7 @@ class SkillAdmin:
 
         # Rank and pick top-K
         ranked = sorted(fused.items(), key=lambda x: x[1], reverse=True)
-        assigned: List[Skill] = []
+        assigned: list[Skill] = []
 
         for name, score in ranked[:self.max_skills_per_node]:
             if score < 0.1:  # minimum threshold
@@ -788,10 +789,10 @@ class SkillAdmin:
         entity_type: str,
         description: str,
         query: str,
-        chunks: Optional[List[Any]] = None,
-    ) -> List[Skill]:
+        chunks: list[Any] | None = None,
+    ) -> list[Skill]:
         """Pure regex assignment (fallback when no embedding model available)."""
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         # Type mapping
         for name in TYPE_SKILL_MAP.get(entity_type, []):
@@ -818,7 +819,7 @@ class SkillAdmin:
                     scores[name] = scores.get(name, 0) + 1.0
 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        assigned: List[Skill] = []
+        assigned: list[Skill] = []
 
         for name, score in ranked[:self.max_skills_per_node]:
             skill = self._library.get(name)
@@ -839,8 +840,8 @@ class SkillAdmin:
         entity_type: str,
         description: str,
         query: str,
-        chunks: Optional[List[Any]] = None,
-    ) -> List[Skill]:
+        chunks: list[Any] | None = None,
+    ) -> list[Skill]:
         """Assign skills using hybrid fused scoring.
 
         When embeddings are available: regex + semantic + type = fused score.
@@ -891,12 +892,12 @@ class SkillAdmin:
 
         return "\n".join(lines)
 
-    def get_skill(self, name: str) -> Optional[Skill]:
+    def get_skill(self, name: str) -> Skill | None:
         """Look up a skill by name."""
         return self._library.get(name)
 
     def register_skill(
-        self, skill: Skill, semantic_text: Optional[str] = None,
+        self, skill: Skill, semantic_text: str | None = None,
     ) -> None:
         """Add a custom skill to the library with optional semantic text."""
         self._library[skill.name] = skill

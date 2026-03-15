@@ -22,9 +22,9 @@ import re
 from typing import Any
 
 from graqle.intelligence.models import (
-    ValidationGateResult,
     ValidatedEdge,
     ValidatedNode,
+    ValidationGateResult,
 )
 
 logger = logging.getLogger("graqle.intelligence.validators")

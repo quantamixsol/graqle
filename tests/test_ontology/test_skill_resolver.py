@@ -7,14 +7,12 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 
-from graqle.ontology.skill_resolver import SkillResolver, Skill, DEFAULT_SKILLS
 from graqle.ontology.domain_registry import DomainRegistry
 from graqle.ontology.domains.governance import (
     register_governance_domain,
-    GOVERNANCE_SKILLS,
 )
+from graqle.ontology.skill_resolver import DEFAULT_SKILLS, Skill, SkillResolver
 
 
 class TestSkillResolver:

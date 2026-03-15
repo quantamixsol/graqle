@@ -15,9 +15,7 @@ lazy initialization, cost tracking, and name-based resolution.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from graqle.backends.base import BaseBackend
 from graqle.core.types import ModelBackend
 
 logger = logging.getLogger("graqle.backends.registry")

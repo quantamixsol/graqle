@@ -28,7 +28,6 @@ import asyncio
 import logging
 import sys
 import time
-from pathlib import Path
 
 # Setup logging
 logging.basicConfig(
@@ -43,7 +42,6 @@ logger = logging.getLogger("graqle.benchmark.multigov")
 
 from graqle.benchmarks.benchmark_runner import BenchmarkRunner, save_multigov_results
 from graqle.benchmarks.multi_governance_benchmark import (
-    ALL_QUESTIONS,
     get_questions_by_tier,
     get_tier_stats,
 )
@@ -84,7 +82,7 @@ async def main(
     print(f"  Total: {len(questions)} questions")
 
     # Initialize runner
-    print(f"\n[3/4] Initializing benchmark runner...")
+    print("\n[3/4] Initializing benchmark runner...")
     print(f"  Model: {model}")
     print(f"  Host: {host}")
     print(f"  Max rounds: {max_rounds}, Max nodes: {max_nodes}")
@@ -106,7 +104,7 @@ async def main(
         sys.exit(1)
 
     # Run benchmark
-    print(f"\n[4/4] Running benchmark...")
+    print("\n[4/4] Running benchmark...")
     start = time.perf_counter()
 
     summaries = await runner.run_multi_governance(

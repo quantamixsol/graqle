@@ -36,7 +36,7 @@ sync_app = typer.Typer(
 
 def _check_plan_gate(feature: str = "cloud_sync") -> bool:
     """Check if the current plan allows cloud sync. Show upgrade if not."""
-    from graqle.cloud.plans import check_feature, PLAN_PRICING
+    from graqle.cloud.plans import PLAN_PRICING, check_feature
     from graqle.licensing.manager import LicenseManager
 
     manager = LicenseManager()
@@ -83,6 +83,11 @@ def sync_push(
     if not _check_plan_gate():
         raise typer.Exit(1)
 
+    import json
+    from pathlib import Path
+
+    from graqle.cloud.credentials import load_credentials
+    from graqle.cloud.gateway import CloudGateway
     from graqle.cloud.sync import (
         compute_delta,
         load_sync_snapshot,
@@ -91,10 +96,6 @@ def sync_push(
         save_sync_state,
     )
     from graqle.cloud.team import load_team_config
-    from graqle.cloud.gateway import CloudGateway
-    from graqle.cloud.credentials import load_credentials
-    import json
-    from pathlib import Path
 
     # Load current state
     state = load_sync_state()
@@ -171,10 +172,10 @@ def sync_pull(
     if not _check_plan_gate():
         raise typer.Exit(1)
 
+    from graqle.cloud.credentials import load_credentials
+    from graqle.cloud.gateway import CloudGateway
     from graqle.cloud.sync import load_sync_state, save_sync_state
     from graqle.cloud.team import load_team_config
-    from graqle.cloud.gateway import CloudGateway
-    from graqle.cloud.credentials import load_credentials
 
     state = load_sync_state()
     team_config = load_team_config()

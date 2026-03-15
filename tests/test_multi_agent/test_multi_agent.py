@@ -17,14 +17,9 @@ Covers:
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
-
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # Helpers: create a minimal graph for testing
@@ -32,9 +27,9 @@ import pytest
 
 def _make_test_graph(tmp_path: Path) -> tuple:
     """Create a minimal Graqle graph for testing."""
+    from graqle.core.edge import CogniEdge
     from graqle.core.graph import Graqle
     from graqle.core.node import CogniNode
-    from graqle.core.edge import CogniEdge
 
     graph = Graqle()
     # Add nodes
@@ -108,6 +103,7 @@ class TestContextJsonOutput:
     def test_json_output_is_valid_json(self, tmp_path):
         """--json flag produces valid JSON with expected keys."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -131,6 +127,7 @@ class TestContextJsonOutput:
     def test_json_output_no_ansi_codes(self, tmp_path):
         """JSON output must not contain ANSI escape codes."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -145,6 +142,7 @@ class TestContextJsonOutput:
     def test_json_output_no_embeddings(self, tmp_path):
         """JSON output must not contain embedding vectors or chunks."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -163,6 +161,7 @@ class TestContextJsonOutput:
     def test_json_output_includes_relationships(self, tmp_path):
         """JSON output includes relationship data."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -184,6 +183,7 @@ class TestContextJsonOutput:
     def test_json_overrides_format(self, tmp_path):
         """--json flag overrides --format text."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -200,6 +200,7 @@ class TestContextJsonOutput:
     def test_json_not_found_error(self, tmp_path):
         """--json with unknown service returns JSON error."""
         from typer.testing import CliRunner
+
         from graqle.cli.main import app
 
         graph, graph_path = _make_test_graph(tmp_path)
@@ -224,6 +225,7 @@ class TestReadOnlyMcpServer:
     def test_read_only_blocks_learn(self):
         """graq_learn is blocked in read-only mode."""
         import asyncio
+
         from graqle.plugins.mcp_dev_server import KogniDevServer
 
         server = KogniDevServer(read_only=True)
@@ -235,6 +237,7 @@ class TestReadOnlyMcpServer:
     def test_read_only_blocks_reload(self):
         """graq_reload is blocked in read-only mode."""
         import asyncio
+
         from graqle.plugins.mcp_dev_server import KogniDevServer
 
         server = KogniDevServer(read_only=True)

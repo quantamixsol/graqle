@@ -8,17 +8,18 @@
 # ── /graqle:intelligence ──
 
 import pytest
-from graqle.intelligence.scorecard import RunningScorecard
+
 from graqle.intelligence.models import (
     CoverageReport,
     FileIntelligenceUnit,
     InsightCategory,
-    ModulePacket,
     ModuleConsumer,
     ModuleDependency,
-    ValidationStatus,
+    ModulePacket,
     ValidatedNode,
+    ValidationStatus,
 )
+from graqle.intelligence.scorecard import RunningScorecard
 
 
 def _make_unit(

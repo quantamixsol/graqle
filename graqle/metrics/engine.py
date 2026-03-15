@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -328,7 +327,7 @@ class MetricsEngine:
             f"  Block rate:           {self.safety_blocks / max(self.safety_checks, 1):.0%}",
             "",
             "  --- Estimated Cost Impact ---",
-            f"  Token cost rate:      $0.015 / 1K input tokens",
+            "  Token cost rate:      $0.015 / 1K input tokens",
             f"  Estimated savings:    ${estimated_savings_usd:,.2f}",
             "",
             "=" * 60,

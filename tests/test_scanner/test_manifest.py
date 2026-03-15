@@ -10,14 +10,12 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
 import pytest
 
 from graqle.scanner.manifest import FileEntry, ScanManifest, _sha256_file
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -12,46 +12,46 @@ Domain-agnostic: any domain registers via the DomainRegistry API.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.ontology.upper import UpperOntology
-from graqle.ontology.domain_registry import DomainRegistry, DomainOntology
-from graqle.ontology.shacl_gate import SHACLGate, ValidationResult
 from graqle.ontology.constraint_graph import ConstraintGraph
+from graqle.ontology.domain_registry import DomainOntology, DomainRegistry
+from graqle.ontology.markdown_parser import (
+    EdgeInferenceEngine,
+    ExtractedEdge,
+    ExtractedEntity,
+    MarkdownKGParser,
+    ParseResult,
+    extract_tables,
+    parse_and_infer,
+    parse_markdown_kg,
+)
+from graqle.ontology.ontology_generator import OntologyGenerator
 from graqle.ontology.router import OntologyRouter
-from graqle.ontology.skill_resolver import SkillResolver, Skill
+from graqle.ontology.schema import (
+    EDGE_SHAPES,
+    NODE_SHAPES,
+    EdgeConstraint,
+    EdgeShape,
+    NodeShape,
+    PropertyConstraint,
+    ValidationReport,
+    Violation,
+    get_all_edge_types,
+    get_all_node_types,
+    get_node_shape,
+    register_edge_shape,
+    register_node_shape,
+    validate_graph,
+)
 from graqle.ontology.semantic_shacl_gate import (
-    SemanticSHACLGate,
     SemanticConstraint,
+    SemanticSHACLGate,
     SemanticValidationResult,
     SemanticViolation,
     build_semantic_constraints_from_kg,
 )
-from graqle.ontology.ontology_generator import OntologyGenerator
-from graqle.ontology.schema import (
-    NODE_SHAPES,
-    EDGE_SHAPES,
-    NodeShape,
-    EdgeShape,
-    PropertyConstraint,
-    EdgeConstraint,
-    Violation,
-    ValidationReport,
-    validate_graph,
-    register_node_shape,
-    register_edge_shape,
-    get_node_shape,
-    get_all_node_types,
-    get_all_edge_types,
-)
-from graqle.ontology.markdown_parser import (
-    MarkdownKGParser,
-    ExtractedEntity,
-    ExtractedEdge,
-    ParseResult,
-    EdgeInferenceEngine,
-    parse_markdown_kg,
-    parse_and_infer,
-    extract_tables,
-)
+from graqle.ontology.shacl_gate import SHACLGate, ValidationResult
+from graqle.ontology.skill_resolver import Skill, SkillResolver
+from graqle.ontology.upper import UpperOntology
 
 __all__ = [
     "UpperOntology",

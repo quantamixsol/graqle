@@ -18,7 +18,7 @@ Falls back to graph neighbors if no ontology is loaded (backward compatible).
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from graqle.core.graph import Graqle
@@ -34,12 +34,12 @@ class OntologyRouter:
     which entity types can communicate via which relationship types.
     """
 
-    def __init__(self, registry: Optional[DomainRegistry] = None) -> None:
+    def __init__(self, registry: DomainRegistry | None = None) -> None:
         self._registry = registry
         self._stats = {"routed": 0, "filtered": 0, "fallback": 0}
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return dict(self._stats)
 
     def set_registry(self, registry: DomainRegistry) -> None:
@@ -50,8 +50,8 @@ class OntologyRouter:
         self,
         graph: Graqle,
         source_node_id: str,
-        active_node_ids: List[str] | None = None,
-    ) -> List[str]:
+        active_node_ids: list[str] | None = None,
+    ) -> list[str]:
         """Get valid message recipients for a source node.
 
         Filters graph neighbors by relationship shape constraints.
@@ -76,7 +76,7 @@ class OntologyRouter:
         rel_shapes = self._registry.get_all_relationship_shapes()
 
         # For each neighbor, check if there's a valid relationship path
-        valid_recipients: List[str] = []
+        valid_recipients: list[str] = []
         for neighbor_id in all_neighbors:
             neighbor_node = graph.nodes.get(neighbor_id)
             if neighbor_node is None:

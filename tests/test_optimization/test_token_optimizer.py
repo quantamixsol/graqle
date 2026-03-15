@@ -9,11 +9,11 @@
 
 import pytest
 
+from graqle.backends.mock import MockBackend
 from graqle.core.message import Message
 from graqle.core.types import ReasoningType
-from graqle.optimization.token_optimizer import TokenOptimizer
 from graqle.optimization.message_compressor import MessageCompressor
-from graqle.backends.mock import MockBackend
+from graqle.optimization.token_optimizer import TokenOptimizer
 
 
 def _msg(nid: str, content: str, conf: float = 0.7) -> Message:

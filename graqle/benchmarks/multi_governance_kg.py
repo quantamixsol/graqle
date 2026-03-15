@@ -22,9 +22,9 @@ Frameworks: EU AI Act, GDPR, DORA, NIS2
 from __future__ import annotations
 
 import json
-import networkx as nx
 from pathlib import Path
-from typing import Any
+
+import networkx as nx
 
 
 def build_multi_governance_kg() -> nx.Graph:
@@ -1693,7 +1693,7 @@ def get_kg_stats(G: nx.Graph) -> dict:
 if __name__ == "__main__":
     G = build_multi_governance_kg()
     stats = get_kg_stats(G)
-    print(f"Multi-Governance KG built:")
+    print("Multi-Governance KG built:")
     print(f"  Nodes: {stats['nodes']}")
     print(f"  Edges: {stats['edges']}")
     print(f"  Frameworks: {stats['frameworks']}")

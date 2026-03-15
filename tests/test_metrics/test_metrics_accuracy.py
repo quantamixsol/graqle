@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from graqle.metrics.engine import MetricsEngine, _DEFAULT_TOKENS_WITHOUT
+from graqle.metrics.engine import _DEFAULT_TOKENS_WITHOUT, MetricsEngine
 
 
 @pytest.fixture

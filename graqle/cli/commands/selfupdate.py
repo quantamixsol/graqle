@@ -71,7 +71,7 @@ def selfupdate_command(
     )
 
     if result.returncode != 0:
-        console.print(f"[red]Upgrade failed:[/red]")
+        console.print("[red]Upgrade failed:[/red]")
         console.print(result.stderr or result.stdout)
         raise typer.Exit(1)
 
@@ -80,6 +80,7 @@ def selfupdate_command(
     try:
         # Re-import to get new version
         import importlib
+
         import graqle.__version__
         importlib.reload(graqle.__version__)
         console.print(f"[green]Graqle upgraded to v{graqle.__version__.__version__}[/green]")

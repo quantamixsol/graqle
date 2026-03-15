@@ -12,8 +12,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 class TestRegionConfig:
     def test_model_config_has_region_field(self):

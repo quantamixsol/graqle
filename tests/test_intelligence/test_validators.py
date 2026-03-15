@@ -10,7 +10,7 @@ Each gate has tests for: pass, fail+autorepair, fail+degrade.
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
+from graqle.intelligence.models import ValidatedEdge, ValidatedNode
 from graqle.intelligence.validators import (
     gate_1_parse_integrity,
     gate_2_node_completeness,
@@ -20,8 +20,6 @@ from graqle.intelligence.validators import (
     gate_6_intelligence_compilation,
     run_all_gates,
 )
-from graqle.intelligence.models import ValidatedNode, ValidatedEdge
-
 
 # ─── Gate 1: Parse Integrity ───────────────────────────────────────────
 

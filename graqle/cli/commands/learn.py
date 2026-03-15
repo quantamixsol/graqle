@@ -63,8 +63,8 @@ def _describe_connections(graph, node_id: str) -> list[str]:
 
 def _load_graph(graph_path: str = "graqle.json"):
     """Load graph from Neo4j (if configured) or JSON file."""
-    from graqle.core.graph import Graqle
     from graqle.config.settings import GraqleConfig
+    from graqle.core.graph import Graqle
 
     config = GraqleConfig.default()
     config_file = Path("graqle.yaml")
@@ -128,14 +128,13 @@ class _graph_lock:
     """
 
     def __init__(self, graph_path: str = "graqle.json"):
-        from graqle.core.graph import _acquire_lock
         self._graph_path = graph_path
         self._lock_path = graph_path + ".lock"
         self._fd = None
 
     def __enter__(self):
-        from graqle.core.graph import Graqle, _acquire_lock
         from graqle.config.settings import GraqleConfig
+        from graqle.core.graph import Graqle, _acquire_lock
 
         # Acquire lock BEFORE reading
         self._fd = _acquire_lock(self._lock_path)
@@ -156,8 +155,9 @@ class _graph_lock:
         return graph, self._gpath
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        from graqle.core.graph import _release_lock, _validate_graph_data
         import json as _json
+
+        from graqle.core.graph import _release_lock, _validate_graph_data
 
         try:
             if exc_type is None:
@@ -904,7 +904,7 @@ def learn_doc(
         graq learn doc ./compliance-docs/
         graq learn doc spec.md --no-link --dry-run
     """
-    from graqle.cli.commands.scan import _load_graph_data, _save_graph_data, _print_doc_scan_summary
+    from graqle.cli.commands.scan import _load_graph_data, _print_doc_scan_summary, _save_graph_data
     from graqle.scanner.docs import DocScanOptions, DocumentScanner, ScanResult
 
     # Resolve and validate all paths

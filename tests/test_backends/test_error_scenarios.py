@@ -14,26 +14,23 @@ budget exceeded, empty graph, fallback chain, retry with backoff.
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from graqle.backends.api import (
-    BackendError,
-    _retry_with_backoff,
     AnthropicBackend,
-    OpenAIBackend,
-    OllamaBackend,
+    BackendError,
     CustomBackend,
+    OllamaBackend,
+    OpenAIBackend,
+    _retry_with_backoff,
 )
-from graqle.backends.fallback import BackendFallbackChain
 from graqle.backends.base import BaseBackend
+from graqle.backends.fallback import BackendFallbackChain
 from graqle.backends.mock import MockBackend
-from graqle.config.settings import GraqleConfig, CostConfig
-from graqle.core.graph import Graqle
+from graqle.config.settings import CostConfig, GraqleConfig
 from graqle.orchestration.orchestrator import Orchestrator
-
 
 # ---------------------------------------------------------------------------
 # Helpers

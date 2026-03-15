@@ -119,7 +119,7 @@ class ExplanationTrace:
     def to_summary(self) -> str:
         """Human-readable provenance summary."""
         lines = [
-            f"## Explanation Trace",
+            "## Explanation Trace",
             f"Query: {self.query}",
             f"Rounds: {self.total_rounds} | Nodes: {len(self.contributing_nodes)} | Claims: {len(self.claims)}",
         ]

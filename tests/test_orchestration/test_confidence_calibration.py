@@ -13,10 +13,7 @@ v0.15.0: Recalibrated for large KGs (>5K nodes) — 75/25 weighting,
 # ── /graqle:intelligence ──
 
 import asyncio
-import math
 from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 
 def _make_message(nid, confidence=0.9, content="answer", tokens=100):
@@ -32,8 +29,8 @@ def _make_message(nid, confidence=0.9, content="answer", tokens=100):
 
 def _make_orchestrator():
     """Create an Orchestrator with mocked sub-components."""
+    from graqle.config.settings import ObserverConfig, OrchestrationConfig
     from graqle.orchestration.orchestrator import Orchestrator
-    from graqle.config.settings import OrchestrationConfig, ObserverConfig
 
     orch = Orchestrator(
         config=OrchestrationConfig(max_rounds=1),

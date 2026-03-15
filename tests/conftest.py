@@ -7,16 +7,13 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-import pytest
 import networkx as nx
+import pytest
 
-from graqle.core.graph import Graqle
-from graqle.core.node import CogniNode
-from graqle.core.edge import CogniEdge
-from graqle.core.message import Message
-from graqle.core.state import NodeState
-from graqle.core.types import ReasoningType
 from graqle.backends.mock import MockBackend
+from graqle.core.graph import Graqle
+from graqle.core.message import Message
+from graqle.core.types import ReasoningType
 
 
 @pytest.fixture

@@ -14,17 +14,14 @@ import os
 import time
 from unittest.mock import patch
 
-import pytest
-
 from graqle.server.middleware import (
-    TokenBucket,
-    RateLimiter,
-    get_configured_api_keys,
+    MAX_BATCH_SIZE,
     MAX_QUERY_LENGTH,
     MAX_ROUNDS,
-    MAX_BATCH_SIZE,
+    RateLimiter,
+    TokenBucket,
+    get_configured_api_keys,
 )
-
 
 # ===========================================================================
 # Token Bucket

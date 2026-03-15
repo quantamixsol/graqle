@@ -12,8 +12,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from graqle.intelligence.compile import compile_intelligence
 
 

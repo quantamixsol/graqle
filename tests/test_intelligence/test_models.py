@@ -8,17 +8,16 @@
 # ── /graqle:intelligence ──
 
 import pytest
+
 from graqle.intelligence.models import (
     CoverageReport,
     CuriosityInsight,
     FileIntelligenceUnit,
     InsightCategory,
     ModulePacket,
-    PublicInterface,
-    ValidationGateResult,
-    ValidationStatus,
     ValidatedEdge,
     ValidatedNode,
+    ValidationStatus,
 )
 
 
