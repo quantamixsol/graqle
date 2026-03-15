@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "graqle"
 version = "0.26.0"
-description = "Dev Intelligence Layer — turn any codebase into a reasoning-ready knowledge graph. Query your architecture, not your files."
+description = "Query your architecture, not your files. Turn any codebase into a self-learning knowledge graph with governance, 201 skills, and multi-signal activation."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ keywords = [
     "graqle", "graph-reasoning", "code-intelligence",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
