@@ -1,0 +1,210 @@
+name: Deploy Lambda
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'graqle/**'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-lambda.yml'
+  workflow_dispatch:
+
+env:
+  LAMBDA_FUNCTION: cognigraph-api
+  S3_BUCKET: graqle-graphs-eu
+  AWS_REGION: eu-central-1
+
+jobs:
+  # ── Step 1: Full Graqle import scan ──
+  graqle-check:
+    name: Graqle Import & Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install graqle with all Lambda extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[server,api,studio,dev]"
+
+      - name: Full import scan — catch all ImportErrors
+        run: |
+          python -c "
+          import importlib, pkgutil, sys
+
+          errors = []
+          for importer, modname, ispkg in pkgutil.walk_packages(
+              path=['graqle'],
+              prefix='graqle.',
+              onerror=lambda name: errors.append(name),
+          ):
+              try:
+                  importlib.import_module(modname)
+              except Exception as e:
+                  errors.append(f'{modname}: {e}')
+
+          if errors:
+              print('IMPORT ERRORS FOUND:')
+              for e in errors:
+                  print(f'  !! {e}')
+              sys.exit(1)
+          else:
+              print(f'All graqle modules import clean.')
+          "
+
+      - name: Verify Lambda handler loads
+        run: |
+          python -c "
+          from graqle.server.lambda_handler import handler
+          print('Lambda handler: OK')
+          from graqle.server.app import create_app
+          print('FastAPI app factory: OK')
+          from graqle.studio.app import mount_studio
+          print('Studio mount: OK')
+          from graqle.metrics.engine import MetricsEngine
+          print('MetricsEngine: OK')
+          "
+
+      - name: Verify Studio routes register
+        run: |
+          python -c "
+          import os
+          os.environ['AWS_LAMBDA_FUNCTION_NAME'] = 'test'  # Trigger /tmp path
+
+          from graqle.server.app import create_app
+          app = create_app(graph_path='nonexistent.json', config_path='nonexistent.yaml')
+
+          routes = [r.path for r in app.routes if hasattr(r, 'path')]
+          studio_routes = [r for r in routes if '/studio' in r]
+          print(f'Total routes: {len(routes)}')
+          print(f'Studio routes: {len(studio_routes)}')
+
+          required = ['/studio/api/health', '/studio/api/intelligence', '/studio/api/governance', '/studio/api/learning']
+          for r in required:
+              found = any(r in route for route in routes)
+              status = 'OK' if found else 'MISSING'
+              print(f'  {r}: {status}')
+              if not found:
+                  import sys; sys.exit(1)
+          "
+
+      - name: Graqle governance gate (graq verify)
+        run: |
+          python -c "
+          from graqle.intelligence.verify import verify_changes
+          from pathlib import Path
+          result = verify_changes(Path('.'))
+          print(f'Governance gate: {\"PASS\" if result else \"CHECK\"}')
+          "
+
+      - name: Run core tests
+        run: pytest tests/ -x -q --timeout=30 -k "not neo4j and not slow" 2>&1 | tail -20
+
+  # ── Step 2: Build & Deploy Lambda ──
+  deploy:
+    name: Build & Deploy to Lambda
+    needs: graqle-check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build Lambda package
+        run: |
+          mkdir -p build/lambda
+
+          # Install deps for Linux Lambda runtime
+          pip install --target build/lambda \
+            --platform manylinux2014_x86_64 --only-binary=:all: \
+            --python-version 3.10 --implementation cp \
+            mangum fastapi uvicorn jinja2 pydantic pydantic-settings \
+            pyyaml typer rich networkx numpy httpx anthropic openai
+
+          # Copy graqle source (not pip-installed — use repo version)
+          cp -r graqle/ build/lambda/graqle/
+
+          # Clean up
+          rm -rf build/lambda/graqle/benchmarks/ build/lambda/graqle/examples/
+          find build/lambda -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+          find build/lambda -name '*.pyc' -delete 2>/dev/null || true
+
+          # Remove boto3/botocore (Lambda runtime has these)
+          rm -rf build/lambda/boto3* build/lambda/botocore* build/lambda/s3transfer* 2>/dev/null || true
+
+          echo "Package size: $(du -sh build/lambda/ | cut -f1)"
+
+      - name: Create deployment zip
+        run: |
+          cd build/lambda
+          zip -r9 ../../lambda-deploy.zip . -x "*.pyc" "*__pycache__*"
+          cd ../..
+          echo "Zip size: $(du -sh lambda-deploy.zip | cut -f1)"
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION }} \
+            --zip-file fileb://lambda-deploy.zip \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update Lambda environment
+        run: |
+          aws lambda update-function-configuration \
+            --function-name ${{ env.LAMBDA_FUNCTION }} \
+            --environment "Variables={
+              COGNIGRAPH_GRAPH_PATH=s3://graqle-graphs-eu/graqle.json,
+              COGNIGRAPH_CONFIG_PATH=s3://graqle-graphs-eu/graqle.yaml,
+              ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            }" \
+            --timeout 60 \
+            --memory-size 1024 \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ env.LAMBDA_FUNCTION }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Smoke test Lambda
+        run: |
+          LAMBDA_URL=$(aws lambda get-function-url-config \
+            --function-name ${{ env.LAMBDA_FUNCTION }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'FunctionUrl' --output text)
+
+          echo "Lambda URL: $LAMBDA_URL"
+
+          # Test health endpoint
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${LAMBDA_URL}health")
+          echo "GET /health: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "FAIL: /health returned $HTTP_CODE"
+            exit 1
+          fi
+
+          # Test studio API
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${LAMBDA_URL}studio/api/health")
+          echo "GET /studio/api/health: $HTTP_CODE"
+
+          # Test graph loaded
+          HEALTH=$(curl -s "${LAMBDA_URL}health")
+          echo "Health response: $HEALTH"

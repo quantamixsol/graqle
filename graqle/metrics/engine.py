@@ -36,7 +36,11 @@ class MetricsEngine:
 
     def __init__(self, metrics_dir: Path | None = None) -> None:
         if metrics_dir is None:
-            metrics_dir = Path.cwd() / ".graqle"
+            import os
+            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+                metrics_dir = Path("/tmp") / ".graqle"
+            else:
+                metrics_dir = Path.cwd() / ".graqle"
         self._metrics_path = Path(metrics_dir) / "metrics.json"
         self._metrics_path.parent.mkdir(parents=True, exist_ok=True)
 
