@@ -1,0 +1,86 @@
+{
+  "module": "graqle.intelligence.verify",
+  "files": [
+    "graqle/intelligence/verify.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "verify_changes",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "verify_main",
+      "type": "Function",
+      "line": 303
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_verify",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "subprocess",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "rich.panel",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.gate",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.301,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.110995+00:00"
+}

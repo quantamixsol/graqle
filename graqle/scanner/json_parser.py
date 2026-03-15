@@ -5,6 +5,14 @@ Documents (background phase 2).  JSON is the bridge layer between code
 and documents: it's small, fast, structured, and knowledge-dense.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.json_parser
+# risk: MEDIUM (impact radius: 1 modules)
+# consumers: test_json_parser
+# dependencies: __future__, json, logging, os, time +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

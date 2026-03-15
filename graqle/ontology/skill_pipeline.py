@@ -19,6 +19,14 @@ Usage:
     skills_text = pipeline.assign_to_node(node, query)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.skill_pipeline
+# risk: LOW (impact radius: 1 modules)
+# consumers: sdk_self_audit
+# dependencies: __future__, logging, typing, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

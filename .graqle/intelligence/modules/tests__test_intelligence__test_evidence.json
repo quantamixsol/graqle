@@ -1,0 +1,144 @@
+{
+  "module": "tests.test_intelligence.test_evidence",
+  "files": [
+    "tests/test_intelligence/test_evidence.py"
+  ],
+  "node_count": 22,
+  "function_count": 17,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_creates_item",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_custom_confidence",
+      "type": "Function",
+      "line": 35
+    },
+    {
+      "name": "test_metadata",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_creates_decision",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "test_add_evidence",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "test_decision_with_drace",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_creates_chain",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_add_decisions",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "test_complete_chain",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "test_evidence_ratio_all_evidenced",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_save_and_load",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "test_load_nonexistent",
+      "type": "Function",
+      "line": 160
+    },
+    {
+      "name": "test_list_chains",
+      "type": "Function",
+      "line": 164
+    },
+    {
+      "name": "test_list_chains_empty",
+      "type": "Function",
+      "line": 175
+    },
+    {
+      "name": "test_build_evidence_from_gate",
+      "type": "Function",
+      "line": 179
+    },
+    {
+      "name": "test_build_evidence_from_gate_error",
+      "type": "Function",
+      "line": 202
+    },
+    {
+      "name": "test_build_evidence_from_gate_no_consumers",
+      "type": "Function",
+      "line": 207
+    },
+    {
+      "name": "TestEvidenceItem",
+      "type": "Class",
+      "line": 24
+    },
+    {
+      "name": "TestDecisionRecord",
+      "type": "Class",
+      "line": 56
+    },
+    {
+      "name": "TestEvidenceChain",
+      "type": "Class",
+      "line": 99
+    },
+    {
+      "name": "TestEvidenceStore",
+      "type": "Class",
+      "line": 143
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.governance.evidence",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.25,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.244871+00:00"
+}

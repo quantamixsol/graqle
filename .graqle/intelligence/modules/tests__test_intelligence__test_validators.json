@@ -1,0 +1,185 @@
+{
+  "module": "tests.test_intelligence.test_validators",
+  "files": [
+    "tests/test_intelligence/test_validators.py"
+  ],
+  "node_count": 31,
+  "function_count": 23,
+  "class_count": 7,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_pass_with_nodes",
+      "type": "Function",
+      "line": 29
+    },
+    {
+      "name": "test_autorepair_empty_nodes_with_content",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "test_degrade_empty_nodes_no_content",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_pass_complete_nodes",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "test_autorepair_missing_description",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "test_autorepair_missing_chunks",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_autorepair_missing_label",
+      "type": "Function",
+      "line": 95
+    },
+    {
+      "name": "test_pass_good_chunks",
+      "type": "Function",
+      "line": 113
+    },
+    {
+      "name": "test_autorepair_import_only_chunk",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_autorepair_missing_chunk_type",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_autorepair_all_boilerplate",
+      "type": "Function",
+      "line": 141
+    },
+    {
+      "name": "test_pass_valid_edges",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "test_removes_self_loops",
+      "type": "Function",
+      "line": 163
+    },
+    {
+      "name": "test_deduplicates",
+      "type": "Function",
+      "line": 169
+    },
+    {
+      "name": "test_defers_missing_target",
+      "type": "Function",
+      "line": 178
+    },
+    {
+      "name": "test_autorepair_edge_type",
+      "type": "Function",
+      "line": 184
+    },
+    {
+      "name": "test_adds_missing_defines",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_no_duplicate_defines",
+      "type": "Function",
+      "line": 213
+    },
+    {
+      "name": "test_pass_with_nodes",
+      "type": "Function",
+      "line": 236
+    },
+    {
+      "name": "test_fail_no_nodes",
+      "type": "Function",
+      "line": 245
+    },
+    {
+      "name": "test_warn_no_edges",
+      "type": "Function",
+      "line": 250
+    },
+    {
+      "name": "test_complete_pipeline",
+      "type": "Function",
+      "line": 265
+    },
+    {
+      "name": "test_pipeline_autorepairs_hollow_node",
+      "type": "Function",
+      "line": 295
+    },
+    {
+      "name": "TestGate1ParseIntegrity",
+      "type": "Class",
+      "line": 27
+    },
+    {
+      "name": "TestGate2NodeCompleteness",
+      "type": "Class",
+      "line": 52
+    },
+    {
+      "name": "TestGate3ChunkQuality",
+      "type": "Class",
+      "line": 111
+    },
+    {
+      "name": "TestGate4EdgeIntegrity",
+      "type": "Class",
+      "line": 155
+    },
+    {
+      "name": "TestGate5RelationshipCompleteness",
+      "type": "Class",
+      "line": 193
+    },
+    {
+      "name": "TestGate6IntelligenceCompilation",
+      "type": "Class",
+      "line": 234
+    },
+    {
+      "name": "TestRunAllGates",
+      "type": "Class",
+      "line": 263
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.validators",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.29,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.944907+00:00"
+}

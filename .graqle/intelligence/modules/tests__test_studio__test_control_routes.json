@@ -1,0 +1,132 @@
+{
+  "module": "tests.test_studio.test_control_routes",
+  "files": [
+    "tests/test_studio/test_control_routes.py"
+  ],
+  "node_count": 18,
+  "function_count": 14,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "app_with_control",
+      "type": "Function",
+      "line": 17
+    },
+    {
+      "name": "app_empty",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_list_instances",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_current_instance",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_instance_has_fields",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_instance_detail_not_found",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_drace_badge_svg",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "test_health_badge_svg",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "test_nodes_badge_svg",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "test_empty_drace_badge",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_empty_health_badge",
+      "type": "Function",
+      "line": 126
+    },
+    {
+      "name": "test_share_config",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_markdown_format",
+      "type": "Function",
+      "line": 145
+    },
+    {
+      "name": "test_html_format",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "TestInstances",
+      "type": "Class",
+      "line": 67
+    },
+    {
+      "name": "TestBadges",
+      "type": "Class",
+      "line": 100
+    },
+    {
+      "name": "TestShareConfig",
+      "type": "Class",
+      "line": 134
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.testclient",
+      "type": "external"
+    },
+    {
+      "module": "graqle.studio.routes.control",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.259,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.937705+00:00"
+}

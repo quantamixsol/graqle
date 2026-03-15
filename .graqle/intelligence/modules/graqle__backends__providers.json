@@ -1,0 +1,59 @@
+{
+  "module": "graqle.backends.providers",
+  "files": [
+    "graqle/backends/providers.py"
+  ],
+  "node_count": 4,
+  "function_count": 3,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "get_provider_names",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "get_provider_env_var",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "create_provider_backend",
+      "type": "Function",
+      "line": 145
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_backends.test_providers",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.api",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.135,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.161311+00:00"
+}

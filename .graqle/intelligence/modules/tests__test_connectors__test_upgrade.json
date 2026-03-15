@@ -1,0 +1,125 @@
+{
+  "module": "tests.test_connectors.test_upgrade",
+  "files": [
+    "tests/test_connectors/test_upgrade.py"
+  ],
+  "node_count": 19,
+  "function_count": 15,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_below_threshold_no_upgrade",
+      "type": "Function",
+      "line": 23
+    },
+    {
+      "name": "test_at_threshold_upgrade",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_above_threshold_upgrade",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "test_already_neo4j_no_upgrade",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "test_already_neptune_no_upgrade",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_latency_triggers_upgrade",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_custom_threshold",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_summary_property",
+      "type": "Function",
+      "line": 56
+    },
+    {
+      "name": "test_default_threshold_is_5000",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "test_returns_tuple",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_empty_graph",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_with_nodes",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_with_edges",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_schema_statements",
+      "type": "Function",
+      "line": 95
+    },
+    {
+      "name": "test_cypher_uses_unwind_pattern",
+      "type": "Function",
+      "line": 100
+    },
+    {
+      "name": "TestAssessUpgrade",
+      "type": "Class",
+      "line": 20
+    },
+    {
+      "name": "TestCheckNeo4jAvailable",
+      "type": "Class",
+      "line": 66
+    },
+    {
+      "name": "TestGenerateMigrationCypher",
+      "type": "Class",
+      "line": 74
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.upgrade",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.208,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.024579+00:00"
+}

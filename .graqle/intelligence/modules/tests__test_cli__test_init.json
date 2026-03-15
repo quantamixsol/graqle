@@ -1,0 +1,471 @@
+{
+  "module": "tests.test_cli.test_init",
+  "files": [
+    "tests/test_cli/test_init.py"
+  ],
+  "node_count": 85,
+  "function_count": 65,
+  "class_count": 19,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_skip_pycache",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_skip_node_modules",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "test_skip_venv",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_skip_git",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_skip_egg_info",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_no_skip_normal",
+      "type": "Function",
+      "line": 61
+    },
+    {
+      "name": "test_no_skip_tests",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_python_project",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_node_project",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_monorepo",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_setup_py_as_python",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_fallback_to_python",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_from_import",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_dotted_import",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "test_simple_import_not_captured",
+      "type": "Function",
+      "line": 110
+    },
+    {
+      "name": "test_multiple_imports",
+      "type": "Function",
+      "line": 116
+    },
+    {
+      "name": "test_empty_content",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_es_import",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_require",
+      "type": "Function",
+      "line": 136
+    },
+    {
+      "name": "test_absolute_import_not_captured",
+      "type": "Function",
+      "line": 141
+    },
+    {
+      "name": "test_relative_parent",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_empty_content",
+      "type": "Function",
+      "line": 155
+    },
+    {
+      "name": "test_empty_repo",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "test_python_file_creates_node",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "test_python_file_type",
+      "type": "Function",
+      "line": 177
+    },
+    {
+      "name": "test_js_file_creates_node",
+      "type": "Function",
+      "line": 183
+    },
+    {
+      "name": "test_js_file_type",
+      "type": "Function",
+      "line": 189
+    },
+    {
+      "name": "test_config_file_detected",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_directory_node_created",
+      "type": "Function",
+      "line": 201
+    },
+    {
+      "name": "test_contains_edge_created",
+      "type": "Function",
+      "line": 209
+    },
+    {
+      "name": "test_import_edge_resolved",
+      "type": "Function",
+      "line": 220
+    },
+    {
+      "name": "test_skips_pycache",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "test_project_type_in_graph",
+      "type": "Function",
+      "line": 238
+    },
+    {
+      "name": "test_basic_structure",
+      "type": "Function",
+      "line": 250
+    },
+    {
+      "name": "test_custom_backend_becomes_api",
+      "type": "Function",
+      "line": 259
+    },
+    {
+      "name": "test_structure",
+      "type": "Function",
+      "line": 267
+    },
+    {
+      "name": "test_without_readme",
+      "type": "Function",
+      "line": 278
+    },
+    {
+      "name": "test_with_readme",
+      "type": "Function",
+      "line": 282
+    },
+    {
+      "name": "test_has_main_branch",
+      "type": "Function",
+      "line": 291
+    },
+    {
+      "name": "test_structure",
+      "type": "Function",
+      "line": 298
+    },
+    {
+      "name": "test_structure",
+      "type": "Function",
+      "line": 306
+    },
+    {
+      "name": "test_creates_file",
+      "type": "Function",
+      "line": 318
+    },
+    {
+      "name": "test_overwrites_existing",
+      "type": "Function",
+      "line": 323
+    },
+    {
+      "name": "test_creates_file",
+      "type": "Function",
+      "line": 332
+    },
+    {
+      "name": "test_creates_new",
+      "type": "Function",
+      "line": 342
+    },
+    {
+      "name": "test_merges_into_existing",
+      "type": "Function",
+      "line": 348
+    },
+    {
+      "name": "test_skips_if_already_has_graqle",
+      "type": "Function",
+      "line": 357
+    },
+    {
+      "name": "test_handles_invalid_json",
+      "type": "Function",
+      "line": 367
+    },
+    {
+      "name": "test_creates_new",
+      "type": "Function",
+      "line": 377
+    },
+    {
+      "name": "test_appends_to_existing",
+      "type": "Function",
+      "line": 382
+    },
+    {
+      "name": "test_skips_if_section_exists",
+      "type": "Function",
+      "line": 390
+    },
+    {
+      "name": "test_creates_full_structure",
+      "type": "Function",
+      "line": 399
+    },
+    {
+      "name": "test_skips_if_legacy_gcc_exists",
+      "type": "Function",
+      "line": 411
+    },
+    {
+      "name": "test_skips_if_graq_exists",
+      "type": "Function",
+      "line": 417
+    },
+    {
+      "name": "test_has_expected_backends",
+      "type": "Function",
+      "line": 429
+    },
+    {
+      "name": "test_each_backend_has_required_fields",
+      "type": "Function",
+      "line": 434
+    },
+    {
+      "name": "test_each_model_has_three_fields",
+      "type": "Function",
+      "line": 440
+    },
+    {
+      "name": "test_exactly_one_default_per_backend",
+      "type": "Function",
+      "line": 448
+    },
+    {
+      "name": "test_returns_full_path_when_found",
+      "type": "Function",
+      "line": 462
+    },
+    {
+      "name": "test_returns_windows_path_when_found",
+      "type": "Function",
+      "line": 466
+    },
+    {
+      "name": "test_falls_back_to_bare_graq_when_not_found",
+      "type": "Function",
+      "line": 474
+    },
+    {
+      "name": "test_mcp_json_uses_full_path",
+      "type": "Function",
+      "line": 479
+    },
+    {
+      "name": "test_non_tty_sets_no_interactive",
+      "type": "Function",
+      "line": 495
+    },
+    {
+      "name": "test_tty_does_not_flip",
+      "type": "Function",
+      "line": 509
+    },
+    {
+      "name": "test_explicit_no_interactive_skips_tty_check",
+      "type": "Function",
+      "line": 520
+    },
+    {
+      "name": "TestShouldSkip",
+      "type": "Class",
+      "line": 45
+    },
+    {
+      "name": "TestDetectProjectType",
+      "type": "Class",
+      "line": 72
+    },
+    {
+      "name": "TestExtractPythonImports",
+      "type": "Class",
+      "line": 99
+    },
+    {
+      "name": "TestExtractJsImports",
+      "type": "Class",
+      "line": 130
+    },
+    {
+      "name": "TestScanRepository",
+      "type": "Class",
+      "line": 163
+    },
+    {
+      "name": "TestBuildCognigraphYaml",
+      "type": "Class",
+      "line": 248
+    },
+    {
+      "name": "TestBuildMcpJson",
+      "type": "Class",
+      "line": 264
+    },
+    {
+      "name": "TestBuildGccMainMd",
+      "type": "Class",
+      "line": 275
+    },
+    {
+      "name": "TestBuildGccRegistryMd",
+      "type": "Class",
+      "line": 288
+    },
+    {
+      "name": "TestBuildGccConfigYaml",
+      "type": "Class",
+      "line": 295
+    },
+    {
+      "name": "TestBuildGccMetadataYaml",
+      "type": "Class",
+      "line": 303
+    },
+    {
+      "name": "TestWriteCognigraphYaml",
+      "type": "Class",
+      "line": 316
+    },
+    {
+      "name": "TestWriteCognigraphJson",
+      "type": "Class",
+      "line": 329
+    },
+    {
+      "name": "TestWriteMcpJson",
+      "type": "Class",
+      "line": 339
+    },
+    {
+      "name": "TestWriteClaudeMd",
+      "type": "Class",
+      "line": 374
+    },
+    {
+      "name": "TestWriteGccStructure",
+      "type": "Class",
+      "line": 396
+    },
+    {
+      "name": "TestBackendsRegistry",
+      "type": "Class",
+      "line": 427
+    },
+    {
+      "name": "TestResolveGraqCommand",
+      "type": "Class",
+      "line": 460
+    },
+    {
+      "name": "TestNonTtyAutoDetection",
+      "type": "Class",
+      "line": 492
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "yaml",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.commands.init",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.54,
+  "risk_level": "HIGH",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:47.460901+00:00"
+}

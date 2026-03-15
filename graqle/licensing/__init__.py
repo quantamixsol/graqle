@@ -21,6 +21,13 @@ Usage::
         ...
 """
 
+# ── graqle:intelligence ──
+# module: graqle.licensing.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: manager
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.licensing.manager import (
     License,
     LicenseError,

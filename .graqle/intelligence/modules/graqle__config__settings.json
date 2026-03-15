@@ -1,0 +1,210 @@
+{
+  "module": "graqle.config.settings",
+  "files": [
+    "graqle/config/settings.py"
+  ],
+  "node_count": 25,
+  "function_count": 4,
+  "class_count": 20,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "from_yaml",
+      "type": "Function",
+      "line": 323
+    },
+    {
+      "name": "default",
+      "type": "Function",
+      "line": 358
+    },
+    {
+      "name": "ModelConfig",
+      "type": "Class",
+      "line": 22
+    },
+    {
+      "name": "GraphConfig",
+      "type": "Class",
+      "line": 36
+    },
+    {
+      "name": "ActivationConfig",
+      "type": "Class",
+      "line": 50
+    },
+    {
+      "name": "SkillConfig",
+      "type": "Class",
+      "line": 61
+    },
+    {
+      "name": "OrchestrationConfig",
+      "type": "Class",
+      "line": 70
+    },
+    {
+      "name": "ObserverConfig",
+      "type": "Class",
+      "line": 81
+    },
+    {
+      "name": "CostConfig",
+      "type": "Class",
+      "line": 98
+    },
+    {
+      "name": "ReformulatorConfig",
+      "type": "Class",
+      "line": 115
+    },
+    {
+      "name": "RoutingRuleConfig",
+      "type": "Class",
+      "line": 134
+    },
+    {
+      "name": "RoutingConfig",
+      "type": "Class",
+      "line": 143
+    },
+    {
+      "name": "LoggingConfig",
+      "type": "Class",
+      "line": 171
+    },
+    {
+      "name": "NamedModelConfig",
+      "type": "Class",
+      "line": 179
+    },
+    {
+      "name": "RedactionConfig",
+      "type": "Class",
+      "line": 188
+    },
+    {
+      "name": "LinkingConfig",
+      "type": "Class",
+      "line": 198
+    },
+    {
+      "name": "DocScanConfig",
+      "type": "Class",
+      "line": 211
+    },
+    {
+      "name": "JSONScanConfig",
+      "type": "Class",
+      "line": 233
+    },
+    {
+      "name": "RuntimeSourceConfig",
+      "type": "Class",
+      "line": 258
+    },
+    {
+      "name": "RuntimeConfig",
+      "type": "Class",
+      "line": 273
+    },
+    {
+      "name": "ScanConfig",
+      "type": "Class",
+      "line": 288
+    },
+    {
+      "name": "GraqleConfig",
+      "type": "Class",
+      "line": 301
+    }
+  ],
+  "consumers": [
+    {
+      "module": "sdk_self_audit",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "examples.governance_example",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.config.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_backends.test_error_scenarios",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_graph_neo4j",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_integration.test_end_to_end",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_integration.test_ollama_e2e",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "yaml",
+      "type": "external"
+    },
+    {
+      "module": "pydantic",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.538,
+  "risk_level": "HIGH",
+  "impact_radius": 12,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.602364+00:00"
+}

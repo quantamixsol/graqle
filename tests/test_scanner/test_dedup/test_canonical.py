@@ -1,5 +1,12 @@
 """Tests for canonical ID computation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_canonical
+# risk: LOW (impact radius: 0 modules)
+# dependencies: canonical
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.dedup.canonical import compute_canonical_id
 
 

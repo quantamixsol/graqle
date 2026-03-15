@@ -1,3 +1,10 @@
+# ── graqle:intelligence ──
+# module: graqle.backends.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: base, mock
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.backends.base import BaseBackend
 from graqle.backends.mock import MockBackend
 

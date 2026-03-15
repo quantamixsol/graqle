@@ -1,5 +1,12 @@
 """Tests for graqle.licensing.keygen — key generation CLI utility."""
 
+# ── graqle:intelligence ──
+# module: tests.test_licensing.test_keygen
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, sys, datetime, mock, pytest +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import sys

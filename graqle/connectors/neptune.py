@@ -13,6 +13,14 @@ Architecture: Local graph (JSON) → sync deltas → Neptune (cloud)
 The local graph remains the primary store. Neptune is the shared team graph.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.neptune
+# risk: MEDIUM (impact radius: 1 modules)
+# consumers: test_neptune
+# dependencies: __future__, json, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -9,6 +9,14 @@ The upper ontology maps to OWL class hierarchy concepts:
 - Leaf types are instantiable entity types
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.upper
+# risk: LOW (impact radius: 3 modules)
+# consumers: domain_registry, __init__, test_upper
+# dependencies: __future__, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Dict, List, Set

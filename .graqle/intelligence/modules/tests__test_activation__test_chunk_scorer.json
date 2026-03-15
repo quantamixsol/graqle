@@ -1,0 +1,89 @@
+{
+  "module": "tests.test_activation.test_chunk_scorer",
+  "files": [
+    "tests/test_activation/test_chunk_scorer.py"
+  ],
+  "node_count": 13,
+  "function_count": 11,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_products_tsx_beats_tailwind_config",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_tech_stack_finds_package_json",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "test_multiple_nodes_activated",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_min_score_filters_noise",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "test_no_chunks_penalized",
+      "type": "Function",
+      "line": 138
+    },
+    {
+      "name": "test_filename_boost_guarantees_selection",
+      "type": "Function",
+      "line": 160
+    },
+    {
+      "name": "test_max_nodes_limit",
+      "type": "Function",
+      "line": 180
+    },
+    {
+      "name": "test_relevance_scores_stored",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_empty_chunks_skipped",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "TestChunkScorerActivation",
+      "type": "Class",
+      "line": 39
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.chunk_scorer",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.187,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:42.056201+00:00"
+}

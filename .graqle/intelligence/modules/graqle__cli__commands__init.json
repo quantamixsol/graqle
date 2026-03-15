@@ -1,0 +1,114 @@
+{
+  "module": "graqle.cli.commands.init",
+  "files": [
+    "graqle/cli/commands/init.py"
+  ],
+  "node_count": 34,
+  "function_count": 33,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "scan_repository",
+      "type": "Function",
+      "line": 535
+    },
+    {
+      "name": "init_command",
+      "type": "Function",
+      "line": 1607
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cli.test_init",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "shutil",
+      "type": "external"
+    },
+    {
+      "module": "sys",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "yaml",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "rich.panel",
+      "type": "external"
+    },
+    {
+      "module": "rich.prompt",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.console",
+      "type": "internal"
+    },
+    {
+      "module": "graqle",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.api",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.567,
+  "risk_level": "HIGH",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.416624+00:00"
+}

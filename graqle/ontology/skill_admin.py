@@ -22,6 +22,13 @@ Cost: One Titan V2 embedding per query (~$0.0001), zero LLM calls.
 Inspired by VoltAgent/awesome-agent-skills taxonomy (549+ skills).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.skill_admin
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, re, typing, numpy +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

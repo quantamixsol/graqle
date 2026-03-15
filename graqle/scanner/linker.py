@@ -13,6 +13,14 @@ The linker operates on the graph in-memory and returns a list of proposed
 edges that the caller can accept/reject before persisting.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.linker
+# risk: LOW (impact radius: 3 modules)
+# consumers: docs, test_doc_chain, test_linker
+# dependencies: __future__, logging, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

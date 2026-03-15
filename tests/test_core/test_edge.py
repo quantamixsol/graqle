@@ -1,5 +1,12 @@
 """Tests for CogniEdge."""
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_edge
+# risk: LOW (impact radius: 0 modules)
+# dependencies: edge, message, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.core.edge import CogniEdge
 from graqle.core.message import Message
 

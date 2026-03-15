@@ -10,6 +10,14 @@ No network calls required for verification. Keys can be provided via:
 If no valid license is found, the free tier is assumed.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.licensing.manager
+# risk: MEDIUM (impact radius: 3 modules)
+# consumers: __init__, test_keygen, test_manager
+# dependencies: __future__, asyncio, base64, hashlib, hmac +8 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

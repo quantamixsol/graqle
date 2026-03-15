@@ -9,6 +9,14 @@ so that ``graq scan status`` / ``graq scan wait`` can report progress
 from a separate CLI invocation.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.background
+# risk: MEDIUM (impact radius: 1 modules)
+# consumers: test_background
+# dependencies: a, __future__, calendar, json, logging +6 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import calendar

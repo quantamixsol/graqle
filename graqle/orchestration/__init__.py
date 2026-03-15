@@ -1,3 +1,10 @@
+# ── graqle:intelligence ──
+# module: graqle.orchestration.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: aggregation, convergence, message_passing, observer, orchestrator
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.orchestration.aggregation import Aggregator
 from graqle.orchestration.convergence import ConvergenceDetector
 from graqle.orchestration.message_passing import MessagePassingProtocol

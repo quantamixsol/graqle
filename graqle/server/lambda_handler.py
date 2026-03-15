@@ -16,6 +16,13 @@ Environment variables:
   COGNIGRAPH_S3_BUCKET    — S3 bucket for graph/config storage
 """
 
+# ── graqle:intelligence ──
+# module: graqle.server.lambda_handler
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, logging, os, tempfile, pathlib
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import logging
 import os

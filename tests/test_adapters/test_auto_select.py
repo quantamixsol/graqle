@@ -1,5 +1,12 @@
 """Tests for AdapterAutoSelector — automatic LoRA adapter selection."""
 
+# ── graqle:intelligence ──
+# module: tests.test_adapters.test_auto_select
+# risk: LOW (impact radius: 0 modules)
+# dependencies: dataclasses, mock, pytest, auto_select
+# constraints: none
+# ── /graqle:intelligence ──
+
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 

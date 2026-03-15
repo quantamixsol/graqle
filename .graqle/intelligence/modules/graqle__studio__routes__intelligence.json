@@ -1,0 +1,90 @@
+{
+  "module": "graqle.studio.routes.intelligence",
+  "files": [
+    "graqle/studio/routes/intelligence.py"
+  ],
+  "node_count": 9,
+  "function_count": 8,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "intelligence_scorecard",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "intelligence_modules",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "intelligence_module_detail",
+      "type": "Function",
+      "line": 110
+    },
+    {
+      "name": "intelligence_impact_matrix",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "intelligence_risk_distribution",
+      "type": "Function",
+      "line": 172
+    },
+    {
+      "name": "intelligence_insights",
+      "type": "Function",
+      "line": 197
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.learning.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_learning.test_gds_intelligence",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.responses",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.269,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.703349+00:00"
+}

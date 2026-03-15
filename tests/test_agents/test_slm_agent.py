@@ -1,5 +1,12 @@
 """Tests for agent abstractions."""
 
+# ── graqle:intelligence ──
+# module: tests.test_agents.test_slm_agent
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, base_agent, slm_agent, mock, message +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.agents.base_agent import BaseAgent

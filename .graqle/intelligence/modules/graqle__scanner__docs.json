@@ -1,0 +1,128 @@
+{
+  "module": "graqle.scanner.docs",
+  "files": [
+    "graqle/scanner/docs.py"
+  ],
+  "node_count": 18,
+  "function_count": 13,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "files_total",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "scan_directory",
+      "type": "Function",
+      "line": 189
+    },
+    {
+      "name": "scan_file",
+      "type": "Function",
+      "line": 234
+    },
+    {
+      "name": "scan_files",
+      "type": "Function",
+      "line": 249
+    },
+    {
+      "name": "ScanFileResult",
+      "type": "Class",
+      "line": 51
+    },
+    {
+      "name": "ScanResult",
+      "type": "Class",
+      "line": 65
+    },
+    {
+      "name": "DocScanOptions",
+      "type": "Class",
+      "line": 89
+    },
+    {
+      "name": "DocumentScanner",
+      "type": "Class",
+      "line": 132
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_scanner.test_docs",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_doc_chain",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.chunker",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.linker",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.manifest",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.parsers",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.privacy",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.385,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.145660+00:00"
+}

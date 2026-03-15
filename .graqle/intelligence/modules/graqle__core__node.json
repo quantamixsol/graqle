@@ -1,0 +1,130 @@
+{
+  "module": "graqle.core.node",
+  "files": [
+    "graqle/core/node.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "activate",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "deactivate",
+      "type": "Function",
+      "line": 150
+    },
+    {
+      "name": "reason",
+      "type": "Function",
+      "line": 155
+    },
+    {
+      "name": "degree",
+      "type": "Function",
+      "line": 395
+    },
+    {
+      "name": "is_hub",
+      "type": "Function",
+      "line": 400
+    },
+    {
+      "name": "CogniNode",
+      "type": "Class",
+      "line": 101
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.conftest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_content_aware_pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_chunk_pipeline",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_kg_validation",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_node",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_learning.test_gds_intelligence",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_constraint_graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.state",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.531,
+  "risk_level": "HIGH",
+  "impact_radius": 11,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.610739+00:00"
+}

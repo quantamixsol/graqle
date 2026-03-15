@@ -5,6 +5,13 @@ propagation, ontology-based message routing, and skill resolution.
 Domain-agnostic: any domain registers via the DomainRegistry API.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: upper, domain_registry, shacl_gate, constraint_graph, router +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.ontology.upper import UpperOntology
 from graqle.ontology.domain_registry import DomainRegistry, DomainOntology
 from graqle.ontology.shacl_gate import SHACLGate, ValidationResult

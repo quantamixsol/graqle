@@ -1,5 +1,13 @@
 """NodeState — agent belief and memory state for a CogniNode."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.state
+# risk: LOW (impact radius: 5 modules)
+# consumers: __init__, graph, node, __init__, conftest
+# dependencies: __future__, dataclasses, typing, numpy
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

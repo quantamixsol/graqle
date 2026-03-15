@@ -9,6 +9,14 @@ validate() at 88% quality while having ZERO chunks, producing hollow
 reasoning where agents have no evidence to cite.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.audit
+# risk: LOW (impact radius: 4 modules)
+# consumers: main, middleware, __init__, test_audit
+# dependencies: __future__, pathlib, typing, typer, console
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

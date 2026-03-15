@@ -1,0 +1,145 @@
+{
+  "module": "tests.test_scanner.test_doc_chain",
+  "files": [
+    "tests/test_scanner/test_doc_chain.py"
+  ],
+  "node_count": 19,
+  "function_count": 12,
+  "class_count": 6,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "project_dir",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "code_nodes",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "test_scan_docs_links_to_code",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "test_section_of_edges_connect_hierarchy",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_front_matter_extracted",
+      "type": "Function",
+      "line": 192
+    },
+    {
+      "name": "test_incremental_rescan",
+      "type": "Function",
+      "line": 223
+    },
+    {
+      "name": "test_learn_single_file",
+      "type": "Function",
+      "line": 265
+    },
+    {
+      "name": "test_learn_directory",
+      "type": "Function",
+      "line": 286
+    },
+    {
+      "name": "test_max_files_stops_early",
+      "type": "Function",
+      "line": 305
+    },
+    {
+      "name": "test_max_nodes_stops_early",
+      "type": "Function",
+      "line": 315
+    },
+    {
+      "name": "test_secrets_redacted_in_nodes",
+      "type": "Function",
+      "line": 335
+    },
+    {
+      "name": "test_deleted_file_nodes_removed",
+      "type": "Function",
+      "line": 366
+    },
+    {
+      "name": "TestFullChain",
+      "type": "Class",
+      "line": 141
+    },
+    {
+      "name": "TestIncrementalChain",
+      "type": "Class",
+      "line": 220
+    },
+    {
+      "name": "TestOnDemandIngestion",
+      "type": "Class",
+      "line": 262
+    },
+    {
+      "name": "TestBudgetChain",
+      "type": "Class",
+      "line": 302
+    },
+    {
+      "name": "TestPrivacyChain",
+      "type": "Class",
+      "line": 332
+    },
+    {
+      "name": "TestStaleCleanupChain",
+      "type": "Class",
+      "line": 363
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.docs",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.linker",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.manifest",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.286,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.209990+00:00"
+}

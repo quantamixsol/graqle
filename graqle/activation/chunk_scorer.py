@@ -10,6 +10,14 @@ embedded (1 call), then fast numpy cosine similarity against all cached
 chunk vectors. This reduces 11K-node activation from ~30s to <1s.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.chunk_scorer
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_chunk_scorer
+# dependencies: __future__, hashlib, logging, pathlib, typing +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib
@@ -198,6 +206,10 @@ class ChunkScorer:
                 if node_id not in scores or sim > scores[node_id]:
                     scores[node_id] = max(sim, 0.0)
 
+        # Filter out stale cache references (node IDs that no longer exist in graph)
+        live_ids = set(graph.nodes.keys())
+        scores = {nid: s for nid, s in scores.items() if nid in live_ids}
+
         # Filename boost
         for node_id, node in graph.nodes.items():
             label_lower = (node.label or "").lower()
@@ -270,11 +282,69 @@ class ChunkScorer:
 
         return scores
 
+    def _property_search_fallback(
+        self, graph: Any, query: str
+    ) -> dict[str, float]:
+        """Fallback: regex-match on node IDs, labels, and descriptions.
+
+        Used when embedding-based activation returns low confidence.
+        This mirrors Neo4j's ``WHERE n.id =~ '.*pattern.*'`` approach.
+        """
+        import re
+
+        scores: dict[str, float] = {}
+
+        # Extract meaningful keywords from query (3+ chars, not stopwords)
+        stopwords = {
+            "the", "and", "for", "from", "with", "that", "this", "what",
+            "how", "does", "which", "where", "when", "who", "are", "was",
+            "will", "can", "into", "each", "all", "its", "our", "your",
+            "has", "have", "had", "been", "being", "their", "them",
+            "trace", "show", "find", "list", "give", "tell", "explain",
+            "flow", "between", "across", "through",
+        }
+        words = re.findall(r"[a-zA-Z_]\w{2,}", query.lower())
+        keywords = [w for w in words if w not in stopwords]
+
+        if not keywords:
+            return scores
+
+        # Build regex patterns from keywords
+        patterns = [re.compile(re.escape(kw), re.IGNORECASE) for kw in keywords]
+
+        for node_id, node in graph.nodes.items():
+            label = node.label or ""
+            desc = node.description or ""
+            # Also check the raw node_id path
+            searchable = f"{node_id} {label} {desc}"
+
+            # Score: number of keyword matches / total keywords
+            matches = sum(1 for pat in patterns if pat.search(searchable))
+            if matches > 0:
+                score = matches / len(keywords)
+                # Bonus for matching in node ID (strongest signal)
+                id_matches = sum(1 for pat in patterns if pat.search(node_id))
+                if id_matches:
+                    score += 0.3 * (id_matches / len(keywords))
+                # Bonus for matching in label
+                label_matches = sum(1 for pat in patterns if pat.search(label))
+                if label_matches:
+                    score += 0.2 * (label_matches / len(keywords))
+                scores[node_id] = min(score, 1.5)  # cap to avoid dominating
+
+        return scores
+
     def activate(
         self, graph: Graqle, query: str,
         activation_boosts: dict[str, float] | None = None,
     ) -> list[str]:
         """Activate the top-N nodes by chunk-level scoring.
+
+        Uses a 2-tier strategy:
+        1. Embedding-based chunk scoring (semantic similarity)
+        2. Property-based fallback (regex on node IDs/labels/descriptions)
+           when semantic scores are low — prevents the "activation misses
+           obvious matches" problem on large multi-repo graphs.
 
         Args:
             graph: Graqle instance
@@ -297,6 +367,25 @@ class ChunkScorer:
             if boosted_count:
                 logger.info(
                     "Applied activation memory boosts to %d nodes", boosted_count
+                )
+
+        # Property-based fallback: when semantic scores are weak,
+        # augment with regex matches on node IDs/labels/descriptions.
+        # This catches cases like "onboarding flow" matching
+        # "onboarding_service.py" even when embeddings miss it.
+        top_semantic = sorted(scores.values(), reverse=True)[:5]
+        avg_top = sum(top_semantic) / max(len(top_semantic), 1)
+        if avg_top < 0.35:
+            property_scores = self._property_search_fallback(graph, query)
+            fallback_count = 0
+            for nid, pscore in property_scores.items():
+                if pscore > scores.get(nid, 0.0):
+                    scores[nid] = pscore
+                    fallback_count += 1
+            if fallback_count:
+                logger.info(
+                    "Property fallback augmented %d nodes (avg_semantic=%.3f)",
+                    fallback_count, avg_top,
                 )
 
         candidates = [

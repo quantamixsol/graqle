@@ -5,6 +5,13 @@ small-section merging, large-section splitting, heading path tracking,
 overlap between adjacent chunks, token estimation, and edge cases.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_chunker
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, base, chunker
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

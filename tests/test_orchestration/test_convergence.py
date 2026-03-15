@@ -1,5 +1,12 @@
 """Tests for ConvergenceDetector."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_convergence
+# risk: LOW (impact radius: 0 modules)
+# dependencies: message, convergence
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.core.message import Message
 from graqle.orchestration.convergence import ConvergenceDetector
 

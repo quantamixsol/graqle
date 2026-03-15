@@ -1,0 +1,76 @@
+{
+  "module": "graqle.scanner.linker",
+  "files": [
+    "graqle/scanner/linker.py"
+  ],
+  "node_count": 15,
+  "function_count": 10,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "link",
+      "type": "Function",
+      "line": 184
+    },
+    {
+      "name": "ProposedEdge",
+      "type": "Class",
+      "line": 40
+    },
+    {
+      "name": "LinkingResult",
+      "type": "Class",
+      "line": 68
+    },
+    {
+      "name": "AutoLinker",
+      "type": "Class",
+      "line": 141
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.scanner.docs",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_doc_chain",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_linker",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.283,
+  "risk_level": "LOW",
+  "impact_radius": 3,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.394215+00:00"
+}

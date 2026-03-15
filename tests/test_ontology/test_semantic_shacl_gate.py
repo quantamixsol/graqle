@@ -1,5 +1,12 @@
 """Tests for SemanticSHACLGate — semantic governance validation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_semantic_shacl_gate
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: pytest, semantic_shacl_gate
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.semantic_shacl_gate import (

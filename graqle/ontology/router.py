@@ -7,6 +7,14 @@ but NOT to unrelated DORA nodes unless they share a valid relationship.
 Falls back to graph neighbors if no ontology is loaded (backward compatible).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.router
+# risk: LOW (impact radius: 3 modules)
+# consumers: __init__, test_router, test_nl_router
+# dependencies: __future__, logging, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

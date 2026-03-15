@@ -1,0 +1,77 @@
+{
+  "module": "graqle.cli.commands.team",
+  "files": [
+    "graqle/cli/commands/team.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "team_create",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "team_invite",
+      "type": "Function",
+      "line": 129
+    },
+    {
+      "name": "team_members",
+      "type": "Function",
+      "line": 166
+    },
+    {
+      "name": "team_leave",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "team_info",
+      "type": "Function",
+      "line": 248
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cloud.test_team",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "rich.panel",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.21,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.186790+00:00"
+}

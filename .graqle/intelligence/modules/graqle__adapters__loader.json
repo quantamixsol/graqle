@@ -1,0 +1,74 @@
+{
+  "module": "graqle.adapters.loader",
+  "files": [
+    "graqle/adapters/loader.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "load_adapter",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "swap_adapter",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "unload_adapter",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "active_adapter",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "model",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "tokenizer",
+      "type": "Function",
+      "line": 116
+    },
+    {
+      "name": "AdapterLoader",
+      "type": "Class",
+      "line": 18
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "graqle.adapters.config",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.158,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.605811+00:00"
+}

@@ -4,6 +4,13 @@ Tests both the NetworkX fallback mode (no Neo4j required) and the data structure
 Neo4j GDS tests are skipped unless a live Neo4j instance with GDS plugin is available.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_learning.test_gds_intelligence
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pytest, graph, node, gds_intelligence
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

@@ -1,5 +1,12 @@
 """Tests for graq activate command."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_activate
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, testing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

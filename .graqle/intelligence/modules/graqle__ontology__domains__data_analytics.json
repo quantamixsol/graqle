@@ -1,0 +1,40 @@
+{
+  "module": "graqle.ontology.domains.data_analytics",
+  "files": [
+    "graqle/ontology/domains/data_analytics.py"
+  ],
+  "node_count": 2,
+  "function_count": 1,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "register_data_analytics_domain",
+      "type": "Function",
+      "line": 160
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.skill_resolver",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.07,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.179040+00:00"
+}

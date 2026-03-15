@@ -1,0 +1,242 @@
+{
+  "module": "tests.test_scanner.test_parsers.test_markdown",
+  "files": [
+    "tests/test_scanner/test_parsers/test_markdown.py"
+  ],
+  "node_count": 41,
+  "function_count": 39,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "parser",
+      "type": "Function",
+      "line": 32
+    },
+    {
+      "name": "test_simple_headings",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "test_nested_headings",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_code_blocks",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "test_code_block_without_language",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "test_tables",
+      "type": "Function",
+      "line": 169
+    },
+    {
+      "name": "test_table_with_alignment",
+      "type": "Function",
+      "line": 197
+    },
+    {
+      "name": "test_links",
+      "type": "Function",
+      "line": 215
+    },
+    {
+      "name": "test_reference_style_links_definition",
+      "type": "Function",
+      "line": 233
+    },
+    {
+      "name": "test_autolinks",
+      "type": "Function",
+      "line": 247
+    },
+    {
+      "name": "test_yaml_front_matter",
+      "type": "Function",
+      "line": 266
+    },
+    {
+      "name": "test_yaml_front_matter_title_override",
+      "type": "Function",
+      "line": 289
+    },
+    {
+      "name": "test_yaml_front_matter_not_confused_with_hr",
+      "type": "Function",
+      "line": 305
+    },
+    {
+      "name": "test_empty_file",
+      "type": "Function",
+      "line": 323
+    },
+    {
+      "name": "test_whitespace_only_file",
+      "type": "Function",
+      "line": 333
+    },
+    {
+      "name": "test_no_headings",
+      "type": "Function",
+      "line": 343
+    },
+    {
+      "name": "test_title_from_h1",
+      "type": "Function",
+      "line": 357
+    },
+    {
+      "name": "test_title_from_filename",
+      "type": "Function",
+      "line": 371
+    },
+    {
+      "name": "test_title_from_first_h1_not_h2",
+      "type": "Function",
+      "line": 383
+    },
+    {
+      "name": "test_mixed_content",
+      "type": "Function",
+      "line": 401
+    },
+    {
+      "name": "test_multiple_code_blocks_in_one_section",
+      "type": "Function",
+      "line": 470
+    },
+    {
+      "name": "test_indented_code_blocks",
+      "type": "Function",
+      "line": 497
+    },
+    {
+      "name": "hello",
+      "type": "Function",
+      "line": 504
+    },
+    {
+      "name": "test_is_available",
+      "type": "Function",
+      "line": 521
+    },
+    {
+      "name": "test_supported_extensions",
+      "type": "Function",
+      "line": 525
+    },
+    {
+      "name": "test_format_is_markdown",
+      "type": "Function",
+      "line": 530
+    },
+    {
+      "name": "test_path_preserved",
+      "type": "Function",
+      "line": 536
+    },
+    {
+      "name": "test_missing_dependency_message",
+      "type": "Function",
+      "line": 542
+    },
+    {
+      "name": "test_nonexistent_file_raises",
+      "type": "Function",
+      "line": 550
+    },
+    {
+      "name": "test_binary_file_handled_gracefully",
+      "type": "Function",
+      "line": 556
+    },
+    {
+      "name": "test_section_content_excludes_heading",
+      "type": "Function",
+      "line": 571
+    },
+    {
+      "name": "test_section_content_preserves_paragraphs",
+      "type": "Function",
+      "line": 586
+    },
+    {
+      "name": "test_word_count_in_metadata",
+      "type": "Function",
+      "line": 603
+    },
+    {
+      "name": "test_full_text_is_concatenation",
+      "type": "Function",
+      "line": 616
+    },
+    {
+      "name": "test_blockquotes",
+      "type": "Function",
+      "line": 632
+    },
+    {
+      "name": "test_lists",
+      "type": "Function",
+      "line": 647
+    },
+    {
+      "name": "test_emphasis_and_bold",
+      "type": "Function",
+      "line": 665
+    },
+    {
+      "name": "test_images_as_links",
+      "type": "Function",
+      "line": 679
+    },
+    {
+      "name": "TestMarkdownParser",
+      "type": "Class",
+      "line": 46
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "textwrap",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.markdown",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.492,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.631657+00:00"
+}

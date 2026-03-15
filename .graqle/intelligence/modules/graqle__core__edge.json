@@ -1,0 +1,116 @@
+{
+  "module": "graqle.core.edge",
+  "files": [
+    "graqle/core/edge.py"
+  ],
+  "node_count": 9,
+  "function_count": 7,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "send",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "receive",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "receive_all",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "peek",
+      "type": "Function",
+      "line": 56
+    },
+    {
+      "name": "clear",
+      "type": "Function",
+      "line": 60
+    },
+    {
+      "name": "pending_count",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "semantic_distance",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "CogniEdge",
+      "type": "Class",
+      "line": 21
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.conftest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_content_aware_pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_edge",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_constraint_graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "collections",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.382,
+  "risk_level": "MEDIUM",
+  "impact_radius": 8,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.641764+00:00"
+}

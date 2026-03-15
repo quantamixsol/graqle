@@ -1,5 +1,12 @@
 """Tests for MessagePassingProtocol."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_message_passing
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, graph, mock, message_passing
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.graph import Graqle

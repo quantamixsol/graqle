@@ -1,5 +1,12 @@
 """Tests for HierarchicalAggregation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_hierarchical
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, hierarchical
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

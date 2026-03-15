@@ -1,0 +1,143 @@
+{
+  "module": "graqle.cli.console",
+  "files": [
+    "graqle/cli/console.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "create_console",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "safe_symbol",
+      "type": "Function",
+      "line": 85
+    },
+    {
+      "name": "sanitize_output",
+      "type": "Function",
+      "line": 95
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.activate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.audit",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.billing",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.doctor",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.grow",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.ingest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.init",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.learn",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.learned",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.link",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.login",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.metrics_cmd",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.register",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.scan",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.selfupdate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.setup_guide",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.sync",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.team",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.upgrade",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.compile",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.verify",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "io",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "sys",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.518,
+  "risk_level": "HIGH",
+  "impact_radius": 22,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.490165+00:00"
+}

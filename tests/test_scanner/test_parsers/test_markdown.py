@@ -6,6 +6,13 @@ parser metadata.  Every test creates its input via ``tmp_path`` so no
 fixtures leak between runs.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_parsers.test_markdown
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pathlib, textwrap, pytest, markdown +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

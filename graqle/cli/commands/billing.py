@@ -4,6 +4,14 @@ Displays current license status, feature availability, usage stats,
 and clear upgrade paths with pricing.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.billing
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, logging, typer, console, panel +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

@@ -1,5 +1,12 @@
 """Tests for entity unifier — cross-source name matching."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_unifier
+# risk: LOW (impact radius: 0 modules)
+# dependencies: unifier
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.dedup.unifier import EntityUnifier, _tokenise
 
 

@@ -1,0 +1,221 @@
+{
+  "module": "graqle.intelligence.governance.middleware",
+  "files": [
+    "graqle/intelligence/governance/middleware.py"
+  ],
+  "node_count": 12,
+  "function_count": 10,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "start_session",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "get_or_start_session",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "log_tool_call",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "complete_session",
+      "type": "Function",
+      "line": 126
+    },
+    {
+      "name": "GovernanceMiddleware",
+      "type": "Class",
+      "line": 40
+    }
+  ],
+  "consumers": [
+    {
+      "module": "sdk_self_audit",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.adaptive",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.reformulator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.init",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.learn",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.link",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.scan",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.evaluation.constrained_f1",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.claude_section",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.headers",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.pipeline",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.validators",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domain_detector",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.markdown_parser",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.schema",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.semantic_shacl_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.shacl_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.skill_admin",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.optimization.token_optimizer",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.runtime.fetcher",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.runtime.router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.chunker",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.linker",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.nl_router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.privacy",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.dedup.unifier",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.parsers.markdown",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.parsers.text",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_governance_middleware",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_metrics.test_metrics_accuracy",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_server.test_middleware",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.governance.audit",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.governance.drace",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.governance.evidence",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.677,
+  "risk_level": "HIGH",
+  "impact_radius": 34,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:30.467892+00:00"
+}

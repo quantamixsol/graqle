@@ -1,0 +1,61 @@
+{
+  "module": "tests.test_scanner.test_extractors.test_tool_config",
+  "files": [
+    "tests/test_scanner/test_extractors/test_tool_config.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_tsconfig_rules",
+      "type": "Function",
+      "line": 13
+    },
+    {
+      "name": "test_eslint_rules",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_prettier_config",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_generic_tool_config",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_eslint_rule_severity",
+      "type": "Function",
+      "line": 65
+    },
+    {
+      "name": "test_empty_rules",
+      "type": "Function",
+      "line": 73
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.extractors.tool_config",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.097,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.343819+00:00"
+}

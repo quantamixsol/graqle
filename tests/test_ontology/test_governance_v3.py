@@ -1,5 +1,12 @@
 """Tests for Governance Domain v3 — semantic constraints."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_governance_v3
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, governance_v3, semantic_shacl_gate
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.domains.governance_v3 import (

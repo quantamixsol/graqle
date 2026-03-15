@@ -1,5 +1,12 @@
 """Graqle metrics — usage tracking, ROI reporting, and dashboards."""
 
+# ── graqle:intelligence ──
+# module: graqle.metrics.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: engine, dashboard
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.metrics.engine import MetricsEngine
 from graqle.metrics.dashboard import generate_dashboard
 

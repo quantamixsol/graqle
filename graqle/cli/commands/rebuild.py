@@ -12,6 +12,14 @@ Usage:
     graq rebuild --graph my.json     # specify a different graph
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.rebuild
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, json, logging, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

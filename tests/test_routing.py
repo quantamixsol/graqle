@@ -1,5 +1,12 @@
 """Tests for graqle.routing — task-based model routing."""
 
+# ── graqle:intelligence ──
+# module: tests.test_routing
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, os, mock, pytest, routing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

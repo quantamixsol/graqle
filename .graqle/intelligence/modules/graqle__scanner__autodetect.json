@@ -1,0 +1,63 @@
+{
+  "module": "graqle.scanner.autodetect",
+  "files": [
+    "graqle/scanner/autodetect.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "detect_environment",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "suggest_mcp_config",
+      "type": "Function",
+      "line": 229
+    },
+    {
+      "name": "DetectedEnvironment",
+      "type": "Class",
+      "line": 22
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_scanner.test_autodetect",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.205,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.779952+00:00"
+}

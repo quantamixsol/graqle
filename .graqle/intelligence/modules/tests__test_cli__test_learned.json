@@ -1,0 +1,90 @@
+{
+  "module": "tests.test_cli.test_learned",
+  "files": [
+    "tests/test_cli/test_learned.py"
+  ],
+  "node_count": 9,
+  "function_count": 7,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "graph_file",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_learned_lists_knowledge_and_lessons",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_learned_domain_filter",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_learned_empty_graph",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_learned_missing_graph_file",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_learned_shows_hit_count",
+      "type": "Function",
+      "line": 136
+    },
+    {
+      "name": "TestLearnedCommand",
+      "type": "Class",
+      "line": 101
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "tempfile",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "typer.testing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.main",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.229,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:59.622483+00:00"
+}

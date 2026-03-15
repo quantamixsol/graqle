@@ -6,6 +6,13 @@ The fix: _bfs_impact skips CONTAINS and DEFINES edges, only following dependency
 edges (IMPORTS, CALLS, DEPENDS_ON, etc.).
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_plugins.test_impact_filtering
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, dataclasses, mock, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

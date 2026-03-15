@@ -1,0 +1,88 @@
+{
+  "module": "graqle.adapters.auto_select",
+  "files": [
+    "graqle/adapters/auto_select.py"
+  ],
+  "node_count": 11,
+  "function_count": 8,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "register_mapping",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "register_domain",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "select",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "select_batch",
+      "type": "Function",
+      "line": 120
+    },
+    {
+      "name": "clear_cache",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "mapping_count",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "SelectionResult",
+      "type": "Class",
+      "line": 35
+    },
+    {
+      "name": "AdapterAutoSelector",
+      "type": "Class",
+      "line": 42
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.adapters.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_adapters.test_auto_select",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.213,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.406175+00:00"
+}

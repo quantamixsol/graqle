@@ -1,5 +1,12 @@
 """Tests for ConstraintGraph — shared constraint detection and propagation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_constraint_graph
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, numpy, constraint_graph, node, graph +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 import numpy as np
 

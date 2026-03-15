@@ -1,0 +1,102 @@
+{
+  "module": "graqle.orchestration.observer",
+  "files": [
+    "graqle/orchestration/observer.py"
+  ],
+  "node_count": 14,
+  "function_count": 12,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "reset",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "observe_round",
+      "type": "Function",
+      "line": 127
+    },
+    {
+      "name": "generate_feedback",
+      "type": "Function",
+      "line": 189
+    },
+    {
+      "name": "feedback_count",
+      "type": "Function",
+      "line": 297
+    },
+    {
+      "name": "generate_report",
+      "type": "Function",
+      "line": 299
+    },
+    {
+      "name": "MasterObserver",
+      "type": "Class",
+      "line": 68
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_orchestration.test_observer",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "collections",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.observer_report",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.389,
+  "risk_level": "MEDIUM",
+  "impact_radius": 5,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.077953+00:00"
+}

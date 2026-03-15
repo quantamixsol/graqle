@@ -1,3 +1,10 @@
+# ── graqle:intelligence ──
+# module: graqle.connectors.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: base, networkx, json_graph, tamr
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.connectors.base import BaseConnector
 from graqle.connectors.networkx import NetworkXConnector
 from graqle.connectors.json_graph import JSONGraphConnector

@@ -1,0 +1,112 @@
+{
+  "module": "graqle.studio.routes.governance",
+  "files": [
+    "graqle/studio/routes/governance.py"
+  ],
+  "node_count": 15,
+  "function_count": 14,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "drace_current",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "drace_history",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "audit_sessions",
+      "type": "Function",
+      "line": 113
+    },
+    {
+      "name": "audit_session_detail",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "audit_verify_chain",
+      "type": "Function",
+      "line": 161
+    },
+    {
+      "name": "evidence_chains",
+      "type": "Function",
+      "line": 221
+    },
+    {
+      "name": "evidence_chain_detail",
+      "type": "Function",
+      "line": 256
+    },
+    {
+      "name": "drace_badge",
+      "type": "Function",
+      "line": 274
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_skill_resolver",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_studio.test_governance_routes",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.responses",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.406,
+  "risk_level": "MEDIUM",
+  "impact_radius": 5,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:37.027801+00:00"
+}

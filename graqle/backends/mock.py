@@ -4,6 +4,14 @@ IMPORTANT: When MockBackend is used as a FALLBACK (not explicitly by tests),
 it produces loud warnings so users know they're getting degraded results.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.mock
+# risk: HIGH (impact radius: 57 modules)
+# consumers: quickstart, __init__, conftest, test_routing, test_adaptive +52 more
+# dependencies: __future__, logging, random, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

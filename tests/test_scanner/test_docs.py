@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.docs — DocumentScanner orchestrator."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_docs
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, typing, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,0 +1,108 @@
+{
+  "module": "graqle.routing",
+  "files": [
+    "graqle/routing.py"
+  ],
+  "node_count": 15,
+  "function_count": 12,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "from_config",
+      "type": "Function",
+      "line": 154
+    },
+    {
+      "name": "get_rule_for_task",
+      "type": "Function",
+      "line": 169
+    },
+    {
+      "name": "get_backend_for_task",
+      "type": "Function",
+      "line": 173
+    },
+    {
+      "name": "get_task_from_mcp_tool",
+      "type": "Function",
+      "line": 212
+    },
+    {
+      "name": "recommend",
+      "type": "Function",
+      "line": 216
+    },
+    {
+      "name": "recommend_all",
+      "type": "Function",
+      "line": 246
+    },
+    {
+      "name": "add_rule",
+      "type": "Function",
+      "line": 273
+    },
+    {
+      "name": "to_config",
+      "type": "Function",
+      "line": 283
+    },
+    {
+      "name": "RoutingRule",
+      "type": "Class",
+      "line": 115
+    },
+    {
+      "name": "TaskRouter",
+      "type": "Class",
+      "line": 142
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_routing",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.245,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.300681+00:00"
+}

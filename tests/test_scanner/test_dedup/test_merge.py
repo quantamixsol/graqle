@@ -1,5 +1,12 @@
 """Tests for the merge engine."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_merge
+# risk: LOW (impact radius: 0 modules)
+# dependencies: merge
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.dedup.merge import MergeEngine, MergeDecision
 
 

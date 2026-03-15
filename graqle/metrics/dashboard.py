@@ -1,5 +1,13 @@
 """Markdown dashboard generator for Graqle metrics."""
 
+# ── graqle:intelligence ──
+# module: graqle.metrics.dashboard
+# risk: LOW (impact radius: 1 modules)
+# consumers: __init__
+# dependencies: __future__, datetime, pathlib, typing, engine
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

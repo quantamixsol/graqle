@@ -4,6 +4,13 @@ Tests that the console module handles Unicode safely on ALL platforms,
 not just Windows. The fix must be universal.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_console_unicode
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, io, sys, mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import io

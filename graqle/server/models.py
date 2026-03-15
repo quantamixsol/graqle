@@ -1,5 +1,13 @@
 """Pydantic request/response models for the Graqle API server."""
 
+# ── graqle:intelligence ──
+# module: graqle.server.models
+# risk: MEDIUM (impact radius: 16 modules)
+# consumers: claude_section, compile, emitter, headers, pipeline +11 more
+# dependencies: __future__, pydantic
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

@@ -1,5 +1,12 @@
 """Tests for async event-driven message passing."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_async_protocol
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, graph, async_protocol
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

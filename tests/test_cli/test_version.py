@@ -1,5 +1,12 @@
 """Tests for P2-8: graq --version flag."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_version
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, testing, main
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typer.testing import CliRunner

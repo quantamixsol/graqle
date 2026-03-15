@@ -1,0 +1,113 @@
+{
+  "module": "tests.test_metrics.test_metrics_accuracy",
+  "files": [
+    "tests/test_metrics/test_metrics_accuracy.py"
+  ],
+  "node_count": 15,
+  "function_count": 9,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "engine",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_record_query_does_not_inflate_tokens",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "test_record_context_load_tracks_savings",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_savings_with_custom_tokens_without",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_savings_clamp_to_zero",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_no_double_counting",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "test_default_tokens_without_is_realistic",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_reduction_factor_formula",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_reduction_factor_with_zero_loads",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "TestRecordQueryDoesNotInflateTokens",
+      "type": "Class",
+      "line": 31
+    },
+    {
+      "name": "TestRecordContextLoadTracksSavings",
+      "type": "Class",
+      "line": 41
+    },
+    {
+      "name": "TestNoDoubleCounting",
+      "type": "Class",
+      "line": 60
+    },
+    {
+      "name": "TestDefaultTokensWithoutIsRealistic",
+      "type": "Class",
+      "line": 77
+    },
+    {
+      "name": "TestReductionFactorFormula",
+      "type": "Class",
+      "line": 83
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.metrics.engine",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.196,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.520510+00:00"
+}

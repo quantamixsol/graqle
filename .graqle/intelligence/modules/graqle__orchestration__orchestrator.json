@@ -1,0 +1,98 @@
+{
+  "module": "graqle.orchestration.orchestrator",
+  "files": [
+    "graqle/orchestration/orchestrator.py"
+  ],
+  "node_count": 6,
+  "function_count": 4,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "run",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "Orchestrator",
+      "type": "Class",
+      "line": 30
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_backends.test_error_scenarios",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "random",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.aggregation",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.convergence",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.message_passing",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.observer",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.347,
+  "risk_level": "MEDIUM",
+  "impact_radius": 4,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.356732+00:00"
+}

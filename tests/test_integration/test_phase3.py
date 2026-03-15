@@ -1,5 +1,12 @@
 """Phase 3 integration tests — streaming, batch, token optimization."""
 
+# ── graqle:intelligence ──
+# module: tests.test_integration.test_phase3
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, graph
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

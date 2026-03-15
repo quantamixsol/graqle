@@ -1,5 +1,12 @@
 """Tests for ExplanationTrace."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_explanation
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, message, types, explanation
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.message import Message

@@ -1,0 +1,92 @@
+{
+  "module": "tests.test_ontology.test_constraint_graph",
+  "files": [
+    "tests/test_ontology/test_constraint_graph.py"
+  ],
+  "node_count": 11,
+  "function_count": 9,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_build_without_embeddings",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "test_build_with_embeddings_finds_overlap",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "mock_embed",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "embed",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "test_prompt_text_format",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_empty_constraints",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "test_reset",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "test_stats",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "TestConstraintGraph",
+      "type": "Class",
+      "line": 64
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.constraint_graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.node",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.edge",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.208,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.525386+00:00"
+}

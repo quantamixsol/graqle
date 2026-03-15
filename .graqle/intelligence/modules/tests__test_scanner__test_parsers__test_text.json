@@ -1,0 +1,207 @@
+{
+  "module": "tests.test_scanner.test_parsers.test_text",
+  "files": [
+    "tests/test_scanner/test_parsers/test_text.py"
+  ],
+  "node_count": 34,
+  "function_count": 32,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "parser",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_paragraph_splitting",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_three_paragraphs",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_multiple_blank_lines",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "test_header_like_allcaps",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "test_allcaps_single_word",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_allcaps_not_confused_with_acronyms",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_header_like_underline_equals",
+      "type": "Function",
+      "line": 164
+    },
+    {
+      "name": "test_header_like_underline_dashes",
+      "type": "Function",
+      "line": 182
+    },
+    {
+      "name": "test_underline_heading_level",
+      "type": "Function",
+      "line": 198
+    },
+    {
+      "name": "test_long_text_grouping",
+      "type": "Function",
+      "line": 221
+    },
+    {
+      "name": "test_moderate_text_not_split",
+      "type": "Function",
+      "line": 238
+    },
+    {
+      "name": "test_empty_file",
+      "type": "Function",
+      "line": 251
+    },
+    {
+      "name": "test_whitespace_only",
+      "type": "Function",
+      "line": 260
+    },
+    {
+      "name": "test_single_line",
+      "type": "Function",
+      "line": 269
+    },
+    {
+      "name": "test_single_word",
+      "type": "Function",
+      "line": 278
+    },
+    {
+      "name": "test_title_extraction_from_heading",
+      "type": "Function",
+      "line": 288
+    },
+    {
+      "name": "test_title_extraction_from_underline_heading",
+      "type": "Function",
+      "line": 300
+    },
+    {
+      "name": "test_title_fallback_to_filename",
+      "type": "Function",
+      "line": 312
+    },
+    {
+      "name": "test_is_available",
+      "type": "Function",
+      "line": 325
+    },
+    {
+      "name": "test_supported_extensions",
+      "type": "Function",
+      "line": 329
+    },
+    {
+      "name": "test_format_is_text",
+      "type": "Function",
+      "line": 334
+    },
+    {
+      "name": "test_path_preserved",
+      "type": "Function",
+      "line": 340
+    },
+    {
+      "name": "test_missing_dependency_message",
+      "type": "Function",
+      "line": 346
+    },
+    {
+      "name": "test_full_text_includes_all_content",
+      "type": "Function",
+      "line": 352
+    },
+    {
+      "name": "test_nonexistent_file_raises",
+      "type": "Function",
+      "line": 370
+    },
+    {
+      "name": "test_binary_file_handled_gracefully",
+      "type": "Function",
+      "line": 376
+    },
+    {
+      "name": "test_rst_extension",
+      "type": "Function",
+      "line": 389
+    },
+    {
+      "name": "test_adoc_extension",
+      "type": "Function",
+      "line": 399
+    },
+    {
+      "name": "test_no_content_loss",
+      "type": "Function",
+      "line": 410
+    },
+    {
+      "name": "test_unicode_content",
+      "type": "Function",
+      "line": 419
+    },
+    {
+      "name": "TestPlainTextParser",
+      "type": "Class",
+      "line": 45
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "textwrap",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.text",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.426,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.675240+00:00"
+}

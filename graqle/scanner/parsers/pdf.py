@@ -5,6 +5,14 @@ Extracts text, tables, and metadata from PDF files using the
 is not installed.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.pdf
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_pdf
+# dependencies: __future__, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

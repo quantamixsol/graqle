@@ -1,5 +1,12 @@
 """Tests for MasterObserver — transparency intelligence layer."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_observer
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, message, types, observer
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.message import Message

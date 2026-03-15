@@ -1,5 +1,12 @@
 """Tests for LoRA adapter config and registry."""
 
+# ── graqle:intelligence ──
+# module: tests.test_adapters.test_adapter_config
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, pytest, pathlib, config, registry
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import pytest
 from pathlib import Path

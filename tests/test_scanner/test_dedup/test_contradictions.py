@@ -1,5 +1,12 @@
 """Tests for contradiction detection."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_contradictions
+# risk: LOW (impact radius: 0 modules)
+# dependencies: contradictions
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.dedup.contradictions import detect_contradictions
 
 

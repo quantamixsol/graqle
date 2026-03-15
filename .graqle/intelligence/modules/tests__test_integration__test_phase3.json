@@ -1,0 +1,60 @@
+{
+  "module": "tests.test_integration.test_phase3",
+  "files": [
+    "tests/test_integration/test_phase3.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "ready_graph",
+      "type": "Function",
+      "line": 17
+    },
+    {
+      "name": "test_areason_stream",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_areason_batch",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_areason_batch_concurrency",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_imports_phase3",
+      "type": "Function",
+      "line": 64
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.108,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.687480+00:00"
+}

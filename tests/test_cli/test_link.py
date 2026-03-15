@@ -1,5 +1,12 @@
 """Tests for graq link CLI subcommands (v0.15.0 — multi-project support)."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_link
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, mock, pytest +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

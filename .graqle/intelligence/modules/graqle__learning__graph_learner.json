@@ -1,0 +1,109 @@
+{
+  "module": "graqle.learning.graph_learner",
+  "files": [
+    "graqle/learning/graph_learner.py"
+  ],
+  "node_count": 14,
+  "function_count": 10,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "config",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "stats",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "compute_agreement_matrix",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "update_from_reasoning",
+      "type": "Function",
+      "line": 162
+    },
+    {
+      "name": "load_weights",
+      "type": "Function",
+      "line": 284
+    },
+    {
+      "name": "reset",
+      "type": "Function",
+      "line": 304
+    },
+    {
+      "name": "LearningConfig",
+      "type": "Class",
+      "line": 37
+    },
+    {
+      "name": "EdgeUpdate",
+      "type": "Class",
+      "line": 57
+    },
+    {
+      "name": "GraphLearner",
+      "type": "Class",
+      "line": 66
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.learning.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_learning.test_graph_learner",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "math",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.314,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.115008+00:00"
+}

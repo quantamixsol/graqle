@@ -1,5 +1,12 @@
 """Tests for BackendRegistry."""
 
+# ── graqle:intelligence ──
+# module: tests.test_backends.test_registry
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, registry
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

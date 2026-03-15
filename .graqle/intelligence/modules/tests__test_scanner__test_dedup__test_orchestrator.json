@@ -1,0 +1,82 @@
+{
+  "module": "tests.test_scanner.test_dedup.test_orchestrator",
+  "files": [
+    "tests/test_scanner/test_dedup/test_orchestrator.py"
+  ],
+  "node_count": 12,
+  "function_count": 10,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_canonical_merge_duplicate_nodes",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_no_merge_different_canonical",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "test_unification_cross_source",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "test_edges_rewired_on_merge",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_self_loop_edges_removed",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_contradiction_detection",
+      "type": "Function",
+      "line": 168
+    },
+    {
+      "name": "test_report_node_counts",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_disabled_layers",
+      "type": "Function",
+      "line": 218
+    },
+    {
+      "name": "test_empty_graph",
+      "type": "Function",
+      "line": 243
+    },
+    {
+      "name": "test_reject_below_threshold",
+      "type": "Function",
+      "line": 252
+    },
+    {
+      "name": "TestDedupOrchestrator",
+      "type": "Class",
+      "line": 11
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.dedup",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.117,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.197291+00:00"
+}

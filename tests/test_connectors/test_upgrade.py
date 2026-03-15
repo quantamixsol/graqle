@@ -1,5 +1,12 @@
 """Tests for backend upgrade advisor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_connectors.test_upgrade
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, pathlib, upgrade
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 from pathlib import Path
 

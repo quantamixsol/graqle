@@ -1,0 +1,112 @@
+{
+  "module": "graqle.activation.adaptive",
+  "files": [
+    "graqle/activation/adaptive.py"
+  ],
+  "node_count": 15,
+  "function_count": 10,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "composite",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "tier",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "kmax_for_tier",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "score",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "last_profile",
+      "type": "Function",
+      "line": 205
+    },
+    {
+      "name": "last_kmax",
+      "type": "Function",
+      "line": 210
+    },
+    {
+      "name": "analyze",
+      "type": "Function",
+      "line": 213
+    },
+    {
+      "name": "activate",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "ComplexityProfile",
+      "type": "Class",
+      "line": 84
+    },
+    {
+      "name": "AdaptiveConfig",
+      "type": "Class",
+      "line": 121
+    },
+    {
+      "name": "QueryComplexityScorer",
+      "type": "Class",
+      "line": 142
+    },
+    {
+      "name": "AdaptiveActivation",
+      "type": "Class",
+      "line": 183
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.activation.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_adaptive",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.pcst",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.254,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.398947+00:00"
+}

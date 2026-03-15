@@ -1,0 +1,230 @@
+{
+  "module": "tests.test_scanner.test_linker",
+  "files": [
+    "tests/test_scanner/test_linker.py"
+  ],
+  "node_count": 40,
+  "function_count": 31,
+  "class_count": 8,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "code_nodes",
+      "type": "Function",
+      "line": 29
+    },
+    {
+      "name": "doc_nodes_with_refs",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "doc_nodes_fuzzy",
+      "type": "Function",
+      "line": 61
+    },
+    {
+      "name": "doc_nodes_no_refs",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_camel_case",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_snake_case",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "test_path",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_short_tokens_filtered",
+      "type": "Function",
+      "line": 107
+    },
+    {
+      "name": "test_kebab_case",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "test_identical_sets",
+      "type": "Function",
+      "line": 120
+    },
+    {
+      "name": "test_partial_overlap",
+      "type": "Function",
+      "line": 123
+    },
+    {
+      "name": "test_no_overlap",
+      "type": "Function",
+      "line": 129
+    },
+    {
+      "name": "test_empty_set",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "test_finds_verbatim_id",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "test_finds_path_reference",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "test_no_false_positives",
+      "type": "Function",
+      "line": 160
+    },
+    {
+      "name": "test_exact_edge_confidence_is_1",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "test_short_ids_ignored",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "test_fuzzy_finds_related",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_fuzzy_respects_threshold",
+      "type": "Function",
+      "line": 194
+    },
+    {
+      "name": "test_fuzzy_confidence_range",
+      "type": "Function",
+      "line": 202
+    },
+    {
+      "name": "test_exact_plus_fuzzy",
+      "type": "Function",
+      "line": 217
+    },
+    {
+      "name": "test_deduplication",
+      "type": "Function",
+      "line": 223
+    },
+    {
+      "name": "test_both_disabled",
+      "type": "Function",
+      "line": 231
+    },
+    {
+      "name": "test_empty_doc_nodes",
+      "type": "Function",
+      "line": 236
+    },
+    {
+      "name": "test_empty_code_nodes",
+      "type": "Function",
+      "line": 241
+    },
+    {
+      "name": "test_max_edges_per_doc",
+      "type": "Function",
+      "line": 254
+    },
+    {
+      "name": "test_doc_texts_override",
+      "type": "Function",
+      "line": 273
+    },
+    {
+      "name": "test_proposed_edge_fields",
+      "type": "Function",
+      "line": 290
+    },
+    {
+      "name": "test_linking_result_stats",
+      "type": "Function",
+      "line": 301
+    },
+    {
+      "name": "test_relation_inference",
+      "type": "Function",
+      "line": 307
+    },
+    {
+      "name": "TestNormalise",
+      "type": "Class",
+      "line": 89
+    },
+    {
+      "name": "TestTokenOverlap",
+      "type": "Class",
+      "line": 117
+    },
+    {
+      "name": "TestExactMatch",
+      "type": "Class",
+      "line": 143
+    },
+    {
+      "name": "TestFuzzyMatch",
+      "type": "Class",
+      "line": 185
+    },
+    {
+      "name": "TestCombinedPipeline",
+      "type": "Class",
+      "line": 214
+    },
+    {
+      "name": "TestEdgeLimits",
+      "type": "Class",
+      "line": 251
+    },
+    {
+      "name": "TestDocTexts",
+      "type": "Class",
+      "line": 270
+    },
+    {
+      "name": "TestDataStructures",
+      "type": "Class",
+      "line": 287
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.linker",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.37,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.594624+00:00"
+}

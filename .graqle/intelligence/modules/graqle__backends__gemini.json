@@ -1,0 +1,68 @@
+{
+  "module": "graqle.backends.gemini",
+  "files": [
+    "graqle/backends/gemini.py"
+  ],
+  "node_count": 7,
+  "function_count": 5,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "generate",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "name",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "cost_per_1k_tokens",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "GeminiBackend",
+      "type": "Class",
+      "line": 47
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_backends.test_gemini",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.176,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.158207+00:00"
+}

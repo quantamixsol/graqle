@@ -1,0 +1,194 @@
+{
+  "module": "tests.test_learning.test_graph_learner",
+  "files": [
+    "tests/test_learning/test_graph_learner.py"
+  ],
+  "node_count": 30,
+  "function_count": 16,
+  "class_count": 13,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_identical_messages_have_similarity_one",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_single_node_returns_empty",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "test_three_distinct_nodes",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "test_cosine_similarity_used",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_fallback_to_jaccard_on_embedder_error",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_converged_edge_strengthened",
+      "type": "Function",
+      "line": 136
+    },
+    {
+      "name": "test_diverged_edge_weakened",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "test_edges_decayed",
+      "type": "Function",
+      "line": 173
+    },
+    {
+      "name": "test_weight_does_not_go_below_min",
+      "type": "Function",
+      "line": 196
+    },
+    {
+      "name": "test_weight_does_not_go_above_max",
+      "type": "Function",
+      "line": 212
+    },
+    {
+      "name": "test_stats_after_updates",
+      "type": "Function",
+      "line": 229
+    },
+    {
+      "name": "test_round_trip",
+      "type": "Function",
+      "line": 252
+    },
+    {
+      "name": "test_load_missing_file_returns_zero",
+      "type": "Function",
+      "line": 278
+    },
+    {
+      "name": "test_reset_clears_all",
+      "type": "Function",
+      "line": 288
+    },
+    {
+      "name": "MockEdge",
+      "type": "Class",
+      "line": 29
+    },
+    {
+      "name": "MockGraph",
+      "type": "Class",
+      "line": 37
+    },
+    {
+      "name": "MockMessage",
+      "type": "Class",
+      "line": 42
+    },
+    {
+      "name": "MockResult",
+      "type": "Class",
+      "line": 48
+    },
+    {
+      "name": "TestAgreementMatrixJaccard",
+      "type": "Class",
+      "line": 67
+    },
+    {
+      "name": "TestAgreementMatrixWithEmbedder",
+      "type": "Class",
+      "line": 100
+    },
+    {
+      "name": "TestStrengthenOnConvergence",
+      "type": "Class",
+      "line": 132
+    },
+    {
+      "name": "TestWeakenOnDivergence",
+      "type": "Class",
+      "line": 147
+    },
+    {
+      "name": "TestTemporalDecay",
+      "type": "Class",
+      "line": 169
+    },
+    {
+      "name": "TestMinMaxWeightBounds",
+      "type": "Class",
+      "line": 192
+    },
+    {
+      "name": "TestStatsTracking",
+      "type": "Class",
+      "line": 225
+    },
+    {
+      "name": "TestPersistAndLoad",
+      "type": "Class",
+      "line": 248
+    },
+    {
+      "name": "TestReset",
+      "type": "Class",
+      "line": 284
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.learning.graph_learner",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.358,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.504353+00:00"
+}

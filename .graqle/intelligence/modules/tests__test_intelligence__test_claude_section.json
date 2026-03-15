@@ -1,0 +1,187 @@
+{
+  "module": "tests.test_intelligence.test_claude_section",
+  "files": [
+    "tests/test_intelligence/test_claude_section.py"
+  ],
+  "node_count": 30,
+  "function_count": 24,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_has_markers",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_has_module_risk_map",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_sorted_by_risk_descending",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_max_15_modules",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_includes_incidents",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_includes_constraints",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_includes_quality_gate_status",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_no_incidents_section_when_empty",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "test_no_constraints_section_when_empty",
+      "type": "Function",
+      "line": 118
+    },
+    {
+      "name": "test_detects_claude_md",
+      "type": "Function",
+      "line": 128
+    },
+    {
+      "name": "test_detects_cursorrules",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "test_detects_copilot",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "test_detects_windsurf",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "test_detects_multiple",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "test_empty_when_none",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "test_inject_appends_to_file",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "test_inject_replaces_existing",
+      "type": "Function",
+      "line": 177
+    },
+    {
+      "name": "test_inject_idempotent",
+      "type": "Function",
+      "line": 193
+    },
+    {
+      "name": "test_inject_creates_from_empty",
+      "type": "Function",
+      "line": 200
+    },
+    {
+      "name": "test_eject_removes_section",
+      "type": "Function",
+      "line": 214
+    },
+    {
+      "name": "test_eject_no_section_returns_false",
+      "type": "Function",
+      "line": 229
+    },
+    {
+      "name": "test_eject_nonexistent_file_returns_false",
+      "type": "Function",
+      "line": 234
+    },
+    {
+      "name": "test_detects_claude_md_in_sdk_like_structure",
+      "type": "Function",
+      "line": 242
+    },
+    {
+      "name": "TestGenerateSection",
+      "type": "Class",
+      "line": 53
+    },
+    {
+      "name": "TestDetectAiTools",
+      "type": "Class",
+      "line": 124
+    },
+    {
+      "name": "TestInjectSection",
+      "type": "Class",
+      "line": 161
+    },
+    {
+      "name": "TestEjectSection",
+      "type": "Class",
+      "line": 210
+    },
+    {
+      "name": "TestDogfoodDetection",
+      "type": "Class",
+      "line": 238
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.claude_section",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.scorecard",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.358,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.835460+00:00"
+}

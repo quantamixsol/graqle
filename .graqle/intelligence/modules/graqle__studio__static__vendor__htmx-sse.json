@@ -1,0 +1,67 @@
+{
+  "module": "graqle.studio.static.vendor.htmx-sse",
+  "files": [
+    "graqle/studio/static/vendor/htmx-sse.js"
+  ],
+  "node_count": 10,
+  "function_count": 9,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "in",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "createEventSource",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "registerSSE",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "ensureEventSourceOnElement",
+      "type": "Function",
+      "line": 184
+    },
+    {
+      "name": "ensureEventSource",
+      "type": "Function",
+      "line": 202
+    },
+    {
+      "name": "returns",
+      "type": "Function",
+      "line": 256
+    },
+    {
+      "name": "maybeCloseSSESource",
+      "type": "Function",
+      "line": 261
+    },
+    {
+      "name": "swap",
+      "type": "Function",
+      "line": 282
+    },
+    {
+      "name": "hasEventSource",
+      "type": "Function",
+      "line": 293
+    }
+  ],
+  "consumers": [],
+  "dependencies": [],
+  "risk_score": 0.086,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.937694+00:00"
+}

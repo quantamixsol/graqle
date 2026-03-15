@@ -6,6 +6,14 @@ Supports multiple backends:
 - SimpleEngine: hash-based fallback (128-dim, zero dependencies)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.embeddings
+# risk: MEDIUM (impact radius: 4 modules)
+# consumers: chunk_scorer, relevance, __init__, test_pcst
+# dependencies: __future__, hashlib, logging, typing, numpy
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

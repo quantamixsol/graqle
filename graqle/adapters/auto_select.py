@@ -14,6 +14,14 @@ Usage:
             loader.swap_adapter(adapter.path, adapter.adapter_id)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.adapters.auto_select
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_auto_select
+# dependencies: __future__, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

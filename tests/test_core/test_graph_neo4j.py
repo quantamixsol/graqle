@@ -1,5 +1,12 @@
 """Tests for Graqle.from_neo4j() and to_neo4j()."""
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_graph_neo4j
+# risk: LOW (impact radius: 0 modules)
+# dependencies: mock, pytest, graph, settings
+# constraints: none
+# ── /graqle:intelligence ──
+
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -17,6 +17,14 @@ Setup:
     graq mcp serve --graph knowledge_graph.json --port 8765
 """
 
+# ── graqle:intelligence ──
+# module: graqle.plugins.mcp_server
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_mcp_server
+# dependencies: __future__, json, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,12 @@
 """Tests for document quality gate."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_quality
+# risk: LOW (impact radius: 0 modules)
+# dependencies: quality
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.quality import assess_document_quality, compute_content_hash
 
 

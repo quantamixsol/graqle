@@ -15,6 +15,13 @@ v2 enhancements over v1:
     - DeepSeek-R1:7B reasoning model (default) + Qwen2.5-3B observer
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.run_multigov_v2
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, argparse, asyncio, logging, sys +16 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import argparse

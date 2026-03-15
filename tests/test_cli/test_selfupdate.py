@@ -1,5 +1,12 @@
 """Tests for graq self-update command."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_selfupdate
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, subprocess, sys, mock, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import subprocess

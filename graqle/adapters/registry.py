@@ -1,5 +1,13 @@
 """AdapterRegistry — catalog of available LoRA adapters."""
 
+# ── graqle:intelligence ──
+# module: graqle.adapters.registry
+# risk: MEDIUM (impact radius: 10 modules)
+# consumers: sdk_self_audit, __init__, __init__, governance, governance_v3 +5 more
+# dependencies: __future__, json, logging, pathlib, typing +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

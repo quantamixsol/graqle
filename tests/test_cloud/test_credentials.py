@@ -1,5 +1,12 @@
 """Tests for Graqle Cloud credentials manager."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cloud.test_credentials
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, pytest, credentials
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,0 +1,109 @@
+{
+  "module": "tests.test_scanner.test_parsers.test_xlsx",
+  "files": [
+    "tests/test_scanner/test_parsers/test_xlsx.py"
+  ],
+  "node_count": 15,
+  "function_count": 13,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "parser",
+      "type": "Function",
+      "line": 22
+    },
+    {
+      "name": "sample_xlsx",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "empty_xlsx",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "test_is_available",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_supported_extensions",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_parse_basic",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_parse_metadata",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_sheets_as_sections",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "test_section_type_is_sheet",
+      "type": "Function",
+      "line": 85
+    },
+    {
+      "name": "test_table_extraction",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_full_text_content",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_empty_xlsx",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_file_not_found",
+      "type": "Function",
+      "line": 107
+    },
+    {
+      "name": "TestXLSXParser",
+      "type": "Class",
+      "line": 61
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.xlsx",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.206,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.693991+00:00"
+}

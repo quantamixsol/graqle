@@ -1,0 +1,51 @@
+{
+  "module": "tests.test_backends.test_mock",
+  "files": [
+    "tests/test_backends/test_mock.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_mock_default_response",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_mock_fixed_response",
+      "type": "Function",
+      "line": 23
+    },
+    {
+      "name": "test_mock_rotating_responses",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "test_mock_properties",
+      "type": "Function",
+      "line": 38
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.078,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.692015+00:00"
+}

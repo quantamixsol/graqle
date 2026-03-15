@@ -1,0 +1,93 @@
+{
+  "module": "graqle.server.app",
+  "files": [
+    "graqle/server/app.py"
+  ],
+  "node_count": 14,
+  "function_count": 13,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "create_app",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "startup",
+      "type": "Function",
+      "line": 197
+    },
+    {
+      "name": "health",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "reason",
+      "type": "Function",
+      "line": 240
+    },
+    {
+      "name": "reason_batch",
+      "type": "Function",
+      "line": 288
+    },
+    {
+      "name": "graph_stats",
+      "type": "Function",
+      "line": 332
+    },
+    {
+      "name": "get_node",
+      "type": "Function",
+      "line": 348
+    },
+    {
+      "name": "reload_graph",
+      "type": "Function",
+      "line": 371
+    },
+    {
+      "name": "learn",
+      "type": "Function",
+      "line": 396
+    },
+    {
+      "name": "capture_lead",
+      "type": "Function",
+      "line": 462
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.224,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.207235+00:00"
+}

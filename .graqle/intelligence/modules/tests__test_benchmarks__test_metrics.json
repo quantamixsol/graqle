@@ -1,0 +1,176 @@
+{
+  "module": "tests.test_benchmarks.test_metrics",
+  "files": [
+    "tests/test_benchmarks/test_metrics.py"
+  ],
+  "node_count": 30,
+  "function_count": 23,
+  "class_count": 6,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_lowercase",
+      "type": "Function",
+      "line": 25
+    },
+    {
+      "name": "test_strip_articles",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_strip_punctuation",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "test_collapse_whitespace",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_identical",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_case_insensitive",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_article_stripping",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "test_no_match",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "test_perfect",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_partial_overlap",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "test_no_overlap",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "test_empty_gold",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_empty_pred",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_all_found",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_none_found",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_partial",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_empty_keywords",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_keyword_recall_alias",
+      "type": "Function",
+      "line": 95
+    },
+    {
+      "name": "test_default_governance_fields",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "test_governance_fields_set",
+      "type": "Function",
+      "line": 125
+    },
+    {
+      "name": "test_to_dict_includes_governance",
+      "type": "Function",
+      "line": 149
+    },
+    {
+      "name": "test_default_governance_totals",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_governance_totals_set",
+      "type": "Function",
+      "line": 192
+    },
+    {
+      "name": "TestNormalizeAnswer",
+      "type": "Class",
+      "line": 23
+    },
+    {
+      "name": "TestExactMatch",
+      "type": "Class",
+      "line": 39
+    },
+    {
+      "name": "TestF1Score",
+      "type": "Class",
+      "line": 55
+    },
+    {
+      "name": "TestKeywordF1",
+      "type": "Class",
+      "line": 75
+    },
+    {
+      "name": "TestQuestionResultGovernance",
+      "type": "Class",
+      "line": 103
+    },
+    {
+      "name": "TestBenchmarkSummaryGovernance",
+      "type": "Class",
+      "line": 172
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.27,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.921465+00:00"
+}

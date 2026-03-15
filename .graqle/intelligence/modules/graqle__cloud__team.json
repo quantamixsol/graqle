@@ -1,0 +1,150 @@
+{
+  "module": "graqle.cloud.team",
+  "files": [
+    "graqle/cloud/team.py"
+  ],
+  "node_count": 19,
+  "function_count": 16,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "can_teach",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "can_admin",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "is_configured",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "member_count",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "get_member",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 100
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "load_team_config",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "save_team_config",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "create_team",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "invite_member",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "remove_member",
+      "type": "Function",
+      "line": 203
+    },
+    {
+      "name": "add_repo",
+      "type": "Function",
+      "line": 222
+    },
+    {
+      "name": "remove_repo",
+      "type": "Function",
+      "line": 235
+    },
+    {
+      "name": "TeamMember",
+      "type": "Class",
+      "line": 38
+    },
+    {
+      "name": "TeamConfig",
+      "type": "Class",
+      "line": 68
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cloud.test_team",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.345,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.203367+00:00"
+}

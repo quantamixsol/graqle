@@ -1,5 +1,13 @@
 """Natural language query router — zero-LLM-cost classification."""
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.nl_router
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_nl_router
+# dependencies: __future__, re, dataclasses
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

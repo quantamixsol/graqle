@@ -1,0 +1,63 @@
+{
+  "module": "graqle.intelligence.hooks",
+  "files": [
+    "graqle/intelligence/hooks.py"
+  ],
+  "node_count": 4,
+  "function_count": 3,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "install_hook",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "uninstall_hook",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "has_hook",
+      "type": "Function",
+      "line": 113
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_intelligence.test_hooks",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "stat",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.155,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:30.467892+00:00"
+}

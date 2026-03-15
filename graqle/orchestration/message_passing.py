@@ -1,5 +1,13 @@
 """Message passing protocol — the core reasoning loop of Graqle."""
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.message_passing
+# risk: MEDIUM (impact radius: 5 modules)
+# consumers: run_multigov_v2, run_multigov_v3, orchestrator, __init__, test_message_passing
+# dependencies: __future__, asyncio, logging, typing, message
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

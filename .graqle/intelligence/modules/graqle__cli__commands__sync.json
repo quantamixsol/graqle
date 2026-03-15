@@ -1,0 +1,72 @@
+{
+  "module": "graqle.cli.commands.sync",
+  "files": [
+    "graqle/cli/commands/sync.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "sync_push",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "sync_pull",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "sync_status",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "sync_resolve",
+      "type": "Function",
+      "line": 260
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cloud.test_sync",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "rich.panel",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.201,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.186790+00:00"
+}

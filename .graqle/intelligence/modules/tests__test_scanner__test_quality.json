@@ -1,0 +1,107 @@
+{
+  "module": "tests.test_scanner.test_quality",
+  "files": [
+    "tests/test_scanner/test_quality.py"
+  ],
+  "node_count": 17,
+  "function_count": 14,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_accepts_good_document",
+      "type": "Function",
+      "line": 14
+    },
+    {
+      "name": "test_rejects_too_short",
+      "type": "Function",
+      "line": 23
+    },
+    {
+      "name": "test_rejects_empty",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_rejects_garbled_content",
+      "type": "Function",
+      "line": 32
+    },
+    {
+      "name": "test_rejects_no_sections",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "test_rejects_fixture_path",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_rejects_mock_path",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "test_rejects_duplicate_hash",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_accepts_when_hash_different",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_quality_score_increases_with_content",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_same_content_same_hash",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "test_different_content_different_hash",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_whitespace_stripped",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_returns_16_chars",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "TestAssessDocumentQuality",
+      "type": "Class",
+      "line": 11
+    },
+    {
+      "name": "TestComputeContentHash",
+      "type": "Class",
+      "line": 75
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.quality",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.157,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.707015+00:00"
+}

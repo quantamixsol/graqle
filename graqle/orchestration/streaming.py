@@ -4,6 +4,14 @@ Wraps the orchestration pipeline to emit StreamChunk objects as
 reasoning progresses, enabling real-time UIs and `async for` usage.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.streaming
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_streaming
+# dependencies: __future__, time, dataclasses, typing, message +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import time

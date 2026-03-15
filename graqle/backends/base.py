@@ -1,5 +1,13 @@
 """Base model backend — the protocol that all backends implement."""
 
+# ── graqle:intelligence ──
+# module: graqle.backends.base
+# risk: MEDIUM (impact radius: 31 modules)
+# consumers: api, fallback, gemini, llamacpp_backend, local +26 more
+# dependencies: __future__, abc
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

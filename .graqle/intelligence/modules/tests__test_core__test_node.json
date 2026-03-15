@@ -1,0 +1,64 @@
+{
+  "module": "tests.test_core.test_node",
+  "files": [
+    "tests/test_core/test_node.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_node_creation",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_node_activate_deactivate",
+      "type": "Function",
+      "line": 24
+    },
+    {
+      "name": "test_node_reason",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "test_node_reason_without_backend",
+      "type": "Function",
+      "line": 56
+    },
+    {
+      "name": "test_node_degree",
+      "type": "Function",
+      "line": 60
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.node",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.128,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.376887+00:00"
+}

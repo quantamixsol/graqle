@@ -3,6 +3,14 @@
 Produces ``Endpoint`` and ``Schema`` nodes with ``RETURNS`` edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.api_spec
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_api_spec
+# dependencies: __future__, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

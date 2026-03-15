@@ -1,5 +1,12 @@
 """Tests for graqle.connectors.neptune — Neptune adapter."""
 
+# ── graqle:intelligence ──
+# module: tests.test_connectors.test_neptune
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pytest, neptune
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

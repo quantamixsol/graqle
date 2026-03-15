@@ -7,6 +7,14 @@ This respects the KG structure: domain-specific leaf nodes inform
 hub nodes, which synthesize across domains for the final answer.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.hierarchical
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_hierarchical
+# dependencies: __future__, asyncio, logging, typing, message +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

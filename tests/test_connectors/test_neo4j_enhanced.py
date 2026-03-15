@@ -3,6 +3,13 @@
 All tests mock the neo4j driver to avoid requiring a live database.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_connectors.test_neo4j_enhanced
+# risk: LOW (impact radius: 0 modules)
+# dependencies: mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from unittest.mock import MagicMock, patch, call
 
 import pytest

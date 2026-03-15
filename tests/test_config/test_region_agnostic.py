@@ -1,5 +1,12 @@
 """Tests for region-agnostic backend configuration."""
 
+# ── graqle:intelligence ──
+# module: tests.test_config.test_region_agnostic
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, os, mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

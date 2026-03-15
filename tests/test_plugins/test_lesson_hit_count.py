@@ -4,6 +4,13 @@ Verifies that _handle_lessons, _handle_preflight, and _find_lesson_nodes
 properly increment hit_count on matched lesson nodes and persist via _save_graph.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_plugins.test_lesson_hit_count
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, dataclasses, typing, mock +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

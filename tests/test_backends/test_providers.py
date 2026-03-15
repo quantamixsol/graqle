@@ -1,5 +1,12 @@
 """Tests for graqle.backends.providers — multi-provider preset registry."""
 
+# ── graqle:intelligence ──
+# module: tests.test_backends.test_providers
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, os, mock, pytest, providers
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

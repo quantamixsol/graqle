@@ -5,6 +5,14 @@ MCP server registration (IDE-specific), AI instructions file,
 and .graq/ workspace structure. Works with any IDE or terminal.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.init
+# risk: HIGH (impact radius: 2 modules)
+# consumers: main, test_init
+# dependencies: __future__, json, logging, os, re +13 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

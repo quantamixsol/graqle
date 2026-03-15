@@ -1,3 +1,10 @@
+# ── graqle:intelligence ──
+# module: graqle.adapters.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: config, registry, auto_select
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.adapters.config import AdapterConfig
 from graqle.adapters.registry import AdapterRegistry
 from graqle.adapters.auto_select import AdapterAutoSelector, SelectionResult

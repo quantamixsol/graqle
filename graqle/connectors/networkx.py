@@ -1,5 +1,13 @@
 """NetworkX connector — in-memory graph (zero-dependency default)."""
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.networkx
+# risk: MEDIUM (impact radius: 12 modules)
+# consumers: quickstart, benchmark_runner, hotpotqa_loader, multi_governance_kg, networkx +7 more
+# dependencies: __future__, typing, networkx, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

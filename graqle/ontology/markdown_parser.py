@@ -12,6 +12,14 @@ Handles:
   - Section-context-aware entity type inference
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.markdown_parser
+# risk: HIGH (impact radius: 1 modules)
+# consumers: __init__
+# dependencies: __future__, re, dataclasses, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

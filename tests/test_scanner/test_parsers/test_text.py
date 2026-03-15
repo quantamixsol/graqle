@@ -5,6 +5,13 @@ underline-style), long-text grouping, edge cases (empty, single-line),
 and title extraction.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_parsers.test_text
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pathlib, textwrap, pytest, text +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

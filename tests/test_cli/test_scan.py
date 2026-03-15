@@ -1,5 +1,12 @@
 """Tests for graqle.cli.commands.scan — PythonAnalyzer, JSAnalyzer, RepoScanner."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_scan
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, mock, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

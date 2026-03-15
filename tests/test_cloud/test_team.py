@@ -1,5 +1,12 @@
 """Tests for graqle.cloud.team — team config management."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cloud.test_team
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pytest, pathlib, team
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

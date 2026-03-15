@@ -4,6 +4,14 @@ Covers: backend timeout, auth failure (401), malformed response, rate limit (429
 budget exceeded, empty graph, fallback chain, retry with backoff.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_backends.test_error_scenarios
+# risk: CRITICAL (impact radius: 34 modules)
+# consumers: routing, reformulator, api, gemini, providers +29 more
+# dependencies: __future__, asyncio, mock, pytest, api +6 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

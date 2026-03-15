@@ -1,0 +1,103 @@
+{
+  "module": "graqle.connectors.networkx",
+  "files": [
+    "graqle/connectors/networkx.py"
+  ],
+  "node_count": 5,
+  "function_count": 3,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "load",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "NetworkXConnector",
+      "type": "Class",
+      "line": 18
+    }
+  ],
+  "consumers": [
+    {
+      "module": "examples.quickstart",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.hotpotqa_loader",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.multi_governance_kg",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.connectors.networkx",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.connectors.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.conftest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_kg_validation",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_integration.test_end_to_end",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_integration.test_ollama_e2e",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "networkx",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.431,
+  "risk_level": "MEDIUM",
+  "impact_radius": 12,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.606002+00:00"
+}

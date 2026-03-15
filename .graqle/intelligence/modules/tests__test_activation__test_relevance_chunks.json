@@ -1,0 +1,80 @@
+{
+  "module": "tests.test_activation.test_relevance_chunks",
+  "files": [
+    "tests/test_activation/test_relevance_chunks.py"
+  ],
+  "node_count": 11,
+  "function_count": 9,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_function_chunks_prioritized_over_generic",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_uses_500_chars_per_chunk",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_uses_up_to_5_chunks",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_method_and_export_chunks_prioritized",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_string_chunks_handled",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_empty_chunks_skipped",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "test_chunk_aware_false_ignores_chunks",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_function_node_scores_higher_for_function_query",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "TestChunkAwareEmbeddingText",
+      "type": "Class",
+      "line": 29
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.148,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:43.657324+00:00"
+}

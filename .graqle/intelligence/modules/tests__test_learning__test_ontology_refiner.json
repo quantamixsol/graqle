@@ -1,0 +1,88 @@
+{
+  "module": "tests.test_learning.test_ontology_refiner",
+  "files": [
+    "tests/test_learning/test_ontology_refiner.py"
+  ],
+  "node_count": 12,
+  "function_count": 9,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_insufficient_queries_returns_empty",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "test_underused_type_detected",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "test_coactivation_detected",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_high_value_type_promoted",
+      "type": "Function",
+      "line": 100
+    },
+    {
+      "name": "test_type_usage_report",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "test_suggestions_sorted_by_confidence",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_meta_types_excluded_from_underuse",
+      "type": "Function",
+      "line": 155
+    },
+    {
+      "name": "MockNodeRecord",
+      "type": "Class",
+      "line": 21
+    },
+    {
+      "name": "TestOntologyRefiner",
+      "type": "Class",
+      "line": 50
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.learning.ontology_refiner",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.19,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.506950+00:00"
+}

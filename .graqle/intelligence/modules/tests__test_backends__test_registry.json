@@ -1,0 +1,60 @@
+{
+  "module": "tests.test_backends.test_registry",
+  "files": [
+    "tests/test_backends/test_registry.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_registry_register_and_get",
+      "type": "Function",
+      "line": 14
+    },
+    {
+      "name": "test_registry_builtin_mock",
+      "type": "Function",
+      "line": 24
+    },
+    {
+      "name": "test_registry_missing_raises",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_registry_available",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "test_registry_contains",
+      "type": "Function",
+      "line": 47
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.registry",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.108,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.907230+00:00"
+}

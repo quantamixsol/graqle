@@ -1,0 +1,155 @@
+{
+  "module": "tests.test_connectors.test_neptune",
+  "files": [
+    "tests/test_connectors/test_neptune.py"
+  ],
+  "node_count": 25,
+  "function_count": 21,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_default_not_configured",
+      "type": "Function",
+      "line": 23
+    },
+    {
+      "name": "test_configured",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_websocket_url",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "test_http_url",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "setup_method",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_generate_upsert_node",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "test_generate_upsert_edge",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_generate_delete_node",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "test_generate_delete_edge",
+      "type": "Function",
+      "line": 73
+    },
+    {
+      "name": "test_generate_team_query",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_generate_team_query_with_type",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_generate_cross_repo_edges",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_sync_push_queries",
+      "type": "Function",
+      "line": 91
+    },
+    {
+      "name": "test_generate_cypher_upsert",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "test_generate_cypher_stats",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "test_connect_not_configured_raises",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_connect_configured",
+      "type": "Function",
+      "line": 127
+    },
+    {
+      "name": "test_check_available",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "test_check_connection_no_endpoint",
+      "type": "Function",
+      "line": 138
+    },
+    {
+      "name": "test_check_connection_no_region",
+      "type": "Function",
+      "line": 142
+    },
+    {
+      "name": "test_check_connection_valid",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "TestNeptuneConfig",
+      "type": "Class",
+      "line": 20
+    },
+    {
+      "name": "TestNeptuneAdapter",
+      "type": "Class",
+      "line": 38
+    },
+    {
+      "name": "TestNeptuneAvailability",
+      "type": "Class",
+      "line": 131
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.neptune",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.266,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:01.974232+00:00"
+}

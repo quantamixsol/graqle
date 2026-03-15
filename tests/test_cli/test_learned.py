@@ -1,5 +1,12 @@
 """Tests for P2-11: graq learned command."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_learned
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, tempfile, pathlib, mock +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

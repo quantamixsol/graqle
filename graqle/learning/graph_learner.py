@@ -11,6 +11,14 @@ that converge (high cosine similarity in final round) get edge weight increases.
 Pairs that diverge get decreases.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.learning.graph_learner
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: __init__, test_graph_learner
+# dependencies: __future__, json, logging, math, dataclasses +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

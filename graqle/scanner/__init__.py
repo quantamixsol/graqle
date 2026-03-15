@@ -7,6 +7,13 @@ incremental manifest tracking, auto-linking, and a high-level
 nodes and edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.types import (
     DOC_EDGE_TYPES,
     DOC_EXTENSIONS,

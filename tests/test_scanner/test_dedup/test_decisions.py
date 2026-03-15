@@ -1,5 +1,12 @@
 """Tests for user decision persistence."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_decisions
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, pathlib, decisions
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 from pathlib import Path
 

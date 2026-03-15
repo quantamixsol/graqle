@@ -1,5 +1,12 @@
 """Tests for graqle.server.stripe_webhook — Stripe integration."""
 
+# ── graqle:intelligence ──
+# module: tests.test_server.test_stripe_webhook
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, hashlib, hmac, json, time +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

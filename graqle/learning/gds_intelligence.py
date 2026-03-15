@@ -13,6 +13,14 @@ All algorithms work in two modes:
 - **NetworkX mode**: Runs locally (works without Neo4j, good for <50K nodes)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.learning.gds_intelligence
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_gds_intelligence
+# dependencies: __future__, logging, math, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

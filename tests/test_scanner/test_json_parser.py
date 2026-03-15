@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.json_parser — JSON classifier and scanner."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_json_parser
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, pytest, json_parser
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

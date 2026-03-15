@@ -12,6 +12,14 @@ Usage:
     )
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.ontology_generator
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_ontology_generator
+# dependencies: __future__, json, logging, re, dataclasses +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

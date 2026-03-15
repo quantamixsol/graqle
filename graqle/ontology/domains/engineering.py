@@ -11,6 +11,14 @@
 - Performance (4)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domains.engineering
+# risk: LOW (impact radius: 1 modules)
+# consumers: sdk_self_audit
+# dependencies: __future__, typing, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Dict, List, TYPE_CHECKING

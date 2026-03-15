@@ -1,0 +1,67 @@
+{
+  "module": "graqle.runtime.router",
+  "files": [
+    "graqle/runtime/router.py"
+  ],
+  "node_count": 4,
+  "function_count": 2,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "route_question",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "RouteRecommendation",
+      "type": "Class",
+      "line": 24
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_nl_router",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.181,
+  "risk_level": "LOW",
+  "impact_radius": 3,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.202090+00:00"
+}

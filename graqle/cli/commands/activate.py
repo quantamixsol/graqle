@@ -4,6 +4,14 @@ Validates and stores the license key in ~/.graqle/license.key.
 License keys are generated after Stripe payment and delivered via email.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.activate
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, logging, pathlib, typer, console +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

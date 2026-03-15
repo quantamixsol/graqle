@@ -4,6 +4,13 @@ Supports both read (load) and write (save) operations, plus vector search
 on chunk embeddings for CypherActivation (ADR-105).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.neo4j
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

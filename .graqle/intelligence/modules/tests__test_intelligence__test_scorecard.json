@@ -1,0 +1,105 @@
+{
+  "module": "tests.test_intelligence.test_scorecard",
+  "files": [
+    "tests/test_intelligence/test_scorecard.py"
+  ],
+  "node_count": 16,
+  "function_count": 13,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_empty_scorecard",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_ingest_single_file",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_coverage_accumulates",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_to_dict",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_superlative_most_imported",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_superlative_largest_module",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "test_warning_high_risk",
+      "type": "Function",
+      "line": 133
+    },
+    {
+      "name": "test_warning_incident_history",
+      "type": "Function",
+      "line": 143
+    },
+    {
+      "name": "test_suggestion_large_file",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "test_connection_hub_module",
+      "type": "Function",
+      "line": 161
+    },
+    {
+      "name": "test_no_insights_for_boring_module",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "test_insights_accumulate",
+      "type": "Function",
+      "line": 183
+    },
+    {
+      "name": "TestRunningScorecard",
+      "type": "Class",
+      "line": 73
+    },
+    {
+      "name": "TestCuriosityInsights",
+      "type": "Class",
+      "line": 111
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.scorecard",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.188,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.942279+00:00"
+}

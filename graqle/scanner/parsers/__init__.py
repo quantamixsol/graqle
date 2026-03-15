@@ -5,6 +5,13 @@ PPTX, XLSX) are imported **only** when first requested, so that the core
 scanner package stays lightweight.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, importlib, logging, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import importlib

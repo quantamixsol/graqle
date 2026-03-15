@@ -1,5 +1,12 @@
 """Tests for graqle.leads.collector — lead capture and telemetry."""
 
+# ── graqle:intelligence ──
+# module: tests.test_leads.test_collector
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -5,6 +5,14 @@ variants (camelCase, snake_case, kebab-case, space-separated, etc.).
 When a document mentions any variant → link to the existing node.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.unifier
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_unifier
+# dependencies: __future__, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

@@ -1,0 +1,128 @@
+{
+  "module": "tests.test_ontology.test_ontology_generator",
+  "files": [
+    "tests/test_ontology/test_ontology_generator.py"
+  ],
+  "node_count": 18,
+  "function_count": 13,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "mock_backend",
+      "type": "Function",
+      "line": 60
+    },
+    {
+      "name": "generator",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "test_generates_owl_hierarchy",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_generates_semantic_constraints",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_constraint_has_reasoning_rules",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_constraint_has_cross_refs",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "test_truncates_long_text",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "test_tracks_cost",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_compiles_chunks_to_document",
+      "type": "Function",
+      "line": 128
+    },
+    {
+      "name": "test_handles_markdown_code_block",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "test_handles_raw_json",
+      "type": "Function",
+      "line": 148
+    },
+    {
+      "name": "test_handles_malformed_json",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "test_constraints_roundtrip",
+      "type": "Function",
+      "line": 160
+    },
+    {
+      "name": "TestGenerateFromText",
+      "type": "Class",
+      "line": 70
+    },
+    {
+      "name": "TestGenerateFromChunks",
+      "type": "Class",
+      "line": 124
+    },
+    {
+      "name": "TestParseResponse",
+      "type": "Class",
+      "line": 141
+    },
+    {
+      "name": "TestSerialization",
+      "type": "Class",
+      "line": 157
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.semantic_shacl_gate",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.232,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.534739+00:00"
+}

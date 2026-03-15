@@ -1,5 +1,12 @@
 """End-to-end integration tests for Graqle."""
 
+# ── graqle:intelligence ──
+# module: tests.test_integration.test_end_to_end
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, networkx, graqle, mock, settings
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 import networkx as nx
 

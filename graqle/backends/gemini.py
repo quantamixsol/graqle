@@ -15,6 +15,14 @@ Requires:
     - ``httpx`` (already a Graqle dependency)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.gemini
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_gemini
+# dependencies: __future__, logging, os, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

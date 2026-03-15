@@ -1,5 +1,13 @@
 """graq self-update — upgrade Graqle while handling MCP server lock on Windows."""
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.selfupdate
+# risk: LOW (impact radius: 2 modules)
+# consumers: main, test_selfupdate
+# dependencies: __future__, os, signal, subprocess, sys +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os
@@ -89,6 +97,20 @@ def _stop_graq_processes() -> tuple[list[int], bool]:
     stopped: list[int] = []
     mcp_running = False
 
+    # Try PID file first (most reliable)
+    pid_file = Path(".graqle/mcp.pid")
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
+            if pid != os.getpid():
+                os.kill(pid, signal.SIGTERM)
+                stopped.append(pid)
+                mcp_running = True
+                console.print(f"  Stopped MCP server (PID {pid}) via .graqle/mcp.pid")
+                pid_file.unlink(missing_ok=True)
+        except (ValueError, OSError):
+            pass
+
     try:
         # Use tasklist on Windows to find graq processes
         result = subprocess.run(
@@ -101,7 +123,7 @@ def _stop_graq_processes() -> tuple[list[int], bool]:
                 if len(parts) >= 2:
                     try:
                         pid = int(parts[1].strip('"'))
-                        if pid != os.getpid():  # Don't kill ourselves
+                        if pid != os.getpid() and pid not in stopped:
                             os.kill(pid, signal.SIGTERM)
                             stopped.append(pid)
                             mcp_running = True
@@ -122,7 +144,7 @@ def _stop_graq_processes() -> tuple[list[int], bool]:
             line = line.strip()
             if line.isdigit():
                 pid = int(line)
-                if pid != os.getpid():
+                if pid != os.getpid() and pid not in stopped:
                     try:
                         os.kill(pid, signal.SIGTERM)
                         stopped.append(pid)

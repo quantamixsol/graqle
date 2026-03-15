@@ -1,0 +1,50 @@
+{
+  "module": "examples.governance_example",
+  "files": [
+    "examples/governance_example.py"
+  ],
+  "node_count": 4,
+  "function_count": 3,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "build_example_graph",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "register_codebase_governance",
+      "type": "Function",
+      "line": 107
+    },
+    {
+      "name": "main",
+      "type": "Function",
+      "line": 196
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "asyncio",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.088,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:37.935183+00:00"
+}

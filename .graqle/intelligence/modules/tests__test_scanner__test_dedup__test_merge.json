@@ -1,0 +1,72 @@
+{
+  "module": "tests.test_scanner.test_dedup.test_merge",
+  "files": [
+    "tests/test_scanner/test_dedup/test_merge.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_basic_merge",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_longer_description_kept",
+      "type": "Function",
+      "line": 36
+    },
+    {
+      "name": "test_properties_fill_gaps",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_properties_no_overwrite",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_merge_provenance_tracked",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "test_source_priority_swaps_when_secondary_higher",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "test_custom_source_priority",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_default_priority",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "TestMergeEngine",
+      "type": "Class",
+      "line": 11
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.dedup.merge",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.098,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.187584+00:00"
+}

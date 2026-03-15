@@ -1,0 +1,5168 @@
+{
+  "modules": [
+    {
+      "module": "graqle.backends.mock",
+      "files": [
+        "graqle/backends/mock.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.539,
+      "impact_radius": 57,
+      "consumer_count": 57,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.console",
+      "files": [
+        "graqle/cli/console.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.518,
+      "impact_radius": 22,
+      "consumer_count": 22,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.message",
+      "files": [
+        "graqle/core/message.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.531,
+      "impact_radius": 26,
+      "consumer_count": 26,
+      "function_count": 3,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.types",
+      "files": [
+        "graqle/core/types.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.577,
+      "impact_radius": 27,
+      "consumer_count": 27,
+      "function_count": 6,
+      "class_count": 10,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.graph",
+      "files": [
+        "graqle/core/graph.py"
+      ],
+      "risk_level": "CRITICAL",
+      "risk_score": 1.0,
+      "impact_radius": 26,
+      "consumer_count": 26,
+      "function_count": 51,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "files": [
+        "graqle/intelligence/models.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.629,
+      "impact_radius": 16,
+      "consumer_count": 16,
+      "function_count": 11,
+      "class_count": 12,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.config.settings",
+      "files": [
+        "graqle/config/settings.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.538,
+      "impact_radius": 12,
+      "consumer_count": 12,
+      "function_count": 4,
+      "class_count": 20,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.networkx",
+      "files": [
+        "graqle/connectors/networkx.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.431,
+      "impact_radius": 12,
+      "consumer_count": 12,
+      "function_count": 3,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.skill_resolver",
+      "files": [
+        "graqle/ontology/skill_resolver.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.471,
+      "impact_radius": 12,
+      "consumer_count": 12,
+      "function_count": 7,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.node",
+      "files": [
+        "graqle/core/node.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.531,
+      "impact_radius": 11,
+      "consumer_count": 11,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "files": [
+        "graqle/scanner/parsers/base.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.544,
+      "impact_radius": 31,
+      "consumer_count": 31,
+      "function_count": 4,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.base",
+      "files": [
+        "graqle/backends/base.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.48,
+      "impact_radius": 31,
+      "consumer_count": 31,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.edge",
+      "files": [
+        "graqle/core/edge.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.382,
+      "impact_radius": 8,
+      "consumer_count": 8,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.api",
+      "files": [
+        "graqle/backends/api.py"
+      ],
+      "risk_level": "CRITICAL",
+      "risk_score": 0.799,
+      "impact_radius": 19,
+      "consumer_count": 19,
+      "function_count": 33,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.scorecard",
+      "files": [
+        "graqle/intelligence/scorecard.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.364,
+      "impact_radius": 7,
+      "consumer_count": 7,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domain_registry",
+      "files": [
+        "graqle/ontology/domain_registry.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.414,
+      "impact_radius": 7,
+      "consumer_count": 7,
+      "function_count": 13,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.semantic_shacl_gate",
+      "files": [
+        "graqle/ontology/semantic_shacl_gate.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.437,
+      "impact_radius": 7,
+      "consumer_count": 7,
+      "function_count": 15,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.base",
+      "files": [
+        "graqle/scanner/extractors/base.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.478,
+      "impact_radius": 31,
+      "consumer_count": 31,
+      "function_count": 1,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "files": [
+        "graqle/activation/relevance.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.343,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.config",
+      "files": [
+        "graqle/adapters/config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.248,
+      "impact_radius": 7,
+      "consumer_count": 7,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "files": [
+        "graqle/benchmarks/benchmark_runner.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.518,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 19,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.state",
+      "files": [
+        "graqle/core/state.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.263,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.convergence",
+      "files": [
+        "graqle/orchestration/convergence.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.282,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.message_passing",
+      "files": [
+        "graqle/orchestration/message_passing.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.302,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.observer",
+      "files": [
+        "graqle/orchestration/observer.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.389,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 12,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.plugins.mcp_dev_server",
+      "files": [
+        "graqle/plugins/mcp_dev_server.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.686,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 39,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.embeddings",
+      "files": [
+        "graqle/activation/embeddings.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.377,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 19,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.pcst",
+      "files": [
+        "graqle/activation/pcst.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.266,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.base",
+      "files": [
+        "graqle/connectors/base.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.481,
+      "impact_radius": 31,
+      "consumer_count": 31,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.metrics.engine",
+      "files": [
+        "graqle/metrics/engine.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.382,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 14,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.governance",
+      "files": [
+        "graqle/ontology/domains/governance.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.223,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.aggregation",
+      "files": [
+        "graqle/orchestration/aggregation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.266,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "files": [
+        "graqle/orchestration/orchestrator.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.347,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.__init__",
+      "files": [
+        "graqle/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.14,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.agents.base_agent",
+      "files": [
+        "graqle/agents/base_agent.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.211,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 3,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.multi_governance_benchmark",
+      "files": [
+        "graqle/benchmarks/multi_governance_benchmark.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.141,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.multi_governance_kg",
+      "files": [
+        "graqle/benchmarks/multi_governance_kg.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.209,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.claude_section",
+      "files": [
+        "graqle/intelligence/claude_section.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.258,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.compile",
+      "files": [
+        "graqle/intelligence/compile.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.328,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.emitter",
+      "files": [
+        "graqle/intelligence/emitter.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.27,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.audit",
+      "files": [
+        "graqle/intelligence/governance/audit.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.415,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 15,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.drace",
+      "files": [
+        "graqle/intelligence/governance/drace.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.317,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 15,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.evidence",
+      "files": [
+        "graqle/intelligence/governance/evidence.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.361,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 14,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.headers",
+      "files": [
+        "graqle/intelligence/headers.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.248,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.licensing.manager",
+      "files": [
+        "graqle/licensing/manager.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.466,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 19,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.upper",
+      "files": [
+        "graqle/ontology/upper.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.227,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 11,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.linker",
+      "files": [
+        "graqle/scanner/linker.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.283,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 10,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.manifest",
+      "files": [
+        "graqle/scanner/manifest.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.397,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 14,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.adaptive",
+      "files": [
+        "graqle/activation/adaptive.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.254,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 10,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.chunk_scorer",
+      "files": [
+        "graqle/activation/chunk_scorer.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.262,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.cypher_activation",
+      "files": [
+        "graqle/activation/cypher_activation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.134,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.reformulator",
+      "files": [
+        "graqle/activation/reformulator.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.324,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 15,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.auto_select",
+      "files": [
+        "graqle/adapters/auto_select.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.213,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 8,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.registry",
+      "files": [
+        "graqle/adapters/registry.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.465,
+      "impact_radius": 10,
+      "consumer_count": 10,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.agents.slm_agent",
+      "files": [
+        "graqle/agents/slm_agent.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.174,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.init",
+      "files": [
+        "graqle/cli/commands/init.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.567,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 33,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.learn",
+      "files": [
+        "graqle/cli/commands/learn.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.425,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 20,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.link",
+      "files": [
+        "graqle/cli/commands/link.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.319,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 9,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.scan",
+      "files": [
+        "graqle/cli/commands/scan.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.653,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 69,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.selfupdate",
+      "files": [
+        "graqle/cli/commands/selfupdate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.242,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.main",
+      "files": [
+        "graqle/cli/main.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.481,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 24,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.credentials",
+      "files": [
+        "graqle/cloud/credentials.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.242,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.json_graph",
+      "files": [
+        "graqle/connectors/json_graph.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.193,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.tamr",
+      "files": [
+        "graqle/connectors/tamr.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.257,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 8,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.gate",
+      "files": [
+        "graqle/intelligence/gate.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.498,
+      "impact_radius": 12,
+      "consumer_count": 12,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.scope_gate",
+      "files": [
+        "graqle/intelligence/governance/scope_gate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.295,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 12,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.pipeline",
+      "files": [
+        "graqle/intelligence/pipeline.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.491,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 22,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.validators",
+      "files": [
+        "graqle/intelligence/validators.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.277,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 13,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.verify",
+      "files": [
+        "graqle/intelligence/verify.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.301,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.learning.gds_intelligence",
+      "files": [
+        "graqle/learning/gds_intelligence.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.287,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 13,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.learning.graph_learner",
+      "files": [
+        "graqle/learning/graph_learner.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.314,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 10,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "files": [
+        "graqle/ontology/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.2,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.constraint_graph",
+      "files": [
+        "graqle/ontology/constraint_graph.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.283,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 13,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "files": [
+        "graqle/ontology/domains/governance_v3.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.172,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "files": [
+        "graqle/ontology/ontology_generator.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.271,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.router",
+      "files": [
+        "graqle/ontology/router.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.199,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.schema",
+      "files": [
+        "graqle/ontology/schema.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.334,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 17,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.shacl_gate",
+      "files": [
+        "graqle/ontology/shacl_gate.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.422,
+      "impact_radius": 8,
+      "consumer_count": 8,
+      "function_count": 11,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.plugins.mcp_server",
+      "files": [
+        "graqle/plugins/mcp_server.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.29,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 14,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.runtime.fetcher",
+      "files": [
+        "graqle/runtime/fetcher.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.491,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 28,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.chunker",
+      "files": [
+        "graqle/scanner/chunker.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.262,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 11,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.canonical",
+      "files": [
+        "graqle/scanner/dedup/canonical.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.132,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.merge",
+      "files": [
+        "graqle/scanner/dedup/merge.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.146,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 3,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.unifier",
+      "files": [
+        "graqle/scanner/dedup/unifier.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.185,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.docs",
+      "files": [
+        "graqle/scanner/docs.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.385,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 13,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.markdown",
+      "files": [
+        "graqle/scanner/parsers/markdown.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.241,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.text",
+      "files": [
+        "graqle/scanner/parsers/text.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.241,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.privacy",
+      "files": [
+        "graqle/scanner/privacy.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.184,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 7,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.types",
+      "files": [
+        "graqle/scanner/types.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.42,
+      "impact_radius": 27,
+      "consumer_count": 27,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.__version__",
+      "files": [
+        "graqle/__version__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.027,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.multi_signal",
+      "files": [
+        "graqle/activation/multi_signal.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.163,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.fallback",
+      "files": [
+        "graqle/backends/fallback.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.166,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.gemini",
+      "files": [
+        "graqle/backends/gemini.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.176,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.providers",
+      "files": [
+        "graqle/backends/providers.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.135,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.registry",
+      "files": [
+        "graqle/backends/registry.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.435,
+      "impact_radius": 10,
+      "consumer_count": 10,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.activate",
+      "files": [
+        "graqle/cli/commands/activate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.156,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.audit",
+      "files": [
+        "graqle/cli/commands/audit.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.245,
+      "impact_radius": 4,
+      "consumer_count": 4,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.billing",
+      "files": [
+        "graqle/cli/commands/billing.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.156,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.doctor",
+      "files": [
+        "graqle/cli/commands/doctor.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.36,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 14,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.grow",
+      "files": [
+        "graqle/cli/commands/grow.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.255,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.ingest",
+      "files": [
+        "graqle/cli/commands/ingest.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.293,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.learned",
+      "files": [
+        "graqle/cli/commands/learned.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.136,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.login",
+      "files": [
+        "graqle/cli/commands/login.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.106,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.metrics_cmd",
+      "files": [
+        "graqle/cli/commands/metrics_cmd.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.196,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.rebuild",
+      "files": [
+        "graqle/cli/commands/rebuild.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.155,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.register",
+      "files": [
+        "graqle/cli/commands/register.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.156,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.setup_guide",
+      "files": [
+        "graqle/cli/commands/setup_guide.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.225,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.sync",
+      "files": [
+        "graqle/cli/commands/sync.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.201,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.team",
+      "files": [
+        "graqle/cli/commands/team.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.21,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.upgrade",
+      "files": [
+        "graqle/cli/commands/upgrade.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.282,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.gateway",
+      "files": [
+        "graqle/cloud/gateway.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.218,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 9,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.plans",
+      "files": [
+        "graqle/cloud/plans.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.177,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.sync",
+      "files": [
+        "graqle/cloud/sync.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.367,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 16,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.team",
+      "files": [
+        "graqle/cloud/team.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.345,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 16,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.neo4j_traversal",
+      "files": [
+        "graqle/connectors/neo4j_traversal.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.222,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 14,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.neptune",
+      "files": [
+        "graqle/connectors/neptune.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.321,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 20,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.upgrade",
+      "files": [
+        "graqle/connectors/upgrade.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.243,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.observer_report",
+      "files": [
+        "graqle/core/observer_report.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.174,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.evaluation.constrained_f1",
+      "files": [
+        "graqle/evaluation/constrained_f1.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.266,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 14,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.middleware",
+      "files": [
+        "graqle/intelligence/governance/middleware.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.677,
+      "impact_radius": 34,
+      "consumer_count": 34,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.hooks",
+      "files": [
+        "graqle/intelligence/hooks.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.155,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.learning.activation_memory",
+      "files": [
+        "graqle/learning/activation_memory.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.278,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 9,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.learning.ontology_refiner",
+      "files": [
+        "graqle/learning/ontology_refiner.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.207,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 8,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.licensing.keygen",
+      "files": [
+        "graqle/licensing/keygen.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.106,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.metrics.dashboard",
+      "files": [
+        "graqle/metrics/dashboard.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.136,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.__init__",
+      "files": [
+        "graqle/ontology/domains/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.119,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.engineering",
+      "files": [
+        "graqle/ontology/domains/engineering.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.096,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.markdown_parser",
+      "files": [
+        "graqle/ontology/markdown_parser.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.527,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 50,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.skill_pipeline",
+      "files": [
+        "graqle/ontology/skill_pipeline.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.204,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.optimization.message_compressor",
+      "files": [
+        "graqle/optimization/message_compressor.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.195,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.optimization.token_optimizer",
+      "files": [
+        "graqle/optimization/token_optimizer.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.246,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 10,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.async_protocol",
+      "files": [
+        "graqle/orchestration/async_protocol.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.244,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 10,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.debate",
+      "files": [
+        "graqle/orchestration/debate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.225,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.explanation",
+      "files": [
+        "graqle/orchestration/explanation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.17,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.hierarchical",
+      "files": [
+        "graqle/orchestration/hierarchical.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.196,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.streaming",
+      "files": [
+        "graqle/orchestration/streaming.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.179,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 3,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.routing",
+      "files": [
+        "graqle/routing.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.245,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 12,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.runtime.detector",
+      "files": [
+        "graqle/runtime/detector.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.186,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.runtime.kg_builder",
+      "files": [
+        "graqle/runtime/kg_builder.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.226,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.autodetect",
+      "files": [
+        "graqle/scanner/autodetect.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.205,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.background",
+      "files": [
+        "graqle/scanner/background.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.337,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 11,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.__init__",
+      "files": [
+        "graqle/scanner/dedup/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.203,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.contradictions",
+      "files": [
+        "graqle/scanner/dedup/contradictions.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.086,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.dedup.decisions",
+      "files": [
+        "graqle/scanner/dedup/decisions.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.236,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 9,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.__init__",
+      "files": [
+        "graqle/scanner/extractors/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.05,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.api_spec",
+      "files": [
+        "graqle/scanner/extractors/api_spec.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.127,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.app_config",
+      "files": [
+        "graqle/scanner/extractors/app_config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.108,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.dependency",
+      "files": [
+        "graqle/scanner/extractors/dependency.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.127,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.infra",
+      "files": [
+        "graqle/scanner/extractors/infra.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.163,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.extractors.tool_config",
+      "files": [
+        "graqle/scanner/extractors/tool_config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.127,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.json_parser",
+      "files": [
+        "graqle/scanner/json_parser.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.301,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.nl_router",
+      "files": [
+        "graqle/scanner/nl_router.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.108,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.__init__",
+      "files": [
+        "graqle/scanner/parsers/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.099,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.docx",
+      "files": [
+        "graqle/scanner/parsers/docx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.147,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.pdf",
+      "files": [
+        "graqle/scanner/parsers/pdf.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.147,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.pptx",
+      "files": [
+        "graqle/scanner/parsers/pptx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.147,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.parsers.xlsx",
+      "files": [
+        "graqle/scanner/parsers/xlsx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.147,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.quality",
+      "files": [
+        "graqle/scanner/quality.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.148,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.middleware",
+      "files": [
+        "graqle/server/middleware.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.61,
+      "impact_radius": 34,
+      "consumer_count": 34,
+      "function_count": 9,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.models",
+      "files": [
+        "graqle/server/models.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.452,
+      "impact_radius": 16,
+      "consumer_count": 16,
+      "function_count": 0,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.control",
+      "files": [
+        "graqle/studio/routes/control.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.27,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 13,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.governance",
+      "files": [
+        "graqle/studio/routes/governance.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.406,
+      "impact_radius": 5,
+      "consumer_count": 5,
+      "function_count": 14,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.health",
+      "files": [
+        "graqle/studio/routes/health.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.253,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.traversal",
+      "files": [
+        "graqle/studio/routes/traversal.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.17,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "examples.governance_example",
+      "files": [
+        "examples/governance_example.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.088,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "examples.quickstart",
+      "files": [
+        "examples/quickstart.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.099,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.activation.__init__",
+      "files": [
+        "graqle/activation/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.16,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.__init__",
+      "files": [
+        "graqle/adapters/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.07,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.hub",
+      "files": [
+        "graqle/adapters/hub.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.12,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.adapters.loader",
+      "files": [
+        "graqle/adapters/loader.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.158,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.agents.__init__",
+      "files": [
+        "graqle/agents/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.04,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.__init__",
+      "files": [
+        "graqle/backends/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.05,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.llamacpp_backend",
+      "files": [
+        "graqle/backends/llamacpp_backend.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.159,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.local",
+      "files": [
+        "graqle/backends/local.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.09,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.backends.vllm_backend",
+      "files": [
+        "graqle/backends/vllm_backend.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.13,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.__init__",
+      "files": [
+        "graqle/benchmarks/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.hotpotqa_loader",
+      "files": [
+        "graqle/benchmarks/hotpotqa_loader.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.201,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov",
+      "files": [
+        "graqle/benchmarks/run_multigov.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.21,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "files": [
+        "graqle/benchmarks/run_multigov_v2.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.229,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "files": [
+        "graqle/benchmarks/run_multigov_v3.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.238,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.__init__",
+      "files": [
+        "graqle/cli/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cli.commands.__init__",
+      "files": [
+        "graqle/cli/commands/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.cloud.__init__",
+      "files": [
+        "graqle/cloud/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.config.__init__",
+      "files": [
+        "graqle/config/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.02,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.__init__",
+      "files": [
+        "graqle/connectors/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.09,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.connectors.neo4j",
+      "files": [
+        "graqle/connectors/neo4j.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.196,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 12,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.core.__init__",
+      "files": [
+        "graqle/core/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.12,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.domains.__init__",
+      "files": [
+        "graqle/domains/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.evaluation.__init__",
+      "files": [
+        "graqle/evaluation/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.02,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.inference.__init__",
+      "files": [
+        "graqle/inference/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.__init__",
+      "files": [
+        "graqle/intelligence/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.1,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.governance.__init__",
+      "files": [
+        "graqle/intelligence/governance/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.08,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.intelligence.learning_tracker",
+      "files": [
+        "graqle/intelligence/learning_tracker.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.217,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.leads.__init__",
+      "files": [
+        "graqle/leads/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.leads.collector",
+      "files": [
+        "graqle/leads/collector.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.343,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.learning.__init__",
+      "files": [
+        "graqle/learning/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.04,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.licensing.__init__",
+      "files": [
+        "graqle/licensing/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.03,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.metrics.__init__",
+      "files": [
+        "graqle/metrics/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.05,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domain_detector",
+      "files": [
+        "graqle/ontology/domain_detector.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.382,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 21,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.data_analytics",
+      "files": [
+        "graqle/ontology/domains/data_analytics.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.07,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.financial",
+      "files": [
+        "graqle/ontology/domains/financial.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.07,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.legal",
+      "files": [
+        "graqle/ontology/domains/legal.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.07,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.domains.marketing",
+      "files": [
+        "graqle/ontology/domains/marketing.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.07,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.ontology.skill_admin",
+      "files": [
+        "graqle/ontology/skill_admin.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.264,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.optimization.__init__",
+      "files": [
+        "graqle/optimization/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.orchestration.__init__",
+      "files": [
+        "graqle/orchestration/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.1,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.plugins.__init__",
+      "files": [
+        "graqle/plugins/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.04,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.prompts.__init__",
+      "files": [
+        "graqle/prompts/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.runtime.__init__",
+      "files": [
+        "graqle/runtime/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.06,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.runtime.router",
+      "files": [
+        "graqle/runtime/router.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.181,
+      "impact_radius": 3,
+      "consumer_count": 3,
+      "function_count": 2,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.scanner.__init__",
+      "files": [
+        "graqle/scanner/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.02,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.__init__",
+      "files": [
+        "graqle/server/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.app",
+      "files": [
+        "graqle/server/app.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.224,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.lambda_handler",
+      "files": [
+        "graqle/server/lambda_handler.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.148,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.server.stripe_webhook",
+      "files": [
+        "graqle/server/stripe_webhook.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.237,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.__init__",
+      "files": [
+        "graqle/studio/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.app",
+      "files": [
+        "graqle/studio/app.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.09,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 1,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.__init__",
+      "files": [
+        "graqle/studio/routes/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.api",
+      "files": [
+        "graqle/studio/routes/api.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.682,
+      "impact_radius": 19,
+      "consumer_count": 19,
+      "function_count": 15,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.dashboard",
+      "files": [
+        "graqle/studio/routes/dashboard.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.164,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.intelligence",
+      "files": [
+        "graqle/studio/routes/intelligence.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.269,
+      "impact_radius": 2,
+      "consumer_count": 2,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.routes.learning",
+      "files": [
+        "graqle/studio/routes/learning.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.188,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.js.charts",
+      "files": [
+        "graqle/studio/static/js/charts.js"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.048,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.js.graph-viz",
+      "files": [
+        "graqle/studio/static/js/graph-viz.js"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.059,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.vendor.alpine.min",
+      "files": [
+        "graqle/studio/static/vendor/alpine.min.js"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.4,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 215,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.vendor.d3.min",
+      "files": [
+        "graqle/studio/static/vendor/d3.min.js"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.4,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 984,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.vendor.htmx-sse",
+      "files": [
+        "graqle/studio/static/vendor/htmx-sse.js"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.086,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.studio.static.vendor.htmx.min",
+      "files": [
+        "graqle/studio/static/vendor/htmx.min.js"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.4,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 183,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "graqle.watchers.__init__",
+      "files": [
+        "graqle/watchers/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "sdk_self_audit",
+      "files": [
+        "sdk_self_audit.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.305,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.__init__",
+      "files": [
+        "tests/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.conftest",
+      "files": [
+        "tests/conftest.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.218,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.__init__",
+      "files": [
+        "tests/test_activation/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_adaptive",
+      "files": [
+        "tests/test_activation/test_adaptive.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.204,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_chunk_scorer",
+      "files": [
+        "tests/test_activation/test_chunk_scorer.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.187,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_content_aware_pcst",
+      "files": [
+        "tests/test_activation/test_content_aware_pcst.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.522,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 35,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_cypher_activation",
+      "files": [
+        "tests/test_activation/test_cypher_activation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.138,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_pcst",
+      "files": [
+        "tests/test_activation/test_pcst.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.168,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_reformulator",
+      "files": [
+        "tests/test_activation/test_reformulator.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.5,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 54,
+      "class_count": 9,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_activation.test_relevance_chunks",
+      "files": [
+        "tests/test_activation/test_relevance_chunks.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.148,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_adapters.__init__",
+      "files": [
+        "tests/test_adapters/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_adapters.test_adapter_config",
+      "files": [
+        "tests/test_adapters/test_adapter_config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.176,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_adapters.test_auto_select",
+      "files": [
+        "tests/test_adapters/test_auto_select.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.15,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 7,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_agents.__init__",
+      "files": [
+        "tests/test_agents/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_agents.test_slm_agent",
+      "files": [
+        "tests/test_agents/test_slm_agent.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.168,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.__init__",
+      "files": [
+        "tests/test_backends/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.test_error_scenarios",
+      "files": [
+        "tests/test_backends/test_error_scenarios.py"
+      ],
+      "risk_level": "CRITICAL",
+      "risk_score": 0.903,
+      "impact_radius": 34,
+      "consumer_count": 34,
+      "function_count": 33,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.test_gemini",
+      "files": [
+        "tests/test_backends/test_gemini.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.23,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.test_mock",
+      "files": [
+        "tests/test_backends/test_mock.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.078,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.test_providers",
+      "files": [
+        "tests/test_backends/test_providers.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.279,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 18,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_backends.test_registry",
+      "files": [
+        "tests/test_backends/test_registry.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.108,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_benchmarks.__init__",
+      "files": [
+        "tests/test_benchmarks/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_benchmarks.test_constrained_f1",
+      "files": [
+        "tests/test_benchmarks/test_constrained_f1.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.149,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_benchmarks.test_metrics",
+      "files": [
+        "tests/test_benchmarks/test_metrics.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.27,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 23,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.__init__",
+      "files": [
+        "tests/test_cli/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_activate",
+      "files": [
+        "tests/test_cli/test_activate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.132,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_bench_failfast",
+      "files": [
+        "tests/test_cli/test_bench_failfast.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.294,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 21,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_console_unicode",
+      "files": [
+        "tests/test_cli/test_console_unicode.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.253,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_init",
+      "files": [
+        "tests/test_cli/test_init.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.54,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 65,
+      "class_count": 19,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_learn_entity_knowledge",
+      "files": [
+        "tests/test_cli/test_learn_entity_knowledge.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.434,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 28,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_learned",
+      "files": [
+        "tests/test_cli/test_learned.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.229,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_link",
+      "files": [
+        "tests/test_cli/test_link.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.21,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 7,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_login",
+      "files": [
+        "tests/test_cli/test_login.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.139,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_scan",
+      "files": [
+        "tests/test_cli/test_scan.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.52,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 63,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_selfupdate",
+      "files": [
+        "tests/test_cli/test_selfupdate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.162,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cli.test_version",
+      "files": [
+        "tests/test_cli/test_version.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.09,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.__init__",
+      "files": [
+        "tests/test_cloud/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.test_credentials",
+      "files": [
+        "tests/test_cloud/test_credentials.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.188,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.test_gateway",
+      "files": [
+        "tests/test_cloud/test_gateway.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.237,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 18,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.test_plans",
+      "files": [
+        "tests/test_cloud/test_plans.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.317,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 26,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.test_sync",
+      "files": [
+        "tests/test_cloud/test_sync.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.359,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 26,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_cloud.test_team",
+      "files": [
+        "tests/test_cloud/test_team.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.301,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_config.__init__",
+      "files": [
+        "tests/test_config/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_config.test_region_agnostic",
+      "files": [
+        "tests/test_config/test_region_agnostic.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.149,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.__init__",
+      "files": [
+        "tests/test_connectors/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_json_graph",
+      "files": [
+        "tests/test_connectors/test_json_graph.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.137,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_neo4j_enhanced",
+      "files": [
+        "tests/test_connectors/test_neo4j_enhanced.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.183,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 14,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_neo4j_traversal",
+      "files": [
+        "tests/test_connectors/test_neo4j_traversal.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.309,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 25,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_neptune",
+      "files": [
+        "tests/test_connectors/test_neptune.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.266,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 21,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_tamr",
+      "files": [
+        "tests/test_connectors/test_tamr.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.166,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_connectors.test_upgrade",
+      "files": [
+        "tests/test_connectors/test_upgrade.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.208,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.__init__",
+      "files": [
+        "tests/test_core/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_chunk_pipeline",
+      "files": [
+        "tests/test_core/test_chunk_pipeline.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.3,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 20,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_edge",
+      "files": [
+        "tests/test_core/test_edge.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.098,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_edges_links_compat",
+      "files": [
+        "tests/test_core/test_edges_links_compat.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.179,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_graph",
+      "files": [
+        "tests/test_core/test_graph.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.156,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_graph_neo4j",
+      "files": [
+        "tests/test_core/test_graph_neo4j.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.132,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_kg_validation",
+      "files": [
+        "tests/test_core/test_kg_validation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.181,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_message",
+      "files": [
+        "tests/test_core/test_message.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.078,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_core.test_node",
+      "files": [
+        "tests/test_core/test_node.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.128,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_integration.__init__",
+      "files": [
+        "tests/test_integration/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_integration.test_chain",
+      "files": [
+        "tests/test_integration/test_chain.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.206,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_integration.test_end_to_end",
+      "files": [
+        "tests/test_integration/test_end_to_end.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.138,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_integration.test_ollama_e2e",
+      "files": [
+        "tests/test_integration/test_ollama_e2e.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.259,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_integration.test_phase3",
+      "files": [
+        "tests/test_integration/test_phase3.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.108,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 5,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.__init__",
+      "files": [
+        "tests/test_intelligence/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_audit",
+      "files": [
+        "tests/test_intelligence/test_audit.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.295,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_claude_section",
+      "files": [
+        "tests/test_intelligence/test_claude_section.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.358,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 24,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_compile",
+      "files": [
+        "tests/test_intelligence/test_compile.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.208,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_drace",
+      "files": [
+        "tests/test_intelligence/test_drace.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.44,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 46,
+      "class_count": 8,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_emitter",
+      "files": [
+        "tests/test_intelligence/test_emitter.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.251,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_evidence",
+      "files": [
+        "tests/test_intelligence/test_evidence.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.25,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 17,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_gate",
+      "files": [
+        "tests/test_intelligence/test_gate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.258,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 16,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_governance_middleware",
+      "files": [
+        "tests/test_intelligence/test_governance_middleware.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.577,
+      "impact_radius": 32,
+      "consumer_count": 32,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_headers",
+      "files": [
+        "tests/test_intelligence/test_headers.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.357,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 26,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_hooks",
+      "files": [
+        "tests/test_intelligence/test_hooks.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.2,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 12,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_models",
+      "files": [
+        "tests/test_intelligence/test_models.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.195,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_pipeline",
+      "files": [
+        "tests/test_intelligence/test_pipeline.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.283,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 18,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_scope_gate",
+      "files": [
+        "tests/test_intelligence/test_scope_gate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.297,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_scorecard",
+      "files": [
+        "tests/test_intelligence/test_scorecard.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.188,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_validators",
+      "files": [
+        "tests/test_intelligence/test_validators.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.29,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 23,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_intelligence.test_verify",
+      "files": [
+        "tests/test_intelligence/test_verify.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.197,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_leads.__init__",
+      "files": [
+        "tests/test_leads/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_leads.test_collector",
+      "files": [
+        "tests/test_leads/test_collector.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.292,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 19,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_learning.__init__",
+      "files": [
+        "tests/test_learning/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_learning.test_activation_memory",
+      "files": [
+        "tests/test_learning/test_activation_memory.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.197,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_learning.test_gds_intelligence",
+      "files": [
+        "tests/test_learning/test_gds_intelligence.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.425,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 33,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_learning.test_graph_learner",
+      "files": [
+        "tests/test_learning/test_graph_learner.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.358,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 16,
+      "class_count": 13,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_learning.test_ontology_refiner",
+      "files": [
+        "tests/test_learning/test_ontology_refiner.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.19,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_licensing.__init__",
+      "files": [
+        "tests/test_licensing/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_licensing.test_keygen",
+      "files": [
+        "tests/test_licensing/test_keygen.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.248,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 11,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_licensing.test_manager",
+      "files": [
+        "tests/test_licensing/test_manager.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.6,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 64,
+      "class_count": 10,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_metrics.__init__",
+      "files": [
+        "tests/test_metrics/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_metrics.test_metrics_accuracy",
+      "files": [
+        "tests/test_metrics/test_metrics_accuracy.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.196,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_multi_agent.__init__",
+      "files": [
+        "tests/test_multi_agent/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_multi_agent.test_multi_agent",
+      "files": [
+        "tests/test_multi_agent/test_multi_agent.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.377,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.__init__",
+      "files": [
+        "tests/test_ontology/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_constraint_graph",
+      "files": [
+        "tests/test_ontology/test_constraint_graph.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.208,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_governance_v3",
+      "files": [
+        "tests/test_ontology/test_governance_v3.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.192,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_ontology_generator",
+      "files": [
+        "tests/test_ontology/test_ontology_generator.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.232,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_registry",
+      "files": [
+        "tests/test_ontology/test_registry.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.177,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 14,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "files": [
+        "tests/test_ontology/test_router.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.208,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 7,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_semantic_shacl_gate",
+      "files": [
+        "tests/test_ontology/test_semantic_shacl_gate.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.354,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 31,
+      "class_count": 10,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_shacl_gate",
+      "files": [
+        "tests/test_ontology/test_shacl_gate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.166,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_skill_resolver",
+      "files": [
+        "tests/test_ontology/test_skill_resolver.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.158,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_ontology.test_upper",
+      "files": [
+        "tests/test_ontology/test_upper.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.194,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 16,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_optimization.__init__",
+      "files": [
+        "tests/test_optimization/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_optimization.test_token_optimizer",
+      "files": [
+        "tests/test_optimization/test_token_optimizer.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.215,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.__init__",
+      "files": [
+        "tests/test_orchestration/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_async_protocol",
+      "files": [
+        "tests/test_orchestration/test_async_protocol.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.118,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_confidence_calibration",
+      "files": [
+        "tests/test_orchestration/test_confidence_calibration.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.241,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 18,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_convergence",
+      "files": [
+        "tests/test_orchestration/test_convergence.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.097,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_debate",
+      "files": [
+        "tests/test_orchestration/test_debate.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.088,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_explanation",
+      "files": [
+        "tests/test_orchestration/test_explanation.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.156,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_hierarchical",
+      "files": [
+        "tests/test_orchestration/test_hierarchical.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.088,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_message_passing",
+      "files": [
+        "tests/test_orchestration/test_message_passing.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.099,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 2,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_observer",
+      "files": [
+        "tests/test_orchestration/test_observer.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.223,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_orchestration.test_streaming",
+      "files": [
+        "tests/test_orchestration/test_streaming.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.098,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 4,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.__init__",
+      "files": [
+        "tests/test_plugins/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.test_impact_filtering",
+      "files": [
+        "tests/test_plugins/test_impact_filtering.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.183,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.test_lesson_hit_count",
+      "files": [
+        "tests/test_plugins/test_lesson_hit_count.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.268,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 12,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.test_mcp_dev_server",
+      "files": [
+        "tests/test_plugins/test_mcp_dev_server.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.54,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 42,
+      "class_count": 17,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.test_mcp_dev_server_v015",
+      "files": [
+        "tests/test_plugins/test_mcp_dev_server_v015.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.367,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 18,
+      "class_count": 8,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_plugins.test_mcp_server",
+      "files": [
+        "tests/test_plugins/test_mcp_server.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.327,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 15,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_routing",
+      "files": [
+        "tests/test_routing.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.376,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 28,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.__init__",
+      "files": [
+        "tests/test_scanner/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_autodetect",
+      "files": [
+        "tests/test_scanner/test_autodetect.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.303,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_background",
+      "files": [
+        "tests/test_scanner/test_background.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.364,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 23,
+      "class_count": 9,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_chunker",
+      "files": [
+        "tests/test_scanner/test_chunker.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.368,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 28,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.__init__",
+      "files": [
+        "tests/test_scanner/test_dedup/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_canonical",
+      "files": [
+        "tests/test_scanner/test_dedup/test_canonical.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.231,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_contradictions",
+      "files": [
+        "tests/test_scanner/test_dedup/test_contradictions.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.117,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_decisions",
+      "files": [
+        "tests/test_scanner/test_dedup/test_decisions.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.157,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_merge",
+      "files": [
+        "tests/test_scanner/test_dedup/test_merge.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.098,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_orchestrator",
+      "files": [
+        "tests/test_scanner/test_dedup/test_orchestrator.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.117,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_dedup.test_unifier",
+      "files": [
+        "tests/test_scanner/test_dedup/test_unifier.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.186,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 17,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_doc_chain",
+      "files": [
+        "tests/test_scanner/test_doc_chain.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.286,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 12,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_docs",
+      "files": [
+        "tests/test_scanner/test_docs.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.51,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 39,
+      "class_count": 10,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.__init__",
+      "files": [
+        "tests/test_scanner/test_extractors/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.test_api_spec",
+      "files": [
+        "tests/test_scanner/test_extractors/test_api_spec.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.135,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.test_app_config",
+      "files": [
+        "tests/test_scanner/test_extractors/test_app_config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.116,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.test_dependency",
+      "files": [
+        "tests/test_scanner/test_extractors/test_dependency.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.116,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.test_infra",
+      "files": [
+        "tests/test_scanner/test_extractors/test_infra.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.133,
+      "impact_radius": 1,
+      "consumer_count": 1,
+      "function_count": 7,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_extractors.test_tool_config",
+      "files": [
+        "tests/test_scanner/test_extractors/test_tool_config.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.097,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 6,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_json_parser",
+      "files": [
+        "tests/test_scanner/test_json_parser.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.437,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 35,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_linker",
+      "files": [
+        "tests/test_scanner/test_linker.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.37,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 31,
+      "class_count": 8,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_manifest",
+      "files": [
+        "tests/test_scanner/test_manifest.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.413,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 27,
+      "class_count": 8,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_nl_router",
+      "files": [
+        "tests/test_scanner/test_nl_router.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.224,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 21,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.__init__",
+      "files": [
+        "tests/test_scanner/test_parsers/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_docx",
+      "files": [
+        "tests/test_scanner/test_parsers/test_docx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.206,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_markdown",
+      "files": [
+        "tests/test_scanner/test_parsers/test_markdown.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.492,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 39,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_pdf",
+      "files": [
+        "tests/test_scanner/test_parsers/test_pdf.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.168,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 9,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_pptx",
+      "files": [
+        "tests/test_scanner/test_parsers/test_pptx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.177,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 10,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_text",
+      "files": [
+        "tests/test_scanner/test_parsers/test_text.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.426,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 32,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_xlsx",
+      "files": [
+        "tests/test_scanner/test_parsers/test_xlsx.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.206,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 13,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_privacy",
+      "files": [
+        "tests/test_scanner/test_privacy.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.46,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 53,
+      "class_count": 1,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_scanner.test_quality",
+      "files": [
+        "tests/test_scanner/test_quality.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.157,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 14,
+      "class_count": 2,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_server.__init__",
+      "files": [
+        "tests/test_server/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_server.test_middleware",
+      "files": [
+        "tests/test_server/test_middleware.py"
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 0.596,
+      "impact_radius": 32,
+      "consumer_count": 32,
+      "function_count": 8,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_server.test_models",
+      "files": [
+        "tests/test_server/test_models.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.049,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 3,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_server.test_stripe_webhook",
+      "files": [
+        "tests/test_server/test_stripe_webhook.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.261,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 14,
+      "class_count": 4,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_studio.__init__",
+      "files": [
+        "tests/test_studio/__init__.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.0,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 0,
+      "class_count": 0,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_studio.test_control_routes",
+      "files": [
+        "tests/test_studio/test_control_routes.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.259,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 14,
+      "class_count": 3,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_studio.test_governance_routes",
+      "files": [
+        "tests/test_studio/test_governance_routes.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.334,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 19,
+      "class_count": 7,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_studio.test_health_routes",
+      "files": [
+        "tests/test_studio/test_health_routes.py"
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 0.401,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 22,
+      "class_count": 6,
+      "chunk_coverage": 100.0
+    },
+    {
+      "module": "tests.test_studio.test_traversal_routes",
+      "files": [
+        "tests/test_studio/test_traversal_routes.py"
+      ],
+      "risk_level": "LOW",
+      "risk_score": 0.24,
+      "impact_radius": 0,
+      "consumer_count": 0,
+      "function_count": 12,
+      "class_count": 5,
+      "chunk_coverage": 100.0
+    }
+  ],
+  "total_modules": 396,
+  "scorecard": {
+    "files_scanned": 396,
+    "total_files": 0,
+    "progress_pct": 0.0,
+    "total_nodes": 6354,
+    "total_edges": 6120,
+    "chunk_coverage": 100.0,
+    "description_coverage": 100.0,
+    "edge_integrity": 100.0,
+    "health": "HEALTHY",
+    "auto_repairs": 2111,
+    "degraded_nodes": 0,
+    "parse_failures": 0,
+    "insights_count": 136
+  }
+}

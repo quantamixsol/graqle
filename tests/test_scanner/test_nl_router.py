@@ -1,5 +1,12 @@
 """Tests for natural language query router."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_nl_router
+# risk: LOW (impact radius: 0 modules)
+# dependencies: nl_router
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.nl_router import route_query, is_natural_language, RouteResult
 
 

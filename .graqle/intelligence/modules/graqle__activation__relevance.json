@@ -1,0 +1,86 @@
+{
+  "module": "graqle.activation.relevance",
+  "files": [
+    "graqle/activation/relevance.py"
+  ],
+  "node_count": 7,
+  "function_count": 5,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "score",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "RelevanceScorer",
+      "type": "Class",
+      "line": 42
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.activation.pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_content_aware_pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_relevance_chunks",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "math",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.embeddings",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.343,
+  "risk_level": "MEDIUM",
+  "impact_radius": 5,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.735802+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for TokenOptimizer and MessageCompressor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_optimization.test_token_optimizer
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, message, types, token_optimizer, message_compressor +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.message import Message

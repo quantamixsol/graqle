@@ -1,5 +1,12 @@
 """Tests for SkillResolver — skill inheritance and resolution."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_skill_resolver
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, skill_resolver, domain_registry, governance
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.skill_resolver import SkillResolver, Skill, DEFAULT_SKILLS

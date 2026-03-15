@@ -1,5 +1,12 @@
 """Tests for AdaptiveActivation — adaptive Kmax based on query complexity."""
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_adaptive
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, mock, pytest, adaptive
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

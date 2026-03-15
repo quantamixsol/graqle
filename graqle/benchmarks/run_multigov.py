@@ -14,6 +14,13 @@ Methods compared:
     2. Graqle-PCST (PCST subgraph activation + message passing)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.run_multigov
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, argparse, asyncio, logging, sys +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import argparse

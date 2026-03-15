@@ -1,0 +1,193 @@
+{
+  "module": "graqle.cli.commands.scan",
+  "files": [
+    "graqle/cli/commands/scan.py"
+  ],
+  "node_count": 74,
+  "function_count": 69,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "analyze_file",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "analyze_file",
+      "type": "Function",
+      "line": 465
+    },
+    {
+      "name": "is_ignored",
+      "type": "Function",
+      "line": 649
+    },
+    {
+      "name": "scan",
+      "type": "Function",
+      "line": 697
+    },
+    {
+      "name": "summary",
+      "type": "Function",
+      "line": 733
+    },
+    {
+      "name": "coverage_report",
+      "type": "Function",
+      "line": 743
+    },
+    {
+      "name": "scan_repo",
+      "type": "Function",
+      "line": 1926
+    },
+    {
+      "name": "scan_docs",
+      "type": "Function",
+      "line": 2065
+    },
+    {
+      "name": "run_scan",
+      "type": "Function",
+      "line": 2109
+    },
+    {
+      "name": "progress_cb",
+      "type": "Function",
+      "line": 2123
+    },
+    {
+      "name": "scan_file",
+      "type": "Function",
+      "line": 2136
+    },
+    {
+      "name": "scan_all",
+      "type": "Function",
+      "line": 2167
+    },
+    {
+      "name": "scan_status",
+      "type": "Function",
+      "line": 2220
+    },
+    {
+      "name": "scan_wait",
+      "type": "Function",
+      "line": 2253
+    },
+    {
+      "name": "scan_cancel",
+      "type": "Function",
+      "line": 2282
+    },
+    {
+      "name": "scan_json",
+      "type": "Function",
+      "line": 2298
+    },
+    {
+      "name": "progress_cb",
+      "type": "Function",
+      "line": 2328
+    },
+    {
+      "name": "PythonAnalyzer",
+      "type": "Class",
+      "line": 93
+    },
+    {
+      "name": "JSAnalyzer",
+      "type": "Class",
+      "line": 254
+    },
+    {
+      "name": "GitignoreMatcher",
+      "type": "Class",
+      "line": 595
+    },
+    {
+      "name": "RepoScanner",
+      "type": "Class",
+      "line": 661
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cli.test_scan",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "ast",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "collections",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.console",
+      "type": "internal"
+    },
+    {
+      "module": "rich.panel",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    },
+    {
+      "module": "rich.tree",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.653,
+  "risk_level": "HIGH",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.432455+00:00"
+}

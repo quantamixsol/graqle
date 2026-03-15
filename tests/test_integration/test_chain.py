@@ -4,6 +4,13 @@ These tests verify that multi-step operations work correctly together,
 not just in isolation. Each test simulates a real user workflow.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_integration.test_chain
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, tempfile, pathlib, mock +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

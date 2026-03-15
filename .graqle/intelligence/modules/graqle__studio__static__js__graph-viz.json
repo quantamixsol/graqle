@@ -1,0 +1,57 @@
+{
+  "module": "graqle.studio.static.js.graph-viz",
+  "files": [
+    "graqle/studio/static/js/graph-viz.js"
+  ],
+  "node_count": 8,
+  "function_count": 6,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "getNodeColor",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "r",
+      "type": "Function",
+      "line": 383
+    },
+    {
+      "name": "degree",
+      "type": "Function",
+      "line": 459
+    },
+    {
+      "name": "sim",
+      "type": "Function",
+      "line": 466
+    },
+    {
+      "name": "cx",
+      "type": "Function",
+      "line": 579
+    },
+    {
+      "name": "cy",
+      "type": "Function",
+      "line": 580
+    },
+    {
+      "name": "CogniGraphViz",
+      "type": "Class",
+      "line": 86
+    }
+  ],
+  "consumers": [],
+  "dependencies": [],
+  "risk_score": 0.059,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.855761+00:00"
+}

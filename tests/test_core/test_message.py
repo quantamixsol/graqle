@@ -1,5 +1,12 @@
 """Tests for Message."""
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_message
+# risk: LOW (impact radius: 0 modules)
+# dependencies: message, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.core.message import Message
 from graqle.core.types import ReasoningType
 

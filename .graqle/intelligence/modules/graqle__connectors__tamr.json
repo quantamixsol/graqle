@@ -1,0 +1,106 @@
+{
+  "module": "graqle.connectors.tamr",
+  "files": [
+    "graqle/connectors/tamr.py"
+  ],
+  "node_count": 13,
+  "function_count": 8,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "config",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "load_from_json",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "compute_node_prior",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "to_graqle",
+      "type": "Function",
+      "line": 125
+    },
+    {
+      "name": "retrieve_and_reason",
+      "type": "Function",
+      "line": 181
+    },
+    {
+      "name": "load_from_dict",
+      "type": "Function",
+      "line": 241
+    },
+    {
+      "name": "TAMRDocument",
+      "type": "Class",
+      "line": 34
+    },
+    {
+      "name": "TAMRSubgraph",
+      "type": "Class",
+      "line": 47
+    },
+    {
+      "name": "PipelineConfig",
+      "type": "Class",
+      "line": 57
+    },
+    {
+      "name": "TAMRConnector",
+      "type": "Class",
+      "line": 69
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.connectors.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_connectors.test_tamr",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.257,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.094711+00:00"
+}

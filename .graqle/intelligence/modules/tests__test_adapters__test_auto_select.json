@@ -1,0 +1,79 @@
+{
+  "module": "tests.test_adapters.test_auto_select",
+  "files": [
+    "tests/test_adapters/test_auto_select.py"
+  ],
+  "node_count": 10,
+  "function_count": 7,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_explicit_mapping",
+      "type": "Function",
+      "line": 36
+    },
+    {
+      "name": "test_domain_fallback",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "test_fuzzy_match",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_no_match",
+      "type": "Function",
+      "line": 85
+    },
+    {
+      "name": "test_cache",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_batch_select",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "FakeNode",
+      "type": "Class",
+      "line": 19
+    },
+    {
+      "name": "FakeAdapterConfig",
+      "type": "Class",
+      "line": 31
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.adapters.auto_select",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.15,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.236950+00:00"
+}

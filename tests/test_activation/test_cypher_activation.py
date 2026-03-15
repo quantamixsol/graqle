@@ -1,5 +1,12 @@
 """Tests for CypherActivation — Neo4j vector search activation strategy."""
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_cypher_activation
+# risk: LOW (impact radius: 0 modules)
+# dependencies: mock, pytest, cypher_activation
+# constraints: none
+# ── /graqle:intelligence ──
+
 from unittest.mock import MagicMock
 
 import pytest

@@ -5,6 +5,14 @@ chunk embeddings to directly find content-bearing nodes via their chunks.
 No tree algorithm needed — the vector index handles relevance scoring.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.cypher_activation
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_cypher_activation
+# dependencies: __future__, logging, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

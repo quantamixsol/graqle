@@ -25,6 +25,13 @@ Usage as standalone Lambda:
     # Deploy lambda_handler as your Lambda function
 """
 
+# ── graqle:intelligence ──
+# module: graqle.server.stripe_webhook
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, hashlib, hmac, json, logging +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

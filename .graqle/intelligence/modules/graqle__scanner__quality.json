@@ -1,0 +1,63 @@
+{
+  "module": "graqle.scanner.quality",
+  "files": [
+    "graqle/scanner/quality.py"
+  ],
+  "node_count": 4,
+  "function_count": 2,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "assess_document_quality",
+      "type": "Function",
+      "line": 25
+    },
+    {
+      "name": "compute_content_hash",
+      "type": "Function",
+      "line": 65
+    },
+    {
+      "name": "QualityAssessment",
+      "type": "Class",
+      "line": 20
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_scanner.test_quality",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.148,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:36.624190+00:00"
+}

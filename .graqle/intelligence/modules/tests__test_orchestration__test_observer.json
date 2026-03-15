@@ -1,0 +1,109 @@
+{
+  "module": "tests.test_orchestration.test_observer",
+  "files": [
+    "tests/test_orchestration/test_observer.py"
+  ],
+  "node_count": 16,
+  "function_count": 15,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_observer_disabled",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_conflict_detection_by_reasoning_type",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_conflict_detection_by_keywords",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_anomaly_empty_response",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_anomaly_confidence_spike",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_pattern_echo_chamber",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_pattern_dominance",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_report_per_round",
+      "type": "Function",
+      "line": 140
+    },
+    {
+      "name": "test_observer_report_health_score",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "test_observer_reset",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_observer_report_to_summary",
+      "type": "Function",
+      "line": 187
+    },
+    {
+      "name": "test_observer_report_to_dict",
+      "type": "Function",
+      "line": 200
+    },
+    {
+      "name": "test_health_score_scales_with_node_count",
+      "type": "Function",
+      "line": 214
+    },
+    {
+      "name": "test_multi_node_conflict_detection_stricter",
+      "type": "Function",
+      "line": 260
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.observer",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.223,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.734624+00:00"
+}

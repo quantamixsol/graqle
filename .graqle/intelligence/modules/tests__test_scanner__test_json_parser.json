@@ -1,0 +1,228 @@
+{
+  "module": "tests.test_scanner.test_json_parser",
+  "files": [
+    "tests/test_scanner/test_json_parser.py"
+  ],
+  "node_count": 38,
+  "function_count": 35,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_known_filename_package_json",
+      "type": "Function",
+      "line": 32
+    },
+    {
+      "name": "test_known_filename_openapi",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "test_known_filename_tsconfig",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_known_filename_skip_lockfile",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_content_openapi_key",
+      "type": "Function",
+      "line": 56
+    },
+    {
+      "name": "test_content_npm_manifest",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_content_typescript_config",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "test_content_cloudformation",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_content_serverless",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_content_pipfile",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_schema_file_pattern",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_default_app_config",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_no_data_unknown",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "test_rules_key_tool_config",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "test_schema_key",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "project_dir",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_scan_finds_files",
+      "type": "Function",
+      "line": 211
+    },
+    {
+      "name": "test_lockfile_skipped",
+      "type": "Function",
+      "line": 217
+    },
+    {
+      "name": "test_dependency_nodes_created",
+      "type": "Function",
+      "line": 226
+    },
+    {
+      "name": "test_script_nodes_created",
+      "type": "Function",
+      "line": 234
+    },
+    {
+      "name": "test_endpoint_nodes_created",
+      "type": "Function",
+      "line": 242
+    },
+    {
+      "name": "test_schema_nodes_created",
+      "type": "Function",
+      "line": 250
+    },
+    {
+      "name": "test_tool_rule_nodes_created",
+      "type": "Function",
+      "line": 258
+    },
+    {
+      "name": "test_config_nodes_created",
+      "type": "Function",
+      "line": 266
+    },
+    {
+      "name": "test_depends_on_edges",
+      "type": "Function",
+      "line": 274
+    },
+    {
+      "name": "test_returns_edge_for_endpoint",
+      "type": "Function",
+      "line": 282
+    },
+    {
+      "name": "test_json_file_nodes_created",
+      "type": "Function",
+      "line": 290
+    },
+    {
+      "name": "test_categories_found",
+      "type": "Function",
+      "line": 298
+    },
+    {
+      "name": "test_scan_single_file",
+      "type": "Function",
+      "line": 306
+    },
+    {
+      "name": "test_empty_directory",
+      "type": "Function",
+      "line": 314
+    },
+    {
+      "name": "test_invalid_json_errored",
+      "type": "Function",
+      "line": 322
+    },
+    {
+      "name": "test_progress_callback",
+      "type": "Function",
+      "line": 330
+    },
+    {
+      "name": "test_category_disabled",
+      "type": "Function",
+      "line": 338
+    },
+    {
+      "name": "test_node_modules_skipped",
+      "type": "Function",
+      "line": 355
+    },
+    {
+      "name": "test_duration_recorded",
+      "type": "Function",
+      "line": 366
+    },
+    {
+      "name": "TestClassifyJSON",
+      "type": "Class",
+      "line": 29
+    },
+    {
+      "name": "TestJSONScanner",
+      "type": "Class",
+      "line": 208
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.json_parser",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.437,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.572523+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for graqle.cloud.sync — delta computation and sync state."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cloud.test_sync
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, pytest, pathlib, sync
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

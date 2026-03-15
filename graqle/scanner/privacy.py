@@ -30,6 +30,14 @@ Usage
     assert engine.redact("secret=abc") == "secret=abc"
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.privacy
+# risk: LOW (impact radius: 2 modules)
+# consumers: docs, test_privacy
+# dependencies: __future__, re, dataclasses
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

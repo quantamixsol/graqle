@@ -4,6 +4,14 @@ Defines node types, edge types, supported file extensions, and scan
 priorities for the document scanner subsystem.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.types
+# risk: MEDIUM (impact radius: 27 modules)
+# consumers: __init__, base_agent, slm_agent, registry, benchmark_runner +22 more
+# dependencies: __future__
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------

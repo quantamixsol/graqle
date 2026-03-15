@@ -4,6 +4,13 @@ Tests the full chain from document scanning through to graph querying,
 ensuring document nodes integrate properly with existing code nodes.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_doc_chain
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, typing, pytest +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

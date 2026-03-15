@@ -1,5 +1,12 @@
 """Tests for DomainRegistry — domain registration and lookup."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_registry
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, domain_registry
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.domain_registry import DomainRegistry, DomainOntology

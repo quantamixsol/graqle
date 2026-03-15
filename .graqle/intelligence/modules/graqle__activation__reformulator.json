@@ -1,0 +1,101 @@
+{
+  "module": "graqle.activation.reformulator",
+  "files": [
+    "graqle/activation/reformulator.py"
+  ],
+  "node_count": 20,
+  "function_count": 15,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "reformulate",
+      "type": "Function",
+      "line": 206
+    },
+    {
+      "name": "areformulate",
+      "type": "Function",
+      "line": 240
+    },
+    {
+      "name": "detect_ai_tool",
+      "type": "Function",
+      "line": 286
+    },
+    {
+      "name": "detected_tool",
+      "type": "Function",
+      "line": 295
+    },
+    {
+      "name": "is_ai_tool_environment",
+      "type": "Function",
+      "line": 300
+    },
+    {
+      "name": "Attachment",
+      "type": "Class",
+      "line": 74
+    },
+    {
+      "name": "ReformulationContext",
+      "type": "Class",
+      "line": 100
+    },
+    {
+      "name": "ReformulationResult",
+      "type": "Class",
+      "line": 126
+    },
+    {
+      "name": "QueryReformulator",
+      "type": "Class",
+      "line": 142
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.activation.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_reformulator",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.324,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.405165+00:00"
+}

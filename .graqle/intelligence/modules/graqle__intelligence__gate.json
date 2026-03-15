@@ -1,0 +1,117 @@
+{
+  "module": "graqle.intelligence.gate",
+  "files": [
+    "graqle/intelligence/gate.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "is_compiled",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "get_context",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "get_impact",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "get_scorecard",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "IntelligenceGate",
+      "type": "Class",
+      "line": 28
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.verify",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.governance.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_scope_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_semantic_shacl_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_shacl_gate",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.498,
+  "risk_level": "MEDIUM",
+  "impact_radius": 12,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.094711+00:00"
+}

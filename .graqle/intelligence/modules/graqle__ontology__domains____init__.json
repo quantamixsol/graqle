@@ -1,0 +1,53 @@
+{
+  "module": "graqle.ontology.domains.__init__",
+  "files": [
+    "graqle/ontology/domains/__init__.py"
+  ],
+  "node_count": 3,
+  "function_count": 2,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "register_all_domains",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "collect_all_skills",
+      "type": "Function",
+      "line": 86
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "importlib",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.skill_resolver",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.119,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.274132+00:00"
+}

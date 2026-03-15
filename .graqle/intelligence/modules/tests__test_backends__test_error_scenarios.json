@@ -1,0 +1,369 @@
+{
+  "module": "tests.test_backends.test_error_scenarios",
+  "files": [
+    "tests/test_backends/test_error_scenarios.py"
+  ],
+  "node_count": 36,
+  "function_count": 33,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "generate",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "name",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "cost_per_1k_tokens",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "generate",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "name",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "cost_per_1k_tokens",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_retry_succeeds_on_first_attempt",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "fn",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "test_retry_succeeds_after_failures",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "fn",
+      "type": "Function",
+      "line": 107
+    },
+    {
+      "name": "test_retry_raises_backend_error_after_max",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "fn",
+      "type": "Function",
+      "line": 123
+    },
+    {
+      "name": "test_retry_does_not_retry_import_errors",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "fn",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_backend_error_attributes",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "test_fallback_uses_first_working_backend",
+      "type": "Function",
+      "line": 166
+    },
+    {
+      "name": "test_fallback_falls_to_secondary",
+      "type": "Function",
+      "line": 178
+    },
+    {
+      "name": "test_fallback_all_fail",
+      "type": "Function",
+      "line": 191
+    },
+    {
+      "name": "test_fallback_requires_at_least_one",
+      "type": "Function",
+      "line": 199
+    },
+    {
+      "name": "test_fallback_name_property",
+      "type": "Function",
+      "line": 204
+    },
+    {
+      "name": "test_fallback_cost_uses_last_used",
+      "type": "Function",
+      "line": 212
+    },
+    {
+      "name": "test_budget_exceeded_halts_early",
+      "type": "Function",
+      "line": 227
+    },
+    {
+      "name": "test_no_budget_exceeded_normal_run",
+      "type": "Function",
+      "line": 261
+    },
+    {
+      "name": "test_dynamic_ceiling_respects_hard_limit",
+      "type": "Function",
+      "line": 286
+    },
+    {
+      "name": "test_dynamic_ceiling_config_fields",
+      "type": "Function",
+      "line": 319
+    },
+    {
+      "name": "test_empty_active_nodes",
+      "type": "Function",
+      "line": 335
+    },
+    {
+      "name": "test_anthropic_import_error",
+      "type": "Function",
+      "line": 357
+    },
+    {
+      "name": "test_openai_import_error",
+      "type": "Function",
+      "line": 367
+    },
+    {
+      "name": "test_ollama_connection_refused",
+      "type": "Function",
+      "line": 377
+    },
+    {
+      "name": "test_custom_backend_timeout",
+      "type": "Function",
+      "line": 388
+    },
+    {
+      "name": "test_fallback_chain_in_graph",
+      "type": "Function",
+      "line": 404
+    },
+    {
+      "name": "FailingBackend",
+      "type": "Class",
+      "line": 41
+    },
+    {
+      "name": "CountingBackend",
+      "type": "Class",
+      "line": 59
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.routing",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.reformulator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.backends.api",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.backends.gemini",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.backends.providers",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.console",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.doctor",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.init",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.selfupdate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.cli.commands.setup_guide",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.config.settings",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.pipeline",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.leads.collector",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.licensing.manager",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domain_detector",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.runtime.detector",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.autodetect",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.docs",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.json_parser",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.scanner.manifest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.server.app",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.server.lambda_handler",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.server.middleware",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.server.stripe_webhook",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_routing",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_reformulator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_backends.test_providers",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_config.test_region_agnostic",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_licensing.test_manager",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_multi_agent.test_multi_agent",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_autodetect",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_manifest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_server.test_middleware",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "asyncio",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.api",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.fallback",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.base",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.903,
+  "risk_level": "CRITICAL",
+  "impact_radius": 34,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.242711+00:00"
+}

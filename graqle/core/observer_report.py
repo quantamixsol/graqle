@@ -1,5 +1,13 @@
 """ObserverReport — structured findings from the MasterObserver."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.observer_report
+# risk: LOW (impact radius: 1 modules)
+# consumers: observer
+# dependencies: __future__, dataclasses, datetime, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

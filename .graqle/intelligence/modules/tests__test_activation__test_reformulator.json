@@ -1,0 +1,353 @@
+{
+  "module": "tests.test_activation.test_reformulator",
+  "files": [
+    "tests/test_activation/test_reformulator.py"
+  ],
+  "node_count": 64,
+  "function_count": 54,
+  "class_count": 9,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "reformulator",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "ai_tool_reformulator",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "sample_context",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "minimal_context",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_detects_claude_code",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_detects_cursor",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_detects_codex",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_no_tool_detected",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_static_detect_method",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "test_static_detect_returns_none",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_adds_file_context",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_adds_symbol_context",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "test_no_duplicate_file_mention",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_pronoun_resolution_with_file",
+      "type": "Function",
+      "line": 154
+    },
+    {
+      "name": "test_preserves_original_intent",
+      "type": "Function",
+      "line": 161
+    },
+    {
+      "name": "test_preserves_question_mark",
+      "type": "Function",
+      "line": 168
+    },
+    {
+      "name": "test_empty_context_no_reformulation",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_confidence_increases_with_context",
+      "type": "Function",
+      "line": 182
+    },
+    {
+      "name": "test_already_mentioned_symbols_excluded",
+      "type": "Function",
+      "line": 187
+    },
+    {
+      "name": "test_resolves_file_reference",
+      "type": "Function",
+      "line": 205
+    },
+    {
+      "name": "test_resolves_function_reference",
+      "type": "Function",
+      "line": 217
+    },
+    {
+      "name": "test_resolves_quoted_term",
+      "type": "Function",
+      "line": 228
+    },
+    {
+      "name": "test_resolves_service_name",
+      "type": "Function",
+      "line": 239
+    },
+    {
+      "name": "test_no_pronoun_no_resolution",
+      "type": "Function",
+      "line": 250
+    },
+    {
+      "name": "test_empty_history_no_crash",
+      "type": "Function",
+      "line": 263
+    },
+    {
+      "name": "test_screenshot_description_injected",
+      "type": "Function",
+      "line": 279
+    },
+    {
+      "name": "test_error_log_attachment",
+      "type": "Function",
+      "line": 297
+    },
+    {
+      "name": "test_attachment_with_content_summary_fallback",
+      "type": "Function",
+      "line": 312
+    },
+    {
+      "name": "test_attachment_filename_only_fallback",
+      "type": "Function",
+      "line": 327
+    },
+    {
+      "name": "test_max_three_attachments",
+      "type": "Function",
+      "line": 341
+    },
+    {
+      "name": "test_screenshot_plus_chat_history",
+      "type": "Function",
+      "line": 362
+    },
+    {
+      "name": "test_diagram_with_architecture_question",
+      "type": "Function",
+      "line": 383
+    },
+    {
+      "name": "test_empty_attachment_ignored",
+      "type": "Function",
+      "line": 398
+    },
+    {
+      "name": "test_llm_reformulation_success",
+      "type": "Function",
+      "line": 416
+    },
+    {
+      "name": "test_llm_reformulation_empty_response_passthrough",
+      "type": "Function",
+      "line": 436
+    },
+    {
+      "name": "test_llm_reformulation_error_passthrough",
+      "type": "Function",
+      "line": 449
+    },
+    {
+      "name": "test_llm_strips_prefixes",
+      "type": "Function",
+      "line": 463
+    },
+    {
+      "name": "test_llm_rejects_wildly_different",
+      "type": "Function",
+      "line": 479
+    },
+    {
+      "name": "test_disabled_reformulator",
+      "type": "Function",
+      "line": 499
+    },
+    {
+      "name": "test_off_mode",
+      "type": "Function",
+      "line": 509
+    },
+    {
+      "name": "test_short_query_skipped",
+      "type": "Function",
+      "line": 515
+    },
+    {
+      "name": "test_no_context_no_reformulation",
+      "type": "Function",
+      "line": 523
+    },
+    {
+      "name": "test_auto_mode_no_tool_no_backend",
+      "type": "Function",
+      "line": 528
+    },
+    {
+      "name": "test_max_length_enforcement",
+      "type": "Function",
+      "line": 544
+    },
+    {
+      "name": "test_result_dataclass_fields",
+      "type": "Function",
+      "line": 558
+    },
+    {
+      "name": "test_context_dataclass_defaults",
+      "type": "Function",
+      "line": 572
+    },
+    {
+      "name": "test_special_characters_in_query",
+      "type": "Function",
+      "line": 580
+    },
+    {
+      "name": "test_unicode_query",
+      "type": "Function",
+      "line": 590
+    },
+    {
+      "name": "test_multiline_query",
+      "type": "Function",
+      "line": 599
+    },
+    {
+      "name": "test_concurrent_reformulators_independent",
+      "type": "Function",
+      "line": 606
+    },
+    {
+      "name": "test_config_has_reformulator_field",
+      "type": "Function",
+      "line": 625
+    },
+    {
+      "name": "test_config_from_yaml_with_reformulator",
+      "type": "Function",
+      "line": 633
+    },
+    {
+      "name": "test_reformulator_export_from_activation",
+      "type": "Function",
+      "line": 649
+    },
+    {
+      "name": "TestAIToolDetection",
+      "type": "Class",
+      "line": 85
+    },
+    {
+      "name": "TestContextReformulation",
+      "type": "Class",
+      "line": 129
+    },
+    {
+      "name": "TestPronounResolution",
+      "type": "Class",
+      "line": 202
+    },
+    {
+      "name": "TestAttachmentHandling",
+      "type": "Class",
+      "line": 276
+    },
+    {
+      "name": "TestMultimodalScenarios",
+      "type": "Class",
+      "line": 359
+    },
+    {
+      "name": "TestLLMReformulation",
+      "type": "Class",
+      "line": 413
+    },
+    {
+      "name": "TestPassThrough",
+      "type": "Class",
+      "line": 496
+    },
+    {
+      "name": "TestEdgeCases",
+      "type": "Class",
+      "line": 541
+    },
+    {
+      "name": "TestGraphIntegration",
+      "type": "Class",
+      "line": 622
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.reformulator",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.5,
+  "risk_level": "HIGH",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:43.657324+00:00"
+}

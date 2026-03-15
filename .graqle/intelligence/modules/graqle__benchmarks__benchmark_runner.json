@@ -1,0 +1,173 @@
+{
+  "module": "graqle.benchmarks.benchmark_runner",
+  "files": [
+    "graqle/benchmarks/benchmark_runner.py"
+  ],
+  "node_count": 23,
+  "function_count": 19,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "exact_match",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "f1_score",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "constrained_f1_score",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 143
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 177
+    },
+    {
+      "name": "run_hotpotqa",
+      "type": "Function",
+      "line": 241
+    },
+    {
+      "name": "run_eu_regqa",
+      "type": "Function",
+      "line": 326
+    },
+    {
+      "name": "run_multi_governance",
+      "type": "Function",
+      "line": 403
+    },
+    {
+      "name": "save_results",
+      "type": "Function",
+      "line": 588
+    },
+    {
+      "name": "save_multigov_results",
+      "type": "Function",
+      "line": 616
+    },
+    {
+      "name": "QuestionResult",
+      "type": "Class",
+      "line": 114
+    },
+    {
+      "name": "BenchmarkSummary",
+      "type": "Class",
+      "line": 149
+    },
+    {
+      "name": "BenchmarkRunner",
+      "type": "Class",
+      "line": 209
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_benchmarks.test_constrained_f1",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_benchmarks.test_metrics",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "asyncio",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "string",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "collections",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "networkx",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.api",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.518,
+  "risk_level": "HIGH",
+  "impact_radius": 5,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.764937+00:00"
+}

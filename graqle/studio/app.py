@@ -1,5 +1,12 @@
 """Graqle Studio — mount studio routes onto FastAPI app."""
 
+# ── graqle:intelligence ──
+# module: graqle.studio.app
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +34,12 @@ def mount_studio(app: Any, state: dict) -> None:
 
     from graqle.studio.routes.dashboard import router as dashboard_router
     from graqle.studio.routes.api import router as api_router
+    from graqle.studio.routes.intelligence import router as intelligence_router
+    from graqle.studio.routes.governance import router as governance_router
+    from graqle.studio.routes.health import router as health_router
+    from graqle.studio.routes.traversal import router as traversal_router
+    from graqle.studio.routes.control import router as control_router
+    from graqle.studio.routes.learning import router as learning_router
 
     # Mount static files
     app.mount("/studio/static", StaticFiles(directory=str(STATIC_DIR)), name="studio-static")
@@ -38,5 +51,11 @@ def mount_studio(app: Any, state: dict) -> None:
     # Include routers
     app.include_router(dashboard_router, prefix="/studio")
     app.include_router(api_router, prefix="/studio/api")
+    app.include_router(intelligence_router, prefix="/studio/api/intelligence")
+    app.include_router(governance_router, prefix="/studio/api/governance")
+    app.include_router(health_router, prefix="/studio/api/health")
+    app.include_router(traversal_router, prefix="/studio/api/traversal")
+    app.include_router(control_router, prefix="/studio/api/control")
+    app.include_router(learning_router, prefix="/studio/api/learning")
 
     logger.info("Graqle Studio mounted at /studio/")

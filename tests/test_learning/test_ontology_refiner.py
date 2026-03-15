@@ -1,5 +1,12 @@
 """Tests for P3-13: Ontology refinement from usage patterns."""
 
+# ── graqle:intelligence ──
+# module: tests.test_learning.test_ontology_refiner
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, dataclasses, mock, pytest, ontology_refiner
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

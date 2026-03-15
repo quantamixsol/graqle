@@ -17,6 +17,14 @@ Usage:
     graq grow --full      # Full rescan (not just diff)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.grow
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, json, logging, subprocess, time +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

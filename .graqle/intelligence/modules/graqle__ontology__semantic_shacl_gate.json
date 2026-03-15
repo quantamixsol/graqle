@@ -1,0 +1,147 @@
+{
+  "module": "graqle.ontology.semantic_shacl_gate",
+  "files": [
+    "graqle/ontology/semantic_shacl_gate.py"
+  ],
+  "node_count": 20,
+  "function_count": 15,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "add_violation",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "to_feedback",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "governance_accuracy",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "stats",
+      "type": "Function",
+      "line": 163
+    },
+    {
+      "name": "register_constraint",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "register_constraints",
+      "type": "Function",
+      "line": 169
+    },
+    {
+      "name": "validate",
+      "type": "Function",
+      "line": 173
+    },
+    {
+      "name": "get_constraint_prompt",
+      "type": "Function",
+      "line": 396
+    },
+    {
+      "name": "record_retry",
+      "type": "Function",
+      "line": 444
+    },
+    {
+      "name": "reset_stats",
+      "type": "Function",
+      "line": 447
+    },
+    {
+      "name": "build_semantic_constraints_from_kg",
+      "type": "Function",
+      "line": 457
+    },
+    {
+      "name": "SemanticViolation",
+      "type": "Class",
+      "line": 33
+    },
+    {
+      "name": "SemanticValidationResult",
+      "type": "Class",
+      "line": 44
+    },
+    {
+      "name": "SemanticConstraint",
+      "type": "Class",
+      "line": 93
+    },
+    {
+      "name": "SemanticSHACLGate",
+      "type": "Class",
+      "line": 132
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_semantic_shacl_gate",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.437,
+  "risk_level": "MEDIUM",
+  "impact_radius": 7,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.655002+00:00"
+}

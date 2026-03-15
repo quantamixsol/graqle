@@ -7,6 +7,13 @@ Covers:
 4. Caller parameter in metrics
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_multi_agent.test_multi_agent
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, os, tempfile, threading +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

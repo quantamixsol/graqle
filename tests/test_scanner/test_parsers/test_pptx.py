@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.parsers.pptx — PPTX parser."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_parsers.test_pptx
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, pptx
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

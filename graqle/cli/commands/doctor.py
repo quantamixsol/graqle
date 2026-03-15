@@ -13,6 +13,14 @@ Validates everything a user needs for good reasoning results:
 Designed to be the FIRST command a user runs after install.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.doctor
+# risk: MEDIUM (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, importlib, os, sys, pathlib +6 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import importlib
@@ -62,9 +70,36 @@ def _check_core_deps() -> List[CheckResult]:
     return results
 
 
+def _get_configured_backend() -> str | None:
+    """Read the configured backend from graqle.yaml (if present)."""
+    config_path = Path("graqle.yaml")
+    if not config_path.exists():
+        return None
+    try:
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return data.get("model", {}).get("backend")
+    except Exception:
+        return None
+
+
 def _check_backend_packages() -> List[CheckResult]:
-    """Check which backend packages are available."""
+    """Check which backend packages are available.
+
+    Only warns about the configured backend; others shown as INFO.
+    """
     results = []
+    configured = _get_configured_backend()  # e.g. "anthropic", "bedrock", "openai", "ollama"
+
+    # Map config backend names to package names
+    config_to_pkg = {
+        "anthropic": "anthropic",
+        "openai": "openai",
+        "bedrock": "boto3",
+        "ollama": "httpx",
+    }
+
     backends = {
         "anthropic": ("anthropic", "ANTHROPIC_API_KEY", "Claude (Anthropic)"),
         "openai": ("openai", "OPENAI_API_KEY", "GPT (OpenAI)"),
@@ -72,6 +107,7 @@ def _check_backend_packages() -> List[CheckResult]:
         "httpx": ("httpx", None, "Ollama (local)"),
     }
     any_backend = False
+    configured_pkg = config_to_pkg.get(configured, "") if configured else ""
     for pkg, (mod_name, env_var, label) in backends.items():
         try:
             mod = importlib.import_module(mod_name)
@@ -100,9 +136,14 @@ def _check_backend_packages() -> List[CheckResult]:
                 results.append((PASS, f"Backend: {label}", f"{ver}{key_status}"))
                 any_backend = True
             else:
-                results.append((WARN, f"Backend: {label}", f"{ver}{key_status}"))
+                # Only warn for the configured backend; others are INFO
+                is_configured = (configured_pkg == pkg) if configured_pkg else True
+                level = WARN if is_configured else INFO
+                results.append((level, f"Backend: {label}", f"{ver}{key_status}"))
         except ImportError:
-            results.append((INFO, f"Backend: {label}", f"{pkg} not installed"))
+            is_configured = (configured_pkg == pkg) if configured_pkg else False
+            level = WARN if is_configured else INFO
+            results.append((level, f"Backend: {label}", f"{pkg} not installed"))
 
     # Check provider presets (env-var based, no package needed)
     provider_env_vars = {
@@ -477,6 +518,182 @@ def _check_skill_system() -> List[CheckResult]:
     return results
 
 
+def _check_neo4j_backend() -> List[CheckResult]:
+    """Check Neo4j availability and show latency comparison."""
+    import json
+    import time
+    results = []
+
+    # Check current backend from config
+    current_backend = "json"
+    config_path = Path("graqle.yaml")
+    if config_path.exists():
+        try:
+            import yaml
+            cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            current_backend = cfg.get("graph", {}).get("connector", "networkx")
+        except Exception:
+            pass
+
+    if current_backend == "neo4j":
+        # Already on Neo4j — check connection
+        try:
+            from neo4j import GraphDatabase
+            uri = "bolt://localhost:7687"
+            if config_path.exists():
+                try:
+                    import yaml
+                    cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+                    uri = cfg.get("graph", {}).get("uri", uri)
+                except Exception:
+                    pass
+
+            results.append((PASS, "Backend: Neo4j", f"connected ({uri})"))
+
+            # Show traversal capabilities
+            try:
+                from graqle.connectors.neo4j_traversal import Neo4jTraversal
+                t = Neo4jTraversal(
+                    uri=cfg.get("graph", {}).get("uri", "bolt://localhost:7687"),
+                    username=cfg.get("graph", {}).get("username", "neo4j"),
+                    password=cfg.get("graph", {}).get("password", ""),
+                    database=cfg.get("graph", {}).get("database", "neo4j"),
+                )
+                hubs = t.hub_nodes(top_k=3)
+                t0 = time.perf_counter()
+                t.impact_bfs(hubs[0]["id"] if hubs else "graqle/core/graph.py", max_depth=3)
+                impact_ms = (time.perf_counter() - t0) * 1000
+                t.close()
+                results.append((PASS, "Neo4j: traversal", f"3-hop impact in {impact_ms:.0f}ms"))
+                if hubs:
+                    hub_str = ", ".join(h["id"].split("/")[-1] for h in hubs[:3])
+                    results.append((INFO, "Neo4j: top hubs", hub_str))
+            except Exception as e:
+                results.append((WARN, "Neo4j: traversal", f"engine not available ({e})"))
+
+        except ImportError:
+            results.append((FAIL, "Backend: Neo4j", "configured but neo4j driver not installed"))
+        except Exception as e:
+            results.append((WARN, "Backend: Neo4j", f"configured but connection failed: {e}"))
+    else:
+        # On JSON/NetworkX — show upgrade opportunity
+        results.append((INFO, "Backend: JSON", "using file-based graph"))
+
+        # Benchmark current JSON load
+        graph_file = None
+        for c in ["graqle.json", "knowledge_graph.json", "graph.json"]:
+            if Path(c).exists():
+                graph_file = Path(c)
+                break
+
+        if graph_file:
+            try:
+                t0 = time.perf_counter()
+                data = json.loads(graph_file.read_text(encoding="utf-8"))
+                json_ms = (time.perf_counter() - t0) * 1000
+                node_count = len(data.get("nodes", []))
+
+                if node_count >= 1000:
+                    results.append((WARN, "Backend: performance",
+                        f"{node_count:,} nodes — Neo4j would be 12× faster for impact analysis"))
+                    results.append((INFO, "Backend: upgrade",
+                        "run 'graq upgrade neo4j' for native traversal + PageRank"))
+                elif node_count >= 500:
+                    results.append((INFO, "Backend: Neo4j ready",
+                        f"{node_count:,} nodes — consider 'graq upgrade neo4j' for speed boost"))
+            except Exception:
+                pass
+
+        # Check if Neo4j driver is at least installed
+        try:
+            import neo4j  # noqa: F401
+            results.append((INFO, "Neo4j: driver", "installed (not configured)"))
+        except ImportError:
+            results.append((INFO, "Neo4j: driver", "not installed — pip install graqle[neo4j]"))
+
+    return results
+
+
+def _check_governance_gate() -> List[CheckResult]:
+    """Check governance gate status — compile + verify + pre-commit hook."""
+    results = []
+
+    # 1. Check compiled intelligence
+    graqle_dir = Path(".graqle")
+    intel_dir = graqle_dir / "intelligence"
+    if intel_dir.is_dir():
+        modules = list((intel_dir / "modules").glob("*.json")) if (intel_dir / "modules").is_dir() else []
+        if modules:
+            results.append((PASS, "Gate: intelligence", f"{len(modules)} modules compiled"))
+        else:
+            results.append((WARN, "Gate: intelligence", "compiled but no modules — run 'graq compile'"))
+    else:
+        results.append((WARN, "Gate: intelligence", "not compiled — run 'graq compile'"))
+
+    # 2. Check scorecard
+    scorecard_path = graqle_dir / "scorecard.json"
+    if scorecard_path.exists():
+        try:
+            import json
+            sc = json.loads(scorecard_path.read_text(encoding="utf-8"))
+            health = sc.get("health", "UNKNOWN")
+            coverage = sc.get("chunk_coverage", 0)
+            style = "PASS" if health == "HEALTHY" else "WARN"
+            results.append((PASS if health == "HEALTHY" else WARN,
+                          "Gate: health", f"{health} ({coverage:.0f}% chunk coverage)"))
+        except Exception:
+            results.append((WARN, "Gate: scorecard", "exists but unreadable"))
+    else:
+        results.append((WARN, "Gate: scorecard", "not found — run 'graq compile'"))
+
+    # 3. Check pre-commit hook
+    try:
+        from graqle.intelligence.hooks import has_hook
+        if has_hook(Path(".")):
+            results.append((PASS, "Gate: pre-commit hook", "graq verify runs before every commit"))
+        else:
+            results.append((WARN, "Gate: pre-commit hook",
+                          "not installed — run 'graq compile --hook' to enforce"))
+    except Exception:
+        results.append((INFO, "Gate: pre-commit hook", "check skipped (not a git repo)"))
+
+    # 4. Check CLAUDE.md intelligence section
+    claude_md = Path("CLAUDE.md")
+    if claude_md.exists():
+        content = claude_md.read_text(encoding="utf-8")
+        if "Graqle Quality Gate" in content or "graqle:intelligence" in content.lower() or "Module Risk Map" in content:
+            results.append((PASS, "Gate: CLAUDE.md", "intelligence section injected"))
+        else:
+            results.append((WARN, "Gate: CLAUDE.md",
+                          "exists but no intelligence — run 'graq compile --inject'"))
+    else:
+        results.append((WARN, "Gate: CLAUDE.md", "not found — run 'graq compile --inject'"))
+
+    # 5. Check governance audit trail
+    audit_dir = graqle_dir / "governance" / "audit"
+    if audit_dir.is_dir():
+        sessions = list(audit_dir.glob("*.json"))
+        if sessions:
+            results.append((PASS, "Gate: audit trail", f"{len(sessions)} sessions recorded"))
+            # Check latest DRACE score
+            try:
+                import json
+                latest = sorted(sessions, reverse=True)[0]
+                data = json.loads(latest.read_text(encoding="utf-8"))
+                drace = data.get("drace_score")
+                if drace is not None:
+                    style = PASS if drace >= 0.7 else WARN
+                    results.append((style, "Gate: DRACE score", f"{drace:.2f}"))
+            except Exception:
+                pass
+        else:
+            results.append((INFO, "Gate: audit trail", "no sessions yet"))
+    else:
+        results.append((INFO, "Gate: audit trail", "not initialized"))
+
+    return results
+
+
 def doctor_command(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all checks including passed"),
     fix: bool = typer.Option(False, "--fix", help="Show fix commands for failures"),
@@ -513,6 +730,8 @@ def doctor_command(
     all_results.extend(_check_graph_file())
     all_results.extend(_check_mcp_registration())
     all_results.extend(_check_skill_system())
+    all_results.extend(_check_neo4j_backend())
+    all_results.extend(_check_governance_gate())
 
     # Count results
     passes = sum(1 for r in all_results if r[0] == PASS)
@@ -601,6 +820,27 @@ def doctor_command(
 
             elif ".mcp.json" in label and "not" in detail.lower():
                 console.print(f"  graq init  # auto-registers MCP server")
+
+            elif "Gate: intelligence" in label and "not compiled" in detail.lower():
+                console.print(f"  graq compile  # build intelligence layer")
+
+            elif "Gate: scorecard" in label and "not found" in detail.lower():
+                console.print(f"  graq compile  # generates scorecard + intelligence")
+
+            elif "Gate: pre-commit hook" in label and "not installed" in detail.lower():
+                console.print(f"  graq compile --hook  # enforce quality gate before every commit")
+
+            elif "Gate: CLAUDE.md" in label and "no intelligence" in detail.lower():
+                console.print(f"  graq compile --inject  # inject risk map into CLAUDE.md")
+
+            elif "Gate: CLAUDE.md" in label and "not found" in detail.lower():
+                console.print(f"  graq compile --inject  # creates CLAUDE.md with intelligence")
+
+            elif "Backend: upgrade" in label or ("Backend: performance" in label and "Neo4j" in detail):
+                console.print(f"  graq upgrade neo4j  # 12× faster multi-hop traversal")
+
+            elif "Neo4j: driver" in label and "not installed" in detail.lower():
+                console.print(f"  pip install graqle[neo4j]  # enables Neo4j backend")
 
     # Readiness score
     total = passes + warns + fails

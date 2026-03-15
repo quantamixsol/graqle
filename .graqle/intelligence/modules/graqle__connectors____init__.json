@@ -1,0 +1,38 @@
+{
+  "module": "graqle.connectors.__init__",
+  "files": [
+    "graqle/connectors/__init__.py"
+  ],
+  "node_count": 2,
+  "function_count": 1,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.connectors.base",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.connectors.networkx",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.connectors.json_graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.connectors.tamr",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.09,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.754832+00:00"
+}

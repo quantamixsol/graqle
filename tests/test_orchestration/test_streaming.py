@@ -1,5 +1,12 @@
 """Tests for StreamingOrchestrator."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_streaming
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, streaming
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

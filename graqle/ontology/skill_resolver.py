@@ -5,6 +5,14 @@ Governance skills + Thing skills. Skills are injected into the
 NODE_REASONING_PROMPT as available capabilities.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.skill_resolver
+# risk: MEDIUM (impact radius: 12 modules)
+# consumers: skill_admin, skill_pipeline, __init__, data_analytics, engineering +7 more
+# dependencies: __future__, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

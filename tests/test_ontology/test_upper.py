@@ -1,5 +1,12 @@
 """Tests for UpperOntology — domain-agnostic class hierarchy."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_upper
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, upper
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.upper import UpperOntology, UPPER_HIERARCHY

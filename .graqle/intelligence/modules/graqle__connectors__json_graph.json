@@ -1,0 +1,72 @@
+{
+  "module": "graqle.connectors.json_graph",
+  "files": [
+    "graqle/connectors/json_graph.py"
+  ],
+  "node_count": 6,
+  "function_count": 4,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "load",
+      "type": "Function",
+      "line": 32
+    },
+    {
+      "name": "save",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "validate",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "JSONGraphConnector",
+      "type": "Class",
+      "line": 18
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.connectors.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_connectors.test_json_graph",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.193,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.094711+00:00"
+}

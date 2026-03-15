@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.extractors.dependency — dependency manifest extractor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_extractors.test_dependency
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, dependency
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from graqle.scanner.extractors.dependency import DependencyExtractor

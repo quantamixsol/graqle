@@ -1,0 +1,1072 @@
+{
+  "module": "graqle.studio.static.vendor.alpine.min",
+  "files": [
+    "graqle/studio/static/vendor/alpine.min.js"
+  ],
+  "node_count": 216,
+  "function_count": 215,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "Ut",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Rn",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Wt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Mn",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Nn",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Gt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Jt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "ct",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Yt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "t",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "ve",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "er",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "te",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Ae",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Oe",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "lt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "tr",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "ue",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "dt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "kn",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "m",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "rr",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "nr",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "mt",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Ce",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "k",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "B",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "z",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Pn",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Te",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "t",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Re",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "In",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "ht",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "y",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "fe",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "Ln",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "or",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "re",
+      "type": "Function",
+      "line": 7
+    },
+    {
+      "name": "ke",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "R",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "x",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ar",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "xt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "jn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Fn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ne",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "C",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "cr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "d",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "lr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "pe",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Et",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "fr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "r",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Bn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "r",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "s",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Pe",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "dr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ne",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "mr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "hr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "zn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Kn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "J",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "D",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "E",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "gr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "e",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "yr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "br",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Le",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Y",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "j",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "wr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "vr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "S",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "P",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Vn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ie",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "je",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Sr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "me",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ar",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "r",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "qn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "r",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "X",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Un",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Wn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Gn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "he",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Jn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Yn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Or",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "a",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Cr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Fe",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Xn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "A",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Tr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "H",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Mr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Nr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Zn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "kr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ge",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Qn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ei",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ti",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ri",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Pr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ni",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ii",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "oi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "si",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Dr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "xe",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ir",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ci",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Lr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "jr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ze",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ot",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ke",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "He",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ve",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ct",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Fr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "zr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Kr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Vr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "qr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Tt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Wr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Gr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Rt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "di",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ue",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "We",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "rn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "nn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "xi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "on",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "yi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "bi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "sn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "M",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "U",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "l",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Si",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "cn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Oi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ci",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ti",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ri",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ge",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Je",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ye",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Zr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Qr",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "en",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "tn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Xe",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ze",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "q",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ki",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ln",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "un",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "zi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ki",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "et",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "pn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "mn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "It",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Hi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "zt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "hn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Vi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "gn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "s",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "xn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "yn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ae",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ui",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Wi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "tt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Gi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ji",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "wn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Yi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "bn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "c",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Kt",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Ht",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Xi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Zi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "En",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "vn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Qi",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "eo",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "o",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "to",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "i",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "ro",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "Sn",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "no",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "An",
+      "type": "Function",
+      "line": 11
+    },
+    {
+      "name": "rt",
+      "type": "Function",
+      "line": 11
+    }
+  ],
+  "consumers": [],
+  "dependencies": [],
+  "risk_score": 0.4,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.864291+00:00"
+}

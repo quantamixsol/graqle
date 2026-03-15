@@ -1,5 +1,12 @@
 """Tests for Graqle MCP Server plugin."""
 
+# ── graqle:intelligence ──
+# module: tests.test_plugins.test_mcp_server
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, math, dataclasses, typing +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

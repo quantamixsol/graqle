@@ -4,6 +4,14 @@ Parses ``.txt``, ``.rst``, and ``.adoc`` files by splitting on blank-line
 boundaries and detecting header-like lines (ALL CAPS, underline-decorated).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.text
+# risk: LOW (impact radius: 2 modules)
+# consumers: compile, test_text
+# dependencies: __future__, re, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

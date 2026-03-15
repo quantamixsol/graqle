@@ -1,5 +1,13 @@
 """Tests for server middleware — auth, rate limiting, validation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_server.test_middleware
+# risk: HIGH (impact radius: 32 modules)
+# consumers: sdk_self_audit, adaptive, reformulator, relevance, benchmark_runner +27 more
+# dependencies: __future__, os, time, mock, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

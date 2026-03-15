@@ -1,0 +1,387 @@
+{
+  "module": "tests.test_cli.test_scan",
+  "files": [
+    "tests/test_cli/test_scan.py"
+  ],
+  "node_count": 71,
+  "function_count": 63,
+  "class_count": 7,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "setup_method",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "test_extracts_imports",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_extracts_classes",
+      "type": "Function",
+      "line": 61
+    },
+    {
+      "name": "test_extracts_functions",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "test_extracts_env_vars_getenv",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_extracts_env_vars_environ_get",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_extracts_env_vars_subscript",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "test_extracts_routes_fastapi",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "test_extracts_orm_models",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "test_handles_syntax_error",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_handles_empty_file",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_extracts_calls",
+      "type": "Function",
+      "line": 128
+    },
+    {
+      "name": "setup_method",
+      "type": "Function",
+      "line": 141
+    },
+    {
+      "name": "test_extracts_es_imports",
+      "type": "Function",
+      "line": 143
+    },
+    {
+      "name": "test_extracts_require",
+      "type": "Function",
+      "line": 150
+    },
+    {
+      "name": "test_extracts_functions",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "test_extracts_classes",
+      "type": "Function",
+      "line": 167
+    },
+    {
+      "name": "test_extracts_routes",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_extracts_env_vars_process",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_extracts_env_vars_vite",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_handles_empty_file",
+      "type": "Function",
+      "line": 201
+    },
+    {
+      "name": "test_no_gitignore",
+      "type": "Function",
+      "line": 214
+    },
+    {
+      "name": "test_simple_pattern",
+      "type": "Function",
+      "line": 217
+    },
+    {
+      "name": "test_directory_pattern",
+      "type": "Function",
+      "line": 224
+    },
+    {
+      "name": "test_globstar",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "test_comments_ignored",
+      "type": "Function",
+      "line": 236
+    },
+    {
+      "name": "test_blank_lines_ignored",
+      "type": "Function",
+      "line": 241
+    },
+    {
+      "name": "test_scan_produces_valid_structure",
+      "type": "Function",
+      "line": 303
+    },
+    {
+      "name": "test_discovers_python_modules",
+      "type": "Function",
+      "line": 313
+    },
+    {
+      "name": "test_discovers_js_modules",
+      "type": "Function",
+      "line": 321
+    },
+    {
+      "name": "test_discovers_test_files",
+      "type": "Function",
+      "line": 329
+    },
+    {
+      "name": "test_no_tests_flag",
+      "type": "Function",
+      "line": 337
+    },
+    {
+      "name": "test_discovers_env_vars",
+      "type": "Function",
+      "line": 344
+    },
+    {
+      "name": "test_discovers_directories",
+      "type": "Function",
+      "line": 352
+    },
+    {
+      "name": "test_creates_contains_edges",
+      "type": "Function",
+      "line": 361
+    },
+    {
+      "name": "test_creates_imports_edges",
+      "type": "Function",
+      "line": 368
+    },
+    {
+      "name": "test_discovers_docker_service",
+      "type": "Function",
+      "line": 376
+    },
+    {
+      "name": "test_discovers_dependencies",
+      "type": "Function",
+      "line": 384
+    },
+    {
+      "name": "test_max_depth_limits_scan",
+      "type": "Function",
+      "line": 392
+    },
+    {
+      "name": "test_respects_gitignore",
+      "type": "Function",
+      "line": 405
+    },
+    {
+      "name": "test_summary_returns_string",
+      "type": "Function",
+      "line": 417
+    },
+    {
+      "name": "test_env_file_parsing",
+      "type": "Function",
+      "line": 425
+    },
+    {
+      "name": "test_docker_compose_services",
+      "type": "Function",
+      "line": 436
+    },
+    {
+      "name": "test_deduplicates_edges",
+      "type": "Function",
+      "line": 447
+    },
+    {
+      "name": "test_test_prefix",
+      "type": "Function",
+      "line": 469
+    },
+    {
+      "name": "test_test_suffix",
+      "type": "Function",
+      "line": 471
+    },
+    {
+      "name": "test_spec_suffix",
+      "type": "Function",
+      "line": 474
+    },
+    {
+      "name": "test_test_directory",
+      "type": "Function",
+      "line": 477
+    },
+    {
+      "name": "test_jest_test",
+      "type": "Function",
+      "line": 481
+    },
+    {
+      "name": "test_conftest",
+      "type": "Function",
+      "line": 484
+    },
+    {
+      "name": "test_regular_file",
+      "type": "Function",
+      "line": 487
+    },
+    {
+      "name": "test_dunder_tests",
+      "type": "Function",
+      "line": 491
+    },
+    {
+      "name": "test_skip_dirs_has_common_entries",
+      "type": "Function",
+      "line": 501
+    },
+    {
+      "name": "test_node_types_complete",
+      "type": "Function",
+      "line": 506
+    },
+    {
+      "name": "test_edge_types_complete",
+      "type": "Function",
+      "line": 513
+    },
+    {
+      "name": "test_graqle_ignore_file_respected",
+      "type": "Function",
+      "line": 527
+    },
+    {
+      "name": "test_graqle_ignore_stacks_with_gitignore",
+      "type": "Function",
+      "line": 535
+    },
+    {
+      "name": "test_extra_patterns_work",
+      "type": "Function",
+      "line": 544
+    },
+    {
+      "name": "test_no_graqle_ignore_file",
+      "type": "Function",
+      "line": 551
+    },
+    {
+      "name": "test_scanner_respects_graqle_ignore",
+      "type": "Function",
+      "line": 556
+    },
+    {
+      "name": "test_scanner_respects_exclude_patterns",
+      "type": "Function",
+      "line": 570
+    },
+    {
+      "name": "TestPythonAnalyzer",
+      "type": "Class",
+      "line": 46
+    },
+    {
+      "name": "TestJSAnalyzer",
+      "type": "Class",
+      "line": 139
+    },
+    {
+      "name": "TestGitignoreMatcher",
+      "type": "Class",
+      "line": 212
+    },
+    {
+      "name": "TestRepoScanner",
+      "type": "Class",
+      "line": 251
+    },
+    {
+      "name": "TestIsTestFile",
+      "type": "Class",
+      "line": 467
+    },
+    {
+      "name": "TestConstants",
+      "type": "Class",
+      "line": 499
+    },
+    {
+      "name": "TestGraqleIgnore",
+      "type": "Class",
+      "line": 524
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.commands.scan",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.52,
+  "risk_level": "HIGH",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:00.906512+00:00"
+}

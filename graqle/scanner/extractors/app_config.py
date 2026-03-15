@@ -4,6 +4,14 @@ Produces ``Config`` nodes with ``CONSUMED_BY`` edges (linked later via
 the auto-linker).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.app_config
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_app_config
+# dependencies: __future__, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

@@ -17,6 +17,14 @@ Extensible: users can register custom shapes via register_node_shape()
 and register_edge_shape().
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.schema
+# risk: MEDIUM (impact radius: 3 modules)
+# consumers: domain_detector, __init__, background
+# dependencies: __future__, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

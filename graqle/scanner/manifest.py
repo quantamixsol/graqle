@@ -10,6 +10,14 @@ caller can clean up the graph.
 File: ``.graqle-doc-manifest.json`` (next to the graph file).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.manifest
+# risk: MEDIUM (impact radius: 3 modules)
+# consumers: docs, test_doc_chain, test_manifest
+# dependencies: __future__, hashlib, json, logging, os +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

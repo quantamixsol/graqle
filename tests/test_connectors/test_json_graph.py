@@ -1,5 +1,12 @@
 """Tests for JSON graph connector."""
 
+# ── graqle:intelligence ──
+# module: tests.test_connectors.test_json_graph
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, pytest, pathlib, json_graph
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import pytest
 from pathlib import Path

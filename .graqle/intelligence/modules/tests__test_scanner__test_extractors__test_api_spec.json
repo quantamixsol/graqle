@@ -1,0 +1,76 @@
+{
+  "module": "tests.test_scanner.test_extractors.test_api_spec",
+  "files": [
+    "tests/test_scanner/test_extractors/test_api_spec.py"
+  ],
+  "node_count": 11,
+  "function_count": 10,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_endpoints_extracted",
+      "type": "Function",
+      "line": 73
+    },
+    {
+      "name": "test_schemas_extracted",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "test_returns_edge",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "test_accepts_edge",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_endpoint_properties",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "test_schema_fields",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_swagger_2_definitions",
+      "type": "Function",
+      "line": 127
+    },
+    {
+      "name": "test_empty_paths",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_endpoint_with_no_schema_ref",
+      "type": "Function",
+      "line": 154
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.extractors.api_spec",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.135,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.236831+00:00"
+}

@@ -11,6 +11,14 @@ Merge priority (when data conflicts):
   Code > API spec > JSON config > User-taught > Documents
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.merge
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_merge
+# dependencies: __future__, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

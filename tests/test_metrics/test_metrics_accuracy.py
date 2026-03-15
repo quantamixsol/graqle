@@ -7,6 +7,13 @@ Verifies that:
 - reduction_factor formula is correct (not inverted)
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_metrics.test_metrics_accuracy
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, re, pathlib, pytest, engine
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

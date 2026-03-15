@@ -1,0 +1,82 @@
+{
+  "module": "graqle.studio.routes.control",
+  "files": [
+    "graqle/studio/routes/control.py"
+  ],
+  "node_count": 14,
+  "function_count": 13,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "list_instances",
+      "type": "Function",
+      "line": 110
+    },
+    {
+      "name": "instance_detail",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "drace_badge",
+      "type": "Function",
+      "line": 182
+    },
+    {
+      "name": "health_badge",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "nodes_badge",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "share_config",
+      "type": "Function",
+      "line": 233
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_studio.test_control_routes",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.responses",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.27,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:36.818045+00:00"
+}

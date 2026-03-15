@@ -1,5 +1,13 @@
 """CogniEdge — a knowledge graph edge that serves as a message channel."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.edge
+# risk: MEDIUM (impact radius: 8 modules)
+# consumers: __init__, graph, __init__, conftest, test_content_aware_pcst +3 more
+# dependencies: __future__, collections, dataclasses, typing, message
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from collections import deque

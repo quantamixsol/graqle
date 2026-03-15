@@ -18,6 +18,14 @@ Examples::
     distributed to end users.  Keep it in the internal tooling repository only.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.licensing.keygen
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_keygen
+# dependencies: __future__, sys, datetime
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import sys

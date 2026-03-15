@@ -4,6 +4,14 @@ Tries backends in priority order. If primary fails, falls back to
 secondary, then tertiary. Logs which backend succeeded.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.fallback
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_error_scenarios
+# dependencies: __future__, logging, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

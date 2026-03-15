@@ -1,5 +1,12 @@
 """Tests for the DedupOrchestrator."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_dedup.test_orchestrator
+# risk: LOW (impact radius: 0 modules)
+# dependencies: dedup
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.scanner.dedup import DedupOrchestrator, DedupOptions, DedupReport
 
 

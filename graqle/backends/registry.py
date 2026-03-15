@@ -4,6 +4,14 @@ Provides a central registry for backend instances, supporting
 lazy initialization, cost tracking, and name-based resolution.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.registry
+# risk: MEDIUM (impact radius: 10 modules)
+# consumers: sdk_self_audit, __init__, __init__, governance, governance_v3 +5 more
+# dependencies: __future__, logging, typing, base, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

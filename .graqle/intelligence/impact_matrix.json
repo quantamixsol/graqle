@@ -1,0 +1,2108 @@
+{
+  "graqle.backends.mock": {
+    "consumers": [
+      "examples.quickstart",
+      "graqle.backends.__init__",
+      "tests.conftest",
+      "tests.test_routing",
+      "tests.test_activation.test_adaptive",
+      "tests.test_activation.test_chunk_scorer",
+      "tests.test_activation.test_cypher_activation",
+      "tests.test_activation.test_reformulator",
+      "tests.test_activation.test_relevance_chunks",
+      "tests.test_adapters.test_auto_select",
+      "tests.test_agents.test_slm_agent",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_backends.test_gemini",
+      "tests.test_backends.test_mock",
+      "tests.test_backends.test_providers",
+      "tests.test_backends.test_registry",
+      "tests.test_cli.test_bench_failfast",
+      "tests.test_cli.test_console_unicode",
+      "tests.test_cli.test_init",
+      "tests.test_cli.test_learned",
+      "tests.test_cli.test_learn_entity_knowledge",
+      "tests.test_cli.test_link",
+      "tests.test_cli.test_login",
+      "tests.test_cli.test_scan",
+      "tests.test_cli.test_selfupdate",
+      "tests.test_config.test_region_agnostic",
+      "tests.test_connectors.test_neo4j_enhanced",
+      "tests.test_connectors.test_tamr",
+      "tests.test_core.test_graph",
+      "tests.test_core.test_graph_neo4j",
+      "tests.test_core.test_node",
+      "tests.test_integration.test_chain",
+      "tests.test_integration.test_end_to_end",
+      "tests.test_integration.test_phase3",
+      "tests.test_leads.test_collector",
+      "tests.test_learning.test_graph_learner",
+      "tests.test_learning.test_ontology_refiner",
+      "tests.test_licensing.test_keygen",
+      "tests.test_licensing.test_manager",
+      "tests.test_multi_agent.test_multi_agent",
+      "tests.test_ontology.test_ontology_generator",
+      "tests.test_optimization.test_token_optimizer",
+      "tests.test_orchestration.test_async_protocol",
+      "tests.test_orchestration.test_confidence_calibration",
+      "tests.test_orchestration.test_debate",
+      "tests.test_orchestration.test_hierarchical",
+      "tests.test_orchestration.test_message_passing",
+      "tests.test_orchestration.test_streaming",
+      "tests.test_plugins.test_impact_filtering",
+      "tests.test_plugins.test_lesson_hit_count",
+      "tests.test_plugins.test_mcp_dev_server",
+      "tests.test_plugins.test_mcp_dev_server_v015",
+      "tests.test_plugins.test_mcp_server",
+      "tests.test_scanner.test_autodetect",
+      "tests.test_server.test_middleware",
+      "tests.test_studio.test_health_routes",
+      "tests.test_studio.test_traversal_routes"
+    ],
+    "consumer_count": 57,
+    "risk_level": "HIGH",
+    "impact_radius": 57
+  },
+  "graqle.cli.console": {
+    "consumers": [
+      "graqle.cli.main",
+      "graqle.cli.commands.activate",
+      "graqle.cli.commands.audit",
+      "graqle.cli.commands.billing",
+      "graqle.cli.commands.doctor",
+      "graqle.cli.commands.grow",
+      "graqle.cli.commands.ingest",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.learn",
+      "graqle.cli.commands.learned",
+      "graqle.cli.commands.link",
+      "graqle.cli.commands.login",
+      "graqle.cli.commands.metrics_cmd",
+      "graqle.cli.commands.register",
+      "graqle.cli.commands.scan",
+      "graqle.cli.commands.selfupdate",
+      "graqle.cli.commands.setup_guide",
+      "graqle.cli.commands.sync",
+      "graqle.cli.commands.team",
+      "graqle.cli.commands.upgrade",
+      "graqle.intelligence.compile",
+      "graqle.intelligence.verify"
+    ],
+    "consumer_count": 22,
+    "risk_level": "HIGH",
+    "impact_radius": 22
+  },
+  "graqle.core.message": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.agents.base_agent",
+      "graqle.agents.slm_agent",
+      "graqle.core.edge",
+      "graqle.core.graph",
+      "graqle.core.node",
+      "graqle.core.__init__",
+      "graqle.optimization.message_compressor",
+      "graqle.optimization.token_optimizer",
+      "graqle.orchestration.aggregation",
+      "graqle.orchestration.async_protocol",
+      "graqle.orchestration.debate",
+      "graqle.orchestration.explanation",
+      "graqle.orchestration.hierarchical",
+      "graqle.orchestration.message_passing",
+      "graqle.orchestration.observer",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.streaming",
+      "tests.conftest",
+      "tests.test_agents.test_slm_agent",
+      "tests.test_core.test_edge",
+      "tests.test_core.test_message",
+      "tests.test_optimization.test_token_optimizer",
+      "tests.test_orchestration.test_convergence",
+      "tests.test_orchestration.test_explanation",
+      "tests.test_orchestration.test_observer"
+    ],
+    "consumer_count": 26,
+    "risk_level": "HIGH",
+    "impact_radius": 26
+  },
+  "graqle.core.types": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.agents.base_agent",
+      "graqle.agents.slm_agent",
+      "graqle.backends.registry",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.core.graph",
+      "graqle.core.message",
+      "graqle.core.node",
+      "graqle.core.__init__",
+      "graqle.optimization.message_compressor",
+      "graqle.orchestration.aggregation",
+      "graqle.orchestration.debate",
+      "graqle.orchestration.hierarchical",
+      "graqle.orchestration.observer",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.streaming",
+      "graqle.scanner.docs",
+      "graqle.scanner.__init__",
+      "tests.conftest",
+      "tests.test_agents.test_slm_agent",
+      "tests.test_core.test_message",
+      "tests.test_core.test_node",
+      "tests.test_optimization.test_token_optimizer",
+      "tests.test_orchestration.test_explanation",
+      "tests.test_orchestration.test_observer"
+    ],
+    "consumer_count": 27,
+    "risk_level": "HIGH",
+    "impact_radius": 27
+  },
+  "graqle.core.graph": {
+    "consumers": [
+      "sdk_self_audit",
+      "examples.governance_example",
+      "graqle.__init__",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.connectors.__init__",
+      "graqle.core.__init__",
+      "graqle.ontology.__init__",
+      "tests.conftest",
+      "tests.test_activation.test_content_aware_pcst",
+      "tests.test_activation.test_pcst",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_connectors.test_json_graph",
+      "tests.test_core.test_chunk_pipeline",
+      "tests.test_core.test_edges_links_compat",
+      "tests.test_core.test_graph",
+      "tests.test_core.test_graph_neo4j",
+      "tests.test_core.test_kg_validation",
+      "tests.test_integration.test_ollama_e2e",
+      "tests.test_integration.test_phase3",
+      "tests.test_learning.test_gds_intelligence",
+      "tests.test_ontology.test_constraint_graph",
+      "tests.test_ontology.test_router",
+      "tests.test_orchestration.test_async_protocol",
+      "tests.test_orchestration.test_message_passing"
+    ],
+    "consumer_count": 26,
+    "risk_level": "CRITICAL",
+    "impact_radius": 26
+  },
+  "graqle.intelligence.models": {
+    "consumers": [
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.compile",
+      "graqle.intelligence.emitter",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.scorecard",
+      "graqle.intelligence.validators",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_claude_section",
+      "tests.test_intelligence.test_emitter",
+      "tests.test_intelligence.test_headers",
+      "tests.test_intelligence.test_models",
+      "tests.test_intelligence.test_pipeline",
+      "tests.test_intelligence.test_scorecard",
+      "tests.test_intelligence.test_validators",
+      "tests.test_server.test_models"
+    ],
+    "consumer_count": 16,
+    "risk_level": "HIGH",
+    "impact_radius": 16
+  },
+  "graqle.config.settings": {
+    "consumers": [
+      "sdk_self_audit",
+      "examples.governance_example",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.config.__init__",
+      "graqle.core.graph",
+      "graqle.orchestration.orchestrator",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_core.test_graph_neo4j",
+      "tests.test_integration.test_end_to_end",
+      "tests.test_integration.test_ollama_e2e"
+    ],
+    "consumer_count": 12,
+    "risk_level": "HIGH",
+    "impact_radius": 12
+  },
+  "graqle.connectors.networkx": {
+    "consumers": [
+      "examples.quickstart",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.hotpotqa_loader",
+      "graqle.benchmarks.multi_governance_kg",
+      "graqle.connectors.networkx",
+      "graqle.connectors.__init__",
+      "graqle.core.graph",
+      "tests.conftest",
+      "tests.test_core.test_graph",
+      "tests.test_core.test_kg_validation",
+      "tests.test_integration.test_end_to_end",
+      "tests.test_integration.test_ollama_e2e"
+    ],
+    "consumer_count": 12,
+    "risk_level": "MEDIUM",
+    "impact_radius": 12
+  },
+  "graqle.ontology.skill_resolver": {
+    "consumers": [
+      "graqle.ontology.skill_admin",
+      "graqle.ontology.skill_pipeline",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.data_analytics",
+      "graqle.ontology.domains.engineering",
+      "graqle.ontology.domains.financial",
+      "graqle.ontology.domains.governance",
+      "graqle.ontology.domains.governance_v3",
+      "graqle.ontology.domains.legal",
+      "graqle.ontology.domains.marketing",
+      "graqle.ontology.domains.__init__",
+      "tests.test_ontology.test_skill_resolver"
+    ],
+    "consumer_count": 12,
+    "risk_level": "MEDIUM",
+    "impact_radius": 12
+  },
+  "graqle.core.node": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.core.graph",
+      "graqle.core.__init__",
+      "tests.conftest",
+      "tests.test_activation.test_content_aware_pcst",
+      "tests.test_core.test_chunk_pipeline",
+      "tests.test_core.test_kg_validation",
+      "tests.test_core.test_node",
+      "tests.test_learning.test_gds_intelligence",
+      "tests.test_ontology.test_constraint_graph",
+      "tests.test_ontology.test_router"
+    ],
+    "consumer_count": 11,
+    "risk_level": "HIGH",
+    "impact_radius": 11
+  },
+  "graqle.scanner.parsers.base": {
+    "consumers": [
+      "graqle.backends.api",
+      "graqle.backends.fallback",
+      "graqle.backends.gemini",
+      "graqle.backends.llamacpp_backend",
+      "graqle.backends.local",
+      "graqle.backends.mock",
+      "graqle.backends.registry",
+      "graqle.backends.vllm_backend",
+      "graqle.backends.__init__",
+      "graqle.connectors.json_graph",
+      "graqle.connectors.neo4j",
+      "graqle.connectors.networkx",
+      "graqle.connectors.__init__",
+      "graqle.scanner.chunker",
+      "graqle.scanner.docs",
+      "graqle.scanner.json_parser",
+      "graqle.scanner.extractors.api_spec",
+      "graqle.scanner.extractors.app_config",
+      "graqle.scanner.extractors.dependency",
+      "graqle.scanner.extractors.infra",
+      "graqle.scanner.extractors.tool_config",
+      "graqle.scanner.parsers.docx",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.pdf",
+      "graqle.scanner.parsers.pptx",
+      "graqle.scanner.parsers.text",
+      "graqle.scanner.parsers.xlsx",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_scanner.test_chunker",
+      "tests.test_scanner.test_parsers.test_markdown",
+      "tests.test_scanner.test_parsers.test_text"
+    ],
+    "consumer_count": 31,
+    "risk_level": "HIGH",
+    "impact_radius": 31
+  },
+  "graqle.backends.base": {
+    "consumers": [
+      "graqle.backends.api",
+      "graqle.backends.fallback",
+      "graqle.backends.gemini",
+      "graqle.backends.llamacpp_backend",
+      "graqle.backends.local",
+      "graqle.backends.mock",
+      "graqle.backends.registry",
+      "graqle.backends.vllm_backend",
+      "graqle.backends.__init__",
+      "graqle.connectors.json_graph",
+      "graqle.connectors.neo4j",
+      "graqle.connectors.networkx",
+      "graqle.connectors.__init__",
+      "graqle.scanner.chunker",
+      "graqle.scanner.docs",
+      "graqle.scanner.json_parser",
+      "graqle.scanner.extractors.api_spec",
+      "graqle.scanner.extractors.app_config",
+      "graqle.scanner.extractors.dependency",
+      "graqle.scanner.extractors.infra",
+      "graqle.scanner.extractors.tool_config",
+      "graqle.scanner.parsers.docx",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.pdf",
+      "graqle.scanner.parsers.pptx",
+      "graqle.scanner.parsers.text",
+      "graqle.scanner.parsers.xlsx",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_scanner.test_chunker",
+      "tests.test_scanner.test_parsers.test_markdown",
+      "tests.test_scanner.test_parsers.test_text"
+    ],
+    "consumer_count": 31,
+    "risk_level": "MEDIUM",
+    "impact_radius": 31
+  },
+  "graqle.core.edge": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.core.graph",
+      "graqle.core.__init__",
+      "tests.conftest",
+      "tests.test_activation.test_content_aware_pcst",
+      "tests.test_core.test_edge",
+      "tests.test_ontology.test_constraint_graph",
+      "tests.test_ontology.test_router"
+    ],
+    "consumer_count": 8,
+    "risk_level": "MEDIUM",
+    "impact_radius": 8
+  },
+  "graqle.backends.api": {
+    "consumers": [
+      "graqle.backends.providers",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.cli.commands.init",
+      "graqle.studio.routes.api",
+      "graqle.studio.routes.control",
+      "graqle.studio.routes.dashboard",
+      "graqle.studio.routes.governance",
+      "graqle.studio.routes.health",
+      "graqle.studio.routes.intelligence",
+      "graqle.studio.routes.learning",
+      "graqle.studio.routes.traversal",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_integration.test_ollama_e2e",
+      "tests.test_studio.test_control_routes",
+      "tests.test_studio.test_governance_routes",
+      "tests.test_studio.test_health_routes",
+      "tests.test_studio.test_traversal_routes"
+    ],
+    "consumer_count": 19,
+    "risk_level": "CRITICAL",
+    "impact_radius": 19
+  },
+  "graqle.intelligence.scorecard": {
+    "consumers": [
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.compile",
+      "graqle.intelligence.emitter",
+      "graqle.intelligence.pipeline",
+      "tests.test_intelligence.test_claude_section",
+      "tests.test_intelligence.test_emitter",
+      "tests.test_intelligence.test_scorecard"
+    ],
+    "consumer_count": 7,
+    "risk_level": "MEDIUM",
+    "impact_radius": 7
+  },
+  "graqle.ontology.domain_registry": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_ontology.test_registry",
+      "tests.test_ontology.test_router",
+      "tests.test_ontology.test_skill_resolver"
+    ],
+    "consumer_count": 7,
+    "risk_level": "MEDIUM",
+    "impact_radius": 7
+  },
+  "graqle.ontology.semantic_shacl_gate": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_ontology.test_governance_v3",
+      "tests.test_ontology.test_ontology_generator",
+      "tests.test_ontology.test_semantic_shacl_gate"
+    ],
+    "consumer_count": 7,
+    "risk_level": "MEDIUM",
+    "impact_radius": 7
+  },
+  "graqle.scanner.extractors.base": {
+    "consumers": [
+      "graqle.backends.api",
+      "graqle.backends.fallback",
+      "graqle.backends.gemini",
+      "graqle.backends.llamacpp_backend",
+      "graqle.backends.local",
+      "graqle.backends.mock",
+      "graqle.backends.registry",
+      "graqle.backends.vllm_backend",
+      "graqle.backends.__init__",
+      "graqle.connectors.json_graph",
+      "graqle.connectors.neo4j",
+      "graqle.connectors.networkx",
+      "graqle.connectors.__init__",
+      "graqle.scanner.chunker",
+      "graqle.scanner.docs",
+      "graqle.scanner.json_parser",
+      "graqle.scanner.extractors.api_spec",
+      "graqle.scanner.extractors.app_config",
+      "graqle.scanner.extractors.dependency",
+      "graqle.scanner.extractors.infra",
+      "graqle.scanner.extractors.tool_config",
+      "graqle.scanner.parsers.docx",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.pdf",
+      "graqle.scanner.parsers.pptx",
+      "graqle.scanner.parsers.text",
+      "graqle.scanner.parsers.xlsx",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_scanner.test_chunker",
+      "tests.test_scanner.test_parsers.test_markdown",
+      "tests.test_scanner.test_parsers.test_text"
+    ],
+    "consumer_count": 31,
+    "risk_level": "MEDIUM",
+    "impact_radius": 31
+  },
+  "graqle.activation.relevance": {
+    "consumers": [
+      "graqle.activation.pcst",
+      "graqle.activation.__init__",
+      "tests.test_activation.test_content_aware_pcst",
+      "tests.test_activation.test_pcst",
+      "tests.test_activation.test_relevance_chunks"
+    ],
+    "consumer_count": 5,
+    "risk_level": "MEDIUM",
+    "impact_radius": 5
+  },
+  "graqle.adapters.config": {
+    "consumers": [
+      "graqle.adapters.hub",
+      "graqle.adapters.loader",
+      "graqle.adapters.registry",
+      "graqle.adapters.__init__",
+      "tests.test_adapters.test_adapter_config",
+      "tests.test_scanner.test_extractors.test_app_config",
+      "tests.test_scanner.test_extractors.test_tool_config"
+    ],
+    "consumer_count": 7,
+    "risk_level": "LOW",
+    "impact_radius": 7
+  },
+  "graqle.benchmarks.benchmark_runner": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "tests.test_benchmarks.test_constrained_f1",
+      "tests.test_benchmarks.test_metrics"
+    ],
+    "consumer_count": 5,
+    "risk_level": "HIGH",
+    "impact_radius": 5
+  },
+  "graqle.core.state": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.core.graph",
+      "graqle.core.node",
+      "graqle.core.__init__",
+      "tests.conftest"
+    ],
+    "consumer_count": 5,
+    "risk_level": "LOW",
+    "impact_radius": 5
+  },
+  "graqle.orchestration.convergence": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.__init__",
+      "tests.test_orchestration.test_convergence"
+    ],
+    "consumer_count": 5,
+    "risk_level": "LOW",
+    "impact_radius": 5
+  },
+  "graqle.orchestration.message_passing": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.__init__",
+      "tests.test_orchestration.test_message_passing"
+    ],
+    "consumer_count": 5,
+    "risk_level": "MEDIUM",
+    "impact_radius": 5
+  },
+  "graqle.orchestration.observer": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.__init__",
+      "tests.test_orchestration.test_observer"
+    ],
+    "consumer_count": 5,
+    "risk_level": "MEDIUM",
+    "impact_radius": 5
+  },
+  "graqle.plugins.mcp_dev_server": {
+    "consumers": [
+      "graqle.plugins.__init__",
+      "tests.test_plugins.test_impact_filtering",
+      "tests.test_plugins.test_lesson_hit_count",
+      "tests.test_plugins.test_mcp_dev_server",
+      "tests.test_plugins.test_mcp_dev_server_v015"
+    ],
+    "consumer_count": 5,
+    "risk_level": "HIGH",
+    "impact_radius": 5
+  },
+  "graqle.activation.embeddings": {
+    "consumers": [
+      "graqle.activation.chunk_scorer",
+      "graqle.activation.relevance",
+      "graqle.activation.__init__",
+      "tests.test_activation.test_pcst"
+    ],
+    "consumer_count": 4,
+    "risk_level": "MEDIUM",
+    "impact_radius": 4
+  },
+  "graqle.activation.pcst": {
+    "consumers": [
+      "graqle.activation.adaptive",
+      "graqle.activation.__init__",
+      "tests.test_activation.test_content_aware_pcst",
+      "tests.test_activation.test_pcst"
+    ],
+    "consumer_count": 4,
+    "risk_level": "LOW",
+    "impact_radius": 4
+  },
+  "graqle.connectors.base": {
+    "consumers": [
+      "graqle.backends.api",
+      "graqle.backends.fallback",
+      "graqle.backends.gemini",
+      "graqle.backends.llamacpp_backend",
+      "graqle.backends.local",
+      "graqle.backends.mock",
+      "graqle.backends.registry",
+      "graqle.backends.vllm_backend",
+      "graqle.backends.__init__",
+      "graqle.connectors.json_graph",
+      "graqle.connectors.neo4j",
+      "graqle.connectors.networkx",
+      "graqle.connectors.__init__",
+      "graqle.scanner.chunker",
+      "graqle.scanner.docs",
+      "graqle.scanner.json_parser",
+      "graqle.scanner.extractors.api_spec",
+      "graqle.scanner.extractors.app_config",
+      "graqle.scanner.extractors.dependency",
+      "graqle.scanner.extractors.infra",
+      "graqle.scanner.extractors.tool_config",
+      "graqle.scanner.parsers.docx",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.pdf",
+      "graqle.scanner.parsers.pptx",
+      "graqle.scanner.parsers.text",
+      "graqle.scanner.parsers.xlsx",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_scanner.test_chunker",
+      "tests.test_scanner.test_parsers.test_markdown",
+      "tests.test_scanner.test_parsers.test_text"
+    ],
+    "consumer_count": 31,
+    "risk_level": "MEDIUM",
+    "impact_radius": 31
+  },
+  "graqle.metrics.engine": {
+    "consumers": [
+      "graqle.cli.commands.metrics_cmd",
+      "graqle.metrics.dashboard",
+      "graqle.metrics.__init__",
+      "tests.test_metrics.test_metrics_accuracy"
+    ],
+    "consumer_count": 4,
+    "risk_level": "MEDIUM",
+    "impact_radius": 4
+  },
+  "graqle.ontology.domains.governance": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "tests.test_ontology.test_router",
+      "tests.test_ontology.test_skill_resolver",
+      "tests.test_studio.test_governance_routes"
+    ],
+    "consumer_count": 5,
+    "risk_level": "LOW",
+    "impact_radius": 5
+  },
+  "graqle.orchestration.aggregation": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.__init__"
+    ],
+    "consumer_count": 4,
+    "risk_level": "LOW",
+    "impact_radius": 4
+  },
+  "graqle.orchestration.orchestrator": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.orchestration.__init__",
+      "tests.test_backends.test_error_scenarios"
+    ],
+    "consumer_count": 4,
+    "risk_level": "MEDIUM",
+    "impact_radius": 4
+  },
+  "graqle.agents.base_agent": {
+    "consumers": [
+      "graqle.agents.slm_agent",
+      "graqle.agents.__init__",
+      "tests.test_agents.test_slm_agent"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.benchmarks.multi_governance_benchmark": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.benchmarks.multi_governance_kg": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.claude_section": {
+    "consumers": [
+      "graqle.intelligence.compile",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_claude_section"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.compile": {
+    "consumers": [
+      "graqle.cli.main",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_compile"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.emitter": {
+    "consumers": [
+      "graqle.intelligence.compile",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_emitter"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.governance.audit": {
+    "consumers": [
+      "graqle.cli.main",
+      "graqle.intelligence.governance.middleware",
+      "graqle.intelligence.governance.__init__",
+      "tests.test_intelligence.test_audit"
+    ],
+    "consumer_count": 4,
+    "risk_level": "MEDIUM",
+    "impact_radius": 4
+  },
+  "graqle.intelligence.governance.drace": {
+    "consumers": [
+      "graqle.intelligence.governance.middleware",
+      "graqle.intelligence.governance.__init__",
+      "tests.test_intelligence.test_drace"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.governance.evidence": {
+    "consumers": [
+      "graqle.intelligence.governance.middleware",
+      "graqle.intelligence.governance.__init__",
+      "tests.test_intelligence.test_evidence"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.headers": {
+    "consumers": [
+      "graqle.intelligence.compile",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_headers"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.licensing.manager": {
+    "consumers": [
+      "graqle.licensing.__init__",
+      "tests.test_licensing.test_keygen",
+      "tests.test_licensing.test_manager"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.ontology.upper": {
+    "consumers": [
+      "graqle.ontology.domain_registry",
+      "graqle.ontology.__init__",
+      "tests.test_ontology.test_upper"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.scanner.linker": {
+    "consumers": [
+      "graqle.scanner.docs",
+      "tests.test_scanner.test_doc_chain",
+      "tests.test_scanner.test_linker"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.scanner.manifest": {
+    "consumers": [
+      "graqle.scanner.docs",
+      "tests.test_scanner.test_doc_chain",
+      "tests.test_scanner.test_manifest"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.activation.adaptive": {
+    "consumers": [
+      "graqle.activation.__init__",
+      "tests.test_activation.test_adaptive"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.activation.chunk_scorer": {
+    "consumers": [
+      "graqle.activation.__init__",
+      "tests.test_activation.test_chunk_scorer"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.activation.cypher_activation": {
+    "consumers": [
+      "graqle.activation.__init__",
+      "tests.test_activation.test_cypher_activation"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.activation.reformulator": {
+    "consumers": [
+      "graqle.activation.__init__",
+      "tests.test_activation.test_reformulator"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.adapters.auto_select": {
+    "consumers": [
+      "graqle.adapters.__init__",
+      "tests.test_adapters.test_auto_select"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.adapters.registry": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.adapters.__init__",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_adapters.test_adapter_config",
+      "tests.test_backends.test_registry",
+      "tests.test_ontology.test_registry",
+      "tests.test_ontology.test_router",
+      "tests.test_ontology.test_skill_resolver"
+    ],
+    "consumer_count": 10,
+    "risk_level": "MEDIUM",
+    "impact_radius": 10
+  },
+  "graqle.agents.slm_agent": {
+    "consumers": [
+      "graqle.agents.__init__",
+      "tests.test_agents.test_slm_agent"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.init": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cli.test_init"
+    ],
+    "consumer_count": 2,
+    "risk_level": "HIGH",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.learn": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cli.test_learn_entity_knowledge"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.link": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cli.test_link"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.scan": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cli.test_scan"
+    ],
+    "consumer_count": 2,
+    "risk_level": "HIGH",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.selfupdate": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cli.test_selfupdate"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.cli.main": {
+    "consumers": [
+      "tests.test_cli.test_learned",
+      "tests.test_cli.test_version"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.cloud.credentials": {
+    "consumers": [
+      "tests.test_cli.test_login",
+      "tests.test_cloud.test_credentials"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.connectors.json_graph": {
+    "consumers": [
+      "graqle.connectors.__init__",
+      "tests.test_connectors.test_json_graph"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.connectors.tamr": {
+    "consumers": [
+      "graqle.connectors.__init__",
+      "tests.test_connectors.test_tamr"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.intelligence.gate": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.intelligence.verify",
+      "graqle.intelligence.governance.__init__",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_intelligence.test_gate",
+      "tests.test_intelligence.test_scope_gate",
+      "tests.test_ontology.test_governance_v3",
+      "tests.test_ontology.test_ontology_generator",
+      "tests.test_ontology.test_semantic_shacl_gate",
+      "tests.test_ontology.test_shacl_gate"
+    ],
+    "consumer_count": 12,
+    "risk_level": "MEDIUM",
+    "impact_radius": 12
+  },
+  "graqle.intelligence.governance.scope_gate": {
+    "consumers": [
+      "graqle.intelligence.governance.__init__",
+      "tests.test_intelligence.test_scope_gate"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.intelligence.pipeline": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.intelligence.compile",
+      "tests.test_intelligence.test_pipeline"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.intelligence.validators": {
+    "consumers": [
+      "graqle.intelligence.pipeline",
+      "tests.test_intelligence.test_validators"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.intelligence.verify": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_intelligence.test_verify"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.learning.gds_intelligence": {
+    "consumers": [
+      "graqle.learning.__init__",
+      "tests.test_learning.test_gds_intelligence"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.learning.graph_learner": {
+    "consumers": [
+      "graqle.learning.__init__",
+      "tests.test_learning.test_graph_learner"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.ontology.constraint_graph": {
+    "consumers": [
+      "graqle.ontology.__init__",
+      "tests.test_ontology.test_constraint_graph"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.ontology.domains.governance_v3": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v3",
+      "tests.test_ontology.test_governance_v3"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.ontology.ontology_generator": {
+    "consumers": [
+      "graqle.ontology.__init__",
+      "tests.test_ontology.test_ontology_generator"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.ontology.router": {
+    "consumers": [
+      "graqle.ontology.__init__",
+      "tests.test_ontology.test_router",
+      "tests.test_scanner.test_nl_router"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.ontology.schema": {
+    "consumers": [
+      "graqle.ontology.domain_detector",
+      "graqle.ontology.__init__",
+      "graqle.scanner.background"
+    ],
+    "consumer_count": 3,
+    "risk_level": "MEDIUM",
+    "impact_radius": 3
+  },
+  "graqle.ontology.shacl_gate": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_ontology.test_governance_v3",
+      "tests.test_ontology.test_ontology_generator",
+      "tests.test_ontology.test_semantic_shacl_gate",
+      "tests.test_ontology.test_shacl_gate"
+    ],
+    "consumer_count": 8,
+    "risk_level": "MEDIUM",
+    "impact_radius": 8
+  },
+  "graqle.plugins.mcp_server": {
+    "consumers": [
+      "graqle.plugins.__init__",
+      "tests.test_plugins.test_mcp_server"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.runtime.fetcher": {
+    "consumers": [
+      "graqle.runtime.kg_builder",
+      "graqle.runtime.__init__"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.scanner.chunker": {
+    "consumers": [
+      "graqle.scanner.docs",
+      "tests.test_scanner.test_chunker"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.dedup.canonical": {
+    "consumers": [
+      "graqle.scanner.dedup.__init__",
+      "tests.test_scanner.test_dedup.test_canonical"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.dedup.merge": {
+    "consumers": [
+      "graqle.scanner.dedup.__init__",
+      "tests.test_scanner.test_dedup.test_merge"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.dedup.unifier": {
+    "consumers": [
+      "graqle.scanner.dedup.__init__",
+      "tests.test_scanner.test_dedup.test_unifier"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.docs": {
+    "consumers": [
+      "tests.test_scanner.test_docs",
+      "tests.test_scanner.test_doc_chain"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.scanner.parsers.markdown": {
+    "consumers": [
+      "graqle.cli.commands.setup_guide",
+      "tests.test_scanner.test_parsers.test_markdown"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.parsers.text": {
+    "consumers": [
+      "graqle.intelligence.compile",
+      "tests.test_scanner.test_parsers.test_text"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.privacy": {
+    "consumers": [
+      "graqle.scanner.docs",
+      "tests.test_scanner.test_privacy"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.types": {
+    "consumers": [
+      "graqle.__init__",
+      "graqle.agents.base_agent",
+      "graqle.agents.slm_agent",
+      "graqle.backends.registry",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.core.graph",
+      "graqle.core.message",
+      "graqle.core.node",
+      "graqle.core.__init__",
+      "graqle.optimization.message_compressor",
+      "graqle.orchestration.aggregation",
+      "graqle.orchestration.debate",
+      "graqle.orchestration.hierarchical",
+      "graqle.orchestration.observer",
+      "graqle.orchestration.orchestrator",
+      "graqle.orchestration.streaming",
+      "graqle.scanner.docs",
+      "graqle.scanner.__init__",
+      "tests.conftest",
+      "tests.test_agents.test_slm_agent",
+      "tests.test_core.test_message",
+      "tests.test_core.test_node",
+      "tests.test_optimization.test_token_optimizer",
+      "tests.test_orchestration.test_explanation",
+      "tests.test_orchestration.test_observer"
+    ],
+    "consumer_count": 27,
+    "risk_level": "MEDIUM",
+    "impact_radius": 27
+  },
+  "graqle.__version__": {
+    "consumers": [
+      "graqle.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.activation.multi_signal": {
+    "consumers": [
+      "graqle.activation.__init__",
+      "graqle.cli.commands.selfupdate"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.backends.fallback": {
+    "consumers": [
+      "tests.test_backends.test_error_scenarios"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.backends.gemini": {
+    "consumers": [
+      "tests.test_backends.test_gemini"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.backends.providers": {
+    "consumers": [
+      "tests.test_backends.test_providers"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.backends.registry": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.adapters.__init__",
+      "graqle.ontology.__init__",
+      "graqle.ontology.domains.governance",
+      "graqle.ontology.domains.governance_v3",
+      "tests.test_adapters.test_adapter_config",
+      "tests.test_backends.test_registry",
+      "tests.test_ontology.test_registry",
+      "tests.test_ontology.test_router",
+      "tests.test_ontology.test_skill_resolver"
+    ],
+    "consumer_count": 10,
+    "risk_level": "MEDIUM",
+    "impact_radius": 10
+  },
+  "graqle.cli.commands.activate": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.audit": {
+    "consumers": [
+      "graqle.cli.main",
+      "graqle.intelligence.governance.middleware",
+      "graqle.intelligence.governance.__init__",
+      "tests.test_intelligence.test_audit"
+    ],
+    "consumer_count": 4,
+    "risk_level": "LOW",
+    "impact_radius": 4
+  },
+  "graqle.cli.commands.billing": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.doctor": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "MEDIUM",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.grow": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.ingest": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.learned": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.login": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.metrics_cmd": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.rebuild": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.register": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.setup_guide": {
+    "consumers": [
+      "graqle.cli.main"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cli.commands.sync": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cloud.test_sync"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.team": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cloud.test_team"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.cli.commands.upgrade": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_connectors.test_upgrade"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.cloud.gateway": {
+    "consumers": [
+      "tests.test_cloud.test_gateway"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cloud.plans": {
+    "consumers": [
+      "tests.test_cloud.test_plans"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.cloud.sync": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cloud.test_sync"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.cloud.team": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_cloud.test_team"
+    ],
+    "consumer_count": 2,
+    "risk_level": "MEDIUM",
+    "impact_radius": 2
+  },
+  "graqle.connectors.neo4j_traversal": {
+    "consumers": [
+      "tests.test_connectors.test_neo4j_traversal"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.connectors.neptune": {
+    "consumers": [
+      "tests.test_connectors.test_neptune"
+    ],
+    "consumer_count": 1,
+    "risk_level": "MEDIUM",
+    "impact_radius": 1
+  },
+  "graqle.connectors.upgrade": {
+    "consumers": [
+      "graqle.cli.main",
+      "tests.test_connectors.test_upgrade"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.core.observer_report": {
+    "consumers": [
+      "graqle.orchestration.observer"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.evaluation.constrained_f1": {
+    "consumers": [
+      "graqle.evaluation.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.intelligence.governance.middleware": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.activation.adaptive",
+      "graqle.activation.reformulator",
+      "graqle.activation.relevance",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.learn",
+      "graqle.cli.commands.link",
+      "graqle.cli.commands.scan",
+      "graqle.evaluation.constrained_f1",
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.validators",
+      "graqle.ontology.domain_detector",
+      "graqle.ontology.markdown_parser",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.schema",
+      "graqle.ontology.semantic_shacl_gate",
+      "graqle.ontology.shacl_gate",
+      "graqle.ontology.skill_admin",
+      "graqle.optimization.token_optimizer",
+      "graqle.runtime.fetcher",
+      "graqle.runtime.router",
+      "graqle.scanner.chunker",
+      "graqle.scanner.linker",
+      "graqle.scanner.nl_router",
+      "graqle.scanner.privacy",
+      "graqle.scanner.dedup.unifier",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.text",
+      "tests.test_intelligence.test_governance_middleware",
+      "tests.test_metrics.test_metrics_accuracy",
+      "tests.test_server.test_middleware"
+    ],
+    "consumer_count": 34,
+    "risk_level": "HIGH",
+    "impact_radius": 34
+  },
+  "graqle.intelligence.hooks": {
+    "consumers": [
+      "tests.test_intelligence.test_hooks"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.learning.activation_memory": {
+    "consumers": [
+      "tests.test_learning.test_activation_memory"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.learning.ontology_refiner": {
+    "consumers": [
+      "tests.test_learning.test_ontology_refiner"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.licensing.keygen": {
+    "consumers": [
+      "tests.test_licensing.test_keygen"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.metrics.dashboard": {
+    "consumers": [
+      "graqle.metrics.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.ontology.domains.engineering": {
+    "consumers": [
+      "sdk_self_audit"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.ontology.markdown_parser": {
+    "consumers": [
+      "graqle.ontology.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "HIGH",
+    "impact_radius": 1
+  },
+  "graqle.ontology.skill_pipeline": {
+    "consumers": [
+      "sdk_self_audit"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.optimization.message_compressor": {
+    "consumers": [
+      "tests.test_optimization.test_token_optimizer"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.optimization.token_optimizer": {
+    "consumers": [
+      "tests.test_optimization.test_token_optimizer"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.orchestration.async_protocol": {
+    "consumers": [
+      "tests.test_orchestration.test_async_protocol"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.orchestration.debate": {
+    "consumers": [
+      "tests.test_orchestration.test_debate"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.orchestration.explanation": {
+    "consumers": [
+      "tests.test_orchestration.test_explanation"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.orchestration.hierarchical": {
+    "consumers": [
+      "tests.test_orchestration.test_hierarchical"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.orchestration.streaming": {
+    "consumers": [
+      "tests.test_orchestration.test_streaming"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.routing": {
+    "consumers": [
+      "tests.test_routing"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.runtime.detector": {
+    "consumers": [
+      "graqle.runtime.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.runtime.kg_builder": {
+    "consumers": [
+      "graqle.runtime.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.autodetect": {
+    "consumers": [
+      "tests.test_scanner.test_autodetect"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.background": {
+    "consumers": [
+      "tests.test_scanner.test_background"
+    ],
+    "consumer_count": 1,
+    "risk_level": "MEDIUM",
+    "impact_radius": 1
+  },
+  "graqle.scanner.dedup.contradictions": {
+    "consumers": [
+      "tests.test_scanner.test_dedup.test_contradictions"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.dedup.decisions": {
+    "consumers": [
+      "tests.test_scanner.test_dedup.test_decisions"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.extractors.api_spec": {
+    "consumers": [
+      "tests.test_scanner.test_extractors.test_api_spec"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.extractors.app_config": {
+    "consumers": [
+      "tests.test_scanner.test_extractors.test_app_config"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.extractors.dependency": {
+    "consumers": [
+      "tests.test_scanner.test_extractors.test_dependency"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.extractors.infra": {
+    "consumers": [
+      "graqle.scanner.background",
+      "tests.test_scanner.test_extractors.test_infra"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.scanner.extractors.tool_config": {
+    "consumers": [
+      "tests.test_scanner.test_extractors.test_tool_config"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.json_parser": {
+    "consumers": [
+      "tests.test_scanner.test_json_parser"
+    ],
+    "consumer_count": 1,
+    "risk_level": "MEDIUM",
+    "impact_radius": 1
+  },
+  "graqle.scanner.nl_router": {
+    "consumers": [
+      "tests.test_scanner.test_nl_router"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.parsers.docx": {
+    "consumers": [
+      "tests.test_scanner.test_parsers.test_docx"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.parsers.pdf": {
+    "consumers": [
+      "tests.test_scanner.test_parsers.test_pdf"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.parsers.pptx": {
+    "consumers": [
+      "tests.test_scanner.test_parsers.test_pptx"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.parsers.xlsx": {
+    "consumers": [
+      "tests.test_scanner.test_parsers.test_xlsx"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.scanner.quality": {
+    "consumers": [
+      "tests.test_scanner.test_quality"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.server.middleware": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.activation.adaptive",
+      "graqle.activation.reformulator",
+      "graqle.activation.relevance",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.learn",
+      "graqle.cli.commands.link",
+      "graqle.cli.commands.scan",
+      "graqle.evaluation.constrained_f1",
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.validators",
+      "graqle.ontology.domain_detector",
+      "graqle.ontology.markdown_parser",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.schema",
+      "graqle.ontology.semantic_shacl_gate",
+      "graqle.ontology.shacl_gate",
+      "graqle.ontology.skill_admin",
+      "graqle.optimization.token_optimizer",
+      "graqle.runtime.fetcher",
+      "graqle.runtime.router",
+      "graqle.scanner.chunker",
+      "graqle.scanner.linker",
+      "graqle.scanner.nl_router",
+      "graqle.scanner.privacy",
+      "graqle.scanner.dedup.unifier",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.text",
+      "tests.test_intelligence.test_governance_middleware",
+      "tests.test_metrics.test_metrics_accuracy",
+      "tests.test_server.test_middleware"
+    ],
+    "consumer_count": 34,
+    "risk_level": "HIGH",
+    "impact_radius": 34
+  },
+  "graqle.server.models": {
+    "consumers": [
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.compile",
+      "graqle.intelligence.emitter",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.scorecard",
+      "graqle.intelligence.validators",
+      "graqle.intelligence.__init__",
+      "tests.test_intelligence.test_claude_section",
+      "tests.test_intelligence.test_emitter",
+      "tests.test_intelligence.test_headers",
+      "tests.test_intelligence.test_models",
+      "tests.test_intelligence.test_pipeline",
+      "tests.test_intelligence.test_scorecard",
+      "tests.test_intelligence.test_validators",
+      "tests.test_server.test_models"
+    ],
+    "consumer_count": 16,
+    "risk_level": "MEDIUM",
+    "impact_radius": 16
+  },
+  "graqle.studio.routes.control": {
+    "consumers": [
+      "tests.test_studio.test_control_routes"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.studio.routes.governance": {
+    "consumers": [
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "tests.test_ontology.test_router",
+      "tests.test_ontology.test_skill_resolver",
+      "tests.test_studio.test_governance_routes"
+    ],
+    "consumer_count": 5,
+    "risk_level": "MEDIUM",
+    "impact_radius": 5
+  },
+  "graqle.studio.routes.health": {
+    "consumers": [
+      "tests.test_studio.test_health_routes"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.studio.routes.traversal": {
+    "consumers": [
+      "tests.test_connectors.test_neo4j_traversal",
+      "tests.test_studio.test_traversal_routes"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "graqle.runtime.router": {
+    "consumers": [
+      "graqle.ontology.__init__",
+      "tests.test_ontology.test_router",
+      "tests.test_scanner.test_nl_router"
+    ],
+    "consumer_count": 3,
+    "risk_level": "LOW",
+    "impact_radius": 3
+  },
+  "graqle.studio.routes.api": {
+    "consumers": [
+      "graqle.backends.providers",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.benchmarks.run_multigov_v2",
+      "graqle.benchmarks.run_multigov_v3",
+      "graqle.cli.commands.init",
+      "graqle.studio.routes.api",
+      "graqle.studio.routes.control",
+      "graqle.studio.routes.dashboard",
+      "graqle.studio.routes.governance",
+      "graqle.studio.routes.health",
+      "graqle.studio.routes.intelligence",
+      "graqle.studio.routes.learning",
+      "graqle.studio.routes.traversal",
+      "tests.test_backends.test_error_scenarios",
+      "tests.test_integration.test_ollama_e2e",
+      "tests.test_studio.test_control_routes",
+      "tests.test_studio.test_governance_routes",
+      "tests.test_studio.test_health_routes",
+      "tests.test_studio.test_traversal_routes"
+    ],
+    "consumer_count": 19,
+    "risk_level": "HIGH",
+    "impact_radius": 19
+  },
+  "graqle.studio.routes.dashboard": {
+    "consumers": [
+      "graqle.metrics.__init__"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "graqle.studio.routes.intelligence": {
+    "consumers": [
+      "graqle.learning.__init__",
+      "tests.test_learning.test_gds_intelligence"
+    ],
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "impact_radius": 2
+  },
+  "tests.test_backends.test_error_scenarios": {
+    "consumers": [
+      "graqle.routing",
+      "graqle.activation.reformulator",
+      "graqle.backends.api",
+      "graqle.backends.gemini",
+      "graqle.backends.providers",
+      "graqle.cli.console",
+      "graqle.cli.main",
+      "graqle.cli.commands.doctor",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.selfupdate",
+      "graqle.cli.commands.setup_guide",
+      "graqle.config.settings",
+      "graqle.intelligence.pipeline",
+      "graqle.leads.collector",
+      "graqle.licensing.manager",
+      "graqle.ontology.domain_detector",
+      "graqle.runtime.detector",
+      "graqle.scanner.autodetect",
+      "graqle.scanner.docs",
+      "graqle.scanner.json_parser",
+      "graqle.scanner.manifest",
+      "graqle.server.app",
+      "graqle.server.lambda_handler",
+      "graqle.server.middleware",
+      "graqle.server.stripe_webhook",
+      "tests.test_routing",
+      "tests.test_activation.test_reformulator",
+      "tests.test_backends.test_providers",
+      "tests.test_config.test_region_agnostic",
+      "tests.test_licensing.test_manager",
+      "tests.test_multi_agent.test_multi_agent",
+      "tests.test_scanner.test_autodetect",
+      "tests.test_scanner.test_manifest",
+      "tests.test_server.test_middleware"
+    ],
+    "consumer_count": 34,
+    "risk_level": "CRITICAL",
+    "impact_radius": 34
+  },
+  "tests.test_cli.test_bench_failfast": {
+    "consumers": [
+      "graqle.cli.commands.scan"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "tests.test_intelligence.test_governance_middleware": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.activation.adaptive",
+      "graqle.activation.reformulator",
+      "graqle.activation.relevance",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.learn",
+      "graqle.cli.commands.link",
+      "graqle.cli.commands.scan",
+      "graqle.evaluation.constrained_f1",
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.validators",
+      "graqle.ontology.domain_detector",
+      "graqle.ontology.markdown_parser",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.schema",
+      "graqle.ontology.semantic_shacl_gate",
+      "graqle.ontology.shacl_gate",
+      "graqle.ontology.skill_admin",
+      "graqle.optimization.token_optimizer",
+      "graqle.runtime.fetcher",
+      "graqle.runtime.router",
+      "graqle.scanner.chunker",
+      "graqle.scanner.linker",
+      "graqle.scanner.nl_router",
+      "graqle.scanner.privacy",
+      "graqle.scanner.dedup.unifier",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.text",
+      "tests.test_metrics.test_metrics_accuracy"
+    ],
+    "consumer_count": 32,
+    "risk_level": "HIGH",
+    "impact_radius": 32
+  },
+  "tests.test_scanner.test_extractors.test_infra": {
+    "consumers": [
+      "graqle.scanner.background"
+    ],
+    "consumer_count": 1,
+    "risk_level": "LOW",
+    "impact_radius": 1
+  },
+  "tests.test_server.test_middleware": {
+    "consumers": [
+      "sdk_self_audit",
+      "graqle.activation.adaptive",
+      "graqle.activation.reformulator",
+      "graqle.activation.relevance",
+      "graqle.benchmarks.benchmark_runner",
+      "graqle.cli.commands.init",
+      "graqle.cli.commands.learn",
+      "graqle.cli.commands.link",
+      "graqle.cli.commands.scan",
+      "graqle.evaluation.constrained_f1",
+      "graqle.intelligence.claude_section",
+      "graqle.intelligence.headers",
+      "graqle.intelligence.pipeline",
+      "graqle.intelligence.validators",
+      "graqle.ontology.domain_detector",
+      "graqle.ontology.markdown_parser",
+      "graqle.ontology.ontology_generator",
+      "graqle.ontology.schema",
+      "graqle.ontology.semantic_shacl_gate",
+      "graqle.ontology.shacl_gate",
+      "graqle.ontology.skill_admin",
+      "graqle.optimization.token_optimizer",
+      "graqle.runtime.fetcher",
+      "graqle.runtime.router",
+      "graqle.scanner.chunker",
+      "graqle.scanner.linker",
+      "graqle.scanner.nl_router",
+      "graqle.scanner.privacy",
+      "graqle.scanner.dedup.unifier",
+      "graqle.scanner.parsers.markdown",
+      "graqle.scanner.parsers.text",
+      "tests.test_metrics.test_metrics_accuracy"
+    ],
+    "consumer_count": 32,
+    "risk_level": "HIGH",
+    "impact_radius": 32
+  }
+}

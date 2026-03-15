@@ -1,0 +1,56 @@
+{
+  "module": "tests.test_orchestration.test_convergence",
+  "files": [
+    "tests/test_orchestration/test_convergence.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_never_converge_before_min_rounds",
+      "type": "Function",
+      "line": 22
+    },
+    {
+      "name": "test_always_converge_at_max_rounds",
+      "type": "Function",
+      "line": 29
+    },
+    {
+      "name": "test_converge_on_high_confidence",
+      "type": "Function",
+      "line": 35
+    },
+    {
+      "name": "test_converge_on_similarity",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_reset",
+      "type": "Function",
+      "line": 52
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.convergence",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.097,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.072057+00:00"
+}

@@ -11,6 +11,14 @@ Commands:
     graq team info              Show team details
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.team
+# risk: LOW (impact radius: 2 modules)
+# consumers: main, test_team
+# dependencies: __future__, typer, console, panel, table
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import typer

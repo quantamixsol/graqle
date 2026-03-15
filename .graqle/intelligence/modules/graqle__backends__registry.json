@@ -1,0 +1,109 @@
+{
+  "module": "graqle.backends.registry",
+  "files": [
+    "graqle/backends/registry.py"
+  ],
+  "node_count": 9,
+  "function_count": 7,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "register",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "get",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "available",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "registered",
+      "type": "Function",
+      "line": 142
+    },
+    {
+      "name": "BackendRegistry",
+      "type": "Class",
+      "line": 76
+    }
+  ],
+  "consumers": [
+    {
+      "module": "sdk_self_audit",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.adapters.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_adapters.test_adapter_config",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_backends.test_registry",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_registry",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_skill_resolver",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.base",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.435,
+  "risk_level": "MEDIUM",
+  "impact_radius": 10,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.161311+00:00"
+}

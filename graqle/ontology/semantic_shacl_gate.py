@@ -11,6 +11,14 @@ Three validation layers:
 Design principle: "Skills = HOW to reason. Constraints = WHERE to reason."
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.semantic_shacl_gate
+# risk: MEDIUM (impact radius: 7 modules)
+# consumers: run_multigov_v3, ontology_generator, __init__, governance_v3, test_governance_v3 +2 more
+# dependencies: __future__, logging, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

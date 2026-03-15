@@ -17,6 +17,13 @@ Usage:
     nodes, edges = auto_ontology(Path("/path/to/codebase"), api_key="sk-...")
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domain_detector
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, logging, os, re +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

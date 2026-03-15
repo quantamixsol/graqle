@@ -5,6 +5,14 @@ Each domain provides: class hierarchy, entity shapes, relationship shapes,
 skill map, and output shapes for the SHACL gate.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domain_registry
+# risk: MEDIUM (impact radius: 7 modules)
+# consumers: sdk_self_audit, __init__, governance, governance_v3, test_registry +2 more
+# dependencies: __future__, logging, dataclasses, typing, upper
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

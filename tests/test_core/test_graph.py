@@ -1,5 +1,12 @@
 """Tests for Graqle."""
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_graph
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, networkx, graph, mock
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 import networkx as nx
 

@@ -4,6 +4,14 @@ Extracts text from slides, including shapes, tables, and notes.
 Each slide becomes a section.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.pptx
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_pptx
+# dependencies: __future__, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

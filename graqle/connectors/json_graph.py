@@ -1,5 +1,13 @@
 """JSON graph connector — file-based graph persistence."""
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.json_graph
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_json_graph
+# dependencies: __future__, json, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

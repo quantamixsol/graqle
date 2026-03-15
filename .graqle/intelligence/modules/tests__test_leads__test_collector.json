@@ -1,0 +1,163 @@
+{
+  "module": "tests.test_leads.test_collector",
+  "files": [
+    "tests/test_leads/test_collector.py"
+  ],
+  "node_count": 26,
+  "function_count": 19,
+  "class_count": 6,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_load_empty_profile",
+      "type": "Function",
+      "line": 35
+    },
+    {
+      "name": "test_save_and_load_profile",
+      "type": "Function",
+      "line": 40
+    },
+    {
+      "name": "test_get_install_id_stable",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_is_registered_false_by_default",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "test_is_telemetry_enabled_false_by_default",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_register_saves_email",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_register_creates_install_id",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_register_queues_event",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_track_project_init",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "test_track_project_init_updates_existing",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "test_track_usage_increments_counters",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "test_check_milestone_at_50",
+      "type": "Function",
+      "line": 154
+    },
+    {
+      "name": "test_check_milestone_returns_none_below_threshold",
+      "type": "Function",
+      "line": 167
+    },
+    {
+      "name": "test_registration_nudge_when_unregistered",
+      "type": "Function",
+      "line": 176
+    },
+    {
+      "name": "test_registration_nudge_none_when_registered",
+      "type": "Function",
+      "line": 182
+    },
+    {
+      "name": "test_milestone_nudge_messages",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_queue_event_creates_file",
+      "type": "Function",
+      "line": 204
+    },
+    {
+      "name": "test_sync_graceful_failure",
+      "type": "Function",
+      "line": 214
+    },
+    {
+      "name": "TestProfile",
+      "type": "Class",
+      "line": 31
+    },
+    {
+      "name": "TestRegistration",
+      "type": "Class",
+      "line": 62
+    },
+    {
+      "name": "TestProjectTracking",
+      "type": "Class",
+      "line": 102
+    },
+    {
+      "name": "TestUsageTracking",
+      "type": "Class",
+      "line": 140
+    },
+    {
+      "name": "TestNudges",
+      "type": "Class",
+      "line": 172
+    },
+    {
+      "name": "TestEventQueue",
+      "type": "Class",
+      "line": 200
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.292,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.424649+00:00"
+}

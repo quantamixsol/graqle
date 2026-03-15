@@ -13,6 +13,14 @@ The complexity score maps to Kmax via a configurable tier system:
 - Expert (score > 0.55): Kmax = expert_nodes (e.g., 16)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.adaptive
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_adaptive
+# dependencies: __future__, logging, re, dataclasses, pcst
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

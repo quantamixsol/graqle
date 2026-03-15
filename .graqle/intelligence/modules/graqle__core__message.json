@@ -1,0 +1,168 @@
+{
+  "module": "graqle.core.message",
+  "files": [
+    "graqle/core/message.py"
+  ],
+  "node_count": 5,
+  "function_count": 3,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "to_prompt_context",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 56
+    },
+    {
+      "name": "create_query_broadcast",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "Message",
+      "type": "Class",
+      "line": 21
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.agents.base_agent",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.agents.slm_agent",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.edge",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.graph",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.node",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.core.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.optimization.message_compressor",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.optimization.token_optimizer",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.aggregation",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.async_protocol",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.debate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.explanation",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.hierarchical",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.message_passing",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.observer",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.streaming",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.conftest",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_agents.test_slm_agent",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_edge",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_core.test_message",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_optimization.test_token_optimizer",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_orchestration.test_convergence",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_orchestration.test_explanation",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_orchestration.test_observer",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "uuid",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.531,
+  "risk_level": "HIGH",
+  "impact_radius": 26,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.492380+00:00"
+}

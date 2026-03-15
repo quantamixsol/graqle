@@ -1,0 +1,126 @@
+{
+  "module": "graqle.ontology.shacl_gate",
+  "files": [
+    "graqle/ontology/shacl_gate.py"
+  ],
+  "node_count": 14,
+  "function_count": 11,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "add_violation",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "add_suggestion",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "to_feedback",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "stats",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "register_shapes",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "validate",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "reset_stats",
+      "type": "Function",
+      "line": 176
+    },
+    {
+      "name": "record_retry",
+      "type": "Function",
+      "line": 179
+    },
+    {
+      "name": "ValidationResult",
+      "type": "Class",
+      "line": 27
+    },
+    {
+      "name": "SHACLGate",
+      "type": "Class",
+      "line": 54
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_ontology_generator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_semantic_shacl_gate",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_shacl_gate",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.422,
+  "risk_level": "MEDIUM",
+  "impact_radius": 8,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.127344+00:00"
+}

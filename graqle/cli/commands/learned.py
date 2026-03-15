@@ -9,6 +9,14 @@ Examples:
     graq learned --domain technical
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.learned
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, pathlib, typer, console, table
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

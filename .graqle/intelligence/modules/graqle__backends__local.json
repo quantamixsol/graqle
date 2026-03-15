@@ -1,0 +1,51 @@
+{
+  "module": "graqle.backends.local",
+  "files": [
+    "graqle/backends/local.py"
+  ],
+  "node_count": 7,
+  "function_count": 5,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "generate",
+      "type": "Function",
+      "line": 68
+    },
+    {
+      "name": "name",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "cost_per_1k_tokens",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "LocalModel",
+      "type": "Class",
+      "line": 13
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.09,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.628055+00:00"
+}

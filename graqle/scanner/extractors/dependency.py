@@ -4,6 +4,14 @@ Produces ``Dependency`` and ``Script`` nodes with ``DEPENDS_ON`` and
 ``INVOKES`` edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.dependency
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_dependency
+# dependencies: __future__, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

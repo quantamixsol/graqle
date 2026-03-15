@@ -5,6 +5,14 @@ Used by Studio cloud features and `graq login` command.
 No signup required for local features — cloud is optional.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cloud.credentials
+# risk: LOW (impact radius: 2 modules)
+# consumers: test_login, test_credentials
+# dependencies: __future__, json, logging, dataclasses, pathlib +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

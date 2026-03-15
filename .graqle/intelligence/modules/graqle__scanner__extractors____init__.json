@@ -1,0 +1,36 @@
+{
+  "module": "graqle.scanner.extractors.__init__",
+  "files": [
+    "graqle/scanner/extractors/__init__.py"
+  ],
+  "node_count": 2,
+  "function_count": 1,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "get_extractor",
+      "type": "Function",
+      "line": 45
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.05,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.793053+00:00"
+}

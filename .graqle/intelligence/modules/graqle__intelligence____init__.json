@@ -1,0 +1,42 @@
+{
+  "module": "graqle.intelligence.__init__",
+  "files": [
+    "graqle/intelligence/__init__.py"
+  ],
+  "node_count": 1,
+  "function_count": 0,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.compile",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.emitter",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.headers",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.claude_section",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.1,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.136155+00:00"
+}

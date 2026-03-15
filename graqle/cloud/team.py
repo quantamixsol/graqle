@@ -8,6 +8,14 @@ Teams share a cloud-hosted graph via Neptune, enabling:
 - Access control (teach/modify vs read-only)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cloud.team
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: main, test_team
+# dependencies: __future__, json, logging, time, dataclasses +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

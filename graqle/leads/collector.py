@@ -12,6 +12,13 @@ Privacy guarantees:
 - Sync endpoint is configurable (default: https://api.graqle.dev/leads)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.leads.collector
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, hashlib, json, logging, os +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

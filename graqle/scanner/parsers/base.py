@@ -7,6 +7,14 @@ form the canonical intermediate representation that downstream graph
 builders consume.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.base
+# risk: HIGH (impact radius: 31 modules)
+# consumers: api, fallback, gemini, llamacpp_backend, local +26 more
+# dependencies: __future__, abc, dataclasses, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

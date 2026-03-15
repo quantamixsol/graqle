@@ -1,0 +1,153 @@
+{
+  "module": "tests.test_backends.test_providers",
+  "files": [
+    "tests/test_backends/test_providers.py"
+  ],
+  "node_count": 23,
+  "function_count": 18,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_all_presets_have_required_keys",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_all_endpoints_are_https",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_all_have_at_least_one_model",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "test_default_model_in_models_dict",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "test_model_costs_are_positive",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "test_known_providers_exist",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_returns_list",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_includes_groq",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_known_provider",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_unknown_provider",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "test_unknown_provider_raises",
+      "type": "Function",
+      "line": 85
+    },
+    {
+      "name": "test_missing_api_key_raises",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_creates_backend_with_explicit_key",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_creates_backend_with_env_key",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "test_uses_default_model_when_none",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "test_fallback_cost_for_unknown_model",
+      "type": "Function",
+      "line": 118
+    },
+    {
+      "name": "test_endpoint_override",
+      "type": "Function",
+      "line": 125
+    },
+    {
+      "name": "test_all_providers_create_successfully",
+      "type": "Function",
+      "line": 133
+    },
+    {
+      "name": "TestProviderPresets",
+      "type": "Class",
+      "line": 23
+    },
+    {
+      "name": "TestGetProviderNames",
+      "type": "Class",
+      "line": 63
+    },
+    {
+      "name": "TestGetProviderEnvVar",
+      "type": "Class",
+      "line": 73
+    },
+    {
+      "name": "TestCreateProviderBackend",
+      "type": "Class",
+      "line": 82
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.providers",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.279,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:44.876363+00:00"
+}

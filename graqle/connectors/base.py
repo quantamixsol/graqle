@@ -1,5 +1,13 @@
 """Base connector — abstract interface for loading graph data."""
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.base
+# risk: MEDIUM (impact radius: 31 modules)
+# consumers: api, fallback, gemini, llamacpp_backend, local +26 more
+# dependencies: __future__, abc, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

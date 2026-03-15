@@ -1,0 +1,70 @@
+{
+  "module": "graqle.orchestration.aggregation",
+  "files": [
+    "graqle/orchestration/aggregation.py"
+  ],
+  "node_count": 8,
+  "function_count": 6,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "aggregate",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "Aggregator",
+      "type": "Class",
+      "line": 61
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.orchestration.__init__",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.266,
+  "risk_level": "LOW",
+  "impact_radius": 4,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.177487+00:00"
+}

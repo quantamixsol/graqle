@@ -1,5 +1,13 @@
 """Environment auto-detection — DETECT don't ASK."""
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.autodetect
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_autodetect
+# dependencies: __future__, os, logging, dataclasses, pathlib
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

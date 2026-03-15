@@ -14,6 +14,13 @@ Conversion to Graqle KG:
 - Entity co-occurrence across paragraphs → additional edges
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.hotpotqa_loader
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, random, dataclasses, pathlib +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

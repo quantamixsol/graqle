@@ -1,0 +1,122 @@
+{
+  "module": "tests.test_scanner.test_dedup.test_unifier",
+  "files": [
+    "tests/test_scanner/test_dedup/test_unifier.py"
+  ],
+  "node_count": 20,
+  "function_count": 17,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_snake_case",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_camel_case",
+      "type": "Function",
+      "line": 18
+    },
+    {
+      "name": "test_pascal_case",
+      "type": "Function",
+      "line": 21
+    },
+    {
+      "name": "test_kebab_case",
+      "type": "Function",
+      "line": 24
+    },
+    {
+      "name": "test_dot_case",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_file_extension_stripped",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_path_segments",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "test_single_short_token_filtered",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "test_mixed_delimiters",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "test_register_and_match_cross_source",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_no_match_same_source",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_case_insensitive_matching",
+      "type": "Function",
+      "line": 89
+    },
+    {
+      "name": "test_no_naming_conventions",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_source_priority_ordering",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_short_label_no_match",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "test_multiple_matches_sorted_by_confidence",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "test_kebab_to_snake_match",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "TestTokenise",
+      "type": "Class",
+      "line": 11
+    },
+    {
+      "name": "TestEntityUnifier",
+      "type": "Class",
+      "line": 54
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.dedup.unifier",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.186,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.205600+00:00"
+}

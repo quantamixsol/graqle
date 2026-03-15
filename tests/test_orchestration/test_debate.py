@@ -1,5 +1,12 @@
 """Tests for DebateProtocol."""
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_debate
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock, debate
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.backends.mock import MockBackend

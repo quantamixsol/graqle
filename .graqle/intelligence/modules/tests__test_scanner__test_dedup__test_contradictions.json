@@ -1,0 +1,82 @@
+{
+  "module": "tests.test_scanner.test_dedup.test_contradictions",
+  "files": [
+    "tests/test_scanner/test_dedup/test_contradictions.py"
+  ],
+  "node_count": 12,
+  "function_count": 10,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_numeric_mismatch",
+      "type": "Function",
+      "line": 15
+    },
+    {
+      "name": "test_boolean_mismatch",
+      "type": "Function",
+      "line": 37
+    },
+    {
+      "name": "test_value_mismatch",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_no_contradiction_same_value",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_no_contradiction_same_source_type",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_skips_metadata_keys",
+      "type": "Function",
+      "line": 113
+    },
+    {
+      "name": "test_short_label_ignored",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "test_long_string_ignored",
+      "type": "Function",
+      "line": 141
+    },
+    {
+      "name": "test_multiple_contradictions",
+      "type": "Function",
+      "line": 162
+    },
+    {
+      "name": "test_case_insensitive_string_no_contradiction",
+      "type": "Function",
+      "line": 180
+    },
+    {
+      "name": "TestDetectContradictions",
+      "type": "Class",
+      "line": 11
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.dedup.contradictions",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.117,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.127498+00:00"
+}

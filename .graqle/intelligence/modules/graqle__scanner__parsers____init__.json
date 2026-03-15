@@ -1,0 +1,49 @@
+{
+  "module": "graqle.scanner.parsers.__init__",
+  "files": [
+    "graqle/scanner/parsers/__init__.py"
+  ],
+  "node_count": 3,
+  "function_count": 2,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "get_parser",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "available_formats",
+      "type": "Function",
+      "line": 109
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "importlib",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.099,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.840115+00:00"
+}

@@ -1,0 +1,55 @@
+{
+  "module": "graqle.scanner.nl_router",
+  "files": [
+    "graqle/scanner/nl_router.py"
+  ],
+  "node_count": 4,
+  "function_count": 2,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "route_query",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "is_natural_language",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "RouteResult",
+      "type": "Class",
+      "line": 18
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_scanner.test_nl_router",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.108,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.838956+00:00"
+}

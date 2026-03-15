@@ -4,6 +4,13 @@ Verifies that _build_embedding_text() prioritizes function/class chunks
 and uses 500 chars from top 5 chunks (was 200 chars from top 3).
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_relevance_chunks
+# risk: LOW (impact radius: 0 modules)
+# dependencies: mock, pytest, relevance
+# constraints: none
+# ── /graqle:intelligence ──
+
 from unittest.mock import MagicMock
 
 import pytest

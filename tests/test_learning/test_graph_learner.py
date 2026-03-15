@@ -1,5 +1,12 @@
 """Tests for graqle.learning.graph_learner module."""
 
+# ── graqle:intelligence ──
+# module: tests.test_learning.test_graph_learner
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, dataclasses, pathlib, typing +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

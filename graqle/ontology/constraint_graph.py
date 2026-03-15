@@ -10,6 +10,14 @@ Example:
     receive this shared constraint before reasoning, ensuring consistency.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.constraint_graph
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_constraint_graph
+# dependencies: __future__, logging, dataclasses, typing, numpy
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

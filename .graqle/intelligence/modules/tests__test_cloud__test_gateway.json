@@ -1,0 +1,140 @@
+{
+  "module": "tests.test_cloud.test_gateway",
+  "files": [
+    "tests/test_cloud/test_gateway.py"
+  ],
+  "node_count": 22,
+  "function_count": 18,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_not_connected",
+      "type": "Function",
+      "line": 24
+    },
+    {
+      "name": "test_connected_with_key",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_status_not_connected",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_status_connected",
+      "type": "Function",
+      "line": 37
+    },
+    {
+      "name": "test_push_delta_not_connected",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_push_delta_foundation",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "test_pull_delta_foundation",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_register_team_foundation",
+      "type": "Function",
+      "line": 61
+    },
+    {
+      "name": "test_observability_foundation",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "test_no_triggers_team_plan",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_graph_size_trigger_free",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "test_no_trigger_small_graph",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "test_multi_developer_trigger",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "test_high_usage_trigger",
+      "type": "Function",
+      "line": 91
+    },
+    {
+      "name": "test_cross_repo_trigger",
+      "type": "Function",
+      "line": 95
+    },
+    {
+      "name": "test_pro_graph_size_trigger",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_trigger_has_value_prop",
+      "type": "Function",
+      "line": 103
+    },
+    {
+      "name": "test_all_value_props_have_features",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "TestCloudGateway",
+      "type": "Class",
+      "line": 21
+    },
+    {
+      "name": "TestUpsellTriggers",
+      "type": "Class",
+      "line": 73
+    },
+    {
+      "name": "TestCloudValueProps",
+      "type": "Class",
+      "line": 108
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cloud.gateway",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.237,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:01.592505+00:00"
+}

@@ -1,0 +1,88 @@
+{
+  "module": "graqle.cli.commands.link",
+  "files": [
+    "graqle/cli/commands/link.py"
+  ],
+  "node_count": 10,
+  "function_count": 9,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "link_merge",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "link_edge",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "link_stats",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "link_infer",
+      "type": "Function",
+      "line": 532
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cli.test_link",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "rich.console",
+      "type": "external"
+    },
+    {
+      "module": "rich.table",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.console",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.319,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.423959+00:00"
+}

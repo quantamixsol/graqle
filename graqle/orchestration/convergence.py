@@ -3,6 +3,14 @@
 v2: Semantic convergence using embedding similarity + constraint-aware blocking.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.convergence
+# risk: LOW (impact radius: 5 modules)
+# consumers: run_multigov_v2, run_multigov_v3, orchestrator, __init__, test_convergence
+# dependencies: __future__, logging, typing, numpy
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

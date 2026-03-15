@@ -1,5 +1,13 @@
 """Tests for graqle.scanner.extractors.infra — infrastructure extractor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_extractors.test_infra
+# risk: LOW (impact radius: 1 modules)
+# consumers: background
+# dependencies: __future__, infra
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from graqle.scanner.extractors.infra import InfraExtractor

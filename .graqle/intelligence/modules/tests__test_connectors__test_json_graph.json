@@ -1,0 +1,69 @@
+{
+  "module": "tests.test_connectors.test_json_graph",
+  "files": [
+    "tests/test_connectors/test_json_graph.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "json_graph_file",
+      "type": "Function",
+      "line": 18
+    },
+    {
+      "name": "test_json_connector_load",
+      "type": "Function",
+      "line": 35
+    },
+    {
+      "name": "test_json_connector_validate",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "test_json_connector_validate_missing",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "test_json_connector_save",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_json_connector_load_missing",
+      "type": "Function",
+      "line": 69
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.json_graph",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.137,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:01.950138+00:00"
+}

@@ -6,6 +6,14 @@ CI pipelines, dependencies, and environment variables — then builds a rich
 knowledge graph with typed nodes and edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.scan
+# risk: HIGH (impact radius: 2 modules)
+# consumers: main, test_scan
+# dependencies: __future__, ast, json, logging, re +9 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import ast
@@ -93,15 +101,23 @@ class PythonAnalyzer:
     _ORM_BASES = {"Model", "Base", "DeclarativeBase", "SQLModel", "Document"}
 
     def analyze_file(self, path: Path) -> dict[str, Any]:
-        """Return imports, classes, functions, routes, env_vars, models, calls."""
+        """Return imports, classes, functions, routes, env_vars, models, calls.
+
+        Functions and classes include rich metadata: line ranges, parameters,
+        docstrings, outgoing calls, and decorators — enabling function-level
+        chunk inheritance and rich T1 descriptions.
+        """
         empty: dict[str, Any] = {
             "imports": [],
             "classes": [],
             "functions": [],
+            "function_details": {},
+            "class_details": {},
             "routes": [],
             "env_vars": [],
             "models": [],
             "calls": [],
+            "total_lines": 0,
         }
         try:
             source = path.read_text(errors="ignore")
@@ -109,9 +125,14 @@ class PythonAnalyzer:
         except (SyntaxError, UnicodeDecodeError, ValueError):
             return empty
 
+        source_lines = source.splitlines()
+        total_lines = len(source_lines)
+
         imports: list[str] = []
         classes: list[str] = []
         functions: list[str] = []
+        function_details: dict[str, dict[str, Any]] = {}
+        class_details: dict[str, dict[str, Any]] = {}
         routes: list[dict[str, str]] = []
         env_vars: list[str] = []
         models: list[str] = []
@@ -129,6 +150,15 @@ class PythonAnalyzer:
             # --- Classes ---------------------------------------------------
             elif isinstance(node, ast.ClassDef):
                 classes.append(node.name)
+                end_line = getattr(node, "end_lineno", node.lineno + 10)
+                class_details[node.name] = {
+                    "start_line": node.lineno,
+                    "end_line": end_line,
+                    "line_count": end_line - node.lineno + 1,
+                    "bases": [_attr_name(b) or "?" for b in node.bases],
+                    "methods": [n.name for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))],
+                    "docstring": ast.get_docstring(node) or "",
+                }
                 # Detect ORM models by base class names
                 for base in node.bases:
                     base_name = _attr_name(base)
@@ -139,6 +169,43 @@ class PythonAnalyzer:
             # --- Functions & routes ----------------------------------------
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 functions.append(node.name)
+                end_line = getattr(node, "end_lineno", node.lineno + 5)
+
+                # Extract parameter names
+                params = [a.arg for a in node.args.args if a.arg != "self"]
+
+                # Extract calls made inside this function body
+                fn_calls: list[str] = []
+                fn_env_vars: list[str] = []
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Call):
+                        cn = _call_name(child)
+                        if cn:
+                            fn_calls.append(cn)
+                            if "getenv" in cn or "environ" in cn:
+                                for arg in child.args:
+                                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                                        fn_env_vars.append(arg.value)
+                    elif isinstance(child, ast.Subscript):
+                        val_name = _attr_name(child.value) if hasattr(child, "value") else ""
+                        if val_name and "environ" in val_name:
+                            if isinstance(child.slice, ast.Constant) and isinstance(child.slice.value, str):
+                                fn_env_vars.append(child.slice.value)
+
+                # Decorators
+                decorators = [_decorator_name(d) or "" for d in node.decorator_list]
+
+                function_details[node.name] = {
+                    "start_line": node.lineno,
+                    "end_line": end_line,
+                    "line_count": end_line - node.lineno + 1,
+                    "params": params,
+                    "is_async": isinstance(node, ast.AsyncFunctionDef),
+                    "docstring": ast.get_docstring(node) or "",
+                    "calls": list(dict.fromkeys(fn_calls)),  # dedupe, preserve order
+                    "env_vars": list(set(fn_env_vars)),
+                    "decorators": [d for d in decorators if d],
+                }
 
                 # Check decorators for route patterns
                 for dec in node.decorator_list:
@@ -171,10 +238,13 @@ class PythonAnalyzer:
             "imports": imports,
             "classes": classes,
             "functions": functions,
+            "function_details": function_details,
+            "class_details": class_details,
             "routes": routes,
             "env_vars": list(set(env_vars)),
             "models": models,
             "calls": calls,
+            "total_lines": total_lines,
         }
 
 
@@ -183,7 +253,12 @@ class PythonAnalyzer:
 # ---------------------------------------------------------------------------
 
 class JSAnalyzer:
-    """Analyze JavaScript / TypeScript files using regex patterns."""
+    """Analyze JavaScript / TypeScript files using regex patterns.
+
+    Enhanced to extract line ranges, parameters, JSDoc, and body-level calls
+    for each function and class — enabling line-range chunk inheritance and
+    rich descriptions identical to PythonAnalyzer.
+    """
 
     IMPORT_PATTERN = re.compile(
         r"""(?:import\s+(?:.*?\s+from\s+)?|require\s*\(\s*)['\"]([^'"]+)['\"]""",
@@ -206,15 +281,295 @@ class JSAnalyzer:
         r"(?:export\s+)?(?:default\s+)?(?:const|function)\s+([A-Z]\w+)",
     )
 
+    # --- Detailed patterns for line-range extraction ---
+
+    # Matches: function name(...), async function name(...),
+    #          export function name(...), export default function name(...)
+    _FN_DECL_RE = re.compile(
+        r"^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)\s*\(",
+        re.MULTILINE,
+    )
+    # Matches: const/let/var name = (...) =>, const name = async (...) =>
+    #          const name = function(...), export const name = ...
+    _FN_ASSIGN_RE = re.compile(
+        r"^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z_]\w*)\s*=>",
+        re.MULTILINE,
+    )
+    _FN_ASSIGN_EXPR_RE = re.compile(
+        r"^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?function\s*\(",
+        re.MULTILINE,
+    )
+    # Matches: class Name {, class Name extends Base {, interface Name {
+    _CLASS_DECL_RE = re.compile(
+        r"^(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(?:class|interface)\s+(\w+)"
+        r"(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w,\s]+)?",
+        re.MULTILINE,
+    )
+    # JSDoc: /** ... */
+    _JSDOC_RE = re.compile(r"/\*\*(.*?)\*/", re.DOTALL)
+    # Params from signature: (a, b, c) or (a: Type, b: Type)
+    _PARAMS_RE = re.compile(r"\(\s*([^)]*)\)")
+    # Function call: identifier( — but not keywords
+    _CALL_RE = re.compile(r"\b([a-zA-Z_]\w*)\s*\(")
+    _JS_KEYWORDS = frozenset({
+        "if", "else", "for", "while", "do", "switch", "case", "return",
+        "throw", "try", "catch", "finally", "new", "typeof", "instanceof",
+        "void", "delete", "in", "of", "with", "yield", "await", "import",
+        "export", "from", "as", "default", "class", "extends", "super",
+        "this", "function", "async", "const", "let", "var",
+    })
+
+    @staticmethod
+    def _offset_to_line(content: str, offset: int) -> int:
+        """Convert a character offset to a 1-based line number."""
+        return content.count("\n", 0, offset) + 1
+
+    def _find_block_end(self, content: str, start_offset: int) -> int:
+        """Find the end of a brace-delimited block starting near *start_offset*.
+
+        Scans forward from *start_offset* to find the opening ``{``, then
+        counts matching braces to locate the closing ``}``.  Returns the
+        character offset of the character *after* the closing brace.
+
+        If no opening brace is found within 500 chars (e.g. arrow fn without
+        braces), heuristically finds the end of the statement.
+        """
+        # Find opening brace
+        search_limit = min(start_offset + 500, len(content))
+        brace_pos = content.find("{", start_offset, search_limit)
+        if brace_pos == -1:
+            # Arrow function without braces — find end of expression
+            # Look for next top-level declaration or blank line
+            newline_pos = content.find("\n\n", start_offset)
+            if newline_pos == -1:
+                return len(content)
+            # Find end of the logical line (could be multiline expression)
+            return newline_pos
+
+        depth = 0
+        i = brace_pos
+        in_string: str | None = None
+        in_template = False
+        escape = False
+        while i < len(content):
+            ch = content[i]
+            if escape:
+                escape = False
+                i += 1
+                continue
+            if ch == "\\":
+                escape = True
+                i += 1
+                continue
+            if in_string:
+                if ch == in_string:
+                    in_string = None
+                i += 1
+                continue
+            if ch in ('"', "'"):
+                in_string = ch
+                i += 1
+                continue
+            if ch == "`":
+                in_template = not in_template
+                i += 1
+                continue
+            if in_template:
+                i += 1
+                continue
+            if ch == "/" and i + 1 < len(content):
+                nxt = content[i + 1]
+                if nxt == "/":
+                    # Line comment — skip to end of line
+                    nl = content.find("\n", i + 2)
+                    i = nl + 1 if nl != -1 else len(content)
+                    continue
+                if nxt == "*":
+                    # Block comment — skip to */
+                    end_c = content.find("*/", i + 2)
+                    i = end_c + 2 if end_c != -1 else len(content)
+                    continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+            i += 1
+        return len(content)
+
+    def _extract_jsdoc_before(self, content: str, decl_offset: int) -> str:
+        """Extract JSDoc comment immediately before a declaration."""
+        # Look backwards from decl_offset for /** ... */
+        search_start = max(0, decl_offset - 2000)
+        region = content[search_start:decl_offset]
+        # Find the last JSDoc block
+        matches = list(self._JSDOC_RE.finditer(region))
+        if not matches:
+            return ""
+        last = matches[-1]
+        # Must be right before the declaration (only whitespace between)
+        between = region[last.end():]
+        if between.strip():
+            return ""  # Something else between JSDoc and declaration
+        raw = last.group(1)
+        # Clean JSDoc: remove leading * from each line
+        lines = []
+        for line in raw.splitlines():
+            cleaned = line.strip().lstrip("*").strip()
+            if cleaned and not cleaned.startswith("@"):
+                lines.append(cleaned)
+        return " ".join(lines)[:300]
+
+    def _extract_params(self, content: str, decl_offset: int) -> list[str]:
+        """Extract parameter names from the function signature near *decl_offset*."""
+        # Search forward for the first (...) after the declaration
+        search_end = min(decl_offset + 500, len(content))
+        m = self._PARAMS_RE.search(content, decl_offset, search_end)
+        if not m or not m.group(1).strip():
+            return []
+        raw_params = m.group(1)
+        params = []
+        for p in raw_params.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            # Remove type annotations: "name: Type" -> "name", "name = default" -> "name"
+            name = re.split(r"[=:?]", p)[0].strip()
+            # Remove destructuring braces/brackets, rest/spread
+            name = name.lstrip("{[").rstrip("}]").lstrip(".")
+            if name and name not in ("", "..."):
+                params.append(name)
+        return params[:15]
+
+    def _extract_calls_in_body(self, body: str) -> list[str]:
+        """Extract unique function call names from a function body."""
+        calls = set()
+        for m in self._CALL_RE.finditer(body):
+            name = m.group(1)
+            if name not in self._JS_KEYWORDS and not name[0].isupper():
+                # Exclude class instantiation (Capitalized names) and keywords
+                calls.add(name)
+        # Also include Capitalized calls (React components, constructors)
+        for m in self._CALL_RE.finditer(body):
+            name = m.group(1)
+            if name not in self._JS_KEYWORDS and name[0].isupper():
+                calls.add(name)
+        return sorted(calls)[:30]
+
+    def _extract_env_vars_in_body(self, body: str) -> list[str]:
+        """Extract env var names from a function body."""
+        env = set(self.ENV_PATTERN.findall(body))
+        env |= set(self.ENV_PATTERN_VITE.findall(body))
+        return sorted(env)
+
     def analyze_file(self, path: Path) -> dict[str, Any]:
         try:
             content = path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
-            return {"imports": [], "classes": [], "functions": [], "routes": [], "env_vars": []}
+            return {
+                "imports": [], "classes": [], "functions": [],
+                "routes": [], "env_vars": [],
+                "function_details": {}, "class_details": {},
+            }
 
-        # Merge named groups from FUNCTION_PATTERN
+        # --- Collect all top-level declarations with positions ---
+        declarations: list[tuple[str, str, int, re.Match[str]]] = []
+        # (kind, name, offset, match)
+
+        for m in self._FN_DECL_RE.finditer(content):
+            declarations.append(("function", m.group(1), m.start(), m))
+        for m in self._FN_ASSIGN_RE.finditer(content):
+            declarations.append(("function", m.group(1), m.start(), m))
+        for m in self._FN_ASSIGN_EXPR_RE.finditer(content):
+            declarations.append(("function", m.group(1), m.start(), m))
+        for m in self._CLASS_DECL_RE.finditer(content):
+            declarations.append(("class", m.group(1), m.start(), m))
+
+        # Sort by offset and deduplicate (same name at same position)
+        declarations.sort(key=lambda d: d[2])
+        seen: set[tuple[str, int]] = set()
+        unique_decls: list[tuple[str, str, int, re.Match[str]]] = []
+        for kind, name, offset, match in declarations:
+            key = (name, offset)
+            if key not in seen:
+                seen.add(key)
+                unique_decls.append((kind, name, offset, match))
+        declarations = unique_decls
+
+        # --- Build function_details and class_details with line ranges ---
+        function_details: dict[str, dict[str, Any]] = {}
+        class_details: dict[str, dict[str, Any]] = {}
+        function_names: list[str] = []
+        class_names: list[str] = []
+
+        for kind, name, offset, match in declarations:
+            start_line = self._offset_to_line(content, offset)
+            block_end = self._find_block_end(content, match.end())
+            end_line = self._offset_to_line(content, block_end)
+            body = content[match.end():block_end]
+            line_count = end_line - start_line + 1
+
+            if kind == "function":
+                is_async = "async" in match.group(0)
+                jsdoc = self._extract_jsdoc_before(content, offset)
+                params = self._extract_params(content, offset)
+                calls = self._extract_calls_in_body(body)
+                env_vars = self._extract_env_vars_in_body(body)
+
+                # Detect decorators (TypeScript)
+                decorator_line = max(0, offset - 200)
+                region_before = content[decorator_line:offset]
+                decorators = re.findall(r"@(\w+)", region_before)
+
+                function_details[name] = {
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "line_count": line_count,
+                    "params": params,
+                    "is_async": is_async,
+                    "docstring": jsdoc,
+                    "calls": calls,
+                    "env_vars": env_vars,
+                    "decorators": decorators[-3:] if decorators else [],
+                }
+                if name not in function_names:
+                    function_names.append(name)
+
+            elif kind == "class":
+                jsdoc = self._extract_jsdoc_before(content, offset)
+                bases = []
+                if match.group(2):
+                    bases.append(match.group(2))
+                # Extract method names inside the class body
+                method_names = re.findall(
+                    r"(?:async\s+)?(\w+)\s*\([^)]*\)\s*[:{]", body
+                )
+                # Filter out keywords
+                methods = [
+                    m for m in method_names
+                    if m not in self._JS_KEYWORDS and m != name
+                ][:20]
+
+                class_details[name] = {
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "line_count": line_count,
+                    "bases": bases,
+                    "methods": methods,
+                    "docstring": jsdoc,
+                }
+                if name not in class_names:
+                    class_names.append(name)
+
+        # --- Legacy fields (backward compatible) ---
         raw_fns = self.FUNCTION_PATTERN.findall(content)
-        functions = [g1 or g2 for g1, g2 in raw_fns if g1 or g2][:30]
+        legacy_functions = [g1 or g2 for g1, g2 in raw_fns if g1 or g2][:30]
+        # Merge: prefer detailed names, fall back to legacy
+        all_fn_names = list(dict.fromkeys(function_names + legacy_functions))
+
+        legacy_classes = self.CLASS_PATTERN.findall(content)
+        all_class_names = list(dict.fromkeys(class_names + legacy_classes))
 
         routes_raw = self.ROUTE_PATTERN.findall(content)
         routes = [{"method": m.upper(), "path": p} for m, p in routes_raw]
@@ -225,10 +580,12 @@ class JSAnalyzer:
 
         return {
             "imports": self.IMPORT_PATTERN.findall(content),
-            "classes": self.CLASS_PATTERN.findall(content),
-            "functions": functions,
+            "classes": all_class_names,
+            "functions": all_fn_names,
             "routes": routes,
             "env_vars": env_vars,
+            "function_details": function_details,
+            "class_details": class_details,
         }
 
 
@@ -313,11 +670,15 @@ class RepoScanner:
         include_tests: bool = True,
         verbose: bool = False,
         exclude_patterns: list[str] | None = None,
+        follow_repos: bool = False,
+        include_docs: bool = False,
     ) -> None:
         self.root = root.resolve()
         self.max_depth = max_depth
         self.include_tests = include_tests
         self.verbose = verbose
+        self.follow_repos = follow_repos
+        self.include_docs = include_docs
 
         self.py_analyzer = PythonAnalyzer()
         self.js_analyzer = JSAnalyzer()
@@ -380,6 +741,42 @@ class RepoScanner:
             edge_counts[e.get("relationship", "UNKNOWN")] += 1
         return _format_summary(self.root, type_counts, edge_counts, len(self._nodes), len(self._edges))
 
+    def coverage_report(self) -> dict[str, Any]:
+        """Check KG coverage: how many nodes have chunks, descriptions, and edges.
+
+        Returns a report dict with coverage percentages and lists of empty nodes.
+        """
+        total = len(self._nodes)
+        code_types = {"Function", "Class", "PythonModule", "JavaScriptModule", "TestFile"}
+        code_nodes = [n for n in self._nodes.values() if n.get("type") in code_types]
+
+        nodes_with_chunks = sum(1 for n in code_nodes if n.get("chunks"))
+        nodes_with_desc = sum(1 for n in code_nodes if len(n.get("description", "")) > 60)
+
+        # Edge coverage: which nodes have > 1 edge (more than just DEFINES from parent)
+        edge_count: dict[str, int] = {}
+        for e in self._edges:
+            edge_count[e["source"]] = edge_count.get(e["source"], 0) + 1
+            edge_count[e["target"]] = edge_count.get(e["target"], 0) + 1
+        nodes_with_edges = sum(1 for n in code_nodes if edge_count.get(n["id"], 0) > 1)
+
+        # Empty function/class nodes (the critical gap)
+        empty_code_nodes = [
+            n["id"] for n in code_nodes
+            if n.get("type") in ("Function", "Class") and not n.get("chunks")
+        ]
+
+        code_count = len(code_nodes) or 1  # avoid div by zero
+        return {
+            "total_nodes": total,
+            "code_nodes": len(code_nodes),
+            "chunk_coverage": round(nodes_with_chunks / code_count * 100, 1),
+            "description_coverage": round(nodes_with_desc / code_count * 100, 1),
+            "edge_coverage": round(nodes_with_edges / code_count * 100, 1),
+            "empty_code_nodes": empty_code_nodes[:20],
+            "empty_code_node_count": len(empty_code_nodes),
+        }
+
     # -- File collection ----------------------------------------------------
 
     def _collect_files(self) -> list[Path]:
@@ -408,6 +805,12 @@ class RepoScanner:
             if entry.is_dir():
                 if entry.name in SKIP_DIRS:
                     continue
+                # In follow-repos mode, detect nested repos and load their .gitignore
+                if self.follow_repos and (entry / ".git").is_dir():
+                    # Load nested repo's .gitignore into our matcher
+                    nested_gi = entry / ".gitignore"
+                    if nested_gi.is_file():
+                        self.gitignore._load_file(nested_gi)
                 rel = str(entry.relative_to(self.root)).replace("\\", "/")
                 if self.gitignore.is_ignored(rel):
                     continue
@@ -439,6 +842,8 @@ class RepoScanner:
             self._process_env_file(path)
         elif name == "readme.md":
             self._process_readme(path)
+        elif suffix == ".md" and self.include_docs:
+            self._process_markdown(path)
         elif suffix in {".yaml", ".yml", ".json", ".toml", ".ini", ".cfg"}:
             self._process_config(path)
 
@@ -475,20 +880,67 @@ class RepoScanner:
 
         # AST analysis
         info = self.py_analyzer.analyze_file(path)
+        fn_details = info.get("function_details", {})
+        cls_details = info.get("class_details", {})
 
-        # Classes
+        # Classes — with chunk inheritance and rich description
         for cls_name in info["classes"]:
             cls_id = f"{rel}::{cls_name}"
-            self._add_node(cls_id, label=cls_name, type="Class", description=f"Class {cls_name} in {rel}")
+            detail = cls_details.get(cls_name, {})
+            cls_desc = self._build_class_description(cls_name, rel, detail)
+            cls_attrs: dict[str, Any] = {
+                "label": cls_name,
+                "type": "Class",
+                "description": cls_desc,
+                "file_path": str(path.resolve()),
+            }
+            # Inherit chunks from module by line range (with overlap + text fallback)
+            if detail.get("start_line") and chunks:
+                cls_chunks = self._inherit_chunks(
+                    chunks, detail["start_line"],
+                    detail.get("end_line", 999999), cls_name,
+                )
+                if cls_chunks:
+                    cls_attrs["chunks"] = cls_chunks
+                    cls_attrs["chunk_count"] = len(cls_chunks)
+            self._add_node(cls_id, **cls_attrs)
             self._add_edge(node_id, cls_id, "DEFINES")
 
-        # Functions (top-level only — skip dunder unless route)
+        # Functions — with chunk inheritance, rich description, and outgoing edges
         for fn_name in info["functions"]:
             if fn_name.startswith("_") and not any(r["handler"] == fn_name for r in info["routes"]):
                 continue  # skip private helpers to reduce noise
             fn_id = f"{rel}::{fn_name}"
-            self._add_node(fn_id, label=fn_name, type="Function", description=f"Function {fn_name} in {rel}")
+            detail = fn_details.get(fn_name, {})
+            fn_desc = self._build_function_description(fn_name, rel, detail)
+            fn_attrs: dict[str, Any] = {
+                "label": fn_name,
+                "type": "Function",
+                "description": fn_desc,
+                "file_path": str(path.resolve()),
+            }
+            # Inherit chunks from module by line range (with overlap + text fallback)
+            if detail.get("start_line") and chunks:
+                fn_chunks = self._inherit_chunks(
+                    chunks, detail["start_line"],
+                    detail.get("end_line", 999999), fn_name,
+                )
+                if fn_chunks:
+                    fn_attrs["chunks"] = fn_chunks
+                    fn_attrs["chunk_count"] = len(fn_chunks)
+            self._add_node(fn_id, **fn_attrs)
             self._add_edge(node_id, fn_id, "DEFINES")
+
+            # Function-level outgoing edges: CALLS, USES_ENVVAR
+            for called in detail.get("calls", [])[:20]:
+                # Create CALLS edges to other known functions in this file
+                called_id = f"{rel}::{called}"
+                if called_id != fn_id:  # no self-loops
+                    self._add_edge(fn_id, called_id, "CALLS")
+            for ev in detail.get("env_vars", []):
+                ev_id = f"env::{ev}"
+                self._add_node(ev_id, label=ev, type="EnvVar", description=f"Environment variable {ev}")
+                self._add_edge(fn_id, ev_id, "USES_ENVVAR")
 
         # Routes
         for route in info["routes"]:
@@ -512,7 +964,7 @@ class RepoScanner:
             if cls_id in self._nodes:
                 self._add_edge(cls_id, model_id, "MODELS")
 
-        # Env vars
+        # Env vars (module-level)
         for ev in info["env_vars"]:
             ev_id = f"env::{ev}"
             self._add_node(ev_id, label=ev, type="EnvVar", description=f"Environment variable {ev}")
@@ -546,18 +998,69 @@ class RepoScanner:
 
         self._add_contains_edge(path, node_id)
 
+        # Enhanced analysis with line ranges
         info = self.js_analyzer.analyze_file(path)
+        fn_details = info.get("function_details", {})
+        cls_details = info.get("class_details", {})
 
+        # Classes — with chunk inheritance and rich description
         for cls_name in info["classes"]:
             cls_id = f"{rel}::{cls_name}"
-            self._add_node(cls_id, label=cls_name, type="Class", description=f"Class/Interface {cls_name} in {rel}")
+            detail = cls_details.get(cls_name, {})
+            cls_desc = self._build_class_description(cls_name, rel, detail)
+            cls_attrs: dict[str, Any] = {
+                "label": cls_name,
+                "type": "Class",
+                "description": cls_desc,
+                "file_path": str(path.resolve()),
+            }
+            # Inherit chunks by line range (with overlap + text fallback)
+            if detail.get("start_line") and chunks:
+                cls_chunks = self._inherit_chunks(
+                    chunks, detail["start_line"],
+                    detail.get("end_line", 999999), cls_name,
+                )
+                if cls_chunks:
+                    cls_attrs["chunks"] = cls_chunks
+                    cls_attrs["chunk_count"] = len(cls_chunks)
+            self._add_node(cls_id, **cls_attrs)
             self._add_edge(node_id, cls_id, "DEFINES")
 
-        for fn_name in info["functions"][:20]:
+        # Functions — with chunk inheritance, rich description, and outgoing edges
+        for fn_name in info["functions"][:30]:
             fn_id = f"{rel}::{fn_name}"
-            self._add_node(fn_id, label=fn_name, type="Function", description=f"Function {fn_name} in {rel}")
+            detail = fn_details.get(fn_name, {})
+            fn_desc = self._build_function_description(fn_name, rel, detail)
+            fn_attrs: dict[str, Any] = {
+                "label": fn_name,
+                "type": "Function",
+                "description": fn_desc,
+                "file_path": str(path.resolve()),
+            }
+            # Inherit chunks by line range (with overlap + text fallback)
+            if detail.get("start_line") and chunks:
+                fn_chunks = self._inherit_chunks(
+                    chunks, detail["start_line"],
+                    detail.get("end_line", 999999), fn_name,
+                )
+                if fn_chunks:
+                    fn_attrs["chunks"] = fn_chunks
+                    fn_attrs["chunk_count"] = len(fn_chunks)
+            self._add_node(fn_id, **fn_attrs)
             self._add_edge(node_id, fn_id, "DEFINES")
 
+            # Function-level outgoing edges: CALLS, USES_ENVVAR
+            for called in detail.get("calls", [])[:20]:
+                called_id = f"{rel}::{called}"
+                if called_id != fn_id:
+                    self._add_edge(fn_id, called_id, "CALLS")
+            for ev in detail.get("env_vars", []):
+                ev_id = f"env::{ev}"
+                self._add_node(ev_id, label=ev, type="EnvVar",
+                               description=f"Environment variable {ev}")
+                self._add_edge(fn_id, ev_id, "USES_ENVVAR")
+
+        # Routes
         for route in info["routes"]:
             ep_id = f"endpoint::{route['path']}"
             self._add_node(
@@ -567,9 +1070,11 @@ class RepoScanner:
             )
             self._add_edge(node_id, ep_id, "ROUTES_TO")
 
+        # Module-level env vars
         for ev in info["env_vars"]:
             ev_id = f"env::{ev}"
-            self._add_node(ev_id, label=ev, type="EnvVar", description=f"Environment variable {ev}")
+            self._add_node(ev_id, label=ev, type="EnvVar",
+                           description=f"Environment variable {ev}")
             self._add_edge(node_id, ev_id, "USES_ENVVAR")
 
     # -- Config files -------------------------------------------------------
@@ -690,6 +1195,92 @@ class RepoScanner:
                 desc = line[:200]
                 break
         self._add_node(rel, label="README", type="Config", description=desc or f"Project readme: {rel}")
+
+    # -- Markdown / documentation files ------------------------------------
+
+    def _process_markdown(self, path: Path) -> None:
+        """Create a Document node for non-README markdown files (ADRs, plans, docs)."""
+        rel = self._rel(path)
+        try:
+            content = path.read_text(errors="ignore")
+        except Exception:
+            content = ""
+
+        # Extract title from first # heading
+        title = path.stem
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                title = stripped[2:].strip()[:100]
+                break
+
+        # Detect document type from path or content
+        rel_lower = rel.lower()
+        if "adr" in rel_lower or "decision" in rel_lower:
+            doc_type = "Decision"
+        elif "plan" in rel_lower:
+            doc_type = "Plan"
+        elif "commit" in rel_lower or "log" in rel_lower or "changelog" in rel_lower:
+            doc_type = "Log"
+        else:
+            doc_type = "Document"
+
+        # Build description from content
+        desc_lines = []
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and not stripped.startswith("---"):
+                desc_lines.append(stripped)
+                if len(" ".join(desc_lines)) > 300:
+                    break
+        description = " ".join(desc_lines)[:400] or f"{doc_type}: {rel}"
+
+        # Create chunks from markdown sections
+        chunks: list[dict[str, Any]] = []
+        current_section = ""
+        current_lines: list[str] = []
+        line_num = 0
+        section_start = 1
+        for i, line in enumerate(content.splitlines(), 1):
+            if line.strip().startswith("#"):
+                # Flush previous section
+                if current_lines:
+                    text = "\n".join(current_lines).strip()
+                    if text and len(text) >= 30:
+                        chunks.append({
+                            "text": text[:1500],
+                            "type": "markdown_section",
+                            "start_line": section_start,
+                            "end_line": i - 1,
+                        })
+                current_section = line.strip().lstrip("#").strip()
+                current_lines = [line]
+                section_start = i
+            else:
+                current_lines.append(line)
+        # Flush last section
+        if current_lines:
+            text = "\n".join(current_lines).strip()
+            if text and len(text) >= 30:
+                chunks.append({
+                    "text": text[:1500],
+                    "type": "markdown_section",
+                    "start_line": section_start,
+                    "end_line": len(content.splitlines()),
+                })
+
+        node_attrs: dict[str, Any] = {
+            "label": title,
+            "type": doc_type,
+            "description": description,
+            "file_path": str(path.resolve()),
+        }
+        if chunks:
+            node_attrs["chunks"] = chunks
+            node_attrs["chunk_count"] = len(chunks)
+
+        self._add_node(rel, **node_attrs)
+        self._add_contains_edge(path, rel)
 
     # -- Cross-file resolution (Phase 2) ------------------------------------
 
@@ -866,9 +1457,154 @@ class RepoScanner:
 
     # -- Content extraction (T1/T2/T3) -------------------------------------
 
+    # -- Rich description builders ------------------------------------------
+
+    @staticmethod
+    def _build_function_description(
+        name: str, rel: str, detail: dict[str, Any], max_len: int = 500
+    ) -> str:
+        """Generate a rich T1 description for a function node from AST data."""
+        if not detail:
+            return f"Function {name} in {rel}"
+
+        parts: list[str] = []
+
+        # Signature
+        params = detail.get("params", [])
+        is_async = detail.get("is_async", False)
+        prefix = "async " if is_async else ""
+        param_str = ", ".join(params[:8])
+        if len(params) > 8:
+            param_str += f", ... +{len(params) - 8} more"
+        sig = f"{prefix}{name}({param_str})"
+        parts.append(sig)
+
+        # Docstring (first sentence)
+        docstring = detail.get("docstring", "")
+        if docstring:
+            first_sentence = docstring.split("\n")[0].strip()
+            if first_sentence:
+                parts.append(first_sentence[:200])
+
+        # Line count
+        lc = detail.get("line_count", 0)
+        if lc:
+            parts.append(f"{lc} lines")
+
+        # Calls made (deduplicated, top 10)
+        fn_calls = detail.get("calls", [])
+        if fn_calls:
+            unique_calls = list(dict.fromkeys(fn_calls))[:10]
+            parts.append("Calls: " + ", ".join(unique_calls))
+
+        # Env vars used
+        env_vars = detail.get("env_vars", [])
+        if env_vars:
+            parts.append("Env: " + ", ".join(env_vars[:5]))
+
+        # Decorators
+        decorators = detail.get("decorators", [])
+        if decorators:
+            parts.append("Decorators: " + ", ".join(decorators[:3]))
+
+        desc = f"{rel}::{name}. " + ". ".join(parts)
+        return desc[:max_len]
+
+    @staticmethod
+    def _build_class_description(
+        name: str, rel: str, detail: dict[str, Any], max_len: int = 500
+    ) -> str:
+        """Generate a rich T1 description for a class node from AST data."""
+        if not detail:
+            return f"Class {name} in {rel}"
+
+        parts: list[str] = []
+
+        # Bases
+        bases = detail.get("bases", [])
+        if bases:
+            parts.append(f"class {name}({', '.join(bases[:5])})")
+        else:
+            parts.append(f"class {name}")
+
+        # Docstring
+        docstring = detail.get("docstring", "")
+        if docstring:
+            first_sentence = docstring.split("\n")[0].strip()
+            if first_sentence:
+                parts.append(first_sentence[:200])
+
+        # Methods
+        methods = detail.get("methods", [])
+        if methods:
+            public_methods = [m for m in methods if not m.startswith("_")][:10]
+            if public_methods:
+                parts.append("Methods: " + ", ".join(public_methods))
+
+        # Line count
+        lc = detail.get("line_count", 0)
+        if lc:
+            parts.append(f"{lc} lines")
+
+        desc = f"{rel}::{name}. " + ". ".join(parts)
+        return desc[:max_len]
+
+    @staticmethod
+    def _inherit_chunks(
+        chunks: list[dict[str, Any]],
+        start_line: int,
+        end_line: int,
+        name: str,
+    ) -> list[dict[str, Any]]:
+        """Inherit chunks for a function/class by line range, with fallbacks.
+
+        Strategy (in priority order):
+        1. Strict containment: chunk entirely within [start_line, end_line]
+        2. Overlap: chunk overlaps with [start_line, end_line] by >= 50%
+        3. Text match: chunk text contains the entity name in first 300 chars
+        """
+        if not chunks:
+            return []
+
+        # 1. Strict containment
+        result = [
+            c for c in chunks
+            if c.get("start_line", 0) >= start_line
+            and c.get("end_line", 0) <= end_line
+        ]
+        if result:
+            return result
+
+        # 2. Overlap: chunk range overlaps with function range
+        # A chunk "belongs" if overlap >= 30% of function size OR >= 50% of chunk size
+        fn_size = end_line - start_line + 1
+        for c in chunks:
+            c_start = c.get("start_line", 0)
+            c_end = c.get("end_line", 0)
+            if c_start == 0 or c_end == 0:
+                continue
+            overlap_start = max(c_start, start_line)
+            overlap_end = min(c_end, end_line)
+            overlap = max(0, overlap_end - overlap_start + 1)
+            chunk_size = c_end - c_start + 1
+            if chunk_size > 0 and (
+                overlap / chunk_size >= 0.5
+                or (fn_size > 0 and overlap / fn_size >= 0.3)
+            ):
+                result.append(c)
+        if result:
+            return result
+
+        # 3. Text match fallback
+        result = [
+            c for c in chunks
+            if name in c.get("text", "")[:300]
+        ]
+        return result
+
     def _extract_content(
         self, path: Path, lang_prefix: str
-    ) -> tuple[str, list[dict[str, str]]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         """Extract rich description (T1) and semantic chunks (T2) from a file.
 
         Returns (description, chunks). Falls back to generic description on error.
@@ -952,16 +1688,17 @@ class RepoScanner:
     @staticmethod
     def _chunk_source_code(
         content: str, max_chunk_chars: int = 1500
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """Split source code into semantic chunks at function/class boundaries.
 
-        Returns a list of {"text": "...", "type": "function|class|imports|..."}.
+        Returns a list of {"text": "...", "type": "...", "start_line": N, "end_line": N}.
+        Line numbers enable function-level chunk inheritance.
         """
         lines = content.splitlines(keepends=True)
         if not lines:
             return []
 
-        chunks: list[dict[str, str]] = []
+        chunks: list[dict[str, Any]] = []
 
         boundary_patterns = (
             "def ", "class ", "async def ",
@@ -972,26 +1709,35 @@ class RepoScanner:
 
         current_block: list[str] = []
         block_type = "source_code"
+        block_start_line = 1  # 1-indexed
 
         def _flush_block() -> None:
+            nonlocal block_start_line
             text = "".join(current_block).strip()
             if not text or len(text) < 20:
                 return
+            end_line = block_start_line + len(current_block) - 1
             if len(text) > max_chunk_chars:
                 sub_parts = re.split(r"\n\s*\n", text)
                 accum = ""
+                sub_start = block_start_line
                 for part in sub_parts:
                     if len(accum) + len(part) > max_chunk_chars and accum:
-                        chunks.append({"text": accum.strip(), "type": block_type})
+                        sub_end = sub_start + accum.count("\n")
+                        chunks.append({"text": accum.strip(), "type": block_type,
+                                       "start_line": sub_start, "end_line": sub_end})
+                        sub_start = sub_end + 1
                         accum = part
                     else:
                         accum = accum + "\n\n" + part if accum else part
                 if accum.strip():
-                    chunks.append({"text": accum.strip(), "type": block_type})
+                    chunks.append({"text": accum.strip(), "type": block_type,
+                                   "start_line": sub_start, "end_line": end_line})
             else:
-                chunks.append({"text": text, "type": block_type})
+                chunks.append({"text": text, "type": block_type,
+                               "start_line": block_start_line, "end_line": end_line})
 
-        for line in lines:
+        for line_num, line in enumerate(lines, 1):
             stripped = line.lstrip()
             is_boundary = (
                 any(stripped.startswith(p) for p in boundary_patterns)
@@ -1001,6 +1747,7 @@ class RepoScanner:
             if is_boundary and current_block:
                 _flush_block()
                 current_block = [line]
+                block_start_line = line_num
                 if stripped.startswith(("def ", "async def ")):
                     block_type = "function"
                 elif stripped.startswith("class "):
@@ -1186,6 +1933,18 @@ def scan_repo(
         None, "--exclude", "-e",
         help="Gitignore-style patterns to exclude (repeatable, e.g. --exclude '*.log' --exclude 'tmp/')",
     ),
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c",
+        help="Path to graqle.yaml config file (default: auto-detect in repo root)",
+    ),
+    follow_repos: bool = typer.Option(
+        False, "--follow-repos",
+        help="Traverse into subdirectories that are separate git repos",
+    ),
+    docs: bool = typer.Option(
+        False, "--docs",
+        help="Include .md documentation files (ADRs, plans, changelogs) as graph nodes",
+    ),
 ) -> None:
     """Scan a code repository and build a knowledge graph.
 
@@ -1203,10 +1962,41 @@ def scan_repo(
         console.print(f"[red]Path not found:[/red] {repo}")
         raise typer.Exit(1)
 
+    # Merge exclude patterns: graqle.yaml scan.exclude_patterns + CLI --exclude
+    all_excludes: list[str] = list(exclude or [])
+    config_path = Path(config) if config else None
+    if config_path is None:
+        # Auto-detect config: check repo root, then cwd
+        for candidate in [repo / "graqle.yaml", Path("graqle.yaml")]:
+            if candidate.exists():
+                config_path = candidate
+                break
+    if config_path and config_path.exists():
+        try:
+            from graqle.config.settings import GraqleConfig
+            cfg = GraqleConfig.from_yaml(str(config_path))
+            if cfg.scan.exclude_patterns:
+                all_excludes = cfg.scan.exclude_patterns + all_excludes
+                if verbose:
+                    console.print(f"[dim]Loaded config from {config_path}[/dim]")
+                    console.print(f"[dim]Merged {len(cfg.scan.exclude_patterns)} exclude patterns from config[/dim]")
+        except Exception as exc:
+            if verbose:
+                console.print(f"[yellow]Config load warning: {exc}[/yellow]")
+    elif config:
+        console.print(f"[yellow]Config file not found: {config}[/yellow]")
+
+    extra_info = []
+    if follow_repos:
+        extra_info.append("follow-repos")
+    if docs:
+        extra_info.append("docs")
+    flags_str = f" | Flags: {', '.join(extra_info)}" if extra_info else ""
+
     console.print(Panel(
         f"{BRAND_NAME} Repository Scanner\n"
         f"Path: {repo}\n"
-        f"Depth: {depth} | Tests: {'yes' if include_tests else 'no'}",
+        f"Depth: {depth} | Tests: {'yes' if include_tests else 'no'}{flags_str}",
         border_style="cyan",
     ))
 
@@ -1215,7 +2005,9 @@ def scan_repo(
         max_depth=depth,
         include_tests=include_tests,
         verbose=verbose,
-        exclude_patterns=exclude,
+        exclude_patterns=all_excludes or None,
+        follow_repos=follow_repos,
+        include_docs=docs,
     )
 
     data = scanner.scan()
@@ -1231,6 +2023,37 @@ def scan_repo(
     console.print(f"[green bold]Scan complete.[/green bold] "
                   f"{len(data['nodes'])} nodes, {len(data['links'])} edges")
     console.print(f"[dim]Saved to:[/dim] {out_path.resolve()}")
+
+    # Coverage report
+    coverage = scanner.coverage_report()
+    chunk_pct = coverage["chunk_coverage"]
+    desc_pct = coverage["description_coverage"]
+    edge_pct = coverage["edge_coverage"]
+    chunk_color = "green" if chunk_pct >= 80 else "yellow" if chunk_pct >= 50 else "red"
+    console.print(f"\n[bold]KG Coverage:[/bold] "
+                  f"chunks [{chunk_color}]{chunk_pct}%[/{chunk_color}] | "
+                  f"descriptions {desc_pct}% | "
+                  f"edges {edge_pct}%")
+    if coverage["empty_code_node_count"] > 0:
+        console.print(f"  [yellow]{coverage['empty_code_node_count']} code nodes have no chunks "
+                      f"(function/class without source text)[/yellow]")
+        if verbose and coverage["empty_code_nodes"]:
+            for nid in coverage["empty_code_nodes"][:10]:
+                console.print(f"    [dim]- {nid}[/dim]")
+
+    # Warn if embedding cache is stale or missing
+    cache_path = Path(".graqle/chunk_embeddings.npz")
+    if cache_path.exists():
+        if cache_path.stat().st_mtime < out_path.stat().st_mtime:
+            console.print(
+                "\n[yellow]Embedding cache is stale — it was built before this scan.[/yellow]\n"
+                "[yellow]Run [bold]graq rebuild --embeddings[/bold] to update for fast activation.[/yellow]"
+            )
+    else:
+        console.print(
+            "\n[dim]Tip: Run [bold]graq rebuild --embeddings[/bold] to build the embedding cache "
+            "for fast query activation.[/dim]"
+        )
 
 
 # ---------------------------------------------------------------------------

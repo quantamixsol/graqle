@@ -1,5 +1,12 @@
 """Tests for graqle.plugins.mcp_dev_server — KogniDevServer (7-tool MCP server)."""
 
+# ── graqle:intelligence ──
+# module: tests.test_plugins.test_mcp_dev_server
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, json, dataclasses, typing, mock +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json
@@ -115,8 +122,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 9 graq_* tools + 7 kogni_* backward-compat aliases
-        assert len(TOOL_DEFINITIONS) == 16
+        # 13 graq_* tools + 13 kogni_* backward-compat aliases
+        assert len(TOOL_DEFINITIONS) == 26
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -130,6 +137,11 @@ class TestToolDefinitions:
             "graq_learn",
             "graq_reload",
             "graq_audit",
+            "graq_runtime",
+            "graq_route",
+            "graq_lifecycle",
+            "graq_drace",
+            "graq_gate",
         }
         expected_kogni = {
             "kogni_context",
@@ -139,7 +151,13 @@ class TestToolDefinitions:
             "kogni_lessons",
             "kogni_impact",
             "kogni_learn",
+            "kogni_runtime",
+            "kogni_route",
+            "kogni_lifecycle",
+            "kogni_drace",
+            "kogni_gate",
         }
+        # 13 graq_* + 13 kogni_* = 26 total (includes Wave 5 governance tools)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -169,7 +187,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 16  # 9 graq_* + 7 kogni_* aliases
+        assert len(tools) == 26  # 13 graq_* + 13 kogni_* aliases (includes Wave 5 governance tools)
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,14 @@
 Produces ``Resource`` nodes with ``READS_FROM`` and ``TRIGGERS`` edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.infra
+# risk: LOW (impact radius: 2 modules)
+# consumers: background, test_infra
+# dependencies: __future__, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

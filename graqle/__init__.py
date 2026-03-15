@@ -5,6 +5,13 @@ is an autonomous agent powered by a model-agnostic backend.
 The Q stands for Query, Quality, and Quantified reasoning.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __version__, graph, node, edge, message +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.__version__ import __version__
 from graqle.core.graph import Graqle
 from graqle.core.node import CogniNode

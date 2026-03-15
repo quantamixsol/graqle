@@ -1,0 +1,104 @@
+{
+  "module": "tests.test_activation.test_adaptive",
+  "files": [
+    "tests/test_activation/test_adaptive.py"
+  ],
+  "node_count": 14,
+  "function_count": 13,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "scorer",
+      "type": "Function",
+      "line": 29
+    },
+    {
+      "name": "activator",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "test_simple_query_low_kmax",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_complex_query_high_kmax",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_moderate_query_mid_kmax",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_complexity_profile_scores",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_custom_config",
+      "type": "Function",
+      "line": 110
+    },
+    {
+      "name": "test_tier_classification",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_activate_delegates_to_pcst",
+      "type": "Function",
+      "line": 177
+    },
+    {
+      "name": "test_last_profile_stored",
+      "type": "Function",
+      "line": 204
+    },
+    {
+      "name": "test_dev_queries_not_always_simple",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "test_simple_queries_stay_simple",
+      "type": "Function",
+      "line": 246
+    },
+    {
+      "name": "test_deep_merge",
+      "type": "Function",
+      "line": 260
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.adaptive",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.204,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:42.054188+00:00"
+}

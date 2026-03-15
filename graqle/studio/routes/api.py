@@ -1,5 +1,13 @@
 """Studio API routes — JSON endpoints for dashboard data."""
 
+# ── graqle:intelligence ──
+# module: graqle.studio.routes.api
+# risk: HIGH (impact radius: 19 modules)
+# consumers: providers, benchmark_runner, run_multigov_v2, run_multigov_v3, init +14 more
+# dependencies: __future__, asyncio, logging, math, typing +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

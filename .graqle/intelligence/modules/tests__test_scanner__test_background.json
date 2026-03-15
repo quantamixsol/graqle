@@ -1,0 +1,206 @@
+{
+  "module": "tests.test_scanner.test_background",
+  "files": [
+    "tests/test_scanner/test_background.py"
+  ],
+  "node_count": 33,
+  "function_count": 23,
+  "class_count": 9,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "state_dir",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_defaults",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_custom_values",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_initial_state",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "test_start_and_complete",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "test_progress_during_scan",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_double_start_raises",
+      "type": "Function",
+      "line": 111
+    },
+    {
+      "name": "slow_fn",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_cancel_stops_scan",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 135
+    },
+    {
+      "name": "test_scanner_exception",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "failing_fn",
+      "type": "Function",
+      "line": 161
+    },
+    {
+      "name": "test_state_file_written",
+      "type": "Function",
+      "line": 179
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 181
+    },
+    {
+      "name": "test_cross_process_progress",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 199
+    },
+    {
+      "name": "test_cleanup_removes_state",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 221
+    },
+    {
+      "name": "test_cleanup_noop_no_file",
+      "type": "Function",
+      "line": 233
+    },
+    {
+      "name": "test_wait_returns_on_complete",
+      "type": "Function",
+      "line": 245
+    },
+    {
+      "name": "scanner_fn",
+      "type": "Function",
+      "line": 247
+    },
+    {
+      "name": "TestScanProgress",
+      "type": "Class",
+      "line": 41
+    },
+    {
+      "name": "TestManagerConstruction",
+      "type": "Class",
+      "line": 60
+    },
+    {
+      "name": "TestStartComplete",
+      "type": "Class",
+      "line": 73
+    },
+    {
+      "name": "TestCancellation",
+      "type": "Class",
+      "line": 129
+    },
+    {
+      "name": "TestErrorHandling",
+      "type": "Class",
+      "line": 156
+    },
+    {
+      "name": "TestStatePersistence",
+      "type": "Class",
+      "line": 176
+    },
+    {
+      "name": "TestCleanup",
+      "type": "Class",
+      "line": 216
+    },
+    {
+      "name": "TestWaitTimeout",
+      "type": "Class",
+      "line": 242
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.background",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.364,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.105370+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for benchmark scoring functions and governance metrics."""
 
+# ── graqle:intelligence ──
+# module: tests.test_benchmarks.test_metrics
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, benchmark_runner
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.benchmarks.benchmark_runner import (

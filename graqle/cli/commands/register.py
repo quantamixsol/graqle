@@ -5,6 +5,14 @@ All data stored locally in ~/.graqle/profile.json and synced
 to the Graqle API for updates, tips, and priority support.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.register
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, logging, typer, console, panel +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.extractors.api_spec — OpenAPI/Swagger extractor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_extractors.test_api_spec
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, api_spec
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from graqle.scanner.extractors.api_spec import APISpecExtractor

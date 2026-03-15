@@ -1,5 +1,13 @@
 """Orchestrator — controls the full message-passing reasoning process."""
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.orchestrator
+# risk: MEDIUM (impact radius: 4 modules)
+# consumers: run_multigov_v2, run_multigov_v3, __init__, test_error_scenarios
+# dependencies: __future__, logging, random, time, typing +7 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

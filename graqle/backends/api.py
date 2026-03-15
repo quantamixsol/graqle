@@ -7,6 +7,14 @@ All backends include:
 - Timeout handling
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.api
+# risk: CRITICAL (impact radius: 19 modules)
+# consumers: providers, benchmark_runner, run_multigov_v2, run_multigov_v3, init +14 more
+# dependencies: __future__, asyncio, logging, os, typing +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

@@ -5,6 +5,14 @@ Handles ATX headings, fenced code blocks, inline links, pipe tables,
 and YAML front matter.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.markdown
+# risk: LOW (impact radius: 2 modules)
+# consumers: setup_guide, test_markdown
+# dependencies: __future__, re, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

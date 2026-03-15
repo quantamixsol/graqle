@@ -3,6 +3,14 @@
 Produces ``ToolRule`` nodes with ``APPLIES_TO`` edges.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.tool_config
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_tool_config
+# dependencies: __future__, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

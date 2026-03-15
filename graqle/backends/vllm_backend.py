@@ -4,6 +4,13 @@ Uses vLLM's AsyncLLMEngine for batched inference with concurrent
 LoRA adapter serving (S-LoRA pattern: 50+ adapters on single GPU).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.vllm_backend
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

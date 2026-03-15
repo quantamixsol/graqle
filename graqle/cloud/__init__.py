@@ -7,3 +7,9 @@ Provides:
 - Plans: Plan limits and monetization gating
 - Credentials: API key storage
 """
+# ── graqle:intelligence ──
+# module: graqle.cloud.__init__
+# risk: LOW (impact radius: 0 modules)
+# constraints: none
+# ── /graqle:intelligence ──
+

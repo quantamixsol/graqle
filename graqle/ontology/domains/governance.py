@@ -4,6 +4,14 @@ Ported from TAMR+ production ontology (ontology.py + ontology_v2.py).
 Registers via DomainRegistry — same API any domain uses.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domains.governance
+# risk: LOW (impact radius: 5 modules)
+# consumers: run_multigov_v2, run_multigov_v3, test_router, test_skill_resolver, test_governance_routes
+# dependencies: __future__, typing, domain_registry, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any, Dict, List

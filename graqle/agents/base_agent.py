@@ -1,5 +1,13 @@
 """BaseAgent — abstract agent interface for Graqle nodes."""
 
+# ── graqle:intelligence ──
+# module: graqle.agents.base_agent
+# risk: LOW (impact radius: 3 modules)
+# consumers: slm_agent, __init__, test_slm_agent
+# dependencies: __future__, abc, typing, message, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

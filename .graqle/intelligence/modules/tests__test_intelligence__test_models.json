@@ -1,0 +1,136 @@
+{
+  "module": "tests.test_intelligence.test_models",
+  "files": [
+    "tests/test_intelligence/test_models.py"
+  ],
+  "node_count": 22,
+  "function_count": 15,
+  "class_count": 6,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_valid_node",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_node_with_source",
+      "type": "Function",
+      "line": 36
+    },
+    {
+      "name": "test_node_rejects_short_description",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_node_rejects_empty_chunks",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "test_valid_edge",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_edge_with_properties",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "test_perfect_coverage",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_warning_coverage",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_critical_coverage",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_empty_report",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "test_basic_packet",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_packet_with_consumers",
+      "type": "Function",
+      "line": 125
+    },
+    {
+      "name": "test_healthy_unit",
+      "type": "Function",
+      "line": 140
+    },
+    {
+      "name": "test_degraded_unit",
+      "type": "Function",
+      "line": 158
+    },
+    {
+      "name": "test_superlative_insight",
+      "type": "Function",
+      "line": 179
+    },
+    {
+      "name": "TestValidatedNode",
+      "type": "Class",
+      "line": 23
+    },
+    {
+      "name": "TestValidatedEdge",
+      "type": "Class",
+      "line": 63
+    },
+    {
+      "name": "TestCoverageReport",
+      "type": "Class",
+      "line": 78
+    },
+    {
+      "name": "TestModulePacket",
+      "type": "Class",
+      "line": 111
+    },
+    {
+      "name": "TestFileIntelligenceUnit",
+      "type": "Class",
+      "line": 137
+    },
+    {
+      "name": "TestCuriosityInsight",
+      "type": "Class",
+      "line": 176
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.195,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.874388+00:00"
+}

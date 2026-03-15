@@ -10,6 +10,14 @@ v3: Content-richness-aware + property-aware + filename-match scoring.
   mentions a specific filename, that node is guaranteed selection
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.relevance
+# risk: MEDIUM (impact radius: 5 modules)
+# consumers: pcst, __init__, test_content_aware_pcst, test_pcst, test_relevance_chunks
+# dependencies: __future__, hashlib, logging, math, re +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

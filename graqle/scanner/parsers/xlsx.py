@@ -3,6 +3,14 @@
 Treats each worksheet as a section.  Rows are stored as table data.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.xlsx
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_xlsx
+# dependencies: __future__, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -3,6 +3,14 @@
 v2: Constraint-aware synthesis with filtering, validation, and concise output.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.aggregation
+# risk: LOW (impact radius: 4 modules)
+# consumers: run_multigov_v2, run_multigov_v3, orchestrator, __init__
+# dependencies: __future__, logging, typing, message, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

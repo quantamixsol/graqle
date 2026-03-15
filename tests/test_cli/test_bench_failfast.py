@@ -1,5 +1,13 @@
 """Tests for graq bench fail-fast behavior and TTY auto-detection."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_bench_failfast
+# risk: LOW (impact radius: 1 modules)
+# consumers: scan
+# dependencies: __future__, mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch

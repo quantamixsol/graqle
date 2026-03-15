@@ -1,0 +1,102 @@
+{
+  "module": "graqle.ontology.constraint_graph",
+  "files": [
+    "graqle/ontology/constraint_graph.py"
+  ],
+  "node_count": 17,
+  "function_count": 13,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "to_prompt_text",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "stats",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "shared_constraints",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "set_embedding_fn",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "build",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "get_constraints",
+      "type": "Function",
+      "line": 182
+    },
+    {
+      "name": "reset",
+      "type": "Function",
+      "line": 244
+    },
+    {
+      "name": "SharedConstraint",
+      "type": "Class",
+      "line": 36
+    },
+    {
+      "name": "NodeConstraints",
+      "type": "Class",
+      "line": 47
+    },
+    {
+      "name": "ConstraintGraph",
+      "type": "Class",
+      "line": 71
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_constraint_graph",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.283,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.115008+00:00"
+}

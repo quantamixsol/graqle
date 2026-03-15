@@ -1,0 +1,79 @@
+{
+  "module": "tests.test_orchestration.test_confidence_calibration",
+  "files": [
+    "tests/test_orchestration/test_confidence_calibration.py"
+  ],
+  "node_count": 20,
+  "function_count": 18,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_weighted_confidence_high_relevance_dominates",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_low_relevance_high_confidence_gets_downweighted",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_no_relevance_scores_falls_back_to_average",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_zero_total_relevance_returns_zero_confidence",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_single_node_relevance_weighted",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "test_large_kg_many_activated_nodes_gets_high_confidence",
+      "type": "Function",
+      "line": 172
+    },
+    {
+      "name": "test_medium_activation_gets_medium_floor",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "TestConfidenceCalibration",
+      "type": "Class",
+      "line": 68
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "asyncio",
+      "type": "external"
+    },
+    {
+      "module": "math",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.241,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.049345+00:00"
+}

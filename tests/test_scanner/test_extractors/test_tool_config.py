@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.extractors.tool_config — tool config extractor."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_extractors.test_tool_config
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, tool_config
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from graqle.scanner.extractors.tool_config import ToolConfigExtractor

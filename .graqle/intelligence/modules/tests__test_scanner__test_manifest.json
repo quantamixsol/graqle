@@ -1,0 +1,226 @@
+{
+  "module": "tests.test_scanner.test_manifest",
+  "files": [
+    "tests/test_scanner/test_manifest.py"
+  ],
+  "node_count": 36,
+  "function_count": 27,
+  "class_count": 8,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "tmp_manifest",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "sample_file",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "sample_file_b",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_empty_manifest",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_load_existing",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_corrupt_manifest_resets",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_new_file_needs_scan",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "test_unchanged_file_skipped",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "test_modified_file_needs_scan",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_deleted_file_needs_scan",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "test_update_creates_entry",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_update_overwrites",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "test_get_entry_missing",
+      "type": "Function",
+      "line": 142
+    },
+    {
+      "name": "test_save_and_reload",
+      "type": "Function",
+      "line": 154
+    },
+    {
+      "name": "test_save_creates_parent_dirs",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "test_remove_entry",
+      "type": "Function",
+      "line": 180
+    },
+    {
+      "name": "test_remove_missing",
+      "type": "Function",
+      "line": 187
+    },
+    {
+      "name": "test_remove_stale",
+      "type": "Function",
+      "line": 191
+    },
+    {
+      "name": "test_remove_stale_empty",
+      "type": "Function",
+      "line": 211
+    },
+    {
+      "name": "test_file_count",
+      "type": "Function",
+      "line": 224
+    },
+    {
+      "name": "test_total_nodes",
+      "type": "Function",
+      "line": 229
+    },
+    {
+      "name": "test_clear",
+      "type": "Function",
+      "line": 235
+    },
+    {
+      "name": "test_sha256_file",
+      "type": "Function",
+      "line": 249
+    },
+    {
+      "name": "test_sha256_deterministic",
+      "type": "Function",
+      "line": 253
+    },
+    {
+      "name": "test_sha256_changes_on_modify",
+      "type": "Function",
+      "line": 256
+    },
+    {
+      "name": "test_parse_errors_stored",
+      "type": "Function",
+      "line": 270
+    },
+    {
+      "name": "test_parse_errors_persist",
+      "type": "Function",
+      "line": 280
+    },
+    {
+      "name": "TestManifestConstruction",
+      "type": "Class",
+      "line": 54
+    },
+    {
+      "name": "TestNeedsScan",
+      "type": "Class",
+      "line": 90
+    },
+    {
+      "name": "TestUpdate",
+      "type": "Class",
+      "line": 119
+    },
+    {
+      "name": "TestPersistence",
+      "type": "Class",
+      "line": 151
+    },
+    {
+      "name": "TestRemoval",
+      "type": "Class",
+      "line": 177
+    },
+    {
+      "name": "TestCounters",
+      "type": "Class",
+      "line": 221
+    },
+    {
+      "name": "TestSha256",
+      "type": "Class",
+      "line": 246
+    },
+    {
+      "name": "TestParseErrors",
+      "type": "Class",
+      "line": 267
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.manifest",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.413,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.599080+00:00"
+}

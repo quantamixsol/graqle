@@ -1,5 +1,12 @@
 """Tests for TAMRConnector — TAMR+ to Graqle pipeline."""
 
+# ── graqle:intelligence ──
+# module: tests.test_connectors.test_tamr
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, mock, pytest, tamr
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 from unittest.mock import MagicMock, patch
 

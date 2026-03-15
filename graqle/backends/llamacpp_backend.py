@@ -5,6 +5,13 @@ llama-cpp-python bindings for efficient CPU inference with
 GGUF quantization (Q4_K_M: 15-25 tok/s on modern CPUs).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.llamacpp_backend
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

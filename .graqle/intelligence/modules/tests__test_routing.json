@@ -1,0 +1,208 @@
+{
+  "module": "tests.test_routing",
+  "files": [
+    "tests/test_routing.py"
+  ],
+  "node_count": 34,
+  "function_count": 28,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_all_task_types_have_required_keys",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_known_task_types_exist",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_all_have_suggested_providers",
+      "type": "Function",
+      "line": 35
+    },
+    {
+      "name": "test_graq_tools_mapped",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "test_kogni_tools_mapped",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "test_to_dict_minimal",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "test_to_dict_full",
+      "type": "Function",
+      "line": 60
+    },
+    {
+      "name": "test_from_dict",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_from_dict_minimal",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_empty_router",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "test_from_config_none",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_from_config_with_rules",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_add_rule",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_get_task_from_mcp_tool",
+      "type": "Function",
+      "line": 110
+    },
+    {
+      "name": "test_recommend_known_task",
+      "type": "Function",
+      "line": 116
+    },
+    {
+      "name": "test_recommend_with_existing_rule",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "test_recommend_unknown_task",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_recommend_all",
+      "type": "Function",
+      "line": 135
+    },
+    {
+      "name": "test_recommend_shows_available_providers",
+      "type": "Function",
+      "line": 140
+    },
+    {
+      "name": "test_to_config_empty",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_to_config_with_rules",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "test_get_backend_for_task_with_default_provider",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "test_get_backend_gemini_rule",
+      "type": "Function",
+      "line": 169
+    },
+    {
+      "name": "test_get_backend_native_provider_returns_none",
+      "type": "Function",
+      "line": 178
+    },
+    {
+      "name": "test_default_routing_config",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_routing_config_with_rules",
+      "type": "Function",
+      "line": 194
+    },
+    {
+      "name": "test_routing_in_graqle_config",
+      "type": "Function",
+      "line": 206
+    },
+    {
+      "name": "test_routing_from_yaml_dict",
+      "type": "Function",
+      "line": 213
+    },
+    {
+      "name": "TestTaskRecommendations",
+      "type": "Class",
+      "line": 23
+    },
+    {
+      "name": "TestMCPToolToTask",
+      "type": "Class",
+      "line": 39
+    },
+    {
+      "name": "TestRoutingRule",
+      "type": "Class",
+      "line": 50
+    },
+    {
+      "name": "TestTaskRouter",
+      "type": "Class",
+      "line": 77
+    },
+    {
+      "name": "TestRoutingConfig",
+      "type": "Class",
+      "line": 185
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.routing",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.376,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.971797+00:00"
+}

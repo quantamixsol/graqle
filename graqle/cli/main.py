@@ -1,5 +1,13 @@
 """Graqle CLI — graq command-line interface."""
 
+# ── graqle:intelligence ──
+# module: graqle.cli.main
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: test_learned, test_version
+# dependencies: __future__, console, os, sys, typer +22 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 # Universal Unicode fix — MUST be first import (before Rich, before typer)
@@ -31,6 +39,9 @@ from graqle.cli.commands.selfupdate import selfupdate_command
 from graqle.cli.commands.login import login_command, logout_command
 from graqle.cli.commands.sync import sync_app as sync_sub_app
 from graqle.cli.commands.team import team_app as team_sub_app
+from graqle.intelligence.compile import compile_command
+from graqle.intelligence.verify import verify_command
+from graqle.cli.commands.upgrade import upgrade_command
 
 def _version_callback(value: bool) -> None:
     if value:
@@ -76,6 +87,9 @@ app.command(name="login")(login_command)
 app.command(name="logout")(logout_command)
 app.add_typer(sync_sub_app, name="sync")
 app.add_typer(team_sub_app, name="team")
+app.add_typer(compile_command, name="compile")
+app.add_typer(verify_command, name="verify")
+app.command(name="upgrade")(upgrade_command)
 console = create_console()
 
 # ---------------------------------------------------------------------------
@@ -101,13 +115,12 @@ def mcp_serve(
 ) -> None:
     """Start the Graqle MCP development server (stdio transport).
 
-    Exposes 7 development intelligence tools over JSON-RPC stdio:
+    Exposes development intelligence tools over JSON-RPC stdio:
       graq_context, graq_inspect, graq_reason, graq_preflight,
-      graq_lessons, graq_impact, graq_learn
+      graq_lessons, graq_impact, graq_learn, graq_runtime,
+      graq_route, graq_lifecycle
 
     Use --read-only to block all mutation tools (graq_learn, graq_reload).
-    Only read tools remain: graq_context, graq_inspect, graq_reason,
-    graq_preflight, graq_lessons, graq_impact.
 
     All tools are free for all users. Works with Claude Code, Cursor,
     VS Code, and Windsurf.
@@ -116,10 +129,88 @@ def mcp_serve(
         { "mcpServers": { "graq": { "command": "graq", "args": ["mcp", "serve"] } } }
     """
     import asyncio
+    import atexit
+    from pathlib import Path
+    from graqle.__version__ import __version__
     from graqle.plugins.mcp_dev_server import KogniDevServer
+
+    # Write PID + version so self-update and other tools can detect running server
+    graqle_dir = Path(".graqle")
+    graqle_dir.mkdir(exist_ok=True)
+    pid_file = graqle_dir / "mcp.pid"
+    version_file = graqle_dir / "mcp.version"
+
+    pid_file.write_text(str(os.getpid()), encoding="utf-8")
+    version_file.write_text(__version__, encoding="utf-8")
+
+    def _cleanup_pid():
+        try:
+            pid_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_pid)
+
+    # Version mismatch detection: warn if a previous server was running a different version
+    # (This helps catch the case where pip upgrade happened but MCP wasn't restarted)
 
     server = KogniDevServer(config_path=config, read_only=read_only)
     asyncio.run(server.run_stdio())
+
+
+@mcp_app.command("restart")
+def mcp_restart() -> None:
+    """Restart the MCP server (kills running instance, starts new one).
+
+    Use after `pip install --upgrade graqle` to pick up the new version.
+    Reads .graqle/mcp.pid to find and stop the running server.
+    """
+    import signal
+    from pathlib import Path
+
+    pid_file = Path(".graqle/mcp.pid")
+    version_file = Path(".graqle/mcp.version")
+
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
+            old_version = version_file.read_text(encoding="utf-8").strip() if version_file.exists() else "?"
+            os.kill(pid, signal.SIGTERM)
+            console.print(f"[yellow]Stopped MCP server (PID {pid}, v{old_version})[/yellow]")
+            pid_file.unlink(missing_ok=True)
+        except ProcessLookupError:
+            console.print("[dim]No running MCP server found (stale PID file removed)[/dim]")
+            pid_file.unlink(missing_ok=True)
+        except (ValueError, OSError) as e:
+            console.print(f"[yellow]Could not stop MCP server: {e}[/yellow]")
+    else:
+        console.print("[dim]No .graqle/mcp.pid found — MCP server may not be running[/dim]")
+
+    from graqle.__version__ import __version__
+    console.print(f"[cyan]Starting MCP server v{__version__}...[/cyan]")
+    console.print("[dim]Tip: Your IDE (Claude Code/Cursor) will auto-reconnect.[/dim]")
+
+    # Start new server in background
+    import subprocess
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(
+                [sys.executable, "-m", "graqle.cli.main", "mcp", "serve"],
+                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.Popen(
+                ["graq", "mcp", "serve"],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        console.print(f"[green]MCP server v{__version__} started.[/green]")
+    except Exception as e:
+        console.print(f"[red]Failed to start: {e}[/red]")
+        console.print("[yellow]Run 'graq mcp serve' manually.[/yellow]")
 
 
 @app.command()
@@ -262,17 +353,20 @@ def run(
 
 @app.command()
 def context(
-    service: str = typer.Argument(..., help="Service/entity to get context for"),
+    service: str = typer.Argument(None, help="Service/entity to get context for"),
     config: str = typer.Option("graqle.yaml", "--config", "-c"),
     format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, yaml"),
     json_output: bool = typer.Option(False, "--json", help="Output clean JSON (no ANSI, no embeddings). Overrides --format."),
+    task: str = typer.Option(None, "--task", "-t", help="Get task-based context (matches MCP graq_context). Overrides service arg."),
 ) -> None:
-    """Get structured context for a service (Claude Code integration).
+    """Get structured context for a service or task.
+
+    Two modes:
+      graq context auth_service           # node-focused context
+      graq context --task "fix CORS bug"  # task-based context (MCP-style)
 
     Returns focused, 500-token context instead of loading 20-60K tokens
-    of raw files. Designed to be called from CLAUDE.md rules.
-
-    Use --json for machine-readable output suitable for subagent parsing.
+    of raw files. Use --json for machine-readable output.
     """
     from graqle.config.settings import GraqleConfig
     from pathlib import Path
@@ -293,9 +387,46 @@ def context(
             import json
             print(json.dumps({"error": "No graph loaded. Run 'graq scan --repo .' first."}, indent=2))
         else:
-            console.print(f"# Context for: {service}")
+            console.print(f"# Context for: {task or service}")
             console.print(f"No graph loaded. Run 'graq scan --repo .' first.")
         return
+
+    # Task-based context mode (matches MCP graq_context behavior)
+    if task:
+        import difflib
+        task_lower = task.lower()
+        scored = []
+        for nid, n in graph.nodes.items():
+            text = f"{n.id} {n.label} {n.entity_type} {n.description}".lower()
+            # Simple keyword matching
+            score = sum(1 for word in task_lower.split() if word in text)
+            if score > 0:
+                scored.append((score, n))
+        scored.sort(key=lambda x: -x[0])
+        matches = [n for _, n in scored[:10]]
+
+        if format == "json":
+            import json
+            print(json.dumps({
+                "task": task,
+                "nodes_matched": len(matches),
+                "nodes": [
+                    {"id": m.id, "label": m.label, "type": m.entity_type, "description": m.description[:200]}
+                    for m in matches
+                ],
+            }, indent=2, default=str))
+        else:
+            console.print(f"[bold cyan]Context for task:[/bold cyan] {task}")
+            if matches:
+                for m in matches:
+                    console.print(f"  [bold]{m.label}[/bold] ({m.entity_type}): {m.description[:120]}")
+            else:
+                console.print("  No matching nodes found.")
+        return
+
+    if not service:
+        console.print("[red]Provide a service name or use --task 'description'[/red]")
+        raise typer.Exit(1)
 
     # Find the service node
     node = graph.nodes.get(service)
@@ -910,41 +1041,485 @@ def ontology_from_text(
             console.print(f"    ... and {len(owl) - 10} more")
 
 
+@app.command("impact")
+def impact_command(
+    component: str = typer.Argument(..., help="Component/node to analyze impact for"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
+    change_type: str = typer.Option("modify", "--change-type", "-t", help="Type of change: modify, add, remove, deploy"),
+    depth: int = typer.Option(3, "--depth", "-d", help="Max BFS depth for impact traversal"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Trace downstream impact of changing a component.
+
+    Shows which components are affected and their risk level.
+    CLI equivalent of the graq_impact MCP tool.
+
+    \b
+    Examples:
+        graq impact handler.py
+        graq impact auth_service --change-type remove
+        graq impact "graqle.core.graph" --json
+    """
+    from graqle.config.settings import GraqleConfig
+    from pathlib import Path
+
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+    else:
+        cfg = GraqleConfig.default()
+
+    graph = _load_graph(cfg)
+    if graph is None:
+        console.print("[red]No graph found. Run 'graq scan repo .' first.[/red]")
+        raise typer.Exit(1)
+
+    # Find the component node (exact, substring, fuzzy)
+    node = graph.nodes.get(component)
+    if node is None:
+        matches = [nid for nid in graph.nodes if component.lower() in nid.lower()]
+        if matches:
+            node = graph.nodes[matches[0]]
+        else:
+            import difflib
+            close = difflib.get_close_matches(
+                component.lower(), [nid.lower() for nid in graph.nodes], n=3, cutoff=0.4
+            )
+            if close:
+                lower_to_orig = {nid.lower(): nid for nid in graph.nodes}
+                suggestions = [lower_to_orig[c] for c in close]
+                console.print(f"[yellow]'{component}' not found. Did you mean: {', '.join(suggestions)}[/yellow]")
+            else:
+                console.print(f"[red]Component '{component}' not found in graph.[/red]")
+            raise typer.Exit(1)
+
+    # BFS impact traversal
+    visited: dict[str, int] = {node.id: 0}
+    queue = [node.id]
+    impact_nodes: list[dict] = []
+
+    while queue:
+        current_id = queue.pop(0)
+        current_depth = visited[current_id]
+        if current_depth >= depth:
+            continue
+        neighbors = graph.get_neighbors(current_id)
+        for nid in neighbors:
+            if nid not in visited:
+                visited[nid] = current_depth + 1
+                queue.append(nid)
+                n = graph.nodes[nid]
+                impact_nodes.append({
+                    "id": nid, "label": n.label, "type": n.entity_type,
+                    "depth": current_depth + 1,
+                })
+
+    # Risk assessment
+    risk_scores = {"remove": 3, "deploy": 2, "modify": 1, "add": 0.5}
+    base_risk = risk_scores.get(change_type, 1)
+    risk_level = "low"
+    if len(impact_nodes) > 10 or base_risk >= 2:
+        risk_level = "high"
+    elif len(impact_nodes) > 5 or base_risk >= 1.5:
+        risk_level = "medium"
+
+    if json_output:
+        import json
+        print(json.dumps({
+            "component": node.id,
+            "change_type": change_type,
+            "risk_level": risk_level,
+            "impacted_count": len(impact_nodes),
+            "impacted": impact_nodes,
+        }, indent=2, default=str))
+    else:
+        risk_color = {"low": "green", "medium": "yellow", "high": "red"}[risk_level]
+        console.print(f"[bold cyan]Impact Analysis[/bold cyan] — {node.label}")
+        console.print(f"  Change type: {change_type} | Risk: [{risk_color}]{risk_level}[/{risk_color}]")
+        console.print(f"  Affected components: {len(impact_nodes)}")
+        if impact_nodes:
+            console.print()
+            for imp in impact_nodes[:20]:
+                indent = "  " * imp["depth"]
+                console.print(f"  {indent}{imp['label']} ({imp['type']}) — depth {imp['depth']}")
+            if len(impact_nodes) > 20:
+                console.print(f"  ... and {len(impact_nodes) - 20} more")
+
+
+@app.command("preflight")
+def preflight_command(
+    action: str = typer.Argument(..., help="What you're about to do"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
+    files: list[str] = typer.Option(None, "--file", "-f", help="Files being changed (repeatable)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Run a governance preflight check before making changes.
+
+    Returns relevant lessons, past mistakes, and safety warnings.
+    CLI equivalent of the graq_preflight MCP tool.
+
+    \b
+    Examples:
+        graq preflight "modify auth middleware"
+        graq preflight "deploy to production" --file handler.py --file config.py
+        graq preflight "database migration" --json
+    """
+    from graqle.config.settings import GraqleConfig
+    from pathlib import Path
+
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+    else:
+        cfg = GraqleConfig.default()
+
+    graph = _load_graph(cfg)
+
+    report: dict = {
+        "action": action,
+        "files": files or [],
+        "warnings": [],
+        "lessons": [],
+        "safety_boundaries": [],
+        "risk_level": "low",
+    }
+
+    if graph is None:
+        report["warnings"].append("No knowledge graph loaded — preflight is limited.")
+    else:
+        # Search for related lessons/safety nodes
+        search_text = action + " " + " ".join(files or [])
+        for node in graph.nodes.values():
+            if node.entity_type not in ("LESSON", "MISTAKE", "SAFETY", "SAFETY_BOUNDARY", "ADR", "DECISION"):
+                continue
+            node_text = f"{node.id} {node.label} {node.description}".lower()
+            if any(word in node_text for word in search_text.lower().split() if len(word) > 3):
+                entry = {
+                    "label": node.label,
+                    "type": node.entity_type,
+                    "description": node.description[:200],
+                }
+                severity = node.properties.get("severity", "medium") if node.properties else "medium"
+                entry["severity"] = severity
+                if node.entity_type in ("SAFETY", "SAFETY_BOUNDARY"):
+                    report["safety_boundaries"].append(entry)
+                else:
+                    report["lessons"].append(entry)
+
+        # Check changed files against graph nodes
+        for fpath in (files or []):
+            fname = Path(fpath).stem.lower()
+            for n in graph.nodes.values():
+                node_text = f"{n.id} {n.label}".lower()
+                if fname in node_text:
+                    neighbors = graph.get_neighbors(n.id)
+                    if neighbors:
+                        report["warnings"].append(
+                            f"'{fpath}' relates to '{n.label}' ({len(neighbors)} connections)"
+                        )
+                    break
+
+        # Risk level
+        n_critical = sum(1 for l in report["lessons"] if l.get("severity") in ("CRITICAL", "critical"))
+        n_safety = len(report["safety_boundaries"])
+        if n_critical > 0 or n_safety > 0:
+            report["risk_level"] = "high"
+        elif len(report["lessons"]) > 2 or len(report["warnings"]) > 2:
+            report["risk_level"] = "medium"
+
+    if json_output:
+        import json
+        print(json.dumps(report, indent=2, default=str))
+    else:
+        risk_color = {"low": "green", "medium": "yellow", "high": "red"}[report["risk_level"]]
+        console.print(f"[bold cyan]Preflight Check[/bold cyan] — {action}")
+        console.print(f"  Risk level: [{risk_color}]{report['risk_level']}[/{risk_color}]")
+
+        if report["safety_boundaries"]:
+            console.print(f"\n  [bold red]Safety Boundaries:[/bold red]")
+            for s in report["safety_boundaries"]:
+                console.print(f"    ! {s['label']}: {s['description']}")
+
+        if report["lessons"]:
+            console.print(f"\n  [bold yellow]Relevant Lessons:[/bold yellow]")
+            for l in report["lessons"]:
+                console.print(f"    [{l.get('severity', 'medium')}] {l['label']}: {l['description']}")
+
+        if report["warnings"]:
+            console.print(f"\n  [bold]Warnings:[/bold]")
+            for w in report["warnings"]:
+                console.print(f"    {w}")
+
+        if not report["lessons"] and not report["warnings"] and not report["safety_boundaries"]:
+            console.print("  [green]No issues found. Proceed with caution.[/green]")
+
+
+@app.command("runtime")
+def runtime_command(
+    query: str = typer.Argument("", help="What to investigate (e.g., 'errors in BAMR-API')"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
+    source: str = typer.Option("auto", "--source", "-s", help="Log source: auto, cloudwatch, azure_monitor, cloud_logging, docker, file"),
+    service: str = typer.Option(None, "--service", help="Filter to a specific service/Lambda name"),
+    hours: float = typer.Option(6, "--hours", "-H", help="How far back to look"),
+    severity: str = typer.Option("high", "--severity", help="Minimum severity: all, low, medium, high, critical"),
+    ingest: bool = typer.Option(False, "--ingest", "-i", help="Ingest runtime events into the KG as RUNTIME_EVENT nodes"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    env_only: bool = typer.Option(False, "--detect", help="Only detect environment, don't fetch logs"),
+) -> None:
+    """Fetch and classify runtime logs from your cloud environment.
+
+    Auto-detects AWS CloudWatch, Azure Monitor, GCP Cloud Logging,
+    or local Docker/file logs. Classifies errors, timeouts, throttles,
+    and auth failures with severity levels.
+
+    \b
+    Examples:
+        graq runtime                               # auto-detect, last 6h, high+ severity
+        graq runtime --service BAMR-API --hours 2  # specific Lambda, last 2 hours
+        graq runtime --source cloudwatch --ingest  # fetch + add to KG
+        graq runtime --detect                      # just show detected environment
+        graq runtime "auth failures" --severity all
+    """
+    import asyncio
+
+    from graqle.config.settings import GraqleConfig
+    from graqle.runtime.detector import detect_environment
+    from pathlib import Path
+
+    env = detect_environment()
+
+    # Load config for region overrides and log group settings
+    log_groups: list[str] = []
+    log_paths: list[str] = []
+    config_region: str | None = None
+    config_region_source: str | None = None
+    cfg = None
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+        if hasattr(cfg, "runtime"):
+            for src in cfg.runtime.sources:
+                if src.log_group:
+                    log_groups.append(src.log_group)
+                if src.log_path:
+                    log_paths.append(src.log_path)
+                if src.region:
+                    config_region = src.region
+                    config_region_source = "runtime.sources[].region"
+        # Fall back to model.region from graqle.yaml (user's configured region)
+        if not config_region and cfg.model.region:
+            config_region = cfg.model.region
+            config_region_source = "model.region"
+
+    # Region priority: runtime source config > model config > boto3 auto-detect
+    effective_region = config_region or env.region
+    region_source = config_region_source or "boto3_session"
+
+    if env_only:
+        console.print(f"[bold cyan]Runtime Environment Detection[/bold cyan]")
+        console.print(f"  Provider: [bold]{env.provider}[/bold] (confidence: {env.confidence:.0%})")
+        console.print(f"  Detected region: {env.region or 'N/A'} (boto3_session)")
+        if config_region and config_region != env.region:
+            console.print(f"  Config region: [bold]{config_region}[/bold] ({config_region_source})")
+        console.print(f"  [bold]Effective region: {effective_region}[/bold] (source: {region_source})")
+        console.print(f"  Log sources: {', '.join(env.log_sources) or 'none'}")
+        if env.details:
+            for k, v in env.details.items():
+                console.print(f"  {k}: {v}")
+        if config_region and env.region and config_region != env.region:
+            console.print(f"\n  [yellow]Note: boto3 detected {env.region} but config says {config_region}. "
+                          f"Using {config_region} from {config_region_source}.[/yellow]")
+        return
+
+    from graqle.runtime.fetcher import create_fetcher
+    from graqle.runtime.kg_builder import RuntimeKGBuilder
+
+    if config_region and env.region and config_region != env.region:
+        console.print(f"[yellow]  Note: auto-detected region ({env.region}) differs from configured region ({config_region}). Using configured.[/yellow]")
+
+    provider = source if source != "auto" else env.provider
+    fetcher = create_fetcher(
+        provider,
+        region=effective_region,
+        log_groups=log_groups or None,
+        log_paths=log_paths or None,
+    )
+
+    # Health check
+    health = fetcher.health_check()
+    if health.get("status") == "error":
+        console.print(f"[red]Runtime source unavailable: {health.get('error', 'unknown')}[/red]")
+        if health.get("hint"):
+            console.print(f"[yellow]  Hint: {health['hint']}[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold cyan]Graqle Runtime[/bold cyan] — {env.provider} ({env.region or 'local'})")
+    console.print(f"  Fetching last {hours}h | severity >= {severity} | service: {service or 'all'}")
+
+    result = asyncio.run(
+        fetcher.fetch(hours=hours, service=service, severity_filter=severity, max_events=100)
+    )
+
+    summary = RuntimeKGBuilder.summary(result)
+
+    if json_output:
+        import json as json_lib
+        print(json_lib.dumps(summary, indent=2, default=str))
+        return
+
+    # Display results
+    status_color = {"critical": "red", "warning": "yellow", "info": "cyan", "clean": "green"}
+    color = status_color.get(summary["status"], "white")
+    console.print(f"\n  Status: [{color}]{summary['status'].upper()}[/{color}]")
+    console.print(f"  Events: {summary['total_events']} | Fetch: {summary['fetch_duration_ms']:.0f}ms")
+
+    if summary.get("by_severity"):
+        sev_parts = [f"{k}: {v}" for k, v in summary["by_severity"].items()]
+        console.print(f"  Severity: {' | '.join(sev_parts)}")
+
+    if summary.get("by_category"):
+        console.print(f"\n  [bold]Categories:[/bold]")
+        for cat, count in sorted(summary["by_category"].items(), key=lambda x: -x[1]):
+            console.print(f"    {cat}: {count}")
+
+    if summary.get("top_events"):
+        console.print(f"\n  [bold]Top Events:[/bold]")
+        for evt in summary["top_events"]:
+            sev_c = "red" if evt["severity"] == "CRITICAL" else "yellow" if evt["severity"] == "HIGH" else "white"
+            console.print(f"    [{sev_c}][{evt['severity']}][/{sev_c}] {evt['category']} in {evt['service']} ({evt['hits']}x)")
+            console.print(f"      {evt['message'][:120]}")
+
+    if result.errors:
+        console.print(f"\n  [yellow]Errors during fetch:[/yellow]")
+        for err in result.errors:
+            console.print(f"    ! {err}")
+
+    # Ingest into KG if requested
+    if ingest and result.events:
+        graph_path = "graqle.json"
+        builder = RuntimeKGBuilder(graph_path=graph_path)
+        ingest_result = builder.ingest_into_graph(result)
+        if "error" in ingest_result:
+            console.print(f"\n  [red]Ingest failed: {ingest_result['error']}[/red]")
+        else:
+            console.print(f"\n  [green]Ingested: {ingest_result['nodes_added']} nodes, {ingest_result['edges_added']} edges into {graph_path}[/green]")
+
+
+@app.command("route")
+def route_command(
+    question: str = typer.Argument(..., help="The question to route"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Classify a question and recommend Graqle vs external tools.
+
+    Smart router that tells you whether to use graq_reason, graq_impact,
+    CloudWatch logs, grep, or git for a given investigation.
+
+    \b
+    Examples:
+        graq route "what depends on handler.py?"
+        graq route "why is the Lambda timing out?"
+        graq route "when did we add CORS headers?"
+    """
+    from graqle.runtime.router import route_question
+
+    rec = route_question(question, has_runtime=True)
+
+    if json_output:
+        import json as json_lib
+        print(json_lib.dumps(rec.to_dict(), indent=2))
+        return
+
+    priority_color = {"HIGH": "green", "MEDIUM": "yellow", "LOW": "red"}
+    p_color = priority_color.get(rec.graqle_priority, "white")
+
+    console.print(f"[bold cyan]Query Router[/bold cyan]")
+    console.print(f"  Category: [bold]{rec.category}[/bold]")
+    console.print(f"  Graqle priority: [{p_color}]{rec.graqle_priority}[/{p_color}]")
+    console.print(f"  Strategy: [bold]{rec.recommendation}[/bold] (confidence: {rec.confidence:.0%})")
+
+    if rec.graqle_tools:
+        console.print(f"  Graqle tools: {', '.join(rec.graqle_tools)}")
+    if rec.external_tools:
+        console.print(f"  External tools: {', '.join(rec.external_tools)}")
+
+    console.print(f"\n  [dim]{rec.reasoning}[/dim]")
+
+
 @app.command()
 def reason(
     query: str = typer.Argument(..., help="The reasoning query"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
     graph_path: str = typer.Option(None, "--graph", "-g", help="Path to JSON graph file"),
-    model: str = typer.Option("qwen2.5:3b", "--model", "-m", help="Ollama model name"),
-    host: str = typer.Option("http://localhost:11434", "--host", help="Ollama host"),
+    backend_name: str = typer.Option(None, "--backend", "-b", help="Backend: anthropic, bedrock, openai, ollama (default: from graqle.yaml)"),
+    model: str = typer.Option(None, "--model", "-m", help="Model name (default: from graqle.yaml or qwen2.5:3b for ollama)"),
+    region: str = typer.Option(None, "--region", help="AWS region for Bedrock (default: from graqle.yaml)"),
+    host: str = typer.Option(None, "--host", help="Ollama/vLLM host URL"),
     max_rounds: int = typer.Option(3, "--max-rounds", "-r", help="Max message-passing rounds"),
     strategy: str = typer.Option(None, "--strategy", "-s", help="Activation strategy (default: from config, usually 'chunk')"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
 ) -> None:
-    """Run reasoning with real Ollama GPU backend."""
+    """Run reasoning query on the knowledge graph.
+
+    \b
+    Uses the backend configured in graqle.yaml by default.
+    Override with --backend to test a specific provider.
+
+    \b
+    Examples:
+        graq reason "what calls auth?"                     # uses graqle.yaml backend
+        graq reason "query" --backend bedrock --region eu-central-1
+        graq reason "query" --backend anthropic
+        graq reason "query" --backend ollama --model qwen2.5:3b
+    """
     import asyncio
 
-    from graqle.backends.api import OllamaBackend
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
     from pathlib import Path
 
+    # Load config
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+    else:
+        cfg = GraqleConfig.default()
+
     # Load graph
     if graph_path and Path(graph_path).exists():
-        graph = Graqle.from_json(graph_path)
+        graph = Graqle.from_json(graph_path, config=cfg)
     else:
-        graph = _load_graph(GraqleConfig.default())
+        graph = _load_graph(cfg)
         if graph is None:
             console.print("[red]No graph found. Provide --graph path/to/graph.json[/red]")
             raise typer.Exit(1)
 
     # Use config strategy if not overridden by CLI flag
-    strategy = strategy or "chunk"
+    strategy = strategy or cfg.activation.strategy
 
-    # Set backend
-    backend = OllamaBackend(model=model, host=host)
+    # Resolve backend: CLI flags override graqle.yaml
+    effective_backend = backend_name or cfg.model.backend
+    effective_model = model or cfg.model.model
+    effective_region = region or cfg.model.region
+
+    if effective_backend == "ollama":
+        effective_model = effective_model or "qwen2.5:3b"
+        effective_host = host or cfg.model.host or "http://localhost:11434"
+
+    # Create backend
+    if effective_backend == "ollama":
+        from graqle.backends.api import OllamaBackend
+        backend = OllamaBackend(model=effective_model, host=effective_host)
+    else:
+        # Use the unified _create_backend_from_config with overrides
+        if backend_name:
+            cfg.model.backend = backend_name
+        if model:
+            cfg.model.model = model
+        if region:
+            cfg.model.region = region
+        backend = _create_backend_from_config(cfg, verbose=True)
+
     graph.set_default_backend(backend)
 
-    console.print(f"{BRAND_NAME} reasoning with {model}")
+    backend_label = getattr(backend, "name", effective_backend)
+    console.print(f"{BRAND_NAME} reasoning with {backend_label}")
     console.print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
     console.print(f"Query: [green]{query}[/green]")
 
@@ -962,12 +1537,16 @@ def reason(
             "cost_usd": result.cost_usd,
             "latency_ms": result.latency_ms,
             "active_nodes": result.active_nodes,
+            "backend_status": result.backend_status,
+            "reasoning_mode": result.reasoning_mode,
         }, indent=2))
     else:
         console.print(f"\n[bold green]Answer:[/bold green] {result.answer}")
+        mode_color = "green" if result.reasoning_mode == "full" else "yellow"
         console.print(f"[dim]Confidence: {result.confidence:.0%} | Rounds: {result.rounds_completed} | "
                       f"Nodes: {result.node_count} | Cost: ${result.cost_usd:.4f} | "
-                      f"Latency: {result.latency_ms:.0f}ms[/dim]")
+                      f"Latency: {result.latency_ms:.0f}ms | "
+                      f"Mode: [{mode_color}]{result.reasoning_mode}[/{mode_color}][/dim]")
 
 
 def _load_graph(cfg):

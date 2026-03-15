@@ -1,0 +1,54 @@
+{
+  "module": "graqle.activation.__init__",
+  "files": [
+    "graqle/activation/__init__.py"
+  ],
+  "node_count": 1,
+  "function_count": 0,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.activation.pcst",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.embeddings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.adaptive",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.chunk_scorer",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.cypher_activation",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.multi_signal",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.reformulator",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.16,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.035237+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for server Pydantic request/response models."""
 
+# ── graqle:intelligence ──
+# module: tests.test_server.test_models
+# risk: LOW (impact radius: 0 modules)
+# dependencies: models
+# constraints: none
+# ── /graqle:intelligence ──
+
 from graqle.server.models import (
     BatchReasonRequest,
     ReasonRequest,

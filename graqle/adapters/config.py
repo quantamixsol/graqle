@@ -1,5 +1,13 @@
 """AdapterConfig — LoRA adapter configuration."""
 
+# ── graqle:intelligence ──
+# module: graqle.adapters.config
+# risk: LOW (impact radius: 7 modules)
+# consumers: hub, loader, registry, __init__, test_adapter_config +2 more
+# dependencies: __future__, dataclasses
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

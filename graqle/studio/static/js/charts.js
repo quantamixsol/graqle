@@ -5,6 +5,12 @@
  * @version 0.11.0
  */
 
+// ── graqle:intelligence ──
+// module: graqle.studio.static.js.charts
+// risk: LOW (impact radius: 0 modules)
+// constraints: none
+// ── /graqle:intelligence ──
+
 // ============================================================================
 // BAR CHART (Session history, node type distribution)
 // ============================================================================

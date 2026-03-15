@@ -1,0 +1,121 @@
+{
+  "module": "tests.test_connectors.test_neo4j_enhanced",
+  "files": [
+    "tests/test_connectors/test_neo4j_enhanced.py"
+  ],
+  "node_count": 20,
+  "function_count": 14,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_load_nodes_and_edges",
+      "type": "Function",
+      "line": 31
+    },
+    {
+      "name": "test_load_chunks",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_save_nodes_and_edges",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_save_chunks_with_embedding",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_save_chunks_without_embedding",
+      "type": "Function",
+      "line": 120
+    },
+    {
+      "name": "test_save_chunks_empty_text_skipped",
+      "type": "Function",
+      "line": 129
+    },
+    {
+      "name": "test_create_schema_runs_three_queries",
+      "type": "Function",
+      "line": 141
+    },
+    {
+      "name": "test_vector_search_returns_node_ids",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "test_vector_search_empty_results",
+      "type": "Function",
+      "line": 171
+    },
+    {
+      "name": "test_validate_success",
+      "type": "Function",
+      "line": 183
+    },
+    {
+      "name": "test_validate_failure",
+      "type": "Function",
+      "line": 187
+    },
+    {
+      "name": "test_health_check_connected",
+      "type": "Function",
+      "line": 192
+    },
+    {
+      "name": "test_close",
+      "type": "Function",
+      "line": 208
+    },
+    {
+      "name": "TestNeo4jLoad",
+      "type": "Class",
+      "line": 27
+    },
+    {
+      "name": "TestNeo4jSave",
+      "type": "Class",
+      "line": 82
+    },
+    {
+      "name": "TestNeo4jSchema",
+      "type": "Class",
+      "line": 137
+    },
+    {
+      "name": "TestNeo4jVectorSearch",
+      "type": "Class",
+      "line": 149
+    },
+    {
+      "name": "TestNeo4jHealthCheck",
+      "type": "Class",
+      "line": 179
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.183,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:01.953151+00:00"
+}

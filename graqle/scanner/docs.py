@@ -14,6 +14,14 @@ Usage
     result = scanner.scan_files([Path("a.md"), Path("b.txt")])
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.docs
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: test_docs, test_doc_chain
+# dependencies: __future__, logging, os, time, dataclasses +9 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

@@ -9,6 +9,13 @@ Bug 14 (P0): Chunks missing at reasoning time — root cause was:
   3. to_networkx() returning stale cached graph without chunks
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_chunk_pipeline
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, graph, node
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

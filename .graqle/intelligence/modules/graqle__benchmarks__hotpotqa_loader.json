@@ -1,0 +1,81 @@
+{
+  "module": "graqle.benchmarks.hotpotqa_loader",
+  "files": [
+    "graqle/benchmarks/hotpotqa_loader.py"
+  ],
+  "node_count": 9,
+  "function_count": 6,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "gold_titles",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "to_kg",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "load",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "sample",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "HotpotQAQuestion",
+      "type": "Class",
+      "line": 36
+    },
+    {
+      "name": "HotpotQADataset",
+      "type": "Class",
+      "line": 109
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "random",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "networkx",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.201,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.632820+00:00"
+}

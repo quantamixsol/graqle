@@ -1,0 +1,89 @@
+{
+  "module": "graqle.orchestration.explanation",
+  "files": [
+    "graqle/orchestration/explanation.py"
+  ],
+  "node_count": 10,
+  "function_count": 6,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "add_round",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "contributing_nodes",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "top_influencers",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "get_node_journey",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "to_summary",
+      "type": "Function",
+      "line": 118
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "NodeClaim",
+      "type": "Class",
+      "line": 25
+    },
+    {
+      "name": "InfluenceEdge",
+      "type": "Class",
+      "line": 37
+    },
+    {
+      "name": "ExplanationTrace",
+      "type": "Class",
+      "line": 47
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_orchestration.test_explanation",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.17,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.294554+00:00"
+}

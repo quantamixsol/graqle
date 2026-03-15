@@ -1,5 +1,12 @@
 """Tests for SHACLGate — node output validation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_shacl_gate
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, shacl_gate
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.shacl_gate import SHACLGate, ValidationResult

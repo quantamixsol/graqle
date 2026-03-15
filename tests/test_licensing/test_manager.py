@@ -1,5 +1,12 @@
 """Tests for graqle.licensing.manager — tiers, features, decorators, LicenseManager."""
 
+# ── graqle:intelligence ──
+# module: tests.test_licensing.test_manager
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, asyncio, base64, hashlib, hmac +7 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

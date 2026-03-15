@@ -1,0 +1,143 @@
+{
+  "module": "graqle.connectors.neptune",
+  "files": [
+    "graqle/connectors/neptune.py"
+  ],
+  "node_count": 23,
+  "function_count": 20,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "websocket_url",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "http_url",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "is_configured",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "is_connected",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "connect",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "close",
+      "type": "Function",
+      "line": 120
+    },
+    {
+      "name": "generate_upsert_node",
+      "type": "Function",
+      "line": 126
+    },
+    {
+      "name": "generate_upsert_edge",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "generate_delete_node",
+      "type": "Function",
+      "line": 190
+    },
+    {
+      "name": "generate_delete_edge",
+      "type": "Function",
+      "line": 194
+    },
+    {
+      "name": "generate_team_query",
+      "type": "Function",
+      "line": 198
+    },
+    {
+      "name": "generate_cross_repo_edges",
+      "type": "Function",
+      "line": 209
+    },
+    {
+      "name": "generate_sync_push_queries",
+      "type": "Function",
+      "line": 224
+    },
+    {
+      "name": "generate_cypher_upsert_node",
+      "type": "Function",
+      "line": 265
+    },
+    {
+      "name": "generate_cypher_stats",
+      "type": "Function",
+      "line": 284
+    },
+    {
+      "name": "check_neptune_available",
+      "type": "Function",
+      "line": 298
+    },
+    {
+      "name": "check_neptune_connection",
+      "type": "Function",
+      "line": 306
+    },
+    {
+      "name": "NeptuneConfig",
+      "type": "Class",
+      "line": 56
+    },
+    {
+      "name": "NeptuneAdapter",
+      "type": "Class",
+      "line": 83
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_connectors.test_neptune",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.321,
+  "risk_level": "MEDIUM",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.209337+00:00"
+}

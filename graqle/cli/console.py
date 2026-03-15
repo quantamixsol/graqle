@@ -11,6 +11,14 @@ Windows, Linux, and macOS by:
 This is the SINGLE source of truth for console output in the CLI.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.console
+# risk: HIGH (impact radius: 22 modules)
+# consumers: main, activate, audit, billing, doctor +17 more
+# dependencies: __future__, io, os, sys
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import io

@@ -18,6 +18,14 @@ Usage:
     print(result.constrained_f1)  # 0.82 (penalized for missing article citation)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.evaluation.constrained_f1
+# risk: LOW (impact radius: 1 modules)
+# consumers: __init__
+# dependencies: __future__, logging, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

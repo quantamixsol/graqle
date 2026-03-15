@@ -1,5 +1,12 @@
 """Tests for MockBackend."""
 
+# ── graqle:intelligence ──
+# module: tests.test_backends.test_mock
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, mock
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 from graqle.backends.mock import MockBackend
 

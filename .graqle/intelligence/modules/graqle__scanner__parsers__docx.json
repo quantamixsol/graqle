@@ -1,0 +1,69 @@
+{
+  "module": "graqle.scanner.parsers.docx",
+  "files": [
+    "graqle/scanner/parsers/docx.py"
+  ],
+  "node_count": 6,
+  "function_count": 4,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "parse",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "is_available",
+      "type": "Function",
+      "line": 163
+    },
+    {
+      "name": "missing_dependency_message",
+      "type": "Function",
+      "line": 170
+    },
+    {
+      "name": "supported_extensions",
+      "type": "Function",
+      "line": 175
+    },
+    {
+      "name": "DOCXParser",
+      "type": "Class",
+      "line": 24
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_scanner.test_parsers.test_docx",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.147,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.842081+00:00"
+}

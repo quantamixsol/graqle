@@ -4,6 +4,14 @@ Rule: Never make this decision until needed. When the threshold is exceeded,
 auto-handle the migration and notify the user as a recommended action taken.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.upgrade
+# risk: LOW (impact radius: 2 modules)
+# consumers: main, test_upgrade
+# dependencies: __future__, json, logging, shutil, dataclasses +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

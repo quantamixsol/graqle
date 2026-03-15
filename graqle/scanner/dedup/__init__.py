@@ -11,6 +11,13 @@ Usage::
     report = dedup.run()
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, dataclasses, typing, canonical +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

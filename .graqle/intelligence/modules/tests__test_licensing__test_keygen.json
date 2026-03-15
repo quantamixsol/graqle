@@ -1,0 +1,116 @@
+{
+  "module": "tests.test_licensing.test_keygen",
+  "files": [
+    "tests/test_licensing/test_keygen.py"
+  ],
+  "node_count": 14,
+  "function_count": 11,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_perpetual_pro_key",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_time_limited_team_key",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_enterprise_key",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "test_free_key",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_short_duration",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_zero_duration",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "test_usage_on_insufficient_args",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_usage_on_two_args",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_generates_key_with_three_args",
+      "type": "Function",
+      "line": 108
+    },
+    {
+      "name": "test_generates_key_with_duration",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_generated_key_verifies",
+      "type": "Function",
+      "line": 126
+    },
+    {
+      "name": "TestGenerateLicenseKey",
+      "type": "Class",
+      "line": 25
+    },
+    {
+      "name": "TestKeygenMain",
+      "type": "Class",
+      "line": 92
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "sys",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.licensing.keygen",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.licensing.manager",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.248,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.510542+00:00"
+}

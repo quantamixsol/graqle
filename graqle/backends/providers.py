@@ -13,6 +13,14 @@ Usage:
     graph.set_default_backend(backend)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.backends.providers
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_providers
+# dependencies: __future__, os, typing, api
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

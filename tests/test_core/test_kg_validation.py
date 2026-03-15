@@ -7,6 +7,13 @@ where 291 nodes with empty descriptions produced 22% confidence answers,
 vs 72% after enrichment. (LESSON-094)
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_kg_validation
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, networkx, graph, node
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 import networkx as nx
 

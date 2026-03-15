@@ -11,6 +11,14 @@ Connects TAMR+ (patent-protected retrieval, EP26162901.8) with Graqle
 Supports both live TAMR+ API calls and offline JSON import.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.connectors.tamr
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_tamr
+# dependencies: __future__, json, logging, dataclasses, pathlib +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

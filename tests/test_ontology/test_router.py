@@ -1,5 +1,12 @@
 """Tests for OntologyRouter — ontology-based message routing."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_router
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, router, domain_registry, governance, node +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.ontology.router import OntologyRouter

@@ -1,5 +1,13 @@
 """SLMAgent — default agent that wraps any model backend."""
 
+# ── graqle:intelligence ──
+# module: graqle.agents.slm_agent
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_slm_agent
+# dependencies: __future__, typing, base_agent, message, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

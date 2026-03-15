@@ -6,6 +6,13 @@
 4. Tool count (now 8)
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_plugins.test_mcp_dev_server_v015
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, time, dataclasses, pathlib +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json
@@ -83,7 +90,7 @@ def server():
 
 class TestToolDefinitionsV015:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 16  # 9 graq_* + 7 kogni_* aliases
+        assert len(TOOL_DEFINITIONS) == 26  # 13 graq_* + 13 kogni_* aliases (includes Wave 5 governance tools)
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

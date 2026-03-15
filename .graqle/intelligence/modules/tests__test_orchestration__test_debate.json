@@ -1,0 +1,50 @@
+{
+  "module": "tests.test_orchestration.test_debate",
+  "files": [
+    "tests/test_orchestration/test_debate.py"
+  ],
+  "node_count": 4,
+  "function_count": 3,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "debate_graph",
+      "type": "Function",
+      "line": 17
+    },
+    {
+      "name": "test_debate_produces_messages",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "test_debate_has_rebuttals",
+      "type": "Function",
+      "line": 43
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.debate",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.088,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.100169+00:00"
+}

@@ -1,0 +1,132 @@
+{
+  "module": "tests.test_server.test_stripe_webhook",
+  "files": [
+    "tests/test_server/test_stripe_webhook.py"
+  ],
+  "node_count": 19,
+  "function_count": 14,
+  "class_count": 4,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_valid_signature",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_invalid_signature",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_empty_signature",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "test_old_timestamp_rejected",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_generate_from_checkout_session",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "test_enterprise_tier_mapping",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_default_tier_is_team",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "test_checkout_completed_generates_license",
+      "type": "Function",
+      "line": 136
+    },
+    {
+      "name": "test_unpaid_session_skipped",
+      "type": "Function",
+      "line": 155
+    },
+    {
+      "name": "test_unknown_event_ignored",
+      "type": "Function",
+      "line": 168
+    },
+    {
+      "name": "test_subscription_deleted_logged",
+      "type": "Function",
+      "line": 173
+    },
+    {
+      "name": "test_lambda_handler_invalid_json",
+      "type": "Function",
+      "line": 185
+    },
+    {
+      "name": "test_lambda_handler_valid_event",
+      "type": "Function",
+      "line": 196
+    },
+    {
+      "name": "TestStripeSignatureVerification",
+      "type": "Class",
+      "line": 18
+    },
+    {
+      "name": "TestLicenseGeneration",
+      "type": "Class",
+      "line": 67
+    },
+    {
+      "name": "TestWebhookEventHandler",
+      "type": "Class",
+      "line": 132
+    },
+    {
+      "name": "TestLambdaHandler",
+      "type": "Class",
+      "line": 181
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "hmac",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.261,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.762403+00:00"
+}

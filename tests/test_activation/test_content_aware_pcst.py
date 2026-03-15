@@ -8,6 +8,13 @@ Layer 2: Post-PCST content filter in PCSTActivation._content_filter()
 Layer 3: Direct file lookup bypass in Graqle._direct_file_lookup()
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_content_aware_pcst
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, math, numpy, pytest, graph +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import math

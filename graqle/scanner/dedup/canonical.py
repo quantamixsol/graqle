@@ -4,6 +4,14 @@ Every node gets a canonical ID based on its type + source. Re-scanning
 produces the same canonical IDs → nodes are updated, not duplicated.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.canonical
+# risk: LOW (impact radius: 2 modules)
+# consumers: __init__, test_canonical
+# dependencies: __future__, hashlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

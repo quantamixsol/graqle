@@ -1,0 +1,127 @@
+{
+  "module": "tests.test_studio.test_traversal_routes",
+  "files": [
+    "tests/test_studio/test_traversal_routes.py"
+  ],
+  "node_count": 18,
+  "function_count": 12,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "app_with_traversal",
+      "type": "Function",
+      "line": 63
+    },
+    {
+      "name": "app_without_traversal",
+      "type": "Function",
+      "line": 71
+    },
+    {
+      "name": "test_finds_path",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_no_traversal_engine",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_returns_hubs",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_no_engine",
+      "type": "Function",
+      "line": 105
+    },
+    {
+      "name": "test_returns_context",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "test_no_engine",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_returns_impact",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_no_engine",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_materialize",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "TestShortestPathRoute",
+      "type": "Class",
+      "line": 79
+    },
+    {
+      "name": "TestHubNodesRoute",
+      "type": "Class",
+      "line": 96
+    },
+    {
+      "name": "TestNodeContextRoute",
+      "type": "Class",
+      "line": 112
+    },
+    {
+      "name": "TestImpactRoute",
+      "type": "Class",
+      "line": 128
+    },
+    {
+      "name": "TestMaterializeRoute",
+      "type": "Class",
+      "line": 144
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.testclient",
+      "type": "external"
+    },
+    {
+      "module": "graqle.studio.routes.traversal",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.24,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:39.292172+00:00"
+}

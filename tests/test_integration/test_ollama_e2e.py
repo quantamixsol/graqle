@@ -4,6 +4,13 @@ These tests require a running Ollama instance with qwen2.5:0.5b pulled.
 They are marked with `pytest.mark.gpu` and skipped if Ollama is unavailable.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_integration.test_ollama_e2e
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, asyncio, pytest, httpx, networkx +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

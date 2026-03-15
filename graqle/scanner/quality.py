@@ -1,5 +1,13 @@
 """Document quality gate — reject low-value documents before scanning."""
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.quality
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_quality
+# dependencies: __future__, hashlib, dataclasses, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

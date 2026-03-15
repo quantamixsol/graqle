@@ -18,6 +18,14 @@ Haiku watches over Qwen 0.5B agents. This creates a meta-reasoning layer
 that adds transparency without disrupting the emergent process.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.observer
+# risk: MEDIUM (impact radius: 5 modules)
+# consumers: run_multigov_v2, run_multigov_v3, orchestrator, __init__, test_observer
+# dependencies: __future__, logging, collections, typing, message +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

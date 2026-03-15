@@ -1,5 +1,13 @@
 """Graqle — the reasoning graph where every node is an agent."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.graph
+# risk: CRITICAL (impact radius: 26 modules)
+# consumers: sdk_self_audit, governance_example, __init__, benchmark_runner, run_multigov_v2 +21 more
+# dependencies: __future__, asyncio, logging, typing, networkx +6 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio
@@ -1055,9 +1063,10 @@ class Graqle:
         max_rounds = max_rounds or self.config.orchestration.max_rounds
         strategy = strategy or self.config.activation.strategy
 
-        # PERF: Adaptive scaling for large KGs (>5K nodes)
-        # FEEDBACK: 93-95s per query on 13K graph. Target: <15s.
-        # Scale down max_nodes and max_rounds based on graph size.
+        # PERF: Adaptive scaling for large KGs
+        # Scale max_rounds for performance, but DON'T starve max_nodes —
+        # multi-repo graphs need MORE nodes, not fewer, because cross-cutting
+        # concerns span 40-60+ nodes across projects.
         graph_size = len(self)
         if graph_size > 5000 and max_rounds > 3:
             max_rounds = min(max_rounds, 3)
@@ -1071,11 +1080,23 @@ class Graqle:
                 "Very large graph (%d nodes): capping max_rounds to 2", graph_size
             )
 
-        # Also cap max_nodes dynamically for the activator
-        if graph_size > 5000 and self.config.activation.max_nodes > 25:
-            self.config.activation.max_nodes = 25
+        # Detect multi-project graph and scale max_nodes UP, not down
+        is_multi_project = any(
+            "/" in nid for nid in list(self.nodes.keys())[:100]
+        )
+        configured_max = self.config.activation.max_nodes
+        if is_multi_project and configured_max < 50:
+            # Multi-repo graphs need more nodes for cross-cutting queries
+            self.config.activation.max_nodes = max(configured_max, 50)
             logger.info(
-                "Large graph: capping activation max_nodes to 25"
+                "Multi-project graph: raised activation max_nodes to %d",
+                self.config.activation.max_nodes,
+            )
+        elif graph_size > 10000 and configured_max > 50:
+            # Only cap for very large single-repo graphs
+            self.config.activation.max_nodes = 50
+            logger.info(
+                "Large single-repo graph: capping activation max_nodes to 50"
             )
 
         # 0. Query reformulation (ADR-104)
@@ -1088,6 +1109,9 @@ class Graqle:
             # Capture relevance scores for confidence calibration (Bug 18)
             if self._activator is not None and hasattr(self._activator, "last_relevance"):
                 relevance_scores = self._activator.last_relevance
+
+        # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
+        node_ids = [nid for nid in node_ids if nid in self.nodes]
 
         # 2. Assign backends to activated nodes
         for nid in node_ids:
@@ -1174,6 +1198,9 @@ class Graqle:
 
         if node_ids is None:
             node_ids = self._activate_subgraph(query, strategy)
+
+        # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
+        node_ids = [nid for nid in node_ids if nid in self.nodes]
 
         for nid in node_ids:
             backend = self._get_backend_for_node(nid)

@@ -15,6 +15,13 @@ Usage:
     python -m graqle.benchmarks.run_multigov_v3 --backend ollama --model qwen2.5:3b
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.run_multigov_v3
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, argparse, asyncio, json, logging +20 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import argparse

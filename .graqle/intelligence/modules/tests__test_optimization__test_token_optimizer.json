@@ -1,0 +1,92 @@
+{
+  "module": "tests.test_optimization.test_token_optimizer",
+  "files": [
+    "tests/test_optimization/test_token_optimizer.py"
+  ],
+  "node_count": 11,
+  "function_count": 10,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_optimizer_confidence_filtering",
+      "type": "Function",
+      "line": 25
+    },
+    {
+      "name": "test_optimizer_redundancy_removal",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "test_optimizer_budget_enforcement",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "test_optimizer_compression",
+      "type": "Function",
+      "line": 60
+    },
+    {
+      "name": "test_optimizer_stats",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "test_optimizer_empty_input",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_message_compressor_rule_based",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_message_compressor_skips_short",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_message_compressor_with_backend",
+      "type": "Function",
+      "line": 123
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.optimization.token_optimizer",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.optimization.message_compressor",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.215,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.797884+00:00"
+}

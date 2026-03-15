@@ -18,6 +18,14 @@ Usage:
         print(f"{s.action}: {s.description}")
 """
 
+# ── graqle:intelligence ──
+# module: graqle.learning.ontology_refiner
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_ontology_refiner
+# dependencies: __future__, logging, collections, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

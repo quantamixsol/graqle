@@ -1,0 +1,79 @@
+{
+  "module": "graqle.intelligence.emitter",
+  "files": [
+    "graqle/intelligence/emitter.py"
+  ],
+  "node_count": 7,
+  "function_count": 5,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "emit_unit",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "emit_index",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "IntelligenceEmitter",
+      "type": "Class",
+      "line": 34
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.intelligence.compile",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_emitter",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.scorecard",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.27,
+  "risk_level": "LOW",
+  "impact_radius": 3,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.377567+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for ActivationMemory — cross-query learning for node activation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_learning.test_activation_memory
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, tempfile, pathlib, pytest, activation_memory
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import tempfile
 from pathlib import Path

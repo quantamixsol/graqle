@@ -1,5 +1,12 @@
 """AdapterLoader — load, swap, and merge LoRA weights via PEFT."""
 
+# ── graqle:intelligence ──
+# module: graqle.adapters.loader
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, pathlib, config
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

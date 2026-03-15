@@ -1,4 +1,10 @@
 /*
+// ── graqle:intelligence ──
+// module: graqle.studio.static.vendor.htmx-sse
+// risk: LOW (impact radius: 0 modules)
+// constraints: none
+// ── /graqle:intelligence ──
+
 Server Sent Events Extension
 ============================
 This extension adds support for Server Sent Events to htmx.  See /www/extensions/sse.md for usage instructions.

@@ -1,0 +1,69 @@
+{
+  "module": "graqle.studio.routes.dashboard",
+  "files": [
+    "graqle/studio/routes/dashboard.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "dashboard",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "graph_explorer",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "reasoning",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "metrics_page",
+      "type": "Function",
+      "line": 91
+    },
+    {
+      "name": "settings",
+      "type": "Function",
+      "line": 99
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.metrics.__init__",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "fastapi",
+      "type": "external"
+    },
+    {
+      "module": "fastapi.responses",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.164,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.549435+00:00"
+}

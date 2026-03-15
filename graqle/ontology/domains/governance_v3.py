@@ -7,6 +7,14 @@ that encode governance truths, not format rules.
 Design: "Skills = HOW to reason. Constraints = WHERE to reason."
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domains.governance_v3
+# risk: LOW (impact radius: 2 modules)
+# consumers: run_multigov_v3, test_governance_v3
+# dependencies: __future__, typing, domain_registry, semantic_shacl_gate, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any, Dict, List

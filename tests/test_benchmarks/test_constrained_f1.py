@@ -1,5 +1,12 @@
 """Tests for constrained F1 metric — governance accuracy + token F1."""
 
+# ── graqle:intelligence ──
+# module: tests.test_benchmarks.test_constrained_f1
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, benchmark_runner
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.benchmarks.benchmark_runner import (

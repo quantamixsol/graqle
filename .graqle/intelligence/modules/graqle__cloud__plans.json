@@ -1,0 +1,89 @@
+{
+  "module": "graqle.cloud.plans",
+  "files": [
+    "graqle/cloud/plans.py"
+  ],
+  "node_count": 10,
+  "function_count": 7,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "upgrade_hint",
+      "type": "Function",
+      "line": 162
+    },
+    {
+      "name": "get_plan_limits",
+      "type": "Function",
+      "line": 172
+    },
+    {
+      "name": "check_node_limit",
+      "type": "Function",
+      "line": 177
+    },
+    {
+      "name": "check_doc_limit",
+      "type": "Function",
+      "line": 204
+    },
+    {
+      "name": "check_feature",
+      "type": "Function",
+      "line": 223
+    },
+    {
+      "name": "check_team_member_limit",
+      "type": "Function",
+      "line": 256
+    },
+    {
+      "name": "get_usage_summary",
+      "type": "Function",
+      "line": 277
+    },
+    {
+      "name": "PlanLimits",
+      "type": "Class",
+      "line": 41
+    },
+    {
+      "name": "PlanCheckResult",
+      "type": "Class",
+      "line": 151
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_cloud.test_plans",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.177,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.200360+00:00"
+}

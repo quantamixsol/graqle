@@ -11,6 +11,14 @@ Edges: ~40 relationships with typed connections
 Frameworks: EU AI Act, GDPR, DORA, NIS2
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.multi_governance_kg
+# risk: LOW (impact radius: 3 modules)
+# consumers: run_multigov, run_multigov_v2, run_multigov_v3
+# dependencies: __future__, json, networkx, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

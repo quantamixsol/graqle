@@ -1,5 +1,12 @@
 """Tests for environment auto-detection."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_autodetect
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: os, pathlib, mock, autodetect
+# constraints: none
+# ── /graqle:intelligence ──
+
 import os
 from pathlib import Path
 from unittest.mock import patch

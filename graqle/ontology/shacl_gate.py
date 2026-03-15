@@ -5,6 +5,14 @@ Invalid reasoning is rejected with structured feedback for retry.
 Based on the Licensing Oracle pattern (arXiv:2511.06073): AP=1.0, zero false answers.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.shacl_gate
+# risk: MEDIUM (impact radius: 8 modules)
+# consumers: run_multigov_v3, ontology_generator, __init__, governance_v3, test_governance_v3 +3 more
+# dependencies: __future__, logging, re, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

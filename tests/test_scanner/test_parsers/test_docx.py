@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.parsers.docx — DOCX parser."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_parsers.test_docx
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, docx
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

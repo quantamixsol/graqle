@@ -1,5 +1,13 @@
 """Core type definitions, enums, and protocols for Graqle."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.types
+# risk: HIGH (impact radius: 27 modules)
+# consumers: __init__, base_agent, slm_agent, registry, benchmark_runner +22 more
+# dependencies: __future__, dataclasses, datetime, enum, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -94,6 +102,10 @@ class ReasoningResult:
     latency_ms: float
     timestamp: datetime = field(default_factory=datetime.utcnow)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # v0.24.1: Backend status fields (Issue 1+3 from CrawlQ feedback)
+    backend_status: str = "ok"  # "ok", "unavailable", "fallback", "not_configured"
+    backend_error: str | None = None  # Error message if backend failed
+    reasoning_mode: str = "full"  # "full", "fallback_traversal", "keyword"
 
     @property
     def content(self) -> str:

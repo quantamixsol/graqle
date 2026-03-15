@@ -1,0 +1,72 @@
+{
+  "module": "graqle.orchestration.streaming",
+  "files": [
+    "graqle/orchestration/streaming.py"
+  ],
+  "node_count": 6,
+  "function_count": 3,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "stream",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "StreamChunk",
+      "type": "Class",
+      "line": 29
+    },
+    {
+      "name": "StreamingOrchestrator",
+      "type": "Class",
+      "line": 50
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_orchestration.test_streaming",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.179,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.298356+00:00"
+}

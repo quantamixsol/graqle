@@ -29,6 +29,14 @@ Claude Code .mcp.json:
     }
 """
 
+# ── graqle:intelligence ──
+# module: graqle.plugins.mcp_dev_server
+# risk: HIGH (impact radius: 5 modules)
+# consumers: __init__, test_impact_filtering, test_lesson_hit_count, test_mcp_dev_server, test_mcp_dev_server_v015
+# dependencies: __future__, json, logging, sys, asyncio +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json
@@ -331,6 +339,170 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "graq_gate",
+        "description": (
+            "Pre-compiled intelligence gate — instant context for any module (<100ms). "
+            "Returns risk level, impact radius, consumers, dependencies, constraints, "
+            "incidents, and public interfaces from .graqle/intelligence/. "
+            "No scanning needed. Use before modifying any file to understand blast radius. "
+            "Run 'graq compile' first to populate intelligence."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "module": {
+                    "type": "string",
+                    "description": (
+                        "Module name or file path to query. "
+                        "Examples: 'graqle.core.graph', 'core/graph.py', 'graph'"
+                    ),
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["context", "impact", "scorecard"],
+                    "default": "context",
+                    "description": (
+                        "context: full module packet. "
+                        "impact: what breaks if this module changes. "
+                        "scorecard: overall project quality gate status."
+                    ),
+                },
+            },
+            "required": ["module"],
+        },
+    },
+    {
+        "name": "graq_drace",
+        "description": (
+            "DRACE governance scoring — query AI reasoning audit trails "
+            "and development governance quality scores. "
+            "DRACE = Dependency + Reasoning + Auditability + Constraint + Explainability. "
+            "Each reasoning session is scored on 5 pillars (0.0-1.0). "
+            "Use to inspect AI decision transparency and evidence quality."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["sessions", "trail", "score"],
+                    "default": "sessions",
+                    "description": (
+                        "sessions: list recent audit sessions. "
+                        "trail: get full audit trail for a session. "
+                        "score: get DRACE score breakdown for a session."
+                    ),
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Session ID (required for 'trail' and 'score' actions)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Max sessions to return (for 'sessions' action)",
+                },
+            },
+        },
+    },
+    {
+        "name": "graq_runtime",
+        "description": (
+            "Query live runtime observability data from your cloud environment. "
+            "Auto-detects AWS CloudWatch, Azure Monitor, GCP Cloud Logging, "
+            "or local Docker/file logs. Returns classified runtime events "
+            "(errors, timeouts, throttles) with severity levels and hit counts. "
+            "Use this for debugging production issues — it bridges the gap "
+            "between static code knowledge and live system behavior."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "What to investigate (e.g., 'errors in BAMR-API last 2 hours', "
+                        "'Lambda timeouts', 'auth failures')"
+                    ),
+                },
+                "source": {
+                    "type": "string",
+                    "enum": ["auto", "cloudwatch", "azure_monitor", "cloud_logging", "docker", "file"],
+                    "default": "auto",
+                    "description": "Log source (auto-detects if not specified)",
+                },
+                "service": {
+                    "type": "string",
+                    "description": "Filter to a specific service/Lambda/container name",
+                },
+                "hours": {
+                    "type": "number",
+                    "default": 6,
+                    "description": "How far back to look (hours)",
+                },
+                "severity_filter": {
+                    "type": "string",
+                    "enum": ["all", "low", "medium", "high", "critical"],
+                    "default": "high",
+                    "description": "Minimum severity to return",
+                },
+                "ingest": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Also ingest runtime events as RUNTIME_EVENT nodes into the KG",
+                },
+            },
+        },
+    },
+    {
+        "name": "graq_route",
+        "description": (
+            "Smart query router — classifies your question and recommends "
+            "whether to use Graqle tools or external tools (CloudWatch, grep, git). "
+            "Call this BEFORE investigating to get the most efficient tool strategy. "
+            "Returns: category, recommended tools, confidence, and reasoning."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The question or investigation topic to route",
+                },
+            },
+            "required": ["question"],
+        },
+    },
+    {
+        "name": "graq_lifecycle",
+        "description": (
+            "Session lifecycle hooks for development workflows. "
+            "Call at key moments: session_start (load context), "
+            "investigation_start (before debugging), fix_complete (after a fix). "
+            "Returns relevant context, lessons, and graph status for each phase."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "type": "string",
+                    "enum": ["session_start", "investigation_start", "fix_complete"],
+                    "description": "Lifecycle event type",
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Description of what you're doing (task, bug description, fix summary)",
+                },
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Relevant files (optional)",
+                },
+            },
+            "required": ["event"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -376,6 +548,8 @@ class KogniDevServer:
         self._config: Any = None  # GraqleConfig
         self._graph_file: str | None = None  # path to the loaded graph JSON
         self._graph_mtime: float = 0.0
+        self._gov: Any = None  # GovernanceMiddleware, loaded lazily
+        self._neo4j_traversal: Any = None  # Neo4jTraversal, set when Neo4j active
 
     # ------------------------------------------------------------------
     # Graph lifecycle
@@ -406,7 +580,43 @@ class KogniDevServer:
             else:
                 self._config = GraqleConfig.default()
 
-            # Auto-discover graph file
+            # Try Neo4j if configured
+            connector = getattr(getattr(self._config, "graph", None), "connector", "networkx")
+            if connector == "neo4j":
+                try:
+                    graph_cfg = self._config.graph
+                    self._graph = Graqle.from_neo4j(
+                        uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+                        username=getattr(graph_cfg, "username", None) or "neo4j",
+                        password=getattr(graph_cfg, "password", None) or "",
+                        database=getattr(graph_cfg, "database", None) or "neo4j",
+                        config=self._config,
+                    )
+                    self._graph_file = f"neo4j://{getattr(graph_cfg, 'uri', 'localhost')}"
+                    self._graph_mtime = 9999999999.0  # No file-based hot-reload for Neo4j
+                    self._assign_backend(self._graph, self._config)
+                    # Initialize Neo4j-native traversal engine for fast queries
+                    try:
+                        from graqle.connectors.neo4j_traversal import Neo4jTraversal
+                        self._neo4j_traversal = Neo4jTraversal(
+                            uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+                            username=getattr(graph_cfg, "username", None) or "neo4j",
+                            password=getattr(graph_cfg, "password", None) or "",
+                            database=getattr(graph_cfg, "database", None) or "neo4j",
+                        )
+                        logger.info("Neo4j traversal engine initialized (Cypher-native)")
+                    except Exception as te:
+                        logger.warning("Neo4j traversal engine not available: %s", te)
+                    logger.info(
+                        "Loaded graph from Neo4j: %d nodes, %d edges",
+                        len(self._graph.nodes),
+                        len(self._graph.edges),
+                    )
+                    return self._graph
+                except Exception as neo4j_exc:
+                    logger.warning("Neo4j load failed (%s), falling back to JSON", neo4j_exc)
+
+            # Auto-discover graph file (JSON/NetworkX fallback)
             for candidate in [
                 "graqle.json",
                 "knowledge_graph.json",
@@ -550,7 +760,21 @@ class KogniDevServer:
         return [node for _, node in scored[:limit]]
 
     def _get_neighbor_summaries(self, node_id: str) -> list[dict[str, str]]:
-        """Return compact neighbor info for a node."""
+        """Return compact neighbor info for a node.
+
+        Uses Neo4j-native Cypher query when available (~2ms).
+        Falls back to Python edge iteration (~10ms).
+        """
+        # Fast path: Neo4j-native neighbor query
+        if getattr(self, "_neo4j_traversal", None) is not None:
+            try:
+                ctx = self._neo4j_traversal.node_context(node_id, max_neighbors=30)
+                if ctx.get("found"):
+                    return ctx.get("neighbors", [])
+            except Exception:
+                pass  # Fall through to Python path
+
+        # Fallback: Python iteration
         graph = self._require_graph()
         neighbors: list[dict[str, str]] = []
         seen: set[str] = set()
@@ -617,6 +841,11 @@ class KogniDevServer:
             "graq_learn": self._handle_learn,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
+            "graq_runtime": self._handle_runtime,
+            "graq_route": self._handle_route,
+            "graq_lifecycle": self._handle_lifecycle,
+            "graq_gate": self._handle_gate,
+            "graq_drace": self._handle_drace,
             # Backward-compat aliases (kogni_* → graq_*)
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
@@ -625,6 +854,11 @@ class KogniDevServer:
             "kogni_lessons": self._handle_lessons,
             "kogni_impact": self._handle_impact,
             "kogni_learn": self._handle_learn,
+            "kogni_runtime": self._handle_runtime,
+            "kogni_route": self._handle_route,
+            "kogni_lifecycle": self._handle_lifecycle,
+            "kogni_gate": self._handle_gate,
+            "kogni_drace": self._handle_drace,
         }
 
         handler = handlers.get(name)
@@ -777,20 +1011,26 @@ class KogniDevServer:
     # ── 3. graq_reason (FREE) ────────────────────────────────────────
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
+        import time as _time
+
         question = args.get("question", "")
         max_rounds = min(max(args.get("max_rounds", 2), 1), 5)
 
         if not question:
             return json.dumps({"error": "Parameter 'question' is required."})
 
+        t0 = _time.monotonic()
         graph = self._require_graph()
+
+        # Detect backend status BEFORE attempting reasoning
+        backend_status = self._check_backend_status(graph)
 
         # Try full areason if a backend is configured
         try:
             result = await graph.areason(
                 question, max_rounds=max_rounds, task_type="reason",
             )
-            return json.dumps({
+            result_dict = {
                 "answer": result.answer,
                 "confidence": round(result.confidence, 3),
                 "rounds": result.rounds_completed,
@@ -798,12 +1038,36 @@ class KogniDevServer:
                 "active_nodes": result.active_nodes[:10],
                 "cost_usd": round(result.cost_usd, 6),
                 "latency_ms": round(result.latency_ms, 1),
-            })
-        except RuntimeError:
-            # No backend configured — fall back to graph-traversal synthesis
-            pass
+                "mode": result.reasoning_mode,
+                "backend_status": result.backend_status,
+                "backend_error": result.backend_error,
+            }
+            duration_ms = (_time.monotonic() - t0) * 1000
 
-        # Fallback: keyword-based graph traversal
+            # Governance audit
+            gov = self._get_governance()
+            if gov is not None:
+                try:
+                    session = gov.get_or_start_session(f"reason:{question[:50]}")
+                    gov.log_tool_call(
+                        session, "graq_reason", args, result_dict,
+                        duration_ms=duration_ms,
+                        nodes_consulted=result.node_count,
+                    )
+                except Exception as exc:
+                    logger.debug("Governance logging failed: %s", exc)
+
+            return json.dumps(result_dict)
+        except RuntimeError as exc:
+            # Backend failed — DO NOT silently fall back.
+            # Surface the error clearly AND provide fallback results.
+            backend_status["status"] = "unavailable"
+            backend_status["error"] = str(exc)[:200]
+        except Exception as exc:
+            backend_status["status"] = "error"
+            backend_status["error"] = str(exc)[:200]
+
+        # Fallback: keyword-based graph traversal (clearly labeled)
         matches = self._find_nodes_matching(question, limit=8)
         if not matches:
             return json.dumps({
@@ -812,7 +1076,14 @@ class KogniDevServer:
                 "rounds": 0,
                 "nodes_used": 0,
                 "active_nodes": [],
-                "mode": "fallback",
+                "mode": "fallback_traversal",
+                "backend_status": backend_status["status"],
+                "backend_error": backend_status.get("error", ""),
+                "hint": (
+                    "LLM reasoning is unavailable. Results are keyword-match only. "
+                    "Fix: check credentials and run 'graq doctor'. "
+                    f"Backend: {backend_status.get('backend', 'unknown')}"
+                ),
             })
 
         # Synthesize from node knowledge
@@ -837,9 +1108,12 @@ class KogniDevServer:
             "nodes_used": len(matches),
             "active_nodes": node_ids,
             "mode": "fallback_traversal",
+            "backend_status": backend_status["status"],
+            "backend_error": backend_status.get("error", ""),
             "hint": (
-                "For full reasoning, configure a model backend "
-                "(e.g., graq reason --model qwen2.5:3b)."
+                "WARNING: LLM reasoning is unavailable — this is keyword-match only, "
+                "NOT multi-hop graph reasoning. Results may be inaccurate. "
+                "Fix: run 'graq doctor' to diagnose backend issues."
             ),
         })
 
@@ -993,11 +1267,22 @@ class KogniDevServer:
     ) -> list[dict[str, Any]]:
         """BFS from start_id, following only dependency edges (not structural).
 
-        Dependency edges (IMPORTS, CALLS, DEPENDS_ON, READS_FROM, etc.) represent
-        real coupling.  Structural edges (CONTAINS, DEFINES) just describe
-        directory membership and would cause every sibling file to appear as
-        impacted.
+        Uses Neo4j-native Cypher traversal when available (~5ms).
+        Falls back to Python BFS over in-memory graph (~60ms).
         """
+        # Fast path: Neo4j-native traversal
+        if getattr(self, "_neo4j_traversal", None) is not None:
+            try:
+                return self._neo4j_traversal.impact_bfs(
+                    start_id,
+                    max_depth=max_depth,
+                    change_type=change_type,
+                    limit=_MAX_RESULTS,
+                )
+            except Exception as exc:
+                logger.warning("Neo4j traversal failed (%s), falling back to Python BFS", exc)
+
+        # Fallback: Python BFS over in-memory graph
         graph = self._require_graph()
         visited: set[str] = {start_id}
         queue: deque[tuple[str, int, str]] = deque()  # (node_id, depth, relationship)
@@ -1315,9 +1600,269 @@ class KogniDevServer:
 
         return json.dumps(report, indent=2)
 
+    # ── 10. graq_runtime ────────────────────────────────────────────
+
+    async def _handle_runtime(self, args: dict[str, Any]) -> str:
+        """Query live runtime observability data."""
+        query = args.get("query", "")
+        source = args.get("source", "auto")
+        service = args.get("service")
+        hours = min(max(args.get("hours", 6), 0.1), 168)  # 1 week max
+        severity_filter = args.get("severity_filter", "high")
+        ingest = args.get("ingest", False)
+
+        try:
+            from graqle.runtime.detector import detect_environment
+            from graqle.runtime.fetcher import create_fetcher
+            from graqle.runtime.kg_builder import RuntimeKGBuilder
+
+            # Detect environment
+            env = detect_environment()
+
+            # Resolve source
+            provider = source if source != "auto" else env.provider
+
+            # Get runtime config from graqle.yaml if available
+            log_groups: list[str] = []
+            log_paths: list[str] = []
+            if self._config and hasattr(self._config, "runtime"):
+                rt_cfg = self._config.runtime
+                for src in rt_cfg.sources:
+                    if src.log_group:
+                        log_groups.append(src.log_group)
+                    if src.log_path:
+                        log_paths.append(src.log_path)
+
+            # Infer service from query if not provided
+            if not service and query:
+                # Simple extraction: look for capitalized words or quoted strings
+                import re
+                quoted = re.findall(r'"([^"]+)"', query)
+                if quoted:
+                    service = quoted[0]
+
+            # Create fetcher and fetch
+            fetcher = create_fetcher(
+                provider,
+                region=env.region,
+                log_groups=log_groups or None,
+                log_paths=log_paths or None,
+            )
+
+            # Health check first
+            health = fetcher.health_check()
+            if health.get("status") == "error":
+                return json.dumps({
+                    "error": f"Runtime source unavailable: {health.get('error', 'unknown')}",
+                    "provider": provider,
+                    "environment": {
+                        "detected": env.provider,
+                        "confidence": env.confidence,
+                        "region": env.region,
+                    },
+                    "hint": health.get("hint", "Check credentials and provider configuration."),
+                })
+
+            result = await fetcher.fetch(
+                hours=hours,
+                service=service,
+                severity_filter=severity_filter,
+                max_events=100,
+            )
+
+            # Build summary
+            summary = RuntimeKGBuilder.summary(result)
+
+            # Optionally ingest into KG
+            ingest_result = None
+            if ingest and result.events:
+                graph_path = self._graph_file or "graqle.json"
+                builder = RuntimeKGBuilder(graph_path=graph_path)
+                ingest_result = builder.ingest_into_graph(result)
+                # Force graph reload to pick up new nodes
+                self._graph = None
+                self._graph_mtime = 0.0
+
+            response: dict[str, Any] = {
+                "environment": {
+                    "detected": env.provider,
+                    "confidence": env.confidence,
+                    "region": env.region,
+                    "log_sources": env.log_sources,
+                },
+                "summary": summary,
+                "events": [
+                    {
+                        "id": e.id,
+                        "category": e.category,
+                        "severity": e.severity,
+                        "service": e.service_name,
+                        "hits": e.hit_count,
+                        "message": e.message[:300],
+                        "timestamp": e.timestamp,
+                    }
+                    for e in result.events[:20]  # Return top 20 in response
+                ],
+                "fetch_duration_ms": round(result.fetch_duration_ms, 1),
+            }
+
+            if ingest_result:
+                response["ingest"] = ingest_result
+            if result.errors:
+                response["errors"] = result.errors
+
+            return json.dumps(response)
+
+        except ImportError as exc:
+            return json.dumps({
+                "error": f"Runtime module dependency missing: {exc}",
+                "hint": "pip install boto3 (for AWS) or azure-monitor-query (for Azure) or google-cloud-logging (for GCP)",
+            })
+        except Exception as exc:
+            return json.dumps({"error": f"Runtime fetch failed: {exc}"})
+
+    # ── 11. graq_route ──────────────────────────────────────────────
+
+    async def _handle_route(self, args: dict[str, Any]) -> str:
+        """Smart query router — recommend Graqle vs external tools."""
+        question = args.get("question", "")
+
+        if not question:
+            return json.dumps({"error": "Parameter 'question' is required."})
+
+        from graqle.runtime.router import route_question
+
+        # Check if runtime data is available
+        has_runtime = True  # graq_runtime is now built-in
+
+        recommendation = route_question(question, has_runtime=has_runtime)
+
+        return json.dumps(recommendation.to_dict())
+
+    # ── 12. graq_lifecycle ────────────────────────────────────────────
+
+    async def _handle_lifecycle(self, args: dict[str, Any]) -> str:
+        """Session lifecycle hooks — context at key dev moments."""
+        event = args.get("event", "")
+        context_text = args.get("context", "")
+        files = args.get("files", [])
+
+        if not event:
+            return json.dumps({"error": "Parameter 'event' is required."})
+
+        graph = self._load_graph()
+        response: dict[str, Any] = {
+            "event": event,
+            "graph_loaded": graph is not None,
+        }
+
+        if event == "session_start":
+            # Return graph stats + backend status + recent lessons
+            if graph is not None:
+                stats = graph.stats
+                response["graph"] = {
+                    "nodes": stats.total_nodes,
+                    "edges": stats.total_edges,
+                    "components": stats.connected_components,
+                    "hub_nodes": stats.hub_nodes[:5],
+                }
+            backend_status = self._check_backend_status(graph)
+            response["backend"] = backend_status
+            # Active branch info
+            branch_info = self._read_active_branch()
+            if branch_info:
+                response["active_branch"] = branch_info
+            # Recent lessons
+            if graph is not None and context_text:
+                lessons = self._find_lesson_nodes(context_text, severity_filter="high")
+                if lessons:
+                    response["relevant_lessons"] = lessons[:5]
+
+        elif event == "investigation_start":
+            # Return context nodes + lessons + route recommendation for the bug
+            if context_text:
+                if graph is not None:
+                    matches = self._find_nodes_matching(context_text, limit=10)
+                    if matches:
+                        response["relevant_nodes"] = [
+                            {"id": m.id, "label": m.label, "type": m.entity_type}
+                            for m in matches
+                        ]
+                    lessons = self._find_lesson_nodes(context_text, severity_filter="all")
+                    if lessons:
+                        response["past_lessons"] = lessons[:5]
+                # Route recommendation
+                try:
+                    from graqle.runtime.router import route_question
+                    rec = route_question(context_text, has_runtime=True)
+                    response["recommended_approach"] = rec.to_dict()
+                except Exception:
+                    pass
+
+        elif event == "fix_complete":
+            # Return impact analysis for changed files + preflight warnings
+            if graph is not None and files:
+                warnings: list[str] = []
+                for fpath in files:
+                    fname = Path(fpath).stem.lower()
+                    for node in graph.nodes.values():
+                        node_text = f"{node.id} {node.label}".lower()
+                        if fname in node_text:
+                            neighbors = self._get_neighbor_summaries(node.id)
+                            if neighbors:
+                                warnings.append(
+                                    f"Changed '{fpath}' relates to '{node.label}' "
+                                    f"({len(neighbors)} connections)"
+                                )
+                            break
+                if warnings:
+                    response["impact_warnings"] = warnings
+            if context_text:
+                response["suggestion"] = (
+                    "Consider running graq_learn to record this fix outcome "
+                    "so the graph remembers the pattern."
+                )
+        else:
+            return json.dumps({"error": f"Unknown event type: {event}. Use: session_start, investigation_start, fix_complete"})
+
+        return json.dumps(response)
+
     # ------------------------------------------------------------------
     # Shared helpers
     # ------------------------------------------------------------------
+
+    def _check_backend_status(self, graph: Any) -> dict[str, Any]:
+        """Check the status of the configured LLM backend.
+
+        Returns a dict with 'status' ('ok', 'unavailable', 'not_configured')
+        and diagnostic info.
+        """
+        status: dict[str, Any] = {"status": "unknown", "backend": "unknown"}
+
+        if graph is None:
+            status["status"] = "no_graph"
+            return status
+
+        # Check if graph has a real backend assigned
+        backend = getattr(graph, "_default_backend", None)
+        if backend is None:
+            status["status"] = "not_configured"
+            status["hint"] = "No LLM backend configured. Run 'graq doctor'."
+            return status
+
+        backend_name = getattr(backend, "name", str(type(backend).__name__))
+        status["backend"] = backend_name
+
+        # Detect mock/fallback backends
+        if "mock" in backend_name.lower() or getattr(backend, "is_fallback", False):
+            status["status"] = "unavailable"
+            reason = getattr(backend, "fallback_reason", "Backend fell back to mock")
+            status["error"] = reason
+            status["hint"] = "LLM backend is not connected. Run 'graq doctor' to diagnose."
+            return status
+
+        status["status"] = "ok"
+        return status
 
     def _find_lesson_nodes(
         self,
@@ -1378,6 +1923,95 @@ class KogniDevServer:
             self._save_graph(graph)
 
         return matched
+
+    def _get_governance(self) -> Any:
+        """Lazy-load governance middleware."""
+        if self._gov is None:
+            try:
+                from graqle.intelligence.governance.middleware import GovernanceMiddleware
+                self._gov = GovernanceMiddleware(Path("."))
+            except Exception as exc:
+                logger.debug("Governance middleware unavailable: %s", exc)
+        return self._gov
+
+    async def _handle_gate(self, args: dict[str, Any]) -> str:
+        """Pre-compiled intelligence gate — instant module context (<100ms).
+
+        Delegates to graqle.intelligence.gate.IntelligenceGate for clean separation.
+        Automatically logged to governance audit trail.
+        """
+        import time as _time
+
+        from graqle.intelligence.gate import IntelligenceGate
+
+        t0 = _time.monotonic()
+        gate = IntelligenceGate(Path("."))
+        module_query = args.get("module", "")
+        action = args.get("action", "context")
+
+        if action == "scorecard":
+            result = gate.get_scorecard()
+        elif not module_query:
+            result = {"error": "Parameter 'module' is required."}
+        elif action == "impact":
+            result = gate.get_impact(module_query)
+        else:
+            result = gate.get_context(module_query)
+
+        duration_ms = (_time.monotonic() - t0) * 1000
+
+        # Governance audit: log this tool call
+        gov = self._get_governance()
+        if gov is not None:
+            try:
+                session = gov.get_or_start_session(f"gate:{module_query or 'scorecard'}")
+                gov.log_tool_call(session, "graq_gate", args, result, duration_ms=duration_ms)
+            except Exception as exc:
+                logger.debug("Governance logging failed: %s", exc)
+
+        return json.dumps(result)
+
+    async def _handle_drace(self, args: dict[str, Any]) -> str:
+        """DRACE governance scoring — query audit trail and session scores.
+
+        Actions:
+        - "score": Get DRACE score for a session
+        - "sessions": List recent audit sessions
+        - "trail": Get full audit trail for a session
+        """
+        gov = self._get_governance()
+        if gov is None:
+            return json.dumps({"error": "Governance middleware not available."})
+
+        action = args.get("action", "sessions")
+        session_id = args.get("session_id", "")
+
+        if action == "sessions":
+            from graqle.intelligence.governance.audit import AuditTrail
+            trail = AuditTrail(Path("."))
+            sessions = trail.list_sessions(limit=args.get("limit", 10))
+            return json.dumps({"sessions": sessions, "count": len(sessions)})
+
+        if action == "trail" and session_id:
+            from graqle.intelligence.governance.audit import AuditTrail
+            trail = AuditTrail(Path("."))
+            session = trail.load_session(session_id)
+            if session is None:
+                return json.dumps({"error": f"Session '{session_id}' not found."})
+            return json.dumps(session.model_dump(), default=str)
+
+        if action == "score" and session_id:
+            from graqle.intelligence.governance.audit import AuditTrail
+            trail = AuditTrail(Path("."))
+            session = trail.load_session(session_id)
+            if session is None:
+                return json.dumps({"error": f"Session '{session_id}' not found."})
+            entries_data = [e.model_dump() for e in session.entries]
+            score = gov._scorer.score_session(entries_data)
+            score.session_id = session_id
+            return json.dumps(score.to_dict())
+
+        return json.dumps({"error": f"Unknown action: {action}. Use: sessions, trail, score."})
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""
@@ -1512,7 +2146,23 @@ class KogniDevServer:
             handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
             cg_logger.addHandler(handler)
 
-        logger.info("KogniDevServer starting on stdio transport")
+        logger.info("KogniDevServer starting on stdio transport (v%s)", _version)
+
+        # Version mismatch detection: warn if a previous MCP was running a different version
+        try:
+            version_file = Path(".graqle/mcp.version")
+            if version_file.exists():
+                last_version = version_file.read_text(encoding="utf-8").strip()
+                if last_version and last_version != _version:
+                    logger.warning(
+                        "VERSION MISMATCH: Previous MCP server was v%s, "
+                        "now starting v%s. If you just upgraded, this is expected. "
+                        "If not, run 'graq self-update' to align versions.",
+                        last_version,
+                        _version,
+                    )
+        except Exception:
+            pass  # Non-critical
 
         loop = asyncio.get_event_loop()
 

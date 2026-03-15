@@ -1,5 +1,12 @@
 """Tests for OntologyGenerator — mock-based, no API calls."""
 
+# ── graqle:intelligence ──
+# module: tests.test_ontology.test_ontology_generator
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, pytest, mock, ontology_generator, semantic_shacl_gate
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock

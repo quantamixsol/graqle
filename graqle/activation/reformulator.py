@@ -16,6 +16,14 @@ The reformulator is NOT a mandatory layer — it's an enhancer. If it fails
 for any reason, the original query is used unchanged (fail-open).
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.reformulator
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: __init__, test_reformulator
+# dependencies: __future__, logging, os, re, dataclasses +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

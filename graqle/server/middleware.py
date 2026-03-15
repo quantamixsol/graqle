@@ -1,5 +1,13 @@
 """Server middleware — authentication, rate limiting, request validation."""
 
+# ── graqle:intelligence ──
+# module: graqle.server.middleware
+# risk: HIGH (impact radius: 34 modules)
+# consumers: sdk_self_audit, adaptive, reformulator, relevance, benchmark_runner +29 more
+# dependencies: __future__, logging, os, time, collections +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

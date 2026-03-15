@@ -1,0 +1,70 @@
+{
+  "module": "graqle.activation.pcst",
+  "files": [
+    "graqle/activation/pcst.py"
+  ],
+  "node_count": 8,
+  "function_count": 6,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "activate",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "PCSTActivation",
+      "type": "Class",
+      "line": 32
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.activation.adaptive",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.activation.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_content_aware_pcst",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_pcst",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.266,
+  "risk_level": "LOW",
+  "impact_radius": 4,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.091747+00:00"
+}

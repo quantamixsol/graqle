@@ -6,6 +6,14 @@ key-claim summaries. Target: ~1000 tokens → ~55 tokens (OPTIMA result).
 When no LLM is available, falls back to rule-based extraction.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.optimization.message_compressor
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_token_optimizer
+# dependencies: __future__, logging, typing, message, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

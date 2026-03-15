@@ -18,6 +18,14 @@ Examples:
     graq learn knowledge "TAMR+ means intelligent retrieval" --domain copy
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.learn
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: main, test_learn_entity_knowledge
+# dependencies: __future__, json, re, pathlib, typer +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json
@@ -54,7 +62,7 @@ def _describe_connections(graph, node_id: str) -> list[str]:
 
 
 def _load_graph(graph_path: str = "graqle.json"):
-    """Load graph from JSON file."""
+    """Load graph from Neo4j (if configured) or JSON file."""
     from graqle.core.graph import Graqle
     from graqle.config.settings import GraqleConfig
 
@@ -63,12 +71,46 @@ def _load_graph(graph_path: str = "graqle.json"):
     if config_file.exists():
         config = GraqleConfig.from_yaml(str(config_file))
 
+    # Try Neo4j if configured
+    connector = getattr(getattr(config, "graph", None), "connector", "networkx")
+    if connector == "neo4j":
+        try:
+            graph_cfg = config.graph
+            g = Graqle.from_neo4j(
+                uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+                username=getattr(graph_cfg, "username", None) or "neo4j",
+                password=getattr(graph_cfg, "password", None) or "",
+                database=getattr(graph_cfg, "database", None) or "neo4j",
+                config=config,
+            )
+            return g, f"neo4j://{getattr(graph_cfg, 'uri', 'localhost')}"
+        except Exception as exc:
+            console.print(f"[yellow]Neo4j load failed ({exc}), falling back to JSON[/yellow]")
+
+    # Fallback: JSON file
     gpath = Path(graph_path)
     if not gpath.exists():
         console.print(f"[red]Graph file not found: {graph_path}[/red]")
         raise typer.Exit(1)
 
     return Graqle.from_json(str(gpath), config=config), str(gpath)
+
+
+def _save_graph(graph, gpath: str) -> None:
+    """Persist graph to Neo4j (if configured) or JSON file."""
+    if gpath.startswith("neo4j://"):
+        from graqle.config.settings import GraqleConfig
+        config_file = Path("graqle.yaml")
+        config = GraqleConfig.from_yaml(str(config_file)) if config_file.exists() else GraqleConfig.default()
+        graph_cfg = config.graph
+        graph.to_neo4j(
+            uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+            username=getattr(graph_cfg, "username", None) or "neo4j",
+            password=getattr(graph_cfg, "password", None) or "",
+            database=getattr(graph_cfg, "database", None) or "neo4j",
+        )
+    else:
+        graph.to_json(gpath)
 
 
 class _graph_lock:
@@ -170,7 +212,7 @@ def learn_node(
             [node_id], threshold=threshold, method=method,
         )
 
-    graph.to_json(gpath)
+    _save_graph(graph, gpath)
 
     console.print(f"[green]{CHECK} Added node:[/green] {node_id} ({node_type})")
     if description:
@@ -197,7 +239,7 @@ def learn_edge(
             raise typer.Exit(1)
 
     graph.add_edge_simple(source, target, relation=relation.upper())
-    graph.to_json(gpath)
+    _save_graph(graph, gpath)
 
     console.print(f"[green]{CHECK} Added edge:[/green] {source} --[{relation}]{ARROW} {target}")
 
@@ -239,7 +281,7 @@ def learn_file(
     if auto_connect and hasattr(graph, "semantic_auto_connect"):
         auto_edges = graph.semantic_auto_connect([node_id])
 
-    graph.to_json(gpath)
+    _save_graph(graph, gpath)
 
     console.print(f"[green]{CHECK} Learned from file:[/green] {fpath.name}")
     console.print(f"  Node: {node_id} ({node_type})")
@@ -315,7 +357,7 @@ def learn_entity(
     if hasattr(graph, "semantic_auto_connect"):
         auto_edges = graph.semantic_auto_connect([entity_id])
 
-    graph.to_json(gpath)
+    _save_graph(graph, gpath)
 
     console.print(f"[green]{CHECK} Business entity added:[/green] {entity_id} ({etype})")
     if description:
@@ -834,7 +876,7 @@ def learn_batch(
             graph.add_edge_simple(src, tgt, relation=edge_data.get("relation", "RELATES_TO").upper())
             edges_added += 1
 
-    graph.to_json(gpath)
+    _save_graph(graph, gpath)
 
     console.print(f"[green]{CHECK} Batch learned:[/green] {nodes_added} nodes, {edges_added} edges")
     console.print(f"  Graph: {len(graph)} nodes total")

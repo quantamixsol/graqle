@@ -9,6 +9,14 @@ The sync protocol is delta-based (not full replication):
 - Resolve: interactive conflict resolution for ambiguous changes
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cloud.sync
+# risk: MEDIUM (impact radius: 2 modules)
+# consumers: main, test_sync
+# dependencies: __future__, hashlib, json, logging, time +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import hashlib

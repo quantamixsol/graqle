@@ -23,6 +23,14 @@ Usage:
     graq ingest --verbose                # Detailed extraction log
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.ingest
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, json, logging, time, pathlib +5 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

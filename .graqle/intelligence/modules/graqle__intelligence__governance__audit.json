@@ -1,0 +1,147 @@
+{
+  "module": "graqle.intelligence.governance.audit",
+  "files": [
+    "graqle/intelligence/governance/audit.py"
+  ],
+  "node_count": 19,
+  "function_count": 15,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "compute_hash",
+      "type": "Function",
+      "line": 55
+    },
+    {
+      "name": "entry_count",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "total_nodes_consulted",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "total_evidence",
+      "type": "Function",
+      "line": 91
+    },
+    {
+      "name": "add_entry",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "verify_chain",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "complete",
+      "type": "Function",
+      "line": 115
+    },
+    {
+      "name": "start_session",
+      "type": "Function",
+      "line": 135
+    },
+    {
+      "name": "log_entry",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "complete_session",
+      "type": "Function",
+      "line": 150
+    },
+    {
+      "name": "load_session",
+      "type": "Function",
+      "line": 157
+    },
+    {
+      "name": "list_sessions",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "AuditEntry",
+      "type": "Class",
+      "line": 33
+    },
+    {
+      "name": "AuditSession",
+      "type": "Class",
+      "line": 68
+    },
+    {
+      "name": "AuditTrail",
+      "type": "Class",
+      "line": 120
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.governance.middleware",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.governance.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_audit",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "pydantic",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.415,
+  "risk_level": "MEDIUM",
+  "impact_radius": 4,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.379552+00:00"
+}

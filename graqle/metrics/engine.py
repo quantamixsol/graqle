@@ -4,6 +4,14 @@ Persists usage data to `.graqle/metrics.json` and provides ROI
 reporting so users can quantify the value of graph-governed development.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.metrics.engine
+# risk: MEDIUM (impact radius: 4 modules)
+# consumers: metrics_cmd, dashboard, __init__, test_metrics_accuracy
+# dependencies: __future__, json, logging, collections, datetime +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

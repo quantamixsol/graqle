@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.parsers.xlsx — XLSX parser."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_parsers.test_xlsx
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pathlib, pytest, xlsx
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

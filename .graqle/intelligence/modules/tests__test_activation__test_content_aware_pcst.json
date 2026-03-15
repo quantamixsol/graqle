@@ -1,0 +1,259 @@
+{
+  "module": "tests.test_activation.test_content_aware_pcst",
+  "files": [
+    "tests/test_activation/test_content_aware_pcst.py"
+  ],
+  "node_count": 41,
+  "function_count": 35,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "directory_vs_jsmodule_graph",
+      "type": "Function",
+      "line": 37
+    },
+    {
+      "name": "isolated_nodes_graph",
+      "type": "Function",
+      "line": 123
+    },
+    {
+      "name": "test_zero_chunks_neutral_multiplier",
+      "type": "Function",
+      "line": 146
+    },
+    {
+      "name": "test_positive_chunks_boost",
+      "type": "Function",
+      "line": 150
+    },
+    {
+      "name": "test_logarithmic_diminishing_returns",
+      "type": "Function",
+      "line": 156
+    },
+    {
+      "name": "test_chunked_node_scores_higher_than_empty",
+      "type": "Function",
+      "line": 163
+    },
+    {
+      "name": "test_all_chunked_nodes_beat_directory",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_scores_can_exceed_one",
+      "type": "Function",
+      "line": 186
+    },
+    {
+      "name": "test_zero_chunk_node_replaced",
+      "type": "Function",
+      "line": 203
+    },
+    {
+      "name": "test_chunked_nodes_kept",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "test_no_duplicate_after_replacement",
+      "type": "Function",
+      "line": 231
+    },
+    {
+      "name": "test_isolated_zero_chunk_node_kept",
+      "type": "Function",
+      "line": 245
+    },
+    {
+      "name": "test_all_neighbours_also_zero_chunks",
+      "type": "Function",
+      "line": 257
+    },
+    {
+      "name": "test_empty_selection_returns_empty",
+      "type": "Function",
+      "line": 276
+    },
+    {
+      "name": "test_exact_filename_match",
+      "type": "Function",
+      "line": 294
+    },
+    {
+      "name": "test_bare_name_word_boundary_match",
+      "type": "Function",
+      "line": 304
+    },
+    {
+      "name": "test_bare_name_no_substring_match",
+      "type": "Function",
+      "line": 314
+    },
+    {
+      "name": "test_no_match_returns_none",
+      "type": "Function",
+      "line": 325
+    },
+    {
+      "name": "test_short_label_ignored",
+      "type": "Function",
+      "line": 334
+    },
+    {
+      "name": "test_includes_neighbours",
+      "type": "Function",
+      "line": 347
+    },
+    {
+      "name": "test_multiple_files_in_query",
+      "type": "Function",
+      "line": 358
+    },
+    {
+      "name": "test_case_insensitive",
+      "type": "Function",
+      "line": 369
+    },
+    {
+      "name": "test_path_in_label_extracts_basename",
+      "type": "Function",
+      "line": 379
+    },
+    {
+      "name": "test_pcst_prefers_content_nodes_over_directory",
+      "type": "Function",
+      "line": 401
+    },
+    {
+      "name": "test_activate_subgraph_with_filename_query",
+      "type": "Function",
+      "line": 416
+    },
+    {
+      "name": "test_activate_subgraph_falls_through_to_pcst",
+      "type": "Function",
+      "line": 425
+    },
+    {
+      "name": "test_full_strategy_ignores_layers",
+      "type": "Function",
+      "line": 435
+    },
+    {
+      "name": "test_topk_strategy_ignores_layers",
+      "type": "Function",
+      "line": 444
+    },
+    {
+      "name": "test_node_with_empty_chunk_list_treated_as_zero",
+      "type": "Function",
+      "line": 461
+    },
+    {
+      "name": "test_node_with_string_chunks_not_list",
+      "type": "Function",
+      "line": 474
+    },
+    {
+      "name": "test_filename_boost_vs_content_multiplier_interaction",
+      "type": "Function",
+      "line": 487
+    },
+    {
+      "name": "test_content_filter_with_node_missing_from_graph",
+      "type": "Function",
+      "line": 501
+    },
+    {
+      "name": "test_direct_lookup_with_all_short_labels",
+      "type": "Function",
+      "line": 515
+    },
+    {
+      "name": "test_content_filter_preserves_order",
+      "type": "Function",
+      "line": 525
+    },
+    {
+      "name": "test_max_nodes_respected_by_direct_lookup",
+      "type": "Function",
+      "line": 541
+    },
+    {
+      "name": "TestContentRichnessMultiplier",
+      "type": "Class",
+      "line": 143
+    },
+    {
+      "name": "TestPostPCSTContentFilter",
+      "type": "Class",
+      "line": 200
+    },
+    {
+      "name": "TestDirectFileLookup",
+      "type": "Class",
+      "line": 291
+    },
+    {
+      "name": "TestFullPipeline",
+      "type": "Class",
+      "line": 398
+    },
+    {
+      "name": "TestEdgeCases",
+      "type": "Class",
+      "line": 458
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "math",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.node",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.edge",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.pcst",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.activation.relevance",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.522,
+  "risk_level": "HIGH",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:42.058814+00:00"
+}

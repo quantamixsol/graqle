@@ -1,5 +1,12 @@
 """Tests for graqle.cloud.plans — plan limits and monetization gating."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cloud.test_plans
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pytest, plans
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

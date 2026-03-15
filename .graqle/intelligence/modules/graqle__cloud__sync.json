@@ -1,0 +1,154 @@
+{
+  "module": "graqle.cloud.sync",
+  "files": [
+    "graqle/cloud/sync.py"
+  ],
+  "node_count": 20,
+  "function_count": 16,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "is_empty",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "summary",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 73
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "to_dict",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "from_dict",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "source_priority",
+      "type": "Function",
+      "line": 117
+    },
+    {
+      "name": "load_sync_state",
+      "type": "Function",
+      "line": 132
+    },
+    {
+      "name": "save_sync_state",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "compute_graph_hash",
+      "type": "Function",
+      "line": 167
+    },
+    {
+      "name": "compute_delta",
+      "type": "Function",
+      "line": 173
+    },
+    {
+      "name": "detect_conflicts",
+      "type": "Function",
+      "line": 235
+    },
+    {
+      "name": "auto_resolve_conflicts",
+      "type": "Function",
+      "line": 273
+    },
+    {
+      "name": "save_sync_snapshot",
+      "type": "Function",
+      "line": 311
+    },
+    {
+      "name": "load_sync_snapshot",
+      "type": "Function",
+      "line": 339
+    },
+    {
+      "name": "SyncDelta",
+      "type": "Class",
+      "line": 40
+    },
+    {
+      "name": "SyncState",
+      "type": "Class",
+      "line": 84
+    },
+    {
+      "name": "SyncConflict",
+      "type": "Class",
+      "line": 105
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_cloud.test_sync",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.367,
+  "risk_level": "MEDIUM",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.202365+00:00"
+}

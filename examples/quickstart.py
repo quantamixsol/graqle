@@ -5,6 +5,13 @@ assigns mock agents to each node, and runs a reasoning query.
 No GPU, no API keys, no database — just Python.
 """
 
+# ── graqle:intelligence ──
+# module: examples.quickstart
+# risk: LOW (impact radius: 0 modules)
+# dependencies: asyncio, networkx, graqle, mock
+# constraints: none
+# ── /graqle:intelligence ──
+
 import asyncio
 
 import networkx as nx

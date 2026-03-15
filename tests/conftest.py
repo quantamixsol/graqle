@@ -1,5 +1,12 @@
 """Shared test fixtures for Graqle."""
 
+# ── graqle:intelligence ──
+# module: tests.conftest
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, networkx, graph, node, edge +4 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 import networkx as nx
 

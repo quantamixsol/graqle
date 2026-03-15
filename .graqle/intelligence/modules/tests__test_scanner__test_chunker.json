@@ -1,0 +1,178 @@
+{
+  "module": "tests.test_scanner.test_chunker",
+  "files": [
+    "tests/test_scanner/test_chunker.py"
+  ],
+  "node_count": 30,
+  "function_count": 28,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_simple_sections",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_single_section",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_table_is_own_chunk",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_multiple_tables",
+      "type": "Function",
+      "line": 128
+    },
+    {
+      "name": "test_code_block_is_own_chunk",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "test_multiple_code_blocks",
+      "type": "Function",
+      "line": 170
+    },
+    {
+      "name": "test_small_sections_merged",
+      "type": "Function",
+      "line": 196
+    },
+    {
+      "name": "test_small_and_large_mix",
+      "type": "Function",
+      "line": 214
+    },
+    {
+      "name": "test_large_section_split",
+      "type": "Function",
+      "line": 230
+    },
+    {
+      "name": "test_large_section_split_at_sentence_boundaries",
+      "type": "Function",
+      "line": 244
+    },
+    {
+      "name": "test_heading_path_tracking",
+      "type": "Function",
+      "line": 264
+    },
+    {
+      "name": "test_heading_path_h1_only",
+      "type": "Function",
+      "line": 286
+    },
+    {
+      "name": "test_heading_path_pop_on_same_level",
+      "type": "Function",
+      "line": 296
+    },
+    {
+      "name": "test_heading_path_deep_pop",
+      "type": "Function",
+      "line": 319
+    },
+    {
+      "name": "test_overlap_between_chunks",
+      "type": "Function",
+      "line": 341
+    },
+    {
+      "name": "test_token_estimate",
+      "type": "Function",
+      "line": 369
+    },
+    {
+      "name": "test_token_estimate_for_code",
+      "type": "Function",
+      "line": 391
+    },
+    {
+      "name": "test_empty_document",
+      "type": "Function",
+      "line": 411
+    },
+    {
+      "name": "test_document_with_empty_sections",
+      "type": "Function",
+      "line": 420
+    },
+    {
+      "name": "test_max_chunk_chars_respected",
+      "type": "Function",
+      "line": 437
+    },
+    {
+      "name": "test_min_chunk_chars_respected",
+      "type": "Function",
+      "line": 455
+    },
+    {
+      "name": "test_custom_max_and_min",
+      "type": "Function",
+      "line": 475
+    },
+    {
+      "name": "test_chunk_has_source_section",
+      "type": "Function",
+      "line": 490
+    },
+    {
+      "name": "test_chunks_are_ordered",
+      "type": "Function",
+      "line": 500
+    },
+    {
+      "name": "test_chunking_is_deterministic",
+      "type": "Function",
+      "line": 517
+    },
+    {
+      "name": "test_no_content_loss",
+      "type": "Function",
+      "line": 533
+    },
+    {
+      "name": "TestDocumentChunker",
+      "type": "Class",
+      "line": 70
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.scanner.chunker",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.368,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.110578+00:00"
+}

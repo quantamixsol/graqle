@@ -22,6 +22,14 @@ Usage:
     recommendations = router.recommend("What depends on auth?")
 """
 
+# ── graqle:intelligence ──
+# module: graqle.routing
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_routing
+# dependencies: __future__, logging, os, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

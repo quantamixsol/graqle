@@ -1,0 +1,118 @@
+{
+  "module": "graqle.leads.collector",
+  "files": [
+    "graqle/leads/collector.py"
+  ],
+  "node_count": 16,
+  "function_count": 15,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "load_profile",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "save_profile",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "get_install_id",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "is_registered",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "is_telemetry_enabled",
+      "type": "Function",
+      "line": 96
+    },
+    {
+      "name": "register",
+      "type": "Function",
+      "line": 107
+    },
+    {
+      "name": "track_project_init",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "track_usage",
+      "type": "Function",
+      "line": 221
+    },
+    {
+      "name": "check_milestone",
+      "type": "Function",
+      "line": 242
+    },
+    {
+      "name": "get_registration_nudge",
+      "type": "Function",
+      "line": 356
+    },
+    {
+      "name": "get_milestone_nudge",
+      "type": "Function",
+      "line": 365
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "platform",
+      "type": "external"
+    },
+    {
+      "module": "uuid",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.343,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.143934+00:00"
+}

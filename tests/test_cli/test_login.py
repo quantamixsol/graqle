@@ -1,5 +1,12 @@
 """Tests for graq login / logout commands."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_login
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, mock, pytest, credentials
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from unittest.mock import patch, MagicMock

@@ -5,6 +5,13 @@ for the knowledge graph. Extractors are registered in the ``EXTRACTOR_MAP``
 and dispatched by the ``JSONParser`` classifier.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

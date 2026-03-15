@@ -1,0 +1,141 @@
+{
+  "module": "tests.test_plugins.test_lesson_hit_count",
+  "files": [
+    "tests/test_plugins/test_lesson_hit_count.py"
+  ],
+  "node_count": 20,
+  "function_count": 12,
+  "class_count": 7,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "mock_graph",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "server",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_lesson_starts_with_zero_hits",
+      "type": "Function",
+      "line": 131
+    },
+    {
+      "name": "test_lesson_without_hit_count_key",
+      "type": "Function",
+      "line": 135
+    },
+    {
+      "name": "test_handle_lessons_increments_hit_count",
+      "type": "Function",
+      "line": 154
+    },
+    {
+      "name": "test_handle_lessons_returns_updated_hit_count",
+      "type": "Function",
+      "line": 172
+    },
+    {
+      "name": "test_preflight_increments_hit_count",
+      "type": "Function",
+      "line": 191
+    },
+    {
+      "name": "test_multiple_calls_increment_cumulatively",
+      "type": "Function",
+      "line": 216
+    },
+    {
+      "name": "test_preflight_and_lessons_both_increment",
+      "type": "Function",
+      "line": 236
+    },
+    {
+      "name": "test_unmatched_lessons_not_incremented",
+      "type": "Function",
+      "line": 252
+    },
+    {
+      "name": "test_node_without_hit_count_gets_initialized",
+      "type": "Function",
+      "line": 264
+    },
+    {
+      "name": "MockNode",
+      "type": "Class",
+      "line": 31
+    },
+    {
+      "name": "MockEdge",
+      "type": "Class",
+      "line": 42
+    },
+    {
+      "name": "MockStats",
+      "type": "Class",
+      "line": 50
+    },
+    {
+      "name": "TestLessonHitCountInitial",
+      "type": "Class",
+      "line": 129
+    },
+    {
+      "name": "TestHandleLessonsIncrements",
+      "type": "Class",
+      "line": 151
+    },
+    {
+      "name": "TestHandlePreflightIncrements",
+      "type": "Class",
+      "line": 188
+    },
+    {
+      "name": "TestCumulativeIncrements",
+      "type": "Class",
+      "line": 213
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.plugins.mcp_dev_server",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.268,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.788775+00:00"
+}

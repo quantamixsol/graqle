@@ -1,0 +1,36 @@
+{
+  "module": "graqle.metrics.__init__",
+  "files": [
+    "graqle/metrics/__init__.py"
+  ],
+  "node_count": 2,
+  "function_count": 1,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "get_metrics",
+      "type": "Function",
+      "line": 17
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.metrics.engine",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.metrics.dashboard",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.05,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.169618+00:00"
+}

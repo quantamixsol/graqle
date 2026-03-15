@@ -12,6 +12,13 @@
 - Multimodal scenarios (3 tests)
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_reformulator
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, os, mock, pytest, reformulator
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

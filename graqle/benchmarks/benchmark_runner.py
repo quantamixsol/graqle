@@ -12,6 +12,14 @@ Baselines:
 Metrics: EM (exact match), F1, latency, cost, tokens, rounds
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.benchmark_runner
+# risk: HIGH (impact radius: 5 modules)
+# consumers: run_multigov, run_multigov_v2, run_multigov_v3, test_constrained_f1, test_metrics
+# dependencies: __future__, asyncio, json, logging, re +11 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

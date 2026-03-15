@@ -1,0 +1,305 @@
+{
+  "module": "tests.test_scanner.test_privacy",
+  "files": [
+    "tests/test_scanner/test_privacy.py"
+  ],
+  "node_count": 55,
+  "function_count": 53,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "engine",
+      "type": "Function",
+      "line": 27
+    },
+    {
+      "name": "test_api_key_redacted",
+      "type": "Function",
+      "line": 40
+    },
+    {
+      "name": "test_api_key_with_equals",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "test_api_key_in_json",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "test_openai_key_redacted",
+      "type": "Function",
+      "line": 61
+    },
+    {
+      "name": "test_password_redacted",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_password_equals",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_password_in_url",
+      "type": "Function",
+      "line": 83
+    },
+    {
+      "name": "test_passwd_variant",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_bearer_token_redacted",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_bearer_case_insensitive",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "test_aws_access_key_redacted",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_aws_secret_key_redacted",
+      "type": "Function",
+      "line": 121
+    },
+    {
+      "name": "test_aws_key_in_config",
+      "type": "Function",
+      "line": 128
+    },
+    {
+      "name": "test_private_key_redacted",
+      "type": "Function",
+      "line": 137
+    },
+    {
+      "name": "test_ec_private_key_redacted",
+      "type": "Function",
+      "line": 144
+    },
+    {
+      "name": "test_generic_private_key",
+      "type": "Function",
+      "line": 151
+    },
+    {
+      "name": "test_jwt_redacted",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "test_jwt_in_header",
+      "type": "Function",
+      "line": 166
+    },
+    {
+      "name": "test_connection_string_postgresql",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_connection_string_mysql",
+      "type": "Function",
+      "line": 181
+    },
+    {
+      "name": "test_connection_string_redis",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_connection_string_mongodb",
+      "type": "Function",
+      "line": 195
+    },
+    {
+      "name": "test_disabled_engine",
+      "type": "Function",
+      "line": 204
+    },
+    {
+      "name": "test_disabled_engine_detect_returns_empty",
+      "type": "Function",
+      "line": 211
+    },
+    {
+      "name": "test_detect_without_redacting",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "test_detect_returns_match_positions",
+      "type": "Function",
+      "line": 232
+    },
+    {
+      "name": "test_detect_multiple_patterns",
+      "type": "Function",
+      "line": 246
+    },
+    {
+      "name": "test_custom_pattern",
+      "type": "Function",
+      "line": 261
+    },
+    {
+      "name": "test_custom_pattern_with_existing",
+      "type": "Function",
+      "line": 269
+    },
+    {
+      "name": "test_multiple_custom_patterns",
+      "type": "Function",
+      "line": 277
+    },
+    {
+      "name": "test_disabled_default_pattern",
+      "type": "Function",
+      "line": 292
+    },
+    {
+      "name": "test_disabled_pattern_others_still_active",
+      "type": "Function",
+      "line": 299
+    },
+    {
+      "name": "test_disabled_multiple_patterns",
+      "type": "Function",
+      "line": 307
+    },
+    {
+      "name": "test_normal_text_unchanged",
+      "type": "Function",
+      "line": 317
+    },
+    {
+      "name": "test_technical_text_without_secrets",
+      "type": "Function",
+      "line": 323
+    },
+    {
+      "name": "test_code_comments_without_secrets",
+      "type": "Function",
+      "line": 331
+    },
+    {
+      "name": "test_short_values_not_redacted",
+      "type": "Function",
+      "line": 338
+    },
+    {
+      "name": "test_multiple_patterns_in_one_text",
+      "type": "Function",
+      "line": 347
+    },
+    {
+      "name": "test_adjacent_secrets",
+      "type": "Function",
+      "line": 355
+    },
+    {
+      "name": "test_empty_string",
+      "type": "Function",
+      "line": 363
+    },
+    {
+      "name": "test_whitespace_only",
+      "type": "Function",
+      "line": 367
+    },
+    {
+      "name": "test_very_long_text",
+      "type": "Function",
+      "line": 372
+    },
+    {
+      "name": "test_unicode_text_with_secrets",
+      "type": "Function",
+      "line": 379
+    },
+    {
+      "name": "test_multiline_text",
+      "type": "Function",
+      "line": 385
+    },
+    {
+      "name": "test_double_redaction_is_safe",
+      "type": "Function",
+      "line": 399
+    },
+    {
+      "name": "test_redaction_match_fields",
+      "type": "Function",
+      "line": 411
+    },
+    {
+      "name": "test_env_var_export",
+      "type": "Function",
+      "line": 423
+    },
+    {
+      "name": "test_dotenv_format",
+      "type": "Function",
+      "line": 429
+    },
+    {
+      "name": "test_github_token_redacted",
+      "type": "Function",
+      "line": 437
+    },
+    {
+      "name": "test_slack_token_redacted",
+      "type": "Function",
+      "line": 443
+    },
+    {
+      "name": "test_default_constructor",
+      "type": "Function",
+      "line": 451
+    },
+    {
+      "name": "test_enabled_true_explicit",
+      "type": "Function",
+      "line": 456
+    },
+    {
+      "name": "TestRedactionEngine",
+      "type": "Class",
+      "line": 35
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.privacy",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.46,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.698648+00:00"
+}

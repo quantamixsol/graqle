@@ -10,6 +10,14 @@ This enables:
 - Event-driven architecture (nodes are reactive, not polled)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.async_protocol
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_async_protocol
+# dependencies: __future__, asyncio, logging, time, typing +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

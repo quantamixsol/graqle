@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.background — background scan manager."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_background
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, time, dataclasses, pathlib +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

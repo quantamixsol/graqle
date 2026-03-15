@@ -1,5 +1,12 @@
 """Tests for graqle.cloud.gateway — cloud gateway client and upsell triggers."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cloud.test_gateway
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, pytest, gateway
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

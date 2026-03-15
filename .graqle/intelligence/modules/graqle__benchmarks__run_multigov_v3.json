@@ -1,0 +1,128 @@
+{
+  "module": "graqle.benchmarks.run_multigov_v3",
+  "files": [
+    "graqle/benchmarks/run_multigov_v3.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "run_v3_benchmark",
+      "type": "Function",
+      "line": 159
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "argparse",
+      "type": "external"
+    },
+    {
+      "module": "asyncio",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "sys",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "graqle.backends.api",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.benchmarks.benchmark_runner",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.benchmarks.multi_governance_benchmark",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.benchmarks.multi_governance_kg",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.domains.governance",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.semantic_shacl_gate",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.aggregation",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.convergence",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.message_passing",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.observer",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.orchestrator",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.238,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.633332+00:00"
+}

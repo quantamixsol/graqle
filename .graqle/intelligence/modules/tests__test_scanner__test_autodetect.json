@@ -1,0 +1,184 @@
+{
+  "module": "tests.test_scanner.test_autodetect",
+  "files": [
+    "tests/test_scanner/test_autodetect.py"
+  ],
+  "node_count": 30,
+  "function_count": 22,
+  "class_count": 7,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_aws_bedrock",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_anthropic",
+      "type": "Function",
+      "line": 32
+    },
+    {
+      "name": "test_openai",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "test_local_fallback",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_python_detected",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_typescript_detected",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_go_detected",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_rust_detected",
+      "type": "Function",
+      "line": 67
+    },
+    {
+      "name": "test_empty_dir",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_multiple_languages",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "test_vscode",
+      "type": "Function",
+      "line": 86
+    },
+    {
+      "name": "test_cursor",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_jetbrains",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_none",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_returns_valid_capacity",
+      "type": "Function",
+      "line": 104
+    },
+    {
+      "name": "test_always_includes_common",
+      "type": "Function",
+      "line": 113
+    },
+    {
+      "name": "test_rust_target",
+      "type": "Function",
+      "line": 119
+    },
+    {
+      "name": "test_java_gradle",
+      "type": "Function",
+      "line": 123
+    },
+    {
+      "name": "test_full_detection",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "test_vscode_config",
+      "type": "Function",
+      "line": 145
+    },
+    {
+      "name": "test_no_ide_returns_none",
+      "type": "Function",
+      "line": 150
+    },
+    {
+      "name": "test_jetbrains_returns_none",
+      "type": "Function",
+      "line": 153
+    },
+    {
+      "name": "TestDetectBackend",
+      "type": "Class",
+      "line": 23
+    },
+    {
+      "name": "TestDetectLanguages",
+      "type": "Class",
+      "line": 49
+    },
+    {
+      "name": "TestDetectIDE",
+      "type": "Class",
+      "line": 83
+    },
+    {
+      "name": "TestDetectMachine",
+      "type": "Class",
+      "line": 101
+    },
+    {
+      "name": "TestBuildSmartExcludes",
+      "type": "Class",
+      "line": 110
+    },
+    {
+      "name": "TestDetectEnvironment",
+      "type": "Class",
+      "line": 127
+    },
+    {
+      "name": "TestSuggestMcpConfig",
+      "type": "Class",
+      "line": 142
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.autodetect",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.303,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.101212+00:00"
+}

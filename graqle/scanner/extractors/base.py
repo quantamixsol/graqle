@@ -1,5 +1,13 @@
 """Base extractor protocol for JSON knowledge extraction."""
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.extractors.base
+# risk: MEDIUM (impact radius: 31 modules)
+# consumers: api, fallback, gemini, llamacpp_backend, local +26 more
+# dependencies: __future__, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

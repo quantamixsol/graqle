@@ -4,6 +4,14 @@ Stores decisions in ``.graqle/merge_decisions.yaml`` so the user is
 never asked the same question twice on future scans.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.decisions
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_decisions
+# dependencies: __future__, json, logging, dataclasses, pathlib +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

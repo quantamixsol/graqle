@@ -8,6 +8,14 @@ This module provides rule-based token optimization that doesn't require
 training. For OPTIMA-style learned optimization, use with DPO training.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.optimization.token_optimizer
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_token_optimizer
+# dependencies: __future__, logging, re, dataclasses, typing +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

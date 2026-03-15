@@ -1,5 +1,12 @@
 """Tests for graqle.backends.gemini — Google Gemini API backend."""
 
+# ── graqle:intelligence ──
+# module: tests.test_backends.test_gemini
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, mock, pytest, gemini
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

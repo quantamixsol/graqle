@@ -1,0 +1,47 @@
+{
+  "module": "graqle.studio.static.js.charts",
+  "files": [
+    "graqle/studio/static/js/charts.js"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "renderBarChart",
+      "type": "Function",
+      "line": 18
+    },
+    {
+      "name": "renderLineChart",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "renderDonutChart",
+      "type": "Function",
+      "line": 206
+    },
+    {
+      "name": "renderGauge",
+      "type": "Function",
+      "line": 263
+    },
+    {
+      "name": "renderSparkline",
+      "type": "Function",
+      "line": 328
+    }
+  ],
+  "consumers": [],
+  "dependencies": [],
+  "risk_score": 0.048,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.853734+00:00"
+}

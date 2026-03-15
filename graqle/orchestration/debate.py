@@ -10,6 +10,14 @@ This produces higher-quality reasoning than simple consensus because
 it stress-tests claims through adversarial pressure.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.debate
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_debate
+# dependencies: __future__, asyncio, logging, typing, message +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import asyncio

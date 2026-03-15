@@ -5,6 +5,14 @@ and how each node's output influenced the final answer. This creates
 an auditable trail that answers: "Why did Graqle say X?"
 """
 
+# ── graqle:intelligence ──
+# module: graqle.orchestration.explanation
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_explanation
+# dependencies: __future__, dataclasses, typing, message
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

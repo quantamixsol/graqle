@@ -5,6 +5,14 @@ effectiveness, and optionally generates a markdown dashboard or
 prints a JSON dump.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.metrics_cmd
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, json, pathlib, typer, console +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json as json_lib

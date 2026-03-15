@@ -1,0 +1,51 @@
+{
+  "module": "tests.test_core.test_message",
+  "files": [
+    "tests/test_core/test_message.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_message_creation",
+      "type": "Function",
+      "line": 12
+    },
+    {
+      "name": "test_message_to_prompt_context",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "test_message_to_dict",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_query_broadcast",
+      "type": "Function",
+      "line": 58
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.078,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.245551+00:00"
+}

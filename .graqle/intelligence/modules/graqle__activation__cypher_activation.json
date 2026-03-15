@@ -1,0 +1,54 @@
+{
+  "module": "graqle.activation.cypher_activation",
+  "files": [
+    "graqle/activation/cypher_activation.py"
+  ],
+  "node_count": 4,
+  "function_count": 2,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "activate",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "CypherActivation",
+      "type": "Class",
+      "line": 22
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.activation.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_activation.test_cypher_activation",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.134,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.402022+00:00"
+}

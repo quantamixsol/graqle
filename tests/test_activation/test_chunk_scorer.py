@@ -4,6 +4,13 @@ Verifies that ChunkScorer correctly activates nodes by matching
 individual chunks to the query, not node-level descriptions.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_chunk_scorer
+# risk: LOW (impact radius: 0 modules)
+# dependencies: mock, numpy, pytest, chunk_scorer
+# constraints: none
+# ── /graqle:intelligence ──
+
 from unittest.mock import MagicMock, patch
 
 import numpy as np

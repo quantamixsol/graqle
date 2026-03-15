@@ -1,0 +1,77 @@
+{
+  "module": "tests.test_core.test_edges_links_compat",
+  "files": [
+    "tests/test_core/test_edges_links_compat.py"
+  ],
+  "node_count": 8,
+  "function_count": 6,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_loads_with_links_key",
+      "type": "Function",
+      "line": 44
+    },
+    {
+      "name": "test_loads_with_edges_key",
+      "type": "Function",
+      "line": 51
+    },
+    {
+      "name": "test_saves_with_links_key",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "test_roundtrip_preserves_edges",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_scan_learn_cycle_no_crash",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "TestEdgesLinksCompat",
+      "type": "Class",
+      "line": 41
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "tempfile",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.179,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.040565+00:00"
+}

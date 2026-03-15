@@ -15,6 +15,13 @@ Requirements:
     export ANTHROPIC_API_KEY=...  (or use Ollama for local)
 """
 
+# ── graqle:intelligence ──
+# module: examples.governance_example
+# risk: LOW (impact radius: 0 modules)
+# dependencies: asyncio, graph, settings
+# constraints: none
+# ── /graqle:intelligence ──
+
 import asyncio
 from graqle.core.graph import Graqle
 from graqle.config.settings import GraqleConfig

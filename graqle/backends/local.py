@@ -1,5 +1,12 @@
 """Local model backend — runs SLMs on local hardware via transformers or llama.cpp."""
 
+# ── graqle:intelligence ──
+# module: graqle.backends.local
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from graqle.backends.base import BaseBackend

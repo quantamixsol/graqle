@@ -7,6 +7,13 @@
 - Terms & Licensing (4)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domains.legal
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, typing, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Dict, List, TYPE_CHECKING

@@ -1,5 +1,12 @@
 """Tests for PCST activation."""
 
+# ── graqle:intelligence ──
+# module: tests.test_activation.test_pcst
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, graph, pcst, relevance, embeddings +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.graph import Graqle

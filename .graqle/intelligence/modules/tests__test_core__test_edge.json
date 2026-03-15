@@ -1,0 +1,55 @@
+{
+  "module": "tests.test_core.test_edge",
+  "files": [
+    "tests/test_core/test_edge.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_edge_creation",
+      "type": "Function",
+      "line": 12
+    },
+    {
+      "name": "test_edge_send_receive",
+      "type": "Function",
+      "line": 20
+    },
+    {
+      "name": "test_edge_capacity",
+      "type": "Function",
+      "line": 33
+    },
+    {
+      "name": "test_edge_semantic_distance",
+      "type": "Function",
+      "line": 46
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.core.edge",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.098,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.039540+00:00"
+}

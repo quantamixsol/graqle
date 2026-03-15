@@ -1,0 +1,77 @@
+{
+  "module": "graqle.scanner.parsers.text",
+  "files": [
+    "graqle/scanner/parsers/text.py"
+  ],
+  "node_count": 11,
+  "function_count": 9,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "parse",
+      "type": "Function",
+      "line": 145
+    },
+    {
+      "name": "is_available",
+      "type": "Function",
+      "line": 267
+    },
+    {
+      "name": "missing_dependency_message",
+      "type": "Function",
+      "line": 271
+    },
+    {
+      "name": "supported_extensions",
+      "type": "Function",
+      "line": 276
+    },
+    {
+      "name": "PlainTextParser",
+      "type": "Class",
+      "line": 136
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.intelligence.compile",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_scanner.test_parsers.test_text",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.scanner.parsers.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.241,
+  "risk_level": "LOW",
+  "impact_radius": 2,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.145660+00:00"
+}

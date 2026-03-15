@@ -1,0 +1,84 @@
+{
+  "module": "graqle.server.stripe_webhook",
+  "files": [
+    "graqle/server/stripe_webhook.py"
+  ],
+  "node_count": 7,
+  "function_count": 6,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "verify_stripe_signature",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "generate_license_from_checkout",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "handle_webhook_event",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "lambda_handler",
+      "type": "Function",
+      "line": 240
+    },
+    {
+      "name": "stripe_webhook",
+      "type": "Function",
+      "line": 300
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "hashlib",
+      "type": "external"
+    },
+    {
+      "module": "hmac",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "os",
+      "type": "external"
+    },
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "datetime",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.237,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.211489+00:00"
+}

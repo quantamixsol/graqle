@@ -1,0 +1,75 @@
+{
+  "module": "tests.test_activation.test_cypher_activation",
+  "files": [
+    "tests/test_activation/test_cypher_activation.py"
+  ],
+  "node_count": 10,
+  "function_count": 8,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_basic_activation",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_filters_to_existing_graph_nodes",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_embedding_failure_falls_back_to_full",
+      "type": "Function",
+      "line": 60
+    },
+    {
+      "name": "test_vector_search_failure_falls_back",
+      "type": "Function",
+      "line": 75
+    },
+    {
+      "name": "test_empty_vector_results_falls_back",
+      "type": "Function",
+      "line": 88
+    },
+    {
+      "name": "test_max_nodes_respected",
+      "type": "Function",
+      "line": 101
+    },
+    {
+      "name": "test_relevance_scores_stored",
+      "type": "Function",
+      "line": 118
+    },
+    {
+      "name": "TestCypherActivation",
+      "type": "Class",
+      "line": 22
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.activation.cypher_activation",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.138,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:42.091476+00:00"
+}

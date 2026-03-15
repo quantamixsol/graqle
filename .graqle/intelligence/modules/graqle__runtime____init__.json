@@ -1,0 +1,34 @@
+{
+  "module": "graqle.runtime.__init__",
+  "files": [
+    "graqle/runtime/__init__.py"
+  ],
+  "node_count": 1,
+  "function_count": 0,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.runtime.detector",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.runtime.fetcher",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.runtime.kg_builder",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.06,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.200602+00:00"
+}

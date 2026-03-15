@@ -1,0 +1,49 @@
+{
+  "module": "tests.test_orchestration.test_message_passing",
+  "files": [
+    "tests/test_orchestration/test_message_passing.py"
+  ],
+  "node_count": 3,
+  "function_count": 2,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_initial_round",
+      "type": "Function",
+      "line": 18
+    },
+    {
+      "name": "test_exchange_round",
+      "type": "Function",
+      "line": 36
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.backends.mock",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.orchestration.message_passing",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.099,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.567809+00:00"
+}

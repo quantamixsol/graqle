@@ -9,6 +9,14 @@ This is one of the highest-value features — finding stale docs nobody
 knew were wrong.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.dedup.contradictions
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_contradictions
+# dependencies: __future__, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from typing import Any

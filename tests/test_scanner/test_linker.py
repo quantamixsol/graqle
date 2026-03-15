@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.linker — auto-linking pipeline."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_linker
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pytest, linker
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

@@ -1,0 +1,80 @@
+{
+  "module": "graqle.intelligence.headers",
+  "files": [
+    "graqle/intelligence/headers.py"
+  ],
+  "node_count": 6,
+  "function_count": 5,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "generate_header",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "inject_header",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "eject_header",
+      "type": "Function",
+      "line": 140
+    },
+    {
+      "name": "has_header",
+      "type": "Function",
+      "line": 169
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.intelligence.compile",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_headers",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.248,
+  "risk_level": "LOW",
+  "impact_radius": 3,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.387251+00:00"
+}

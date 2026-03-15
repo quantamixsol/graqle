@@ -19,6 +19,14 @@ This benchmark demonstrates Graqle's core thesis:
      single-agent approaches on multi-hop regulatory queries."
 """
 
+# ── graqle:intelligence ──
+# module: graqle.benchmarks.multi_governance_benchmark
+# risk: LOW (impact radius: 3 modules)
+# consumers: run_multigov, run_multigov_v2, run_multigov_v3
+# dependencies: __future__, dataclasses
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from dataclasses import dataclass

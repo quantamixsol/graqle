@@ -1,0 +1,65 @@
+{
+  "module": "graqle.cli.commands.audit",
+  "files": [
+    "graqle/cli/commands/audit.py"
+  ],
+  "node_count": 5,
+  "function_count": 4,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "audit_command",
+      "type": "Function",
+      "line": 30
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.cli.main",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.governance.middleware",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.intelligence.governance.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_intelligence.test_audit",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "typer",
+      "type": "external"
+    },
+    {
+      "module": "graqle.cli.console",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.245,
+  "risk_level": "LOW",
+  "impact_radius": 4,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:29.165823+00:00"
+}

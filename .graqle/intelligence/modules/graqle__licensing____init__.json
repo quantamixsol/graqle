@@ -1,0 +1,32 @@
+{
+  "module": "graqle.licensing.__init__",
+  "files": [
+    "graqle/licensing/__init__.py"
+  ],
+  "node_count": 2,
+  "function_count": 1,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "generate_ontology",
+      "type": "Function",
+      "line": 20
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.licensing.manager",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.03,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.150532+00:00"
+}

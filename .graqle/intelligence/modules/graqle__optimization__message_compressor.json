@@ -1,0 +1,68 @@
+{
+  "module": "graqle.optimization.message_compressor",
+  "files": [
+    "graqle/optimization/message_compressor.py"
+  ],
+  "node_count": 9,
+  "function_count": 7,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "compress",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "compress_batch",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "compression_cost",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "MessageCompressor",
+      "type": "Class",
+      "line": 38
+    }
+  ],
+  "consumers": [
+    {
+      "module": "tests.test_optimization.test_token_optimizer",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.message",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.types",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.195,
+  "risk_level": "LOW",
+  "impact_radius": 1,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:35.286745+00:00"
+}

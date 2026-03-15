@@ -1,0 +1,142 @@
+{
+  "module": "graqle.ontology.domain_registry",
+  "files": [
+    "graqle/ontology/domain_registry.py"
+  ],
+  "node_count": 16,
+  "function_count": 13,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "get_entity_shape",
+      "type": "Function",
+      "line": 39
+    },
+    {
+      "name": "get_output_shape",
+      "type": "Function",
+      "line": 45
+    },
+    {
+      "name": "get_valid_targets",
+      "type": "Function",
+      "line": 49
+    },
+    {
+      "name": "upper_ontology",
+      "type": "Function",
+      "line": 76
+    },
+    {
+      "name": "registered_domains",
+      "type": "Function",
+      "line": 80
+    },
+    {
+      "name": "register_domain",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "get_domain",
+      "type": "Function",
+      "line": 134
+    },
+    {
+      "name": "get_all_relationship_shapes",
+      "type": "Function",
+      "line": 138
+    },
+    {
+      "name": "get_all_entity_shapes",
+      "type": "Function",
+      "line": 145
+    },
+    {
+      "name": "get_all_output_shapes",
+      "type": "Function",
+      "line": 152
+    },
+    {
+      "name": "find_domain_for_type",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "get_skills_for_type",
+      "type": "Function",
+      "line": 166
+    },
+    {
+      "name": "DomainOntology",
+      "type": "Class",
+      "line": 28
+    },
+    {
+      "name": "DomainRegistry",
+      "type": "Class",
+      "line": 60
+    }
+  ],
+  "consumers": [
+    {
+      "module": "sdk_self_audit",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.__init__",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.ontology.domains.governance_v3",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_registry",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_router",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "tests.test_ontology.test_skill_resolver",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.upper",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.414,
+  "risk_level": "MEDIUM",
+  "impact_radius": 7,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:26.651358+00:00"
+}

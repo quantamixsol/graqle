@@ -1,5 +1,13 @@
 """CogniNode — a knowledge graph node with an embedded reasoning agent."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.node
+# risk: HIGH (impact radius: 11 modules)
+# consumers: __init__, graph, __init__, conftest, test_content_aware_pcst +6 more
+# dependencies: __future__, logging, dataclasses, typing, numpy +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

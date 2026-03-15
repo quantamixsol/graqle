@@ -21,6 +21,14 @@ Architecture:
 Storage: JSON file at .graqle/activation_memory.json
 """
 
+# ── graqle:intelligence ──
+# module: graqle.learning.activation_memory
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_activation_memory
+# dependencies: __future__, json, logging, math, collections +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,12 @@
 """AdapterHub — download/upload adapters from HuggingFace Hub."""
 
+# ── graqle:intelligence ──
+# module: graqle.adapters.hub
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, logging, pathlib, config
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

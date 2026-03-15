@@ -1,0 +1,71 @@
+{
+  "module": "graqle.benchmarks.multi_governance_kg",
+  "files": [
+    "graqle/benchmarks/multi_governance_kg.py"
+  ],
+  "node_count": 4,
+  "function_count": 3,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "build_multi_governance_kg",
+      "type": "Function",
+      "line": 28
+    },
+    {
+      "name": "save_multi_governance_kg",
+      "type": "Function",
+      "line": 1652
+    },
+    {
+      "name": "get_kg_stats",
+      "type": "Function",
+      "line": 1660
+    }
+  ],
+  "consumers": [
+    {
+      "module": "graqle.benchmarks.run_multigov",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v2",
+      "via": "IMPORTS"
+    },
+    {
+      "module": "graqle.benchmarks.run_multigov_v3",
+      "via": "IMPORTS"
+    }
+  ],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "networkx",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.209,
+  "risk_level": "LOW",
+  "impact_radius": 3,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:27.369198+00:00"
+}

@@ -1,0 +1,142 @@
+{
+  "module": "tests.test_scanner.test_nl_router",
+  "files": [
+    "tests/test_scanner/test_nl_router.py"
+  ],
+  "node_count": 24,
+  "function_count": 21,
+  "class_count": 2,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_impact_what_depends",
+      "type": "Function",
+      "line": 14
+    },
+    {
+      "name": "test_impact_safe_to_change",
+      "type": "Function",
+      "line": 18
+    },
+    {
+      "name": "test_impact_what_breaks",
+      "type": "Function",
+      "line": 22
+    },
+    {
+      "name": "test_preflight_before_deploy",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_preflight_safety_check",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "test_lessons_what_went_wrong",
+      "type": "Function",
+      "line": 34
+    },
+    {
+      "name": "test_lessons_past_mistakes",
+      "type": "Function",
+      "line": 38
+    },
+    {
+      "name": "test_context_explain",
+      "type": "Function",
+      "line": 42
+    },
+    {
+      "name": "test_context_what_is",
+      "type": "Function",
+      "line": 46
+    },
+    {
+      "name": "test_context_who_owns",
+      "type": "Function",
+      "line": 50
+    },
+    {
+      "name": "test_inspect_stats",
+      "type": "Function",
+      "line": 54
+    },
+    {
+      "name": "test_inspect_how_many",
+      "type": "Function",
+      "line": 58
+    },
+    {
+      "name": "test_complex_falls_to_reason",
+      "type": "Function",
+      "line": 62
+    },
+    {
+      "name": "test_confidence_range",
+      "type": "Function",
+      "line": 66
+    },
+    {
+      "name": "test_returns_original_query",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_question",
+      "type": "Function",
+      "line": 78
+    },
+    {
+      "name": "test_single_word",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_entity_name",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_two_words_not_nl",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "test_how_question",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_question_mark",
+      "type": "Function",
+      "line": 93
+    },
+    {
+      "name": "TestRouteQuery",
+      "type": "Class",
+      "line": 11
+    },
+    {
+      "name": "TestIsNaturalLanguage",
+      "type": "Class",
+      "line": 75
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "graqle.scanner.nl_router",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.224,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:06.606921+00:00"
+}

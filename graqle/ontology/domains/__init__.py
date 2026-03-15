@@ -12,6 +12,13 @@ all built-in domain packages. External domains can be added via
 ``register_domain_module(registry, module)``.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.ontology.domains.__init__
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, importlib, logging, typing, skill_resolver
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import importlib

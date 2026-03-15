@@ -5,6 +5,13 @@ v0.15.0: Recalibrated for large KGs (>5K nodes) — 75/25 weighting,
          logarithmic coverage, tiered floors.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_orchestration.test_confidence_calibration
+# risk: LOW (impact radius: 0 modules)
+# dependencies: asyncio, math, mock, pytest
+# constraints: none
+# ── /graqle:intelligence ──
+
 import asyncio
 import math
 from unittest.mock import AsyncMock, MagicMock

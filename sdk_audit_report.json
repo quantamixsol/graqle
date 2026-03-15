@@ -1,0 +1,1580 @@
+{
+  "sdk_version": "0.23.1",
+  "graph_nodes": 3762,
+  "graph_edges": 4497,
+  "skill_coverage_pct": 100.0,
+  "skills_used": 45,
+  "total_issues": 240,
+  "production_readiness_score": 28,
+  "production_readiness_grade": "F",
+  "code_quality": {
+    "god_classes": [],
+    "complex_modules": [
+      {
+        "node": "examples/governance_example.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 10 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/__init__.py",
+        "type": "PythonModule",
+        "degree": 11,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 11 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/__version__.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 12 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/__init__.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 10 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/adaptive.py",
+        "type": "PythonModule",
+        "degree": 18,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 18 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/chunk_scorer.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 12 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/embeddings.py",
+        "type": "PythonModule",
+        "degree": 20,
+        "skill": "complexity_analysis",
+        "issue": "Very high complexity \u2014 20 connections, likely needs decomposition"
+      },
+      {
+        "node": "graqle/activation/pcst.py",
+        "type": "PythonModule",
+        "degree": 11,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 11 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/reformulator.py",
+        "type": "PythonModule",
+        "degree": 14,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 14 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/activation/relevance.py",
+        "type": "PythonModule",
+        "degree": 11,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 11 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/adapters/auto_select.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 12 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/adapters/config.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 10 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/adapters/loader.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 10 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/adapters/registry.py",
+        "type": "PythonModule",
+        "degree": 13,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 13 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/backends/api.py",
+        "type": "PythonModule",
+        "degree": 34,
+        "skill": "complexity_analysis",
+        "issue": "Very high complexity \u2014 34 connections, likely needs decomposition"
+      },
+      {
+        "node": "graqle/backends/base.py",
+        "type": "PythonModule",
+        "degree": 16,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 16 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/backends/fallback.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 10 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/backends/gemini.py",
+        "type": "PythonModule",
+        "degree": 14,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 14 connections, review for single responsibility"
+      },
+      {
+        "node": "graqle/backends/mock.py",
+        "type": "PythonModule",
+        "degree": 27,
+        "skill": "complexity_analysis",
+        "issue": "Very high complexity \u2014 27 connections, likely needs decomposition"
+      },
+      {
+        "node": "graqle/backends/registry.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "complexity_analysis",
+        "issue": "Moderate complexity \u2014 12 connections, review for single responsibility"
+      }
+    ],
+    "naming_issues": [],
+    "dead_code": [],
+    "error_handling": [
+      {
+        "node": "graqle/cli/console.py",
+        "type": "PythonModule",
+        "skill": "error_handling_review",
+        "issue": "Broad exception handler with pass/continue \u2014 may hide errors",
+        "severity": "MEDIUM"
+      },
+      {
+        "node": "graqle/studio/routes/dashboard.py",
+        "type": "PythonModule",
+        "skill": "error_handling_review",
+        "issue": "Broad exception handler with pass/continue \u2014 may hide errors",
+        "severity": "MEDIUM"
+      }
+    ],
+    "input_validation": []
+  },
+  "architecture": {
+    "circular_deps": [],
+    "high_coupling": [
+      {
+        "node": "graqle/activation/adaptive.py",
+        "fan_out": 18,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (18 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/activation/embeddings.py",
+        "fan_out": 20,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (20 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/backends/api.py",
+        "fan_out": 34,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (34 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/backends/base.py",
+        "fan_out": 16,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (16 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/backends/mock.py",
+        "fan_out": 27,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (27 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/benchmarks/benchmark_runner.py",
+        "fan_out": 22,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (22 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/benchmarks/run_multigov_v2.py",
+        "fan_out": 16,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (16 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/benchmarks/run_multigov_v3.py",
+        "fan_out": 18,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (18 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cli/commands/init.py",
+        "fan_out": 19,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (19 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cli/commands/learn.py",
+        "fan_out": 19,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (19 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cli/commands/scan.py",
+        "fan_out": 28,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (28 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cli/main.py",
+        "fan_out": 60,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (60 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cloud/credentials.py",
+        "fan_out": 16,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (16 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cloud/sync.py",
+        "fan_out": 19,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (19 connections) \u2014 tight coupling risk"
+      },
+      {
+        "node": "graqle/cloud/team.py",
+        "fan_out": 20,
+        "skill": "analyze_dependencies",
+        "issue": "High fan-out (20 connections) \u2014 tight coupling risk"
+      }
+    ],
+    "orphan_modules": []
+  },
+  "api_integration": {
+    "no_auth": [
+      {
+        "node": "endpoint::/health",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.get /health",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/reason",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.post /reason",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/reason/batch",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.post /reason/batch",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/graph/stats",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.get /graph/stats",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/nodes/{node_id:path}",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.get /nodes/{node_id:path}",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/reload",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.post /reload",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/learn",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.post /learn",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/leads",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint app.post /leads",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/stripe",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.post /stripe",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/metrics/summary",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /metrics/summary",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/metrics/sessions",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /metrics/sessions",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/metrics/roi",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /metrics/roi",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/graph/visualization",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /graph/visualization",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/graph/nodes",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /graph/nodes",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/graph/node/{node_id:path}",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /graph/node/{node_id:path}",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/partials/metrics-cards",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /partials/metrics-cards",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/partials/node-detail/{node_id:path}",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /partials/node-detail/{node_id:path}",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/cloud/status",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /cloud/status",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/cloud/connect",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.post /cloud/connect",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/cloud/disconnect",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.post /cloud/disconnect",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/graph",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /graph",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/reasoning",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /reasoning",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/metrics",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /metrics",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::/settings",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint router.get /settings",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.learn._load_graph",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.learn._load_graph",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.learn._graph_lock",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.learn._graph_lock",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.selfupdate.subprocess.run",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.selfupdate.subprocess.run",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.selfupdate.sys.platform",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.selfupdate.sys.platform",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.selfupdate.os.kill",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.selfupdate.os.kill",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.selfupdate.os.getpid",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.selfupdate.os.getpid",
+        "issue": "API endpoint without visible auth mechanism"
+      },
+      {
+        "node": "endpoint::graqle.cli.commands.selfupdate._stop_graq_processes",
+        "skill": "audit_auth_flow",
+        "description": "API endpoint patch graqle.cli.commands.selfupdate._stop_graq_processes",
+        "issue": "API endpoint without visible auth mechanism"
+      }
+    ],
+    "no_rate_limit": [
+      {
+        "node": "endpoint::/health",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/reason",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/reason/batch",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/graph/stats",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/nodes/{node_id:path}",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/reload",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/learn",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/leads",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/stripe",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/metrics/summary",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/metrics/sessions",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/metrics/roi",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/graph/visualization",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/graph/nodes",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      },
+      {
+        "node": "endpoint::/graph/node/{node_id:path}",
+        "skill": "rate_limit_review",
+        "issue": "No rate limiting mentioned \u2014 DoS risk for production"
+      }
+    ],
+    "no_schema": [
+      {
+        "node": "endpoint::/health",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/reason",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/reason/batch",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/graph/stats",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/nodes/{node_id:path}",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/reload",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/learn",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/leads",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/stripe",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/metrics/summary",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/metrics/sessions",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/metrics/roi",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/graph/visualization",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/graph/nodes",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      },
+      {
+        "node": "endpoint::/graph/node/{node_id:path}",
+        "skill": "api_contract_check",
+        "issue": "No schema validation mentioned \u2014 contract drift risk"
+      }
+    ]
+  },
+  "data_database": {
+    "data_issues": []
+  },
+  "infrastructure": {
+    "env_issues": [
+      {
+        "node": "env::HF_HUB_DISABLE_PROGRESS_BARS",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::HF_HUB_DISABLE_PROGRESS_BARS",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::AWS_DEFAULT_REGION",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::AWS_REGION",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::AWS_REGION",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::TQDM_DISABLE",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::TQDM_DISABLE",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::OPENAI_API_KEY",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::OPENAI_API_KEY",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::ANTHROPIC_API_KEY",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::ANTHROPIC_API_KEY",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::GEMINI_API_KEY",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::GEMINI_API_KEY",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::GOOGLE_API_KEY",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::GOOGLE_API_KEY",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::PYTHONIOENCODING",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      },
+      {
+        "node": "env::PYTHONIOENCODING",
+        "skill": "check_env_config",
+        "issue": "No default value \u2014 will crash if not set"
+      },
+      {
+        "node": "env::GRAQLE_READ_ONLY",
+        "skill": "check_env_config",
+        "issue": "Environment variable without required/optional documentation"
+      }
+    ],
+    "lambda_issues": [],
+    "container_issues": [
+      {
+        "node": "docker::graqle",
+        "skill": "container_config_review",
+        "issue": "Container without health check \u2014 orchestrator can't detect failures"
+      },
+      {
+        "node": "docker::neo4j",
+        "skill": "container_config_review",
+        "issue": "Container without health check \u2014 orchestrator can't detect failures"
+      },
+      {
+        "node": "docker::neo4j_data",
+        "skill": "container_config_review",
+        "issue": "Container without health check \u2014 orchestrator can't detect failures"
+      },
+      {
+        "node": "docker::cognigraph",
+        "skill": "container_config_review",
+        "issue": "Container without health check \u2014 orchestrator can't detect failures"
+      }
+    ]
+  },
+  "security": {
+    "secrets": [
+      {
+        "node": "examples/governance_example.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cli/commands/login.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/__init__.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::CloudCredentials",
+        "type": "Class",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::load_credentials",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::save_credentials",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::clear_credentials",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::get_cloud_status",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::is_authenticated",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::to_dict",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/cloud/credentials.py::from_dict",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/connectors/neo4j.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/leads/collector.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/licensing/keygen.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/ontology/domain_detector.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/plugins/mcp_server.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/scanner/extractors/app_config.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/scanner/privacy.py",
+        "type": "PythonModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/server/middleware.py::get_configured_api_keys",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "graqle/studio/static/vendor/htmx.min.js",
+        "type": "JavaScriptModule",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_backends/test_gemini.py::test_api_key_from_param",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_backends/test_gemini.py::test_missing_api_key_raises",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_backends/test_providers.py::test_missing_api_key_raises",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cli/test_bench_failfast.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cli/test_login.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cli/test_login.py::test_logout_clears_credentials",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::TestCloudCredentials",
+        "type": "Class",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_default_credentials_not_authenticated",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_authenticated_with_api_key",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_not_authenticated_without_connected_flag",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_roundtrip_dict",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_save_and_load",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_load_missing_file_returns_default",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_clear_credentials",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_get_cloud_status_unauthenticated",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_credentials.py::test_get_cloud_status_authenticated",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_cloud/test_gateway.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_integration/test_chain.py::TestCredentialsChain",
+        "type": "Class",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_doc_chain.py::test_secrets_redacted_in_nodes",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_docs.py::test_redacts_secrets",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_extractors/test_app_config.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_extractors/test_app_config.py::test_secrets_skipped",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_json_parser.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_json_parser.py::test_content_openapi_key",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_api_key_redacted",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_api_key_with_equals",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_api_key_in_json",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_password_redacted",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_password_equals",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_password_in_url",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_aws_secret_key_redacted",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_private_key_redacted",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_ec_private_key_redacted",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_generic_private_key",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_technical_text_without_secrets",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_code_comments_without_secrets",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_adjacent_secrets",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_scanner/test_privacy.py::test_unicode_text_with_secrets",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_server/test_middleware.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_server/test_middleware.py::test_get_api_keys_empty_when_not_configured",
+        "type": "Function",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      },
+      {
+        "node": "tests/test_server/test_stripe_webhook.py",
+        "type": "TestFile",
+        "severity": "MEDIUM",
+        "skill": "flag_secrets",
+        "issue": "Secret handling without clear env/vault/SSM reference"
+      }
+    ],
+    "injection_risks": [
+      {
+        "node": "graqle/activation/cypher_activation.py",
+        "type": "PythonModule",
+        "skill": "check_injection_risk",
+        "issue": "String interpolation near query/command execution \u2014 injection risk",
+        "severity": "HIGH"
+      }
+    ],
+    "dependency_risks": []
+  },
+  "testing": {
+    "untested_modules": [
+      {
+        "node": "poc/full_moat_poc.py",
+        "type": "PythonModule",
+        "degree": 44,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 44 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/server/app.py",
+        "type": "PythonModule",
+        "degree": 28,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 28 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/schema.py",
+        "type": "PythonModule",
+        "degree": 23,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 23 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/markdown_parser.py",
+        "type": "PythonModule",
+        "degree": 20,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 20 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/benchmarks/run_multigov_v3.py",
+        "type": "PythonModule",
+        "degree": 18,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 18 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/benchmarks/run_multigov_v2.py",
+        "type": "PythonModule",
+        "degree": 16,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 16 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/studio/routes/api.py",
+        "type": "PythonModule",
+        "degree": 16,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 16 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/skill_admin.py",
+        "type": "PythonModule",
+        "degree": 14,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 14 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/skill_pipeline.py",
+        "type": "PythonModule",
+        "degree": 14,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 14 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/__init__.py",
+        "type": "PythonModule",
+        "degree": 13,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 13 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/scanner/extractors/base.py",
+        "type": "PythonModule",
+        "degree": 13,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 13 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/cli/commands/sync.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 12 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "poc/ask_cognigraph.py",
+        "type": "PythonModule",
+        "degree": 12,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 12 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "examples/governance_example.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 10 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/adapters/loader.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 10 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/ontology/domain_detector.py",
+        "type": "PythonModule",
+        "degree": 10,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 10 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/orchestration/aggregation.py",
+        "type": "PythonModule",
+        "degree": 9,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 9 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/server/lambda_handler.py",
+        "type": "PythonModule",
+        "degree": 9,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 9 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/connectors/base.py",
+        "type": "PythonModule",
+        "degree": 8,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 8 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/studio/routes/dashboard.py",
+        "type": "PythonModule",
+        "degree": 8,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 8 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "poc/add_env_edges.py",
+        "type": "PythonModule",
+        "degree": 8,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 8 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "poc/enrich_kg.py",
+        "type": "PythonModule",
+        "degree": 8,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 8 connections has no linked test",
+        "priority": "HIGH"
+      },
+      {
+        "node": "graqle/adapters/hub.py",
+        "type": "PythonModule",
+        "degree": 7,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 7 connections has no linked test",
+        "priority": "MEDIUM"
+      },
+      {
+        "node": "graqle/backends/local.py",
+        "type": "PythonModule",
+        "degree": 7,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 7 connections has no linked test",
+        "priority": "MEDIUM"
+      },
+      {
+        "node": "graqle/benchmarks/hotpotqa_loader.py",
+        "type": "PythonModule",
+        "degree": 7,
+        "skill": "identify_test_gaps",
+        "issue": "Module with 7 connections has no linked test",
+        "priority": "MEDIUM"
+      }
+    ],
+    "test_quality": [
+      {
+        "node": "tests/__init__.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/conftest.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/__init__.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_adaptive.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_adaptive.py",
+        "skill": "analyze_test_quality",
+        "issue": "Heavy mocking (6 references) \u2014 brittle, may diverge from prod"
+      },
+      {
+        "node": "tests/test_activation/test_chunk_scorer.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_chunk_scorer.py",
+        "skill": "analyze_test_quality",
+        "issue": "Heavy mocking (7 references) \u2014 brittle, may diverge from prod"
+      },
+      {
+        "node": "tests/test_activation/test_content_aware_pcst.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_pcst.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_reformulator.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_activation/test_relevance_chunks.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_adapters/__init__.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_adapters/test_auto_select.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_agents/__init__.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      },
+      {
+        "node": "tests/test_agents/test_slm_agent.py",
+        "skill": "analyze_test_quality",
+        "issue": "Test file without visible assertions \u2014 may be a no-op"
+      }
+    ],
+    "coverage_gaps": []
+  },
+  "performance": {
+    "timeout_configs": [
+      {
+        "node": "graqle/backends/api.py",
+        "type": "PythonModule",
+        "skill": "performance_profiling",
+        "description": "graqle/backends/api.py. API model backends \u2014 Anthropic, OpenAI, Bedrock, Ollama, Custom. All backends include: - Exponential backoff retry (3 attempts"
+      },
+      {
+        "node": "graqle/backends/api.py::adaptive_read_timeout",
+        "type": "Function",
+        "skill": "performance_profiling",
+        "description": "Function adaptive_read_timeout in graqle/backends/api.py"
+      },
+      {
+        "node": "graqle/backends/gemini.py",
+        "type": "PythonModule",
+        "skill": "performance_profiling",
+        "description": "graqle/backends/gemini.py. Google Gemini API backend. Gemini uses Google's own ``generateContent`` API format, not the OpenAI-compatible chat completi"
+      },
+      {
+        "node": "graqle/orchestration/async_protocol.py::adaptive_wave_timeout",
+        "type": "Function",
+        "skill": "performance_profiling",
+        "description": "Function adaptive_wave_timeout in graqle/orchestration/async_protocol.py"
+      },
+      {
+        "node": "sdk_audit_report.json",
+        "type": "Config",
+        "skill": "performance_profiling",
+        "description": "Configuration: sdk_audit_report.json. {   \"sdk_version\": \"0.23.1\",   \"graph_nodes\": 0,   \"graph_edges\": 0,   \"skill_coverage_pct\": 0,   \"skills_used\":"
+      },
+      {
+        "node": "tests/test_backends/test_error_scenarios.py::test_custom_backend_timeout",
+        "type": "Function",
+        "skill": "performance_profiling",
+        "description": "Function test_custom_backend_timeout in tests/test_backends/test_error_scenarios.py"
+      },
+      {
+        "node": "tests/test_scanner/test_background.py::TestWaitTimeout",
+        "type": "Class",
+        "skill": "performance_profiling",
+        "description": "Class TestWaitTimeout in tests/test_scanner/test_background.py"
+      }
+    ],
+    "performance_issues": [
+      {
+        "node": "graqle/activation/cypher_activation.py",
+        "type": "PythonModule",
+        "skill": "performance_profiling",
+        "issue": "Loading entire dataset into memory \u2014 OOM risk on large graphs"
+      },
+      {
+        "node": "tests/test_orchestration/test_streaming.py",
+        "type": "TestFile",
+        "skill": "performance_profiling",
+        "issue": "Loading entire dataset into memory \u2014 OOM risk on large graphs"
+      }
+    ],
+    "scaling_issues": [
+      {
+        "node": "graqle/activation/cypher_activation.py",
+        "type": "PythonModule",
+        "skill": "performance_profiling",
+        "issue": "Synchronous iteration over all nodes \u2014 O(n) scaling risk for large graphs"
+      },
+      {
+        "node": "graqle/ontology/router.py",
+        "type": "PythonModule",
+        "skill": "performance_profiling",
+        "issue": "Synchronous iteration over all nodes \u2014 O(n) scaling risk for large graphs"
+      },
+      {
+        "node": "tests/test_activation/test_cypher_activation.py",
+        "type": "TestFile",
+        "skill": "performance_profiling",
+        "issue": "Synchronous iteration over all nodes \u2014 O(n) scaling risk for large graphs"
+      }
+    ],
+    "adaptive_timeouts": {
+      "graph_nodes": 3762,
+      "adaptive_wave_timeout_s": 120.0,
+      "adaptive_read_timeout_s": 300.0,
+      "status": "IMPLEMENTED"
+    }
+  }
+}

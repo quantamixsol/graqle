@@ -10,6 +10,14 @@ Examples:
     graq login --status                 # Check connection status
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.login
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, typer, console
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import typer

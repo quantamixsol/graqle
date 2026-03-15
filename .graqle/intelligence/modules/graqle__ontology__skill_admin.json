@@ -1,0 +1,87 @@
+{
+  "module": "graqle.ontology.skill_admin",
+  "files": [
+    "graqle/ontology/skill_admin.py"
+  ],
+  "node_count": 17,
+  "function_count": 15,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "set_embedding_fn",
+      "type": "Function",
+      "line": 593
+    },
+    {
+      "name": "assign",
+      "type": "Function",
+      "line": 836
+    },
+    {
+      "name": "assign_to_node",
+      "type": "Function",
+      "line": 858
+    },
+    {
+      "name": "get_skill",
+      "type": "Function",
+      "line": 893
+    },
+    {
+      "name": "register_skill",
+      "type": "Function",
+      "line": 897
+    },
+    {
+      "name": "skill_count",
+      "type": "Function",
+      "line": 910
+    },
+    {
+      "name": "mode",
+      "type": "Function",
+      "line": 914
+    },
+    {
+      "name": "SkillAdmin",
+      "type": "Class",
+      "line": 529
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "numpy",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.skill_resolver",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.264,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.187903+00:00"
+}

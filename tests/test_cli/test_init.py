@@ -1,5 +1,12 @@
 """Tests for graqle.cli.commands.init — init command, config generation, file writers."""
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_init
+# risk: HIGH (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, mock, pytest +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,12 @@
 """Tests for graqle.scanner.manifest — incremental scan tracking."""
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_manifest
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, os, time, pathlib +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -17,6 +17,14 @@ Chunking strategy
   document, giving each chunk a breadcrumb trail back to its position.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.chunker
+# risk: LOW (impact radius: 2 modules)
+# consumers: docs, test_chunker
+# dependencies: __future__, re, dataclasses, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import re

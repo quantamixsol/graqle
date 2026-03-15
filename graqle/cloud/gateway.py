@@ -11,6 +11,14 @@ the additional value of cloud features (observability, shared graphs,
 team analytics) and prompted to upgrade.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cloud.gateway
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_gateway
+# dependencies: __future__, json, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

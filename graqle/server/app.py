@@ -14,6 +14,13 @@ FastAPI/Pydantic needs real type objects at route-registration time;
 PEP 563 deferred annotations break TypeAdapter resolution.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.server.app
+# risk: LOW (impact radius: 0 modules)
+# dependencies: json, logging, os, pathlib, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 import json
 import logging
 import os
@@ -157,6 +164,35 @@ def create_app(
     # State
     state: dict = {"graph": None, "config": None}
 
+    def _load_graph_from_config(cfg: Any, fallback_path: str = "graqle.json") -> Any:
+        """Load graph using config-aware backend selection (Neo4j or JSON)."""
+        connector = getattr(getattr(cfg, "graph", None), "connector", "networkx")
+
+        if connector == "neo4j":
+            graph_cfg = cfg.graph
+            try:
+                g = Graqle.from_neo4j(
+                    uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+                    username=getattr(graph_cfg, "username", None) or "neo4j",
+                    password=getattr(graph_cfg, "password", None) or "",
+                    database=getattr(graph_cfg, "database", None) or "neo4j",
+                    config=cfg,
+                )
+                logger.info("Loaded graph from Neo4j: %d nodes", len(g))
+                return g
+            except Exception as exc:
+                logger.warning("Neo4j load failed (%s), falling back to JSON", exc)
+
+        # Fallback: JSON/NetworkX
+        gpath = graph_path or fallback_path
+        if Path(gpath).exists():
+            g = Graqle.from_json(gpath, config=cfg)
+            logger.info("Loaded graph from %s: %d nodes", gpath, len(g))
+            return g
+
+        logger.warning("No graph found (connector=%s, path=%s)", connector, gpath)
+        return None
+
     @app.on_event("startup")
     async def startup() -> None:
         # Load config
@@ -165,16 +201,30 @@ def create_app(
         else:
             state["config"] = GraqleConfig.default()
 
-        # Load graph
-        gpath = graph_path or "graqle.json"
-        if Path(gpath).exists():
-            state["graph"] = Graqle.from_json(gpath, config=state["config"])
-            # Bug 3 fix: Create real backend from config instead of MockBackend
+        # Load graph (config-aware: Neo4j or JSON)
+        graph = _load_graph_from_config(state["config"])
+        if graph is not None:
+            state["graph"] = graph
             backend = _create_backend_from_config(state["config"])
             state["graph"].set_default_backend(backend)
-            logger.info("Loaded graph from %s: %d nodes", gpath, len(state["graph"]))
+
+            # Initialize Neo4j traversal engine if Neo4j is configured
+            connector = getattr(getattr(state["config"], "graph", None), "connector", "networkx")
+            if connector == "neo4j":
+                try:
+                    from graqle.connectors.neo4j_traversal import Neo4jTraversal
+                    graph_cfg = state["config"].graph
+                    state["neo4j_traversal"] = Neo4jTraversal(
+                        uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
+                        username=getattr(graph_cfg, "username", None) or "neo4j",
+                        password=getattr(graph_cfg, "password", None) or "",
+                        database=getattr(graph_cfg, "database", None) or "neo4j",
+                    )
+                    logger.info("Neo4j traversal engine initialized")
+                except Exception as te:
+                    logger.warning("Neo4j traversal engine not available: %s", te)
         else:
-            logger.warning("No graph file found at %s", gpath)
+            logger.warning("No graph loaded")
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -326,12 +376,12 @@ def create_app(
         """
         if _read_only:
             raise HTTPException(status_code=403, detail="Server is in read-only mode. /reload is disabled.")
-        gpath = graph_path or "graqle.json"
-        if not Path(gpath).exists():
-            raise HTTPException(status_code=404, detail=f"Graph file not found: {gpath}")
 
         old_count = len(state["graph"]) if state.get("graph") else 0
-        state["graph"] = Graqle.from_json(gpath, config=state["config"])
+        graph = _load_graph_from_config(state["config"])
+        if graph is None:
+            raise HTTPException(status_code=404, detail="No graph source available (check config)")
+        state["graph"] = graph
         backend = _create_backend_from_config(state["config"])
         state["graph"].set_default_backend(backend)
         new_count = len(state["graph"])

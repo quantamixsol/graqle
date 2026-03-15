@@ -1,0 +1,94 @@
+{
+  "module": "graqle.connectors.neo4j",
+  "files": [
+    "graqle/connectors/neo4j.py"
+  ],
+  "node_count": 14,
+  "function_count": 12,
+  "class_count": 1,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "uri",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "load",
+      "type": "Function",
+      "line": 92
+    },
+    {
+      "name": "load_chunks",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "save",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "save_chunks",
+      "type": "Function",
+      "line": 215
+    },
+    {
+      "name": "create_schema",
+      "type": "Function",
+      "line": 289
+    },
+    {
+      "name": "vector_search",
+      "type": "Function",
+      "line": 324
+    },
+    {
+      "name": "validate",
+      "type": "Function",
+      "line": 356
+    },
+    {
+      "name": "health_check",
+      "type": "Function",
+      "line": 364
+    },
+    {
+      "name": "close",
+      "type": "Function",
+      "line": 398
+    },
+    {
+      "name": "Neo4jConnector",
+      "type": "Class",
+      "line": 22
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "logging",
+      "type": "external"
+    },
+    {
+      "module": "typing",
+      "type": "external"
+    },
+    {
+      "module": "graqle.connectors.base",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.196,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:38.754832+00:00"
+}

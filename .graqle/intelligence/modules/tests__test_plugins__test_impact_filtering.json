@@ -1,0 +1,87 @@
+{
+  "module": "tests.test_plugins.test_impact_filtering",
+  "files": [
+    "tests/test_plugins/test_impact_filtering.py"
+  ],
+  "node_count": 10,
+  "function_count": 6,
+  "class_count": 3,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "server",
+      "type": "Function",
+      "line": 74
+    },
+    {
+      "name": "test_impact_skips_contains_edges",
+      "type": "Function",
+      "line": 87
+    },
+    {
+      "name": "test_impact_follows_imports",
+      "type": "Function",
+      "line": 102
+    },
+    {
+      "name": "test_old_behavior_would_include_siblings",
+      "type": "Function",
+      "line": 113
+    },
+    {
+      "name": "test_structural_edges_constant",
+      "type": "Function",
+      "line": 123
+    },
+    {
+      "name": "MockNode",
+      "type": "Class",
+      "line": 28
+    },
+    {
+      "name": "MockEdge",
+      "type": "Class",
+      "line": 38
+    },
+    {
+      "name": "TestImpactFiltering",
+      "type": "Class",
+      "line": 83
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "dataclasses",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.plugins.mcp_dev_server",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.183,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:05.786176+00:00"
+}

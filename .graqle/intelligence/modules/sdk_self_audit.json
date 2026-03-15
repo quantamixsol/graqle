@@ -1,0 +1,116 @@
+{
+  "module": "sdk_self_audit",
+  "files": [
+    "sdk_self_audit.py"
+  ],
+  "node_count": 12,
+  "function_count": 11,
+  "class_count": 0,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "audit_code_quality",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "audit_architecture",
+      "type": "Function",
+      "line": 159
+    },
+    {
+      "name": "audit_api_integration",
+      "type": "Function",
+      "line": 196
+    },
+    {
+      "name": "audit_data_database",
+      "type": "Function",
+      "line": 238
+    },
+    {
+      "name": "audit_infrastructure",
+      "type": "Function",
+      "line": 266
+    },
+    {
+      "name": "audit_security",
+      "type": "Function",
+      "line": 317
+    },
+    {
+      "name": "audit_testing",
+      "type": "Function",
+      "line": 374
+    },
+    {
+      "name": "audit_performance",
+      "type": "Function",
+      "line": 424
+    },
+    {
+      "name": "main",
+      "type": "Function",
+      "line": 485
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "re",
+      "type": "external"
+    },
+    {
+      "module": "sys",
+      "type": "external"
+    },
+    {
+      "module": "collections",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.config.settings",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.skill_pipeline",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.domain_registry",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.domains",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.ontology.domains.engineering",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.305,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:41:41.949201+00:00"
+}

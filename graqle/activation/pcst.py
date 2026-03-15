@@ -8,6 +8,14 @@ Given a query, selects the optimal subgraph to activate by:
    best content-bearing neighbour (ADR-103, Layer 2)
 """
 
+# ── graqle:intelligence ──
+# module: graqle.activation.pcst
+# risk: LOW (impact radius: 4 modules)
+# consumers: adaptive, __init__, test_content_aware_pcst, test_pcst
+# dependencies: __future__, logging, typing, numpy, relevance
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

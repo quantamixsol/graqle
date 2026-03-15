@@ -3,6 +3,14 @@
 Extracts text, headings, tables, and metadata from DOCX files.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.scanner.parsers.docx
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_docx
+# dependencies: __future__, pathlib, typing, base
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 from pathlib import Path

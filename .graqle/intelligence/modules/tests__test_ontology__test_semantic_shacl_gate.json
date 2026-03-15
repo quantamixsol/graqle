@@ -1,0 +1,236 @@
+{
+  "module": "tests.test_ontology.test_semantic_shacl_gate",
+  "files": [
+    "tests/test_ontology/test_semantic_shacl_gate.py"
+  ],
+  "node_count": 42,
+  "function_count": 31,
+  "class_count": 10,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "eu_ai_act_constraint",
+      "type": "Function",
+      "line": 22
+    },
+    {
+      "name": "gdpr_constraint",
+      "type": "Function",
+      "line": 47
+    },
+    {
+      "name": "gate",
+      "type": "Function",
+      "line": 69
+    },
+    {
+      "name": "test_default_valid",
+      "type": "Function",
+      "line": 77
+    },
+    {
+      "name": "test_hard_violation_invalidates",
+      "type": "Function",
+      "line": 82
+    },
+    {
+      "name": "test_soft_violation_stays_valid",
+      "type": "Function",
+      "line": 90
+    },
+    {
+      "name": "test_governance_accuracy_weights",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_to_feedback_format",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "test_dataclass_defaults",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "test_full_constraint",
+      "type": "Function",
+      "line": 129
+    },
+    {
+      "name": "test_pass_when_own_framework_cited",
+      "type": "Function",
+      "line": 139
+    },
+    {
+      "name": "test_soft_violation_when_own_framework_missing",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_violation_when_other_framework_unattributed",
+      "type": "Function",
+      "line": 161
+    },
+    {
+      "name": "test_pass_when_other_framework_properly_attributed",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_short_output_skips_fidelity_check",
+      "type": "Function",
+      "line": 187
+    },
+    {
+      "name": "test_pass_when_in_scope",
+      "type": "Function",
+      "line": 197
+    },
+    {
+      "name": "test_violation_when_out_of_scope",
+      "type": "Function",
+      "line": 207
+    },
+    {
+      "name": "test_reasoning_rule_negation_check",
+      "type": "Function",
+      "line": 219
+    },
+    {
+      "name": "test_pass_with_proper_attribution",
+      "type": "Function",
+      "line": 233
+    },
+    {
+      "name": "test_violation_without_attribution",
+      "type": "Function",
+      "line": 243
+    },
+    {
+      "name": "test_generates_semantic_prompt",
+      "type": "Function",
+      "line": 256
+    },
+    {
+      "name": "test_empty_for_unknown_type",
+      "type": "Function",
+      "line": 264
+    },
+    {
+      "name": "test_stats_track_passes",
+      "type": "Function",
+      "line": 271
+    },
+    {
+      "name": "test_reset_stats",
+      "type": "Function",
+      "line": 274
+    },
+    {
+      "name": "test_record_retry",
+      "type": "Function",
+      "line": 279
+    },
+    {
+      "name": "test_strict_makes_framework_violations_hard",
+      "type": "Function",
+      "line": 286
+    },
+    {
+      "name": "test_builds_constraints_from_kg_nodes",
+      "type": "Function",
+      "line": 303
+    },
+    {
+      "name": "test_handles_empty_kg",
+      "type": "Function",
+      "line": 326
+    },
+    {
+      "name": "test_handles_nodes_without_framework",
+      "type": "Function",
+      "line": 330
+    },
+    {
+      "name": "test_register_single",
+      "type": "Function",
+      "line": 340
+    },
+    {
+      "name": "test_register_multiple",
+      "type": "Function",
+      "line": 346
+    },
+    {
+      "name": "TestSemanticValidationResult",
+      "type": "Class",
+      "line": 74
+    },
+    {
+      "name": "TestSemanticConstraint",
+      "type": "Class",
+      "line": 121
+    },
+    {
+      "name": "TestFrameworkFidelity",
+      "type": "Class",
+      "line": 136
+    },
+    {
+      "name": "TestScopeBoundary",
+      "type": "Class",
+      "line": 194
+    },
+    {
+      "name": "TestCrossReferences",
+      "type": "Class",
+      "line": 230
+    },
+    {
+      "name": "TestConstraintPrompt",
+      "type": "Class",
+      "line": 253
+    },
+    {
+      "name": "TestGateStats",
+      "type": "Class",
+      "line": 268
+    },
+    {
+      "name": "TestStrictMode",
+      "type": "Class",
+      "line": 283
+    },
+    {
+      "name": "TestBuildFromKG",
+      "type": "Class",
+      "line": 300
+    },
+    {
+      "name": "TestRegisterConstraints",
+      "type": "Class",
+      "line": 337
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.ontology.semantic_shacl_gate",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.354,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:04.769773+00:00"
+}

@@ -1,5 +1,12 @@
 """Tests for CogniNode."""
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_node
+# risk: LOW (impact radius: 0 modules)
+# dependencies: pytest, node, types, mock
+# constraints: none
+# ── /graqle:intelligence ──
+
 import pytest
 
 from graqle.core.node import CogniNode

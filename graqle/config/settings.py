@@ -1,13 +1,24 @@
 """Graqle configuration system — Pydantic settings + YAML loading."""
 
+# ── graqle:intelligence ──
+# module: graqle.config.settings
+# risk: HIGH (impact radius: 12 modules)
+# consumers: sdk_self_audit, governance_example, benchmark_runner, run_multigov_v2, run_multigov_v3 +7 more
+# dependencies: __future__, logging, os, pathlib, typing +2 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger("graqle.config")
 
 
 class ModelConfig(BaseModel):
@@ -89,7 +100,7 @@ class ObserverConfig(BaseModel):
 class CostConfig(BaseModel):
     """Cost control configuration."""
 
-    budget_per_query: float = 0.10  # $0.10 — sufficient for ChunkScorer with 20 nodes
+    budget_per_query: float = 0.15  # $0.15 — sufficient for 50 nodes on multi-repo graphs
     prefer_local: bool = True
     fallback_to_api: bool = True
 
@@ -246,11 +257,42 @@ class JSONScanConfig(BaseModel):
     )
 
 
+class RuntimeSourceConfig(BaseModel):
+    """A single runtime log source configuration."""
+
+    type: str = "cloudwatch"  # "cloudwatch", "azure_monitor", "cloud_logging", "docker", "file"
+    log_group: str = ""  # CloudWatch log group name
+    log_path: str = ""  # Local file path
+    region: str = ""  # Cloud region override
+    scan_hours: float = 6  # How far back to look
+    scan_interval: int = 300  # Scan interval in seconds
+    service: str = ""  # Service name filter
+    workspace_id: str = ""  # Azure Log Analytics workspace ID
+    project_id: str = ""  # GCP project ID
+    error_patterns: list[dict[str, str]] = Field(default_factory=list)
+
+
+class RuntimeConfig(BaseModel):
+    """Runtime observability configuration.
+
+    Configures live log/metric fetching from cloud providers or local sources.
+    Auto-detects the environment if provider is "auto".
+    """
+
+    enabled: bool = False  # Opt-in — must be explicitly enabled
+    provider: str = "auto"  # "auto", "aws", "azure", "gcp", "local"
+    sources: list[RuntimeSourceConfig] = Field(default_factory=list)
+    auto_ingest: bool = False  # Auto-ingest runtime events into KG on graq grow
+    max_events: int = 100  # Max events per fetch
+    default_hours: float = 6  # Default lookback window
+
+
 class ScanConfig(BaseModel):
     """Top-level scan configuration (code + docs + JSON)."""
 
     model_config = {"populate_by_name": True}
 
+    exclude_patterns: list[str] = Field(default_factory=list)  # gitignore-style patterns for code scan
     docs: DocScanConfig = Field(default_factory=DocScanConfig)
     json_files: JSONScanConfig = Field(
         default_factory=JSONScanConfig,
@@ -272,6 +314,7 @@ class GraqleConfig(BaseModel):
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     scan: ScanConfig = Field(default_factory=ScanConfig)
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     domain: str = "custom"
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)
     node_models: dict[str, str] = Field(default_factory=dict)
@@ -281,10 +324,31 @@ class GraqleConfig(BaseModel):
         """Load configuration from a YAML file."""
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"Config file not found: {path}")
+            # Check for deprecated cognigraph.yaml
+            if path.name == "graqle.yaml":
+                legacy = path.parent / "cognigraph.yaml"
+                if legacy.exists():
+                    import warnings
+                    warnings.warn(
+                        "cognigraph.yaml is deprecated and will stop working in v0.26. "
+                        "Rename to graqle.yaml: mv cognigraph.yaml graqle.yaml",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    path = legacy
+                else:
+                    raise FileNotFoundError(f"Config file not found: {path}")
+            else:
+                raise FileNotFoundError(f"Config file not found: {path}")
 
         with open(path, encoding="utf-8") as f:
             raw = yaml.safe_load(f)
+
+        if raw is None:
+            raw = {}
+
+        # Migrate v0.23.x schema: backend.provider/model -> model.backend/model
+        raw = _migrate_old_schema(raw)
 
         # Interpolate environment variables
         raw = _interpolate_env(raw)
@@ -294,6 +358,75 @@ class GraqleConfig(BaseModel):
     def default(cls) -> GraqleConfig:
         """Return default configuration."""
         return cls()
+
+
+def _migrate_old_schema(raw: dict[str, Any]) -> dict[str, Any]:
+    """Detect and migrate v0.23.x config schema to v0.24.0+ format.
+
+    v0.23.x used:
+        backend:
+          provider: bedrock
+          model: claude-sonnet-4-6
+          region: eu-west-1
+
+    v0.24.0+ uses:
+        model:
+          backend: bedrock
+          model: claude-sonnet-4-6
+          region: eu-west-1
+    """
+    if not isinstance(raw, dict):
+        return raw
+
+    old_backend = raw.get("backend")
+    if not isinstance(old_backend, dict):
+        return raw
+
+    # Only migrate if "backend" has provider/model keys (old schema)
+    # and "model" section doesn't already exist or is incomplete
+    has_old_keys = "provider" in old_backend or "model" in old_backend
+    if not has_old_keys:
+        return raw
+
+    model_section = raw.get("model", {})
+    if not isinstance(model_section, dict):
+        model_section = {}
+
+    # Only migrate if model.backend isn't already explicitly set to a real value
+    if model_section.get("backend") not in (None, "local"):
+        return raw
+
+    # Perform migration
+    migrated: dict[str, Any] = {}
+    if "provider" in old_backend:
+        migrated["backend"] = old_backend["provider"]
+    if "model" in old_backend:
+        migrated["model"] = old_backend["model"]
+    if "region" in old_backend:
+        migrated["region"] = old_backend["region"]
+    if "api_key" in old_backend:
+        migrated["api_key"] = old_backend["api_key"]
+    if "host" in old_backend:
+        migrated["host"] = old_backend["host"]
+    if "endpoint" in old_backend:
+        migrated["endpoint"] = old_backend["endpoint"]
+
+    # Merge: explicit model section wins over migrated values
+    merged = {**migrated, **model_section}
+    raw["model"] = merged
+
+    # Remove old backend section so pydantic doesn't choke on it
+    del raw["backend"]
+
+    logger.warning(
+        "DEPRECATED: Config uses v0.23.x schema (backend.provider: %s). "
+        "Auto-migrated to v0.24.0 format (model.backend: %s). "
+        "Update your config file — the old format will stop working in v0.26.",
+        old_backend.get("provider", "?"),
+        merged.get("backend", "?"),
+    )
+
+    return raw
 
 
 def _interpolate_env(obj: Any) -> Any:

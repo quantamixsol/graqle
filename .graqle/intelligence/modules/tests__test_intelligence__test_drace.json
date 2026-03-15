@@ -1,0 +1,301 @@
+{
+  "module": "tests.test_intelligence.test_drace",
+  "files": [
+    "tests/test_intelligence/test_drace.py"
+  ],
+  "node_count": 55,
+  "function_count": 46,
+  "class_count": 8,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_default_all_zeros",
+      "type": "Function",
+      "line": 37
+    },
+    {
+      "name": "test_perfect_score",
+      "type": "Function",
+      "line": 41
+    },
+    {
+      "name": "test_weighted_total",
+      "type": "Function",
+      "line": 52
+    },
+    {
+      "name": "test_grade_thresholds",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_to_dict",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_metadata_stored",
+      "type": "Function",
+      "line": 81
+    },
+    {
+      "name": "test_no_consumers_with_matrix",
+      "type": "Function",
+      "line": 91
+    },
+    {
+      "name": "test_no_consumers_without_matrix",
+      "type": "Function",
+      "line": 94
+    },
+    {
+      "name": "test_full_coverage",
+      "type": "Function",
+      "line": 98
+    },
+    {
+      "name": "test_partial_coverage",
+      "type": "Function",
+      "line": 106
+    },
+    {
+      "name": "test_zero_coverage",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_empty",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_deep_evidenced_chain",
+      "type": "Function",
+      "line": 124
+    },
+    {
+      "name": "test_shallow_chain",
+      "type": "Function",
+      "line": 136
+    },
+    {
+      "name": "test_diversity_matters",
+      "type": "Function",
+      "line": 148
+    },
+    {
+      "name": "test_empty",
+      "type": "Function",
+      "line": 163
+    },
+    {
+      "name": "test_full_integrity",
+      "type": "Function",
+      "line": 165
+    },
+    {
+      "name": "test_broken_hash_chain",
+      "type": "Function",
+      "line": 172
+    },
+    {
+      "name": "test_not_persisted",
+      "type": "Function",
+      "line": 181
+    },
+    {
+      "name": "test_incomplete_entries",
+      "type": "Function",
+      "line": 189
+    },
+    {
+      "name": "test_no_constraints",
+      "type": "Function",
+      "line": 200
+    },
+    {
+      "name": "test_all_checked",
+      "type": "Function",
+      "line": 202
+    },
+    {
+      "name": "test_blocking_violations_cap_score",
+      "type": "Function",
+      "line": 206
+    },
+    {
+      "name": "test_multiple_blocking_violations",
+      "type": "Function",
+      "line": 215
+    },
+    {
+      "name": "test_scope_violations_penalize",
+      "type": "Function",
+      "line": 220
+    },
+    {
+      "name": "test_partial_constraint_coverage",
+      "type": "Function",
+      "line": 228
+    },
+    {
+      "name": "test_empty",
+      "type": "Function",
+      "line": 235
+    },
+    {
+      "name": "test_well_explained",
+      "type": "Function",
+      "line": 237
+    },
+    {
+      "name": "test_no_reasoning_text",
+      "type": "Function",
+      "line": 245
+    },
+    {
+      "name": "test_short_reasoning",
+      "type": "Function",
+      "line": 252
+    },
+    {
+      "name": "scorer",
+      "type": "Function",
+      "line": 267
+    },
+    {
+      "name": "test_score_typed_all_defaults",
+      "type": "Function",
+      "line": 269
+    },
+    {
+      "name": "test_score_typed_full_pipeline",
+      "type": "Function",
+      "line": 276
+    },
+    {
+      "name": "scorer",
+      "type": "Function",
+      "line": 313
+    },
+    {
+      "name": "test_empty_session",
+      "type": "Function",
+      "line": 315
+    },
+    {
+      "name": "test_full_session",
+      "type": "Function",
+      "line": 319
+    },
+    {
+      "name": "test_dependency_with_impact_data",
+      "type": "Function",
+      "line": 344
+    },
+    {
+      "name": "test_dependency_no_impact_data",
+      "type": "Function",
+      "line": 356
+    },
+    {
+      "name": "test_dependency_no_consumers",
+      "type": "Function",
+      "line": 362
+    },
+    {
+      "name": "test_constraint_scoring",
+      "type": "Function",
+      "line": 367
+    },
+    {
+      "name": "test_constraint_no_constraints",
+      "type": "Function",
+      "line": 378
+    },
+    {
+      "name": "test_auditability_complete_entries",
+      "type": "Function",
+      "line": 383
+    },
+    {
+      "name": "test_auditability_incomplete_entries",
+      "type": "Function",
+      "line": 395
+    },
+    {
+      "name": "test_explainability_long_outputs",
+      "type": "Function",
+      "line": 402
+    },
+    {
+      "name": "test_explainability_short_outputs",
+      "type": "Function",
+      "line": 410
+    },
+    {
+      "name": "test_reasoning_depth",
+      "type": "Function",
+      "line": 418
+    },
+    {
+      "name": "TestDRACEScore",
+      "type": "Class",
+      "line": 34
+    },
+    {
+      "name": "TestEvaluateDependency",
+      "type": "Class",
+      "line": 88
+    },
+    {
+      "name": "TestEvaluateReasoning",
+      "type": "Class",
+      "line": 119
+    },
+    {
+      "name": "TestEvaluateAuditability",
+      "type": "Class",
+      "line": 160
+    },
+    {
+      "name": "TestEvaluateConstraint",
+      "type": "Class",
+      "line": 197
+    },
+    {
+      "name": "TestEvaluateExplainability",
+      "type": "Class",
+      "line": 232
+    },
+    {
+      "name": "TestDRACEScorerTyped",
+      "type": "Class",
+      "line": 263
+    },
+    {
+      "name": "TestDRACEScorerBackwardsCompat",
+      "type": "Class",
+      "line": 309
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.governance.drace",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.44,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.201465+00:00"
+}

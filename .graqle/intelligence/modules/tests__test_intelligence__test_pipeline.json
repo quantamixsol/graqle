@@ -1,0 +1,163 @@
+{
+  "module": "tests.test_intelligence.test_pipeline",
+  "files": [
+    "tests/test_intelligence/test_pipeline.py"
+  ],
+  "node_count": 25,
+  "function_count": 18,
+  "class_count": 6,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_completes_under_3_seconds",
+      "type": "Function",
+      "line": 37
+    },
+    {
+      "name": "test_finds_python_files",
+      "type": "Function",
+      "line": 43
+    },
+    {
+      "name": "test_detects_frameworks",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "test_detects_ai_tools",
+      "type": "Function",
+      "line": 53
+    },
+    {
+      "name": "test_counts_extensions",
+      "type": "Function",
+      "line": 59
+    },
+    {
+      "name": "test_finds_test_files",
+      "type": "Function",
+      "line": 64
+    },
+    {
+      "name": "test_completes_under_10_seconds",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_finds_imports",
+      "type": "Function",
+      "line": 79
+    },
+    {
+      "name": "test_graph_py_most_imported",
+      "type": "Function",
+      "line": 84
+    },
+    {
+      "name": "test_priority_order",
+      "type": "Function",
+      "line": 97
+    },
+    {
+      "name": "test_process_python_file",
+      "type": "Function",
+      "line": 114
+    },
+    {
+      "name": "test_process_produces_no_hollow_nodes",
+      "type": "Function",
+      "line": 122
+    },
+    {
+      "name": "test_process_with_import_graph",
+      "type": "Function",
+      "line": 130
+    },
+    {
+      "name": "test_basic_compilation",
+      "type": "Function",
+      "line": 142
+    },
+    {
+      "name": "test_risk_scoring",
+      "type": "Function",
+      "line": 155
+    },
+    {
+      "name": "test_stream_produces_units",
+      "type": "Function",
+      "line": 174
+    },
+    {
+      "name": "test_stream_generates_insights",
+      "type": "Function",
+      "line": 185
+    },
+    {
+      "name": "test_no_hollow_nodes_in_stream",
+      "type": "Function",
+      "line": 198
+    },
+    {
+      "name": "TestStructuralPass",
+      "type": "Class",
+      "line": 33
+    },
+    {
+      "name": "TestImportGraphPass",
+      "type": "Class",
+      "line": 68
+    },
+    {
+      "name": "TestPriorityOrder",
+      "type": "Class",
+      "line": 93
+    },
+    {
+      "name": "TestProcessFile",
+      "type": "Class",
+      "line": 110
+    },
+    {
+      "name": "TestCompileModulePacket",
+      "type": "Class",
+      "line": 138
+    },
+    {
+      "name": "TestStreamIntelligence",
+      "type": "Class",
+      "line": 170
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "time",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.intelligence.pipeline",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.intelligence.models",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.283,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:03.878614+00:00"
+}

@@ -1,0 +1,168 @@
+{
+  "module": "tests.test_core.test_chunk_pipeline",
+  "files": [
+    "tests/test_core/test_chunk_pipeline.py"
+  ],
+  "node_count": 26,
+  "function_count": 20,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "py_source",
+      "type": "Function",
+      "line": 30
+    },
+    {
+      "name": "md_source",
+      "type": "Function",
+      "line": 48
+    },
+    {
+      "name": "test_loads_chunks_from_source_file",
+      "type": "Function",
+      "line": 57
+    },
+    {
+      "name": "test_loads_chunks_from_file_path",
+      "type": "Function",
+      "line": 72
+    },
+    {
+      "name": "test_skips_nodes_with_existing_chunks",
+      "type": "Function",
+      "line": 85
+    },
+    {
+      "name": "test_handles_nonexistent_file",
+      "type": "Function",
+      "line": 99
+    },
+    {
+      "name": "test_markdown_becomes_single_chunk",
+      "type": "Function",
+      "line": 112
+    },
+    {
+      "name": "test_rebuild_fills_missing",
+      "type": "Function",
+      "line": 129
+    },
+    {
+      "name": "test_rebuild_force_overwrites",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_splits_on_functions",
+      "type": "Function",
+      "line": 167
+    },
+    {
+      "name": "test_splits_on_classes",
+      "type": "Function",
+      "line": 178
+    },
+    {
+      "name": "test_respects_max_chunks",
+      "type": "Function",
+      "line": 183
+    },
+    {
+      "name": "test_empty_content",
+      "type": "Function",
+      "line": 188
+    },
+    {
+      "name": "test_no_definitions_returns_single_chunk",
+      "type": "Function",
+      "line": 192
+    },
+    {
+      "name": "test_includes_auto_loaded_chunks",
+      "type": "Function",
+      "line": 202
+    },
+    {
+      "name": "test_reflects_rebuild",
+      "type": "Function",
+      "line": 215
+    },
+    {
+      "name": "test_from_chunks_property",
+      "type": "Function",
+      "line": 235
+    },
+    {
+      "name": "test_from_source_file_fallback",
+      "type": "Function",
+      "line": 243
+    },
+    {
+      "name": "test_from_file_path_fallback",
+      "type": "Function",
+      "line": 251
+    },
+    {
+      "name": "test_empty_when_no_source",
+      "type": "Function",
+      "line": 259
+    },
+    {
+      "name": "TestAutoLoadChunks",
+      "type": "Class",
+      "line": 53
+    },
+    {
+      "name": "TestRebuildChunks",
+      "type": "Class",
+      "line": 125
+    },
+    {
+      "name": "TestChunkSourceCode",
+      "type": "Class",
+      "line": 163
+    },
+    {
+      "name": "TestToNetworkxFreshness",
+      "type": "Class",
+      "line": 198
+    },
+    {
+      "name": "TestBuildEvidenceText",
+      "type": "Class",
+      "line": 231
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    },
+    {
+      "module": "graqle.core.graph",
+      "type": "internal"
+    },
+    {
+      "module": "graqle.core.node",
+      "type": "internal"
+    }
+  ],
+  "risk_score": 0.3,
+  "risk_level": "MEDIUM",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.027368+00:00"
+}

@@ -5,6 +5,13 @@ tokens, AWS keys, private keys, JWTs, connection strings, custom
 patterns, disabled engines, and normal text preservation.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_scanner.test_privacy
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, pytest, privacy
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import pytest

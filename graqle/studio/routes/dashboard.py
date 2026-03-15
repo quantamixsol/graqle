@@ -1,5 +1,13 @@
 """Studio dashboard page routes — serve Jinja2 templates."""
 
+# ── graqle:intelligence ──
+# module: graqle.studio.routes.dashboard
+# risk: LOW (impact radius: 1 modules)
+# consumers: __init__
+# dependencies: __future__, logging, fastapi, responses
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

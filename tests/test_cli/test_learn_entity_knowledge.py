@@ -3,6 +3,13 @@
 Updated for semantic auto-connect, entity extraction, and GDS intelligence.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_cli.test_learn_entity_knowledge
+# risk: MEDIUM (impact radius: 0 modules)
+# dependencies: __future__, json, pathlib, contextlib, mock +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,13 @@
 """Message — the fundamental unit of inter-agent communication in Graqle."""
 
+# ── graqle:intelligence ──
+# module: graqle.core.message
+# risk: HIGH (impact radius: 26 modules)
+# consumers: __init__, base_agent, slm_agent, edge, graph +21 more
+# dependencies: __future__, uuid, dataclasses, datetime, types
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import uuid

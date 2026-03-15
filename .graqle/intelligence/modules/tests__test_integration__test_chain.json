@@ -1,0 +1,112 @@
+{
+  "module": "tests.test_integration.test_chain",
+  "files": [
+    "tests/test_integration/test_chain.py"
+  ],
+  "node_count": 14,
+  "function_count": 8,
+  "class_count": 5,
+  "line_count": 0,
+  "public_interfaces": [
+    {
+      "name": "test_scan_learn_context_roundtrip",
+      "type": "Function",
+      "line": 26
+    },
+    {
+      "name": "test_edges_key_survives_multiple_saves",
+      "type": "Function",
+      "line": 70
+    },
+    {
+      "name": "test_login_status_logout_chain",
+      "type": "Function",
+      "line": 109
+    },
+    {
+      "name": "test_refiner_with_activation_data",
+      "type": "Function",
+      "line": 147
+    },
+    {
+      "name": "test_comma_separated",
+      "type": "Function",
+      "line": 222
+    },
+    {
+      "name": "test_and_separated",
+      "type": "Function",
+      "line": 232
+    },
+    {
+      "name": "test_plus_separated",
+      "type": "Function",
+      "line": 240
+    },
+    {
+      "name": "test_mixed_delimiters",
+      "type": "Function",
+      "line": 248
+    },
+    {
+      "name": "TestScanLearnQueryChain",
+      "type": "Class",
+      "line": 22
+    },
+    {
+      "name": "TestCredentialsChain",
+      "type": "Class",
+      "line": 105
+    },
+    {
+      "name": "TestOntologyRefinerChain",
+      "type": "Class",
+      "line": 143
+    },
+    {
+      "name": "MockRecord",
+      "type": "Class",
+      "line": 156
+    },
+    {
+      "name": "TestEntityExtractionChain",
+      "type": "Class",
+      "line": 218
+    }
+  ],
+  "consumers": [],
+  "dependencies": [
+    {
+      "module": "__future__",
+      "type": "external"
+    },
+    {
+      "module": "json",
+      "type": "external"
+    },
+    {
+      "module": "tempfile",
+      "type": "external"
+    },
+    {
+      "module": "pathlib",
+      "type": "external"
+    },
+    {
+      "module": "unittest.mock",
+      "type": "external"
+    },
+    {
+      "module": "pytest",
+      "type": "external"
+    }
+  ],
+  "risk_score": 0.206,
+  "risk_level": "LOW",
+  "impact_radius": 0,
+  "chunk_coverage": 100.0,
+  "description_coverage": 100.0,
+  "constraints": [],
+  "incidents": [],
+  "last_compiled": "2026-03-15T22:42:02.379587+00:00"
+}

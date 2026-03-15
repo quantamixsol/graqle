@@ -16,6 +16,14 @@ Upsell strategy:
 - Observability, metrics, and shared graphs are the key value-adds
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cloud.plans
+# risk: LOW (impact radius: 1 modules)
+# consumers: test_plans
+# dependencies: __future__, logging, dataclasses, typing
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import logging

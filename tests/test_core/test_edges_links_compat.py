@@ -4,6 +4,13 @@ graq scan writes graqle.json with "links" key, but some tools or older
 versions may write "edges". The from_json loader must accept both.
 """
 
+# ── graqle:intelligence ──
+# module: tests.test_core.test_edges_links_compat
+# risk: LOW (impact radius: 0 modules)
+# dependencies: __future__, json, tempfile, pathlib, pytest +1 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import json

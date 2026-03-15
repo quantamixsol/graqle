@@ -5,6 +5,14 @@ step-by-step API key instructions, and what each tier unlocks.
 Designed to eliminate every "how do I set this up?" question.
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.setup_guide
+# risk: LOW (impact radius: 1 modules)
+# consumers: main
+# dependencies: __future__, os, importlib, typer, console +3 more
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import os

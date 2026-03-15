@@ -10,6 +10,14 @@ Commands:
     graq sync resolve   Interactive conflict resolution
 """
 
+# ── graqle:intelligence ──
+# module: graqle.cli.commands.sync
+# risk: LOW (impact radius: 2 modules)
+# consumers: main, test_sync
+# dependencies: __future__, typer, console, panel, table
+# constraints: none
+# ── /graqle:intelligence ──
+
 from __future__ import annotations
 
 import typer
