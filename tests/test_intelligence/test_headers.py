@@ -49,14 +49,16 @@ class TestGenerateHeader:
 
     def test_python_header(self) -> None:
         header = generate_header(_make_packet(), ".py")
-        assert header.startswith("# ── graqle:intelligence ──
-# module: tests.test_intelligence.test_headers
-# risk: MEDIUM (impact radius: 0 modules)
-# dependencies: __future__, pathlib, pytest, headers, models
-# constraints: none
-# ── /graqle:intelligence ──\n\ndef hello():\n    pass\n",
-            encoding="utf-8",
-        )
+        assert "# \u2500\u2500 graqle:intelligence \u2500\u2500" in header
+        assert "# module: test_mod" in header
+        assert "# risk: MEDIUM" in header
+
+    def test_inject_replace(self, tmp_path: Path) -> None:
+        fpath = tmp_path / "mod.py"
+        fpath.write_text("def hello():\n    pass\n", encoding="utf-8")
+
+        header = generate_header(_make_packet(), ".py")
+        inject_header(fpath, header)
 
         new_pkt = _make_packet(module="updated_mod")
         header = generate_header(new_pkt, ".py")
@@ -64,7 +66,6 @@ class TestGenerateHeader:
 
         content = fpath.read_text(encoding="utf-8")
         assert "updated_mod" in content
-        assert "old content" not in content
 
     def test_inject_idempotent(self, tmp_path: Path) -> None:
         fpath = tmp_path / "mod.py"
