@@ -165,6 +165,12 @@ jobs:
             --zip-file fileb://lambda-deploy.zip \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for code deploy
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ env.LAMBDA_FUNCTION }} \
+            --region ${{ env.AWS_REGION }}
+
       - name: Update Lambda environment
         run: |
           aws lambda update-function-configuration \
