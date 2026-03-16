@@ -140,14 +140,16 @@ def create_app(
         version=__version__,
     )
 
-    # CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # CORS middleware — skip on Lambda where Function URL handles CORS (ADR-056)
+    import os
+    if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Auth + rate limiting middleware
     setup_auth_middleware(app)

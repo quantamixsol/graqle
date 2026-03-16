@@ -136,7 +136,8 @@ jobs:
             --platform manylinux2014_x86_64 --only-binary=:all: \
             --python-version 3.10 --implementation cp \
             mangum fastapi uvicorn jinja2 pydantic pydantic-settings \
-            pyyaml typer rich networkx numpy httpx anthropic openai
+            pyyaml typer rich networkx numpy httpx anthropic openai \
+            requests
 
           # Copy graqle source (not pip-installed — use repo version)
           cp -r graqle/ build/lambda/graqle/
@@ -178,9 +179,14 @@ jobs:
             --environment "Variables={
               COGNIGRAPH_GRAPH_PATH=s3://graqle-graphs-eu/graqle.json,
               COGNIGRAPH_CONFIG_PATH=s3://graqle-graphs-eu/graqle.yaml,
-              ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+              COGNIGRAPH_S3_BUCKET=graqle-graphs-eu,
+              ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},
+              NEPTUNE_ENDPOINT=graqle-kg.cluster-cfb3tqihxeti.eu-central-1.neptune.amazonaws.com,
+              NEPTUNE_PORT=8182,
+              NEPTUNE_REGION=eu-central-1,
+              NEPTUNE_IAM_AUTH=true
             }" \
-            --timeout 60 \
+            --timeout 300 \
             --memory-size 1024 \
             --region ${{ env.AWS_REGION }}
 
@@ -199,8 +205,11 @@ jobs:
 
           echo "Lambda URL: $LAMBDA_URL"
 
+          # Wait for cold start
+          sleep 10
+
           # Test health endpoint
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${LAMBDA_URL}health")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${LAMBDA_URL}health")
           echo "GET /health: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
             echo "FAIL: /health returned $HTTP_CODE"
@@ -208,9 +217,29 @@ jobs:
           fi
 
           # Test studio API
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${LAMBDA_URL}studio/api/health")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${LAMBDA_URL}studio/api/health")
           echo "GET /studio/api/health: $HTTP_CODE"
 
           # Test graph loaded
-          HEALTH=$(curl -s "${LAMBDA_URL}health")
+          HEALTH=$(curl -s --max-time 30 "${LAMBDA_URL}health")
           echo "Health response: $HEALTH"
+
+          # Test graph visualization returns nodes
+          GRAPH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${LAMBDA_URL}studio/api/graph/visualization")
+          echo "GET /studio/api/graph/visualization: $GRAPH_CODE"
+          if [ "$GRAPH_CODE" != "200" ]; then
+            echo "FAIL: graph visualization returned $GRAPH_CODE"
+            exit 1
+          fi
+
+          # Test Neptune health (non-blocking — Neptune may not be in VPC from GH Actions)
+          NEPTUNE_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${LAMBDA_URL}studio/api/neptune/health")
+          echo "GET /studio/api/neptune/health: $NEPTUNE_CODE"
+
+          # Verify CORS — single header only (ADR-056)
+          CORS_COUNT=$(curl -sv -H "Origin: https://graqle.com" --max-time 30 "${LAMBDA_URL}health" 2>&1 | grep -ci "access-control-allow-origin")
+          echo "CORS header count: $CORS_COUNT"
+          if [ "$CORS_COUNT" -gt 1 ]; then
+            echo "FAIL: Duplicate CORS headers detected ($CORS_COUNT)"
+            exit 1
+          fi
