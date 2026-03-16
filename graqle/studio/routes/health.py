@@ -199,8 +199,9 @@ async def improvement_suggestions(
 
     # Source 1: Module index — find modules with HIGH/CRITICAL risk
     module_index = _read_json(root / "intelligence" / "module_index.json")
-    if isinstance(module_index, list):
-        for mod in module_index:
+    modules_list = module_index if isinstance(module_index, list) else module_index.get("modules", []) if isinstance(module_index, dict) else []
+    if modules_list:
+        for mod in modules_list:
             if not isinstance(mod, dict):
                 continue
             risk = mod.get("risk", "").upper()

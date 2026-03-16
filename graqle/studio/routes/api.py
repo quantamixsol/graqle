@@ -227,11 +227,10 @@ async def reason_stream(request: Request):
     strategy = strategy or "chunk"
 
     # Fast mode: 1 round, cap nodes for speed
+    fast_max_nodes = None
     if mode == "fast":
         max_rounds = max_rounds or 1
-        # Temporarily reduce max_nodes for fast activation
-        original_max = graph.config.activation.max_nodes
-        graph.config.activation.max_nodes = min(original_max, 8)
+        fast_max_nodes = min(getattr(getattr(graph.config, "activation", None), "max_nodes", 8), 8)
     else:
         max_rounds = max_rounds or 3  # deep mode: 3 rounds max (was 5)
 
@@ -245,6 +244,9 @@ async def reason_stream(request: Request):
             activation_start = time.time()
             node_ids = graph._activate_subgraph(query, strategy)
             node_ids = [nid for nid in node_ids if nid in graph.nodes]
+            # Fast mode: cap activated nodes for speed (no shared state mutation)
+            if fast_max_nodes and len(node_ids) > fast_max_nodes:
+                node_ids = node_ids[:fast_max_nodes]
             activation_ms = (time.time() - activation_start) * 1000
 
             activated_nodes = []
@@ -280,9 +282,7 @@ async def reason_stream(request: Request):
                 error_msg = "API key missing or invalid. Set ANTHROPIC_API_KEY environment variable or configure a backend in graqle.yaml."
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
         finally:
-            # Restore original max_nodes if we changed it
-            if mode == "fast":
-                graph.config.activation.max_nodes = original_max
+            pass
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -311,7 +311,7 @@ async def partial_metrics_cards(request: Request):
     tokens_saved = m.get("tokens_saved", 0)
     queries = m.get("queries", 0)
     context_loads = m.get("context_loads", 0)
-    savings_usd = tokens_saved * 0.000015  # $0.015 per 1K tokens
+    savings_usd = tokens_saved * 0.000003  # ~$3 per 1M tokens (Claude Sonnet input pricing)
 
     return f"""
     <div class="grid-4">
