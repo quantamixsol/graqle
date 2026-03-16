@@ -140,6 +140,10 @@ def create_app(
         version=__version__,
     )
 
+    # GZip compression — critical for large graph responses (2.87MB → ~200KB)
+    from starlette.middleware.gzip import GZipMiddleware
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
     # CORS middleware — skip on Lambda where Function URL handles CORS (ADR-056)
     import os
     if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):

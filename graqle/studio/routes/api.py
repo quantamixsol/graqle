@@ -272,7 +272,13 @@ async def reason_stream(request: Request):
             yield f"data: {json.dumps({'type': 'final_answer', 'answer': result.answer, 'confidence': result.confidence, 'rounds': result.rounds_completed, 'node_count': result.node_count, 'cost_usd': result.cost_usd, 'latency_ms': round(latency, 1), 'active_nodes': result.active_nodes, 'mode': mode})}\n\n"
         except Exception as e:
             logger.exception("Reasoning failed")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            error_msg = str(e)
+            # Provide clear message for common failures
+            if "credit balance is too low" in error_msg:
+                error_msg = "Anthropic API credits depleted. Add credits at console.anthropic.com/settings/billing or switch to a free backend (Ollama, Groq) in graqle.yaml."
+            elif "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
+                error_msg = "API key missing or invalid. Set ANTHROPIC_API_KEY environment variable or configure a backend in graqle.yaml."
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
         finally:
             # Restore original max_nodes if we changed it
             if mode == "fast":
@@ -409,6 +415,36 @@ async def cloud_disconnect():
     from graqle.cloud.credentials import clear_credentials
     clear_credentials()
     return {"success": True}
+
+
+# ---------- Settings ----------
+
+
+@router.get("/settings")
+async def settings_view(request: Request):
+    """Return read-only config for the Studio settings page."""
+    state = request.app.state.studio_state
+    config = state.get("config")
+    graph = state.get("graph")
+
+    node_count = len(getattr(graph, "nodes", {})) if graph else 0
+    edge_count = len(getattr(graph, "edges", {})) if graph else 0
+
+    config_dict = {}
+    if config:
+        try:
+            config_dict = config.model_dump() if hasattr(config, "model_dump") else {}
+        except Exception:
+            config_dict = {"error": "Could not serialize config"}
+
+    return {
+        "graph": {
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "loaded": graph is not None,
+        },
+        "config": config_dict,
+    }
 
 
 # ---------- Helpers ----------
