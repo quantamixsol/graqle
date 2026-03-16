@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.graqle/graqle",
+  "title": "Graqle",
+  "description": "Dev intelligence layer: 7 MCP tools for graph-powered codebase reasoning.",
+  "repository": {
+    "url": "https://github.com/quantamixsol/graqle",
+    "source": "github"
+  },
+  "version": "0.26.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "graqle",
+      "version": "0.26.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

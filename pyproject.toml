@@ -113,6 +113,9 @@ Changelog = "https://github.com/quantamixsol/graqle/releases"
 [tool.hatch.build.targets.sdist]
 exclude = ["graqle/benchmarks/data/*", "paper/*", "patent/*"]
 
+[tool.hatch.build]
+artifacts = ["graqle/integrations/bridges/*.md"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["graqle"]
 exclude = ["graqle/benchmarks/data/*"]

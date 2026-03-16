@@ -3,6 +3,18 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
+
+# MCP Registry private key (NEVER commit)
+mcp-registry-key.pem
+mcp-publisher.exe
+
+# Lambda build artifacts
+lambda-deploy*.zip
+lambda-patch/
+lambda-repack/
+
+# Export artifacts
+graqle_export.json
 dist/
 build/
 *.egg
