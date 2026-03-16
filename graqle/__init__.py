@@ -15,6 +15,9 @@ The Q stands for Query, Quality, and Quantified reasoning.
 from graqle.__version__ import __version__
 from graqle.core.edge import CogniEdge
 from graqle.core.graph import Graqle
+
+# Backward-compat alias (class renamed from CogniGraph → Graqle in v0.25)
+CogniGraph = Graqle
 from graqle.core.message import Message
 from graqle.core.node import CogniNode
 from graqle.core.state import NodeState
@@ -23,6 +26,7 @@ from graqle.core.types import NodeStatus, ReasoningResult, ReasoningType
 __all__ = [
     "__version__",
     "Graqle",
+    "CogniGraph",
     "CogniNode",
     "CogniEdge",
     "Message",
