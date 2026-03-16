@@ -167,13 +167,27 @@ class RunningScorecard:
     # ─── Insight Generators ──────────────────────────────────────────
 
     def _check_superlatives(self, pkt: ModulePacket) -> list[CuriosityInsight]:
-        """Check if this module is the new leader in any category."""
+        """Check if this module is the new leader in any category.
+
+        Only emits one insight per category across the entire compile run
+        by replacing previous holders when a new leader emerges.
+        """
         insights: list[CuriosityInsight] = []
+
+        # Skip modules with very short names (minified/bundled artifacts)
+        module_leaf = pkt.module.rsplit(".", 1)[-1]
+        if len(module_leaf) <= 2:
+            return insights
 
         # Most consumers (most imported)
         if pkt.consumer_count > 0 and self.files_scanned > 1:
             max_consumers = max(self._consumer_counts.values())
             if pkt.consumer_count == max_consumers and pkt.consumer_count >= 3:
+                # Remove previous "MOST IMPORTED" insights — only keep the latest leader
+                self.insights = [
+                    i for i in self.insights
+                    if not (i.category == InsightCategory.SUPERLATIVE and "MOST IMPORTED" in i.message)
+                ]
                 insights.append(CuriosityInsight(
                     category=InsightCategory.SUPERLATIVE,
                     module=pkt.module,
@@ -187,6 +201,10 @@ class RunningScorecard:
         if pkt.function_count > 0 and self.files_scanned > 1:
             max_fns = max(self._function_counts.values())
             if pkt.function_count == max_fns and pkt.function_count >= 20:
+                self.insights = [
+                    i for i in self.insights
+                    if not (i.category == InsightCategory.SUPERLATIVE and "LARGEST MODULE" in i.message)
+                ]
                 insights.append(CuriosityInsight(
                     category=InsightCategory.SUPERLATIVE,
                     module=pkt.module,
@@ -199,6 +217,10 @@ class RunningScorecard:
         if pkt.dependency_count > 0 and self.files_scanned > 1:
             max_deps = max(self._dependency_counts.values())
             if pkt.dependency_count == max_deps and pkt.dependency_count >= 6:
+                self.insights = [
+                    i for i in self.insights
+                    if not (i.category == InsightCategory.SUPERLATIVE and "MOST COMPLEX" in i.message)
+                ]
                 insights.append(CuriosityInsight(
                     category=InsightCategory.SUPERLATIVE,
                     module=pkt.module,

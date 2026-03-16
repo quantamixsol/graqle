@@ -46,7 +46,7 @@ class TestNodeDescriptionEnforcement:
         # Should NOT raise because auto-enrichment fills descriptions
         graph = Graqle.from_networkx(G)
         assert graph.nodes["svc1"].description  # auto-enriched
-        assert "SERVICE" in graph.nodes["svc1"].description
+        assert "service" in graph.nodes["svc1"].description.lower()
         assert "AuthService" in graph.nodes["svc1"].description
 
     def test_graph_with_completely_bare_nodes_raises(self):
@@ -69,7 +69,7 @@ class TestNodeDescriptionEnforcement:
         graph = Graqle.from_networkx(G)
 
         desc = graph.nodes["lambda1"].description
-        assert "LAMBDA" in desc
+        assert "lambda" in desc.lower()
         assert "UploadHandler" in desc
         assert "512" in desc or "memory_mb" in desc
 

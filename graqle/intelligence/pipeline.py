@@ -135,13 +135,24 @@ class ImportGraph:
 
     @staticmethod
     def _module_match(file_path: str, imports: list[str]) -> bool:
-        """Check if file_path matches any import as a module path."""
+        """Check if file_path matches any import as a module path.
+
+        Guards against single-character module names (e.g. ``d``, ``e``)
+        that would false-positive-match almost every import via endswith.
+        """
         module = file_path.replace("/", ".").replace("\\", ".")
         for suffix in (".py", ".js", ".ts", ".jsx", ".tsx"):
             if module.endswith(suffix):
                 module = module[:-len(suffix)]
                 break
-        return any(module.endswith(imp) or imp.endswith(module.rsplit(".", 1)[-1]) for imp in imports)
+        last_part = module.rsplit(".", 1)[-1]
+        # Skip matching if the module's last segment is too short (minified/bundled)
+        if len(last_part) <= 2:
+            return False
+        return any(
+            module.endswith(imp) or imp.endswith(f".{last_part}") or imp == last_part
+            for imp in imports
+        )
 
 
 def structural_pass(root: Path) -> ProjectShape:
@@ -683,7 +694,11 @@ def _extract_block(lines: list[str], start_idx: int, indent_based: bool = True) 
 
 
 def _resolve_import(imp: str, file_set: set[str]) -> str | None:
-    """Try to resolve an import name to a file in the project."""
+    """Try to resolve an import name to a file in the project.
+
+    Skips partial matching when the last component is <=2 chars to avoid
+    false positives from minified/bundled single-letter module names.
+    """
     # Convert module path to file path
     candidates = [
         imp.replace(".", "/") + ".py",
@@ -695,11 +710,13 @@ def _resolve_import(imp: str, file_set: set[str]) -> str | None:
         if candidate in file_set:
             return candidate
 
-    # Try partial match (last component)
+    # Try partial match (last component) — but only if it's long enough
+    # to avoid false positives (e.g. "d" matching everything ending in /d.py)
     last = imp.rsplit(".", 1)[-1]
-    for f in file_set:
-        if f.endswith(f"/{last}.py") or f.endswith(f"/{last}.ts") or f.endswith(f"/{last}.js"):
-            return f
+    if len(last) > 2:
+        for f in file_set:
+            if f.endswith(f"/{last}.py") or f.endswith(f"/{last}.ts") or f.endswith(f"/{last}.js"):
+                return f
 
     return None
 
@@ -733,8 +750,9 @@ def resolve_pending_edges(
                 break
         module_to_file[mod] = file_path
         # Also map last component: "models" → file path
+        # Skip single/double-char names to avoid minified module false positives
         last_part = mod.rsplit(".", 1)[-1]
-        if last_part not in module_to_file:
+        if len(last_part) > 2 and last_part not in module_to_file:
             module_to_file[last_part] = file_path
 
     resolved_total = 0

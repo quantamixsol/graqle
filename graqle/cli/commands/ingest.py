@@ -125,10 +125,27 @@ def _discover_sources_auto(root: Path) -> list[Path]:
 
 
 def _resolve_glob_sources(pattern: str, root: Path) -> list[Path]:
-    """Resolve a glob pattern to a list of files."""
+    """Resolve a glob pattern to a list of markdown files.
+
+    Handles both relative and absolute patterns.  On Windows the shell
+    often does NOT expand globs, so we always expand via Path.glob().
+    If the pattern starts with ``./`` or a drive letter we strip the
+    prefix to make it relative for Path.glob().
+    """
+    # Normalise to forward slashes and strip leading ./
+    pattern = pattern.replace("\\", "/")
+    if pattern.startswith("./"):
+        pattern = pattern[2:]
+
     sources: list[Path] = []
-    for p in sorted(root.glob(pattern)):
-        if p.is_file() and p.suffix.lower() == ".md":
+    try:
+        for p in sorted(root.glob(pattern)):
+            if p.is_file() and p.suffix.lower() in (".md", ".yaml", ".yml", ".txt", ".rst"):
+                sources.append(p)
+    except ValueError:
+        # Invalid glob pattern — treat as literal path
+        p = root / pattern
+        if p.is_file():
             sources.append(p)
     return sources
 
@@ -203,6 +220,12 @@ def ingest_command(
         help="Glob pattern or comma-separated file paths to ingest. "
              "Default: auto-discover from graqle.yaml and .gcc/",
     ),
+    sources_dir: list[str] = typer.Option(
+        [],
+        "--sources-dir",
+        help="Directories to recursively ingest (all .md files). "
+             "Can be repeated: --sources-dir .gcc/ --sources-dir .gsm/",
+    ),
     output: str = typer.Option(
         "graqle.json",
         "--output", "-o",
@@ -222,6 +245,13 @@ def ingest_command(
         False,
         "--verbose", "-v",
         help="Show detailed extraction log",
+    ),
+    deep: bool = typer.Option(
+        False,
+        "--deep",
+        help="Deep extraction: use LLM-free NER to extract entities from "
+             "unstructured prose (ADRs, strategy docs, deployment guides). "
+             "Slower but finds 3-10x more entities from natural language.",
     ),
     config: str = typer.Option(
         "graqle.yaml",
@@ -245,6 +275,10 @@ def ingest_command(
         graq ingest --sources ".gcc/project-kg.md,tasks/lessons-distilled.md"
 
     \b
+    Directory mode (no glob expansion needed):
+        graq ingest --sources-dir .gcc/ --sources-dir .gsm/ --sources-dir .claude/
+
+    \b
     Replace mode:
         graq ingest --no-merge
     """
@@ -263,28 +297,54 @@ def ingest_command(
     # ── Step 1: Discover source files ─────────────────────────────────
     source_files: list[Path] = []
 
+    # --sources-dir takes priority: recursively find all .md files in dirs
+    if sources_dir:
+        for d in sources_dir:
+            dir_path = (root / d).resolve() if not Path(d).is_absolute() else Path(d)
+            if dir_path.is_dir():
+                found = sorted(dir_path.rglob("*.md"))
+                source_files.extend(found)
+                console.print(f"  [dim]--sources-dir {d}: {len(found)} files[/dim]")
+            else:
+                console.print(f"  [yellow]Warning:[/yellow] Directory not found: {d}")
+
     if sources:
-        # User-provided sources
-        if "," in sources:
+        # User-provided sources — check for glob pattern (*, ?, [)
+        if "," in sources and "*" not in sources:
             for s in sources.split(","):
                 p = Path(s.strip())
                 if p.exists():
                     source_files.append(p)
                 else:
                     console.print(f"  [yellow]Warning:[/yellow] File not found: {s.strip()}")
-        elif "*" in sources:
-            source_files = _resolve_glob_sources(sources, root)
+        elif any(c in sources for c in ("*", "?", "[")):
+            # Glob pattern — expand it
+            expanded = _resolve_glob_sources(sources, root)
+            if not expanded:
+                console.print(f"  [yellow]Warning:[/yellow] Glob pattern matched 0 files: {sources}")
+            source_files.extend(expanded)
         else:
             p = Path(sources)
             if p.exists():
                 source_files.append(p)
             else:
                 console.print(f"  [yellow]Warning:[/yellow] File not found: {sources}")
-    else:
+
+    if not source_files and not sources and not sources_dir:
         # Auto-discover
         source_files = _discover_sources_from_config(config_path)
         if not source_files:
             source_files = _discover_sources_auto(root)
+
+    # Deduplicate
+    seen: set[Path] = set()
+    deduped: list[Path] = []
+    for sf in source_files:
+        resolved = sf.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            deduped.append(sf)
+    source_files = deduped
 
     if not source_files:
         console.print("[red]No source files found.[/red] Use --sources or set up .gcc/ directory.")
@@ -296,12 +356,16 @@ def ingest_command(
         console.print(f"  [dim]{rel}[/dim]")
 
     # ── Step 2: Parse files ───────────────────────────────────────────
-    console.print("\n[bold]Step 2/4:[/bold] Parsing markdown files...")
-
-    from graqle.ontology.markdown_parser import parse_and_infer
+    mode_label = "[bold magenta]deep[/bold magenta] " if deep else ""
+    console.print(f"\n[bold]Step 2/4:[/bold] {mode_label}Parsing markdown files...")
 
     start_time = time.perf_counter()
-    entities, edges = parse_and_infer(source_files, verbose=verbose)
+    if deep:
+        from graqle.ontology.markdown_parser import parse_and_infer_deep
+        entities, edges = parse_and_infer_deep(source_files, verbose=verbose)
+    else:
+        from graqle.ontology.markdown_parser import parse_and_infer
+        entities, edges = parse_and_infer(source_files, verbose=verbose)
     parse_time = time.perf_counter() - start_time
 
     console.print(f"  Extracted [cyan]{len(entities)}[/cyan] entities, "

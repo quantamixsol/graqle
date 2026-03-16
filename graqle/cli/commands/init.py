@@ -817,6 +817,28 @@ def _resolve_graq_command() -> str:
         if candidate.exists():
             return str(candidate)
 
+    # On Windows, check common pip Scripts dirs and suggest PATH fix
+    if sys.platform == "win32":
+        scripts_dirs = [
+            Path(sys.prefix) / "Scripts",
+            Path(sys.executable).parent / "Scripts",
+            Path.home() / "AppData" / "Roaming" / "Python" / f"Python{sys.version_info.major}{sys.version_info.minor}" / "Scripts",
+            Path.home() / "AppData" / "Local" / "Programs" / "Python" / f"Python{sys.version_info.major}{sys.version_info.minor}" / "Scripts",
+        ]
+        for sd in scripts_dirs:
+            graq_exe = sd / "graq.exe"
+            if graq_exe.exists():
+                console.print(
+                    f"  [yellow]WARNING:[/yellow] Found 'graq.exe' at [bold]{graq_exe}[/bold] "
+                    f"but it's not on PATH.\n"
+                    f"  [dim]Fix: Add this directory to your PATH:[/dim]\n"
+                    f"    [bold cyan]setx PATH \"%PATH%;{sd}\"[/bold cyan]\n"
+                    f"  [dim]Or in PowerShell:[/dim]\n"
+                    f"    [bold cyan]$env:PATH += \";{sd}\"[/bold cyan]\n"
+                    f"  [dim]Then restart your terminal.[/dim]"
+                )
+                return str(graq_exe)
+
     console.print(
         "  [yellow]WARNING:[/yellow] Could not find 'graq' executable. "
         "MCP server may fail to start.\n"
