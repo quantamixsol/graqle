@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import importlib.resources
 import json
 import logging
 import os
@@ -43,6 +44,7 @@ COMPANION_PLUGINS: dict[str, dict[str, Any]] = {
         "install_dir": "superpowers",
         "synergy": "Combines with Graqle's impact analysis for safer refactoring workflows",
         "category": "methodology",
+        "bridge": "superpowers_bridge.md",
     },
     "ui-ux-promax": {
         "name": "UI UX Pro Max",
@@ -53,6 +55,7 @@ COMPANION_PLUGINS: dict[str, dict[str, Any]] = {
         "install_dir": "ui-ux-pro-max-skill",
         "synergy": "Uses Graqle's graph data to inform UI layout decisions for dashboards",
         "category": "design",
+        "bridge": "uiux_bridge.md",
     },
     "claude-mem": {
         "name": "Claude Memory",
@@ -193,6 +196,39 @@ def _is_installed(plugin_id: str) -> bool:
     return False
 
 
+def _deploy_bridge(plugin_id: str, plugin: dict):
+    """Deploy the Graqle bridge skill that makes the plugin Graqle-aware.
+
+    Bridge skills are .md files shipped inside the graqle SDK package.
+    They get copied into the user's .claude/skills/ so Claude Code reads them
+    alongside the plugin's own skills — enabling automatic complementary workflows.
+    """
+    bridge_file = plugin.get("bridge")
+    if not bridge_file:
+        return
+
+    # Locate the bridge file inside the installed graqle package
+    bridges_dir = Path(__file__).resolve().parent.parent.parent / "integrations" / "bridges"
+    source = bridges_dir / bridge_file
+
+    if not source.exists():
+        logger.warning("Bridge file not found: %s", source)
+        return
+
+    # Deploy to project-level .claude/skills/ if project has .claude, else global
+    if (Path.cwd() / ".claude").is_dir() or (Path.cwd() / "CLAUDE.md").exists():
+        target_dir = Path.cwd() / ".claude" / "skills" / "graqle-bridges"
+    else:
+        target_dir = _claude_dir() / "skills" / "graqle-bridges"
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / bridge_file
+    shutil.copy2(str(source), str(target))
+
+    console.print(f"[green]Graqle bridge deployed:[/green] {target}")
+    console.print(f"  [dim]Claude Code will now combine {plugin['name']} with Graqle's intelligence[/dim]")
+
+
 def _install_claude_plugin(plugin_id: str, plugin: dict):
     """Install a Claude Code plugin (goes into ~/.claude/plugins/)."""
     plugins_dir = _claude_dir() / "plugins"
@@ -211,6 +247,7 @@ def _install_claude_plugin(plugin_id: str, plugin: dict):
         )
         console.print(f"[green]✓ {plugin['name']} installed successfully![/green]")
         console.print(f"[dim]Location: {target}[/dim]")
+        _deploy_bridge(plugin_id, plugin)
         console.print(f"\n[cyan]Synergy with Graqle:[/cyan] {plugin['synergy']}")
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Installation failed: {e.stderr}[/red]")
@@ -243,6 +280,7 @@ def _install_claude_skill(plugin_id: str, plugin: dict):
         )
         console.print(f"[green]✓ {plugin['name']} installed successfully![/green]")
         console.print(f"[dim]Location: {target}[/dim]")
+        _deploy_bridge(plugin_id, plugin)
         console.print(f"\n[cyan]Synergy with Graqle:[/cyan] {plugin['synergy']}")
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Installation failed: {e.stderr}[/red]")
