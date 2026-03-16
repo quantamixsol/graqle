@@ -1,318 +1,320 @@
-"""Amazon Neptune connector — cloud-hosted graph database for Team tier.
+"""Amazon Neptune openCypher client for Graqle.
 
-Neptune Serverless provides:
-- Pay-per-query pricing (no idle costs)
-- Scales to enterprise workloads
-- Gremlin + OpenCypher query support
-- Managed backups and snapshots
+Production client for querying the graqle-kg Neptune Serverless cluster.
+Uses HTTPS + openCypher via HTTP POST, with SigV4 IAM authentication.
 
-This connector extends the existing upgrade.py pattern, adding Neptune
-as a third backend option alongside JSON/NetworkX and Neo4j.
+Ported from CrawlQ Studio's neptune_client.py (studio-tamr-kg pattern).
 
-Architecture: Local graph (JSON) → sync deltas → Neptune (cloud)
-The local graph remains the primary store. Neptune is the shared team graph.
+Cluster: graqle-kg (eu-central-1, serverless v2)
+Endpoint: graqle-kg.cluster-cfb3tqihxeti.eu-central-1.neptune.amazonaws.com:8182
 """
 
 # ── graqle:intelligence ──
 # module: graqle.connectors.neptune
 # risk: MEDIUM (impact radius: 1 modules)
-# consumers: test_neptune
-# dependencies: __future__, json, logging, dataclasses, typing
-# constraints: none
+# consumers: lambda_handler, server.app
+# dependencies: json, logging, os, requests, botocore
+# constraints: must be in same VPC as Neptune cluster
 # ── /graqle:intelligence ──
-
-from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+import os
 from typing import Any
+from urllib.parse import urlencode
+
+import requests
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
+import botocore.session
 
 logger = logging.getLogger("graqle.connectors.neptune")
 
+# ─── Config ─────────────────────────────────────────────────────────────────
 
-def _sanitize_gremlin(value: str) -> str:
-    """Sanitize a string value for safe use in Gremlin queries.
+NEPTUNE_ENDPOINT = os.environ.get(
+    "NEPTUNE_ENDPOINT",
+    "graqle-kg.cluster-cfb3tqihxeti.eu-central-1.neptune.amazonaws.com",
+)
+NEPTUNE_PORT = int(os.environ.get("NEPTUNE_PORT", "8182"))
+NEPTUNE_REGION = os.environ.get("NEPTUNE_REGION", "eu-central-1")
+NEPTUNE_IAM_AUTH = os.environ.get("NEPTUNE_IAM_AUTH", "true").lower() in ("true", "1")
 
-    Prevents Gremlin injection by escaping special characters.
+_BASE_URL = f"https://{NEPTUNE_ENDPOINT}:{NEPTUNE_PORT}/openCypher"
+_SESSION = requests.Session()
+_SESSION.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
+_NEPTUNE_TIMEOUT = 10  # Fail fast on cold starts
+_NEPTUNE_UNAVAILABLE = False  # Set True after first timeout — skip remaining calls
+
+
+# ─── Core query execution ───────────────────────────────────────────────────
+
+def execute_query(query: str, parameters: dict | None = None) -> list[dict]:
+    """Execute an openCypher query against Neptune. Returns list of result rows."""
+    global _NEPTUNE_UNAVAILABLE
+    if _NEPTUNE_UNAVAILABLE:
+        raise RuntimeError("Neptune unavailable for this invocation (previous timeout)")
+
+    data = {"query": query}
+    if parameters:
+        data["parameters"] = json.dumps(parameters)
+
+    try:
+        if NEPTUNE_IAM_AUTH:
+            resp = _execute_with_iam(data)
+        else:
+            resp = _SESSION.post(_BASE_URL, data=data, timeout=_NEPTUNE_TIMEOUT)
+    except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
+        _NEPTUNE_UNAVAILABLE = True
+        raise RuntimeError(f"Neptune timeout/connection error: {e}") from e
+
+    if resp.status_code != 200:
+        logger.error("Neptune query failed: %s — %s", resp.status_code, resp.text[:500])
+        raise RuntimeError(f"Neptune query failed ({resp.status_code}): {resp.text[:500]}")
+
+    return resp.json().get("results", [])
+
+
+def _execute_with_iam(data: dict) -> requests.Response:
+    """Execute query with SigV4 IAM auth signing."""
+    session = botocore.session.get_session()
+    credentials = session.get_credentials().get_frozen_credentials()
+
+    encoded_body = urlencode(data)
+    request = AWSRequest(
+        method="POST",
+        url=_BASE_URL,
+        data=encoded_body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    SigV4Auth(credentials, "neptune-db", NEPTUNE_REGION).add_auth(request)
+
+    return _SESSION.post(
+        _BASE_URL,
+        data=encoded_body,
+        headers=dict(request.headers),
+        timeout=_NEPTUNE_TIMEOUT,
+    )
+
+
+# ─── Graph Query Functions (Graqle-specific) ─────────────────────────────────
+
+def get_nodes(project_id: str) -> list[dict]:
+    """Get all nodes for a project. Returns D3-compatible node dicts."""
+    query = """
+    MATCH (n:GraqleNode {project_id: $pid})
+    RETURN n.id AS id, n.label AS label, n.type AS type,
+           n.description AS description, n.size AS size,
+           n.degree AS degree, n.color AS color,
+           n.properties AS properties
     """
-    # Escape backslashes first, then single quotes
-    return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
+    return execute_query(query, {"pid": project_id})
 
+
+def get_edges(project_id: str) -> list[dict]:
+    """Get all edges for a project. Returns D3-compatible link dicts."""
+    query = """
+    MATCH (s:GraqleNode {project_id: $pid})-[r]->(t:GraqleNode {project_id: $pid})
+    RETURN r.id AS id, s.id AS source, t.id AS target,
+           type(r) AS relationship, r.weight AS weight
+    """
+    return execute_query(query, {"pid": project_id})
+
+
+def get_graph_stats(project_id: str) -> dict:
+    """Get node/edge counts and type distribution for a project."""
+    node_query = """
+    MATCH (n:GraqleNode {project_id: $pid})
+    RETURN n.type AS type, count(n) AS cnt
+    """
+    edge_query = """
+    MATCH (s:GraqleNode {project_id: $pid})-[r]->(t:GraqleNode {project_id: $pid})
+    RETURN count(r) AS edge_count
+    """
+
+    type_results = execute_query(node_query, {"pid": project_id})
+    edge_results = execute_query(edge_query, {"pid": project_id})
+
+    type_counts = {}
+    total_nodes = 0
+    for r in type_results:
+        t = r.get("type", "UNKNOWN")
+        c = r.get("cnt", 0)
+        type_counts[t] = c
+        total_nodes += c
+
+    edge_count = edge_results[0].get("edge_count", 0) if edge_results else 0
+
+    return {
+        "node_count": total_nodes,
+        "edge_count": edge_count,
+        "type_counts": type_counts,
+    }
+
+
+def get_visualization(project_id: str) -> dict:
+    """Get full D3-compatible visualization data {nodes, links}.
+
+    This is the primary endpoint for the Graph Explorer.
+    Returns the same format as the current JSON-based visualization route.
+    """
+    nodes = get_nodes(project_id)
+    edges = get_edges(project_id)
+
+    # Format nodes for D3
+    d3_nodes = []
+    for n in nodes:
+        d3_nodes.append({
+            "id": n.get("id", ""),
+            "label": n.get("label", n.get("id", "")),
+            "type": n.get("type", "Entity"),
+            "description": (n.get("description") or "")[:200],
+            "size": n.get("size", 12),
+            "degree": n.get("degree", 0),
+            "color": n.get("color", "#64748b"),
+        })
+
+    # Format edges for D3
+    d3_links = []
+    for e in edges:
+        d3_links.append({
+            "id": e.get("id", ""),
+            "source": e.get("source", ""),
+            "target": e.get("target", ""),
+            "relationship": e.get("relationship", "RELATED_TO"),
+            "weight": e.get("weight", 1.0),
+        })
+
+    return {"nodes": d3_nodes, "links": d3_links}
+
+
+def get_node_neighbors(project_id: str, node_id: str, max_hops: int = 2) -> list[dict]:
+    """Multi-hop traversal from a node. Used for impact blast radius."""
+    query = f"""
+    MATCH path = (start:GraqleNode {{id: $nid, project_id: $pid}})-[*1..{max_hops}]->(target:GraqleNode)
+    WHERE target.project_id = $pid AND target.id <> $nid
+    WITH target, length(path) AS hops
+    WITH target, hops,
+         CASE hops WHEN 1 THEN 1.0 WHEN 2 THEN 0.5 WHEN 3 THEN 0.25 ELSE 0.1 END AS decay
+    RETURN target.id AS id, target.label AS label, target.type AS type,
+           hops, max(decay) AS score
+    ORDER BY score DESC
+    LIMIT 50
+    """
+    return execute_query(query, {"nid": node_id, "pid": project_id})
+
+
+# ─── Write Functions (for graq cloud push) ──────────────────────────────────
+
+def upsert_nodes(project_id: str, nodes: list[dict]) -> int:
+    """MERGE nodes into Neptune. Returns count of upserted nodes."""
+    if not nodes:
+        return 0
+    count = 0
+    for node in nodes:
+        nid = node.get("id", "")
+        if not nid:
+            continue
+        query = """
+        MERGE (n:GraqleNode {id: $nid, project_id: $pid})
+        SET n.label = $label, n.type = $type, n.description = $description,
+            n.size = $size, n.degree = $degree, n.color = $color
+        """
+        try:
+            execute_query(query, {
+                "nid": nid,
+                "pid": project_id,
+                "label": node.get("label", nid),
+                "type": node.get("type", "Entity"),
+                "description": (node.get("description") or "")[:500],
+                "size": float(node.get("size", 12)),
+                "degree": int(node.get("degree", 0)),
+                "color": node.get("color", "#64748b"),
+            })
+            count += 1
+        except Exception as e:
+            logger.warning("Failed to upsert node %s: %s", nid, str(e)[:100])
+    return count
+
+
+def upsert_edges(project_id: str, edges: list[dict]) -> int:
+    """MERGE edges into Neptune. Returns count of upserted edges."""
+    if not edges:
+        return 0
+    count = 0
+    for edge in edges:
+        src = edge.get("source", "")
+        tgt = edge.get("target", "")
+        rtype = edge.get("relationship", "RELATED_TO").upper().replace(" ", "_")
+        if not src or not tgt:
+            continue
+        weight = float(edge.get("weight", 1.0)) if edge.get("weight") else 1.0
+        # Neptune requires dynamic relationship types via string interpolation
+        query = f"""
+        MATCH (s:GraqleNode {{id: $src, project_id: $pid}})
+        MATCH (t:GraqleNode {{id: $tgt, project_id: $pid}})
+        MERGE (s)-[r:{rtype}]->(t)
+        SET r.weight = $weight
+        """
+        try:
+            execute_query(query, {
+                "src": src, "tgt": tgt, "pid": project_id,
+                "weight": weight,
+            })
+            count += 1
+        except Exception as e:
+            logger.warning("Failed to upsert edge %s->%s: %s", src[:8], tgt[:8], str(e)[:100])
+    return count
+
+
+# ─── Health & Utility ───────────────────────────────────────────────────────
+
+def neptune_health() -> dict:
+    """Quick health check — returns status and basic info."""
+    try:
+        execute_query("RETURN 'ok' AS status, 1 AS connected")
+        return {
+            "status": "connected",
+            "endpoint": NEPTUNE_ENDPOINT,
+            "port": NEPTUNE_PORT,
+            "region": NEPTUNE_REGION,
+            "iam_auth": NEPTUNE_IAM_AUTH,
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "endpoint": NEPTUNE_ENDPOINT,
+            "error": str(e)[:200],
+        }
+
+
+def reset_availability() -> None:
+    """Reset the unavailability flag (e.g., for new Lambda invocations)."""
+    global _NEPTUNE_UNAVAILABLE
+    _NEPTUNE_UNAVAILABLE = False
+
+
+# ─── Backwards compatibility ────────────────────────────────────────────────
+# These keep existing tests and imports working.
 
 def _sanitize_cypher(value: str) -> str:
-    """Sanitize a string value for safe use in OpenCypher queries.
-
-    Prevents Cypher injection by escaping special characters.
-    """
+    """Sanitize a string value for safe use in OpenCypher queries."""
     return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
 
 
-# ---------------------------------------------------------------------------
-# Neptune configuration
-# ---------------------------------------------------------------------------
-
-@dataclass
-class NeptuneConfig:
-    """Configuration for Amazon Neptune connection."""
-
-    endpoint: str = ""           # Neptune cluster endpoint
-    port: int = 8182             # Default Neptune port
-    region: str = ""             # AWS region
-    use_iam_auth: bool = True    # Use IAM authentication (recommended)
-    database: str = "graqle"     # Neptune database name
-
-    @property
-    def websocket_url(self) -> str:
-        """WebSocket URL for Gremlin queries."""
-        return f"wss://{self.endpoint}:{self.port}/gremlin"
-
-    @property
-    def http_url(self) -> str:
-        """HTTP URL for OpenCypher queries."""
-        return f"https://{self.endpoint}:{self.port}/openCypher"
-
-    @property
-    def is_configured(self) -> bool:
-        return bool(self.endpoint and self.region)
-
-
-# ---------------------------------------------------------------------------
-# Neptune adapter (foundation — actual connection in Phase 3)
-# ---------------------------------------------------------------------------
-
-class NeptuneAdapter:
-    """Adapter for Amazon Neptune Serverless.
-
-    Phase 1 (foundation): Methods generate Gremlin/OpenCypher queries
-    but don't execute them. This validates the query generation logic
-    without requiring a Neptune cluster.
-
-    Phase 3+: Methods will execute queries against a real Neptune cluster.
-    """
-
-    def __init__(self, config: NeptuneConfig | None = None) -> None:
-        self._config = config or NeptuneConfig()
-        self._client = None
-
-    @property
-    def is_connected(self) -> bool:
-        return self._client is not None
-
-    def connect(self) -> None:
-        """Connect to Neptune cluster.
-
-        Phase 1: Validates config. Phase 3+: establishes connection.
-        """
-        if not self._config.is_configured:
-            raise ConnectionError(
-                "Neptune not configured. Set endpoint and region in team config, "
-                "or use environment variables NEPTUNE_ENDPOINT and AWS_REGION."
-            )
-
-        # Phase 1: Validate config only
-        logger.info(
-            "Neptune adapter initialized (foundation mode): %s:%d in %s",
-            self._config.endpoint,
-            self._config.port,
-            self._config.region,
-        )
-
-    def close(self) -> None:
-        """Close Neptune connection."""
-        self._client = None
-
-    # -- Gremlin query generation ---------------------------------------------
-
-    def generate_upsert_node(self, node: dict[str, Any]) -> str:
-        """Generate Gremlin query to upsert a node.
-
-        Uses Neptune's MERGE semantics: create if not exists, update if exists.
-        All string values are sanitized to prevent Gremlin injection.
-        """
-        node_id = _sanitize_gremlin(node.get("id", ""))
-        entity_type = _sanitize_gremlin(node.get("entity_type", node.get("type", "Unknown")))
-
-        props = []
-        for key, value in node.items():
-            if key in ("id",):
-                continue
-            safe_key = _sanitize_gremlin(key)
-            if isinstance(value, str):
-                props.append(f".property('{safe_key}', '{_sanitize_gremlin(value)}')")
-            elif isinstance(value, (int, float)):
-                props.append(f".property('{safe_key}', {value})")
-            elif isinstance(value, bool):
-                props.append(f".property('{safe_key}', {'true' if value else 'false'})")
-
-        prop_str = "".join(props)
-        return (
-            f"g.V().has('id', '{node_id}')"
-            f".fold()"
-            f".coalesce("
-            f"  unfold(),"
-            f"  addV('{entity_type}').property('id', '{node_id}')"
-            f"){prop_str}"
-        )
-
-    def generate_upsert_edge(self, edge: dict[str, Any]) -> str:
-        """Generate Gremlin query to upsert an edge.
-
-        All string values are sanitized to prevent Gremlin injection.
-        """
-        edge_id = _sanitize_gremlin(edge.get("id", ""))
-        source = _sanitize_gremlin(edge.get("source", ""))
-        target = _sanitize_gremlin(edge.get("target", ""))
-        relationship = _sanitize_gremlin(edge.get("relationship", "RELATES_TO"))
-
-        props = []
-        for key, value in edge.items():
-            if key in ("id", "source", "target", "relationship"):
-                continue
-            safe_key = _sanitize_gremlin(key)
-            if isinstance(value, str):
-                props.append(f".property('{safe_key}', '{_sanitize_gremlin(value)}')")
-            elif isinstance(value, (int, float)):
-                props.append(f".property('{safe_key}', {value})")
-
-        prop_str = "".join(props)
-        return (
-            f"g.V().has('id', '{source}')"
-            f".outE('{relationship}').has('id', '{edge_id}')"
-            f".fold()"
-            f".coalesce("
-            f"  unfold(),"
-            f"  V().has('id', '{source}')"
-            f"  .addE('{relationship}').to(V().has('id', '{target}'))"
-            f"  .property('id', '{edge_id}')"
-            f"){prop_str}"
-        )
-
-    def generate_delete_node(self, node_id: str) -> str:
-        """Generate Gremlin query to delete a node and its edges."""
-        return f"g.V().has('id', '{_sanitize_gremlin(node_id)}').drop()"
-
-    def generate_delete_edge(self, edge_id: str) -> str:
-        """Generate Gremlin query to delete an edge."""
-        return f"g.E().has('id', '{_sanitize_gremlin(edge_id)}').drop()"
-
-    def generate_team_query(self, team_id: str, entity_type: str | None = None) -> str:
-        """Generate Gremlin query to get all nodes for a team."""
-        safe_team = _sanitize_gremlin(team_id)
-        if entity_type:
-            return (
-                f"g.V().has('team_id', '{safe_team}')"
-                f".has('entity_type', '{_sanitize_gremlin(entity_type)}')"
-                f".valueMap(true)"
-            )
-        return f"g.V().has('team_id', '{safe_team}').valueMap(true)"
-
-    def generate_cross_repo_edges(self, team_id: str) -> str:
-        """Generate Gremlin query to find cross-repo edges."""
-        return (
-            f"g.V().has('team_id', '{_sanitize_gremlin(team_id)}')"
-            f".outE().has('cross_repo', true)"
-            f".project('source', 'target', 'relationship', 'source_repo', 'target_repo')"
-            f".by(outV().values('id'))"
-            f".by(inV().values('id'))"
-            f".by(label())"
-            f".by(outV().values('repo'))"
-            f".by(inV().values('repo'))"
-        )
-
-    # -- Batch operations (for sync) -----------------------------------------
-
-    def generate_sync_push_queries(
-        self,
-        delta: dict[str, Any],
-        team_id: str,
-        developer_id: str = "",
-    ) -> list[str]:
-        """Generate all Gremlin queries needed to push a sync delta.
-
-        Returns ordered list of queries to execute sequentially.
-        """
-        queries: list[str] = []
-
-        # Add team_id and developer info to all nodes
-        for node in delta.get("nodes_added", []):
-            node["team_id"] = team_id
-            if developer_id:
-                node["updated_by"] = developer_id
-            queries.append(self.generate_upsert_node(node))
-
-        for node in delta.get("nodes_modified", []):
-            node["team_id"] = team_id
-            if developer_id:
-                node["updated_by"] = developer_id
-            queries.append(self.generate_upsert_node(node))
-
-        for node_id in delta.get("nodes_deleted", []):
-            queries.append(self.generate_delete_node(node_id))
-
-        for edge in delta.get("edges_added", []):
-            queries.append(self.generate_upsert_edge(edge))
-
-        for edge in delta.get("edges_modified", []):
-            queries.append(self.generate_upsert_edge(edge))
-
-        for edge_id in delta.get("edges_deleted", []):
-            queries.append(self.generate_delete_edge(edge_id))
-
-        return queries
-
-    # -- OpenCypher query generation ------------------------------------------
-
-    def generate_cypher_upsert_node(self, node: dict[str, Any]) -> str:
-        """Generate OpenCypher MERGE query for a node.
-
-        All string values are sanitized to prevent Cypher injection.
-        """
-        node_id = _sanitize_cypher(node.get("id", ""))
-        entity_type = _sanitize_cypher(node.get("entity_type", "Unknown"))
-
-        props = {k: v for k, v in node.items() if k != "id"}
-        set_clause = ", ".join(
-            f"n.{_sanitize_cypher(k)} = {json.dumps(v)}" for k, v in props.items()
-            if isinstance(v, (str, int, float, bool))
-        )
-
-        return (
-            f"MERGE (n:{entity_type} {{id: '{node_id}'}}) "
-            f"SET {set_clause}"
-        )
-
-    def generate_cypher_stats(self, team_id: str) -> str:
-        """Generate OpenCypher query for team graph statistics."""
-        safe_team = _sanitize_cypher(team_id)
-        return (
-            f"MATCH (n {{team_id: '{safe_team}'}}) "
-            f"RETURN labels(n) AS type, count(n) AS count "
-            f"ORDER BY count DESC"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Neptune availability check
-# ---------------------------------------------------------------------------
-
 def check_neptune_available() -> tuple[bool, str]:
-    """Check if Neptune client dependencies are available.
+    """Check if Neptune client dependencies are available."""
+    try:
+        import requests as _r
+        import botocore as _b
+        return True, "Neptune client available (production mode — HTTPS + SigV4)"
+    except ImportError as e:
+        return False, f"Missing dependency: {e}"
 
-    Phase 1: Always returns available since we only generate queries.
-    Phase 3+: Will check for gremlinpython or neptune-python-utils.
-    """
-    return True, "Neptune adapter available (foundation mode — query generation only)"
 
-
-def check_neptune_connection(config: NeptuneConfig) -> tuple[bool, str]:
-    """Check if a Neptune cluster is reachable.
-
-    Phase 1: Validates config format only.
-    Phase 3+: Will attempt actual connection.
-    """
-    if not config.endpoint:
-        return False, "Neptune endpoint not configured"
-    if not config.region:
-        return False, "AWS region not configured for Neptune"
-    return True, f"Neptune config valid: {config.endpoint} in {config.region}"
+def check_neptune_connection() -> tuple[bool, str]:
+    """Check if the Neptune cluster is reachable."""
+    result = neptune_health()
+    if result["status"] == "connected":
+        return True, f"Connected to {NEPTUNE_ENDPOINT}"
+    return False, result.get("error", "Unknown error")
