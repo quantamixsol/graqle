@@ -12,7 +12,7 @@ graph:
 
 model:
   backend: bedrock
-  model: eu.anthropic.claude-sonnet-4-6-v1:0
+  model: eu.anthropic.claude-sonnet-4-6
   region: eu-central-1
 
 activation:
