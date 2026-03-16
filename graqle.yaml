@@ -5,14 +5,14 @@ graph:
   connector: neo4j
   uri: bolt://localhost:7687
   username: neo4j
-  password: graqle2026
+  password: ${NEO4J_PASSWORD}  # Set via environment variable
   database: graqle
   path: graqle.json  # JSON fallback if Neo4j unavailable
   auto_grow: true
 
 model:
-  backend: anthropic
-  model: claude-sonnet-4-6
+  backend: bedrock
+  model: eu.anthropic.claude-sonnet-4-6-v1:0
   region: eu-central-1
 
 activation:
