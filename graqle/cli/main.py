@@ -90,6 +90,10 @@ app.add_typer(sync_sub_app, name="sync")
 app.add_typer(team_sub_app, name="team")
 app.add_typer(compile_command, name="compile")
 app.add_typer(verify_command, name="verify")
+
+# Plugin ecosystem
+from graqle.cli.commands.plugins import app as plugins_app
+app.add_typer(plugins_app, name="plugins")
 app.command(name="upgrade")(upgrade_command)
 console = create_console()
 
