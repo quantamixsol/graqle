@@ -43,7 +43,7 @@ NEPTUNE_IAM_AUTH = os.environ.get("NEPTUNE_IAM_AUTH", "true").lower() in ("true"
 _BASE_URL = f"https://{NEPTUNE_ENDPOINT}:{NEPTUNE_PORT}/openCypher"
 _SESSION = requests.Session()
 _SESSION.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
-_NEPTUNE_TIMEOUT = 10  # Fail fast on cold starts
+_NEPTUNE_TIMEOUT = 30  # 30s for cold Neptune cluster startup
 _NEPTUNE_UNAVAILABLE = False  # Set True after first timeout — skip remaining calls
 
 

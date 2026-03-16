@@ -393,3 +393,116 @@ def _format_number(n: int | float) -> str:
     if n >= 1_000:
         return f"{n / 1_000:.1f}K"
     return str(int(n))
+
+
+# ---------- Neptune ----------
+
+
+@router.get("/neptune/health")
+async def neptune_health_check():
+    """Check Neptune connectivity from Lambda."""
+    try:
+        from graqle.connectors.neptune import neptune_health, reset_availability
+        reset_availability()  # Clear any cached unavailability from previous timeout
+        return neptune_health()
+    except Exception as e:
+        return {"status": "error", "error": str(e)[:300]}
+
+
+@router.get("/neptune/stats")
+async def neptune_stats():
+    """Get Neptune graph stats."""
+    try:
+        from graqle.connectors.neptune import get_graph_stats
+        return get_graph_stats("graqle-sdk")
+    except Exception as e:
+        return {"status": "error", "error": str(e)[:300]}
+
+
+@router.post("/neptune/upload")
+async def neptune_upload(request: Request):
+    """Upload current in-memory graph to Neptune.
+
+    This reads the graph from Lambda's in-memory state (loaded from S3)
+    and pushes all nodes + edges to Neptune. Designed to run once.
+    """
+    import time
+    state = request.app.state.studio_state
+    graph = state.get("graph")
+    if not graph:
+        return JSONResponse({"error": "No graph loaded in memory"}, status_code=400)
+
+    try:
+        from graqle.connectors.neptune import (
+            upsert_nodes, upsert_edges, get_graph_stats, neptune_health,
+            reset_availability,
+        )
+        reset_availability()
+
+        # Check connectivity first
+        health = neptune_health()
+        if health.get("status") != "connected":
+            return JSONResponse(
+                {"error": f"Neptune not reachable: {health.get('error', '?')}"},
+                status_code=503,
+            )
+
+        project_id = "graqle-sdk"
+        start = time.time()
+
+        # Transform nodes
+        nodes = []
+        for nid, node in graph.nodes.items():
+            # Count degree
+            degree = 0
+            for eid, edge in graph.edges.items():
+                if edge.source_id == nid or edge.target_id == nid:
+                    degree += 1
+            nodes.append({
+                "id": nid,
+                "label": node.label,
+                "type": node.entity_type,
+                "description": (node.description or "")[:500],
+                "size": max(8, min(40, 8 + (degree ** 0.5) * 6)),
+                "degree": degree,
+                "color": _type_color(node.entity_type),
+            })
+
+        # Transform edges
+        edges = []
+        for eid, edge in graph.edges.items():
+            edges.append({
+                "source": edge.source_id,
+                "target": edge.target_id,
+                "relationship": edge.relationship,
+                "weight": getattr(edge, "weight", 1.0),
+            })
+
+        # Upload in batches
+        uploaded_nodes = 0
+        batch_size = 50
+        for i in range(0, len(nodes), batch_size):
+            batch = nodes[i:i + batch_size]
+            uploaded_nodes += upsert_nodes(project_id, batch)
+
+        uploaded_edges = 0
+        for i in range(0, len(edges), batch_size):
+            batch = edges[i:i + batch_size]
+            uploaded_edges += upsert_edges(project_id, batch)
+
+        elapsed = time.time() - start
+
+        # Verify
+        stats = get_graph_stats(project_id)
+
+        return {
+            "status": "ok",
+            "uploaded_nodes": uploaded_nodes,
+            "uploaded_edges": uploaded_edges,
+            "elapsed_seconds": round(elapsed, 1),
+            "neptune_stats": stats,
+        }
+
+    except Exception as e:
+        logger.exception("Neptune upload failed")
+        return JSONResponse({"error": str(e)[:500]}, status_code=500)
