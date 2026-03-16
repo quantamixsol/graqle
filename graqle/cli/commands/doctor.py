@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -450,7 +451,18 @@ def _check_bedrock_model_id() -> list[CheckResult]:
             for prefix in ("us.", "eu.", "ap.", "global.")
         )
 
-        if configured_model in available_ids:
+        # Normalize: try both with and without version suffix (:0, :1, etc.)
+        # AWS Console shows IDs with :0 but list_foundation_models may or may not
+        model_variants = {configured_model}
+        # Add variant without version suffix
+        if re.search(r"-v\d+:\d+$", configured_model):
+            model_variants.add(re.sub(r"-v\d+:\d+$", "", configured_model))
+        # Add variant with version suffix if missing
+        if not re.search(r"-v\d+:\d+$", configured_model):
+            model_variants.add(f"{configured_model}-v1:0")
+
+        matched = model_variants & available_ids
+        if matched:
             results.append((
                 PASS,
                 "Bedrock: model ID",
@@ -459,7 +471,13 @@ def _check_bedrock_model_id() -> list[CheckResult]:
         elif is_profile:
             # Cross-region inference profiles are valid but not in the list
             base_model = configured_model.split(".", 1)[1] if "." in configured_model else configured_model
-            if base_model in available_ids:
+            base_variants = {base_model}
+            if re.search(r"-v\d+:\d+$", base_model):
+                base_variants.add(re.sub(r"-v\d+:\d+$", "", base_model))
+            if not re.search(r"-v\d+:\d+$", base_model):
+                base_variants.add(f"{base_model}-v1:0")
+
+            if base_variants & available_ids:
                 results.append((
                     PASS,
                     "Bedrock: model ID",
@@ -484,7 +502,8 @@ def _check_bedrock_model_id() -> list[CheckResult]:
                 WARN,
                 "Bedrock: model ID",
                 f"'{configured_model}' not found in {region}.{hint} "
-                f"Format: provider.model-name-version (e.g. anthropic.claude-haiku-4-5-20251001-v1:0)",
+                f"Format: provider.model-name (e.g. anthropic.claude-sonnet-4-6) "
+                f"or with version: anthropic.claude-sonnet-4-6-v1:0",
             ))
 
     except ImportError:

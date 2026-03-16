@@ -1573,3 +1573,216 @@ def parse_and_infer(file_paths: list[str | Path],
             unique_edges.append(edge)
 
     return unique_entities, unique_edges
+
+
+# ---------------------------------------------------------------------------
+# Deep extraction: entity extraction from unstructured prose
+# ---------------------------------------------------------------------------
+
+# Patterns for extracting entities from natural language in markdown
+_PROSE_SERVICE_RE = re.compile(
+    r"\b(?:Lambda|service|function|endpoint|API|module|component|handler|route|router|middleware)"
+    r"\s+[`\"']?([A-Z][a-zA-Z0-9_-]{2,}(?:-[a-zA-Z0-9]+)*)[`\"']?",
+)
+_PROSE_ADR_RE = re.compile(r"\bADR[-–](\d{3})\b")
+_PROSE_FILE_RE = re.compile(r"`([a-zA-Z0-9_/.-]+\.(?:py|ts|tsx|js|jsx|yaml|yml|json|md))`")
+_PROSE_ENV_RE = re.compile(r"\b([A-Z][A-Z0-9_]{3,})\b")
+_PROSE_DECISION_RE = re.compile(
+    r"(?:^|\n)\s*\*?\*?(?:Decision|Context|Consequence|Status|Reason|Why)[:\s]*\*?\*?\s*(.+)",
+    re.MULTILINE,
+)
+_PROSE_PATTERN_RE = re.compile(
+    r"\b(?:pattern|anti-pattern|approach|strategy|technique|architecture):\s*([^\n.]{5,60})",
+    re.IGNORECASE,
+)
+
+# Common environment variable names to exclude (too generic)
+_GENERIC_ENVVARS = frozenset({
+    "PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "TRUE", "FALSE",
+    "NONE", "NULL", "TODO", "NOTE", "WARN", "ERROR", "DEBUG", "INFO",
+    "PASS", "FAIL", "DONE", "SKIP", "HTTP", "HTTPS", "POST", "HEAD",
+    "CORS", "JSON", "HTML", "YAML", "TOML",
+})
+
+
+def _deep_extract_prose(content: str, source_file: str) -> tuple[list[ExtractedEntity], list[ExtractedEdge]]:
+    """Extract entities from unstructured markdown prose.
+
+    This is the 'deep' extraction mode that finds services, decisions,
+    file references, ADRs, environment variables, and patterns mentioned
+    in natural language — not just formal KG tables.
+    """
+    entities: list[ExtractedEntity] = []
+    edges: list[ExtractedEdge] = []
+    seen_ids: set[str] = set()
+
+    def _add(entity: ExtractedEntity) -> None:
+        if entity.id not in seen_ids:
+            seen_ids.add(entity.id)
+            entities.append(entity)
+
+    # 1. Services/components mentioned in prose
+    for m in _PROSE_SERVICE_RE.finditer(content):
+        name = m.group(1).strip("'\"`")
+        if len(name) > 2 and not name.isupper():  # skip pure-uppercase (likely constants)
+            eid = f"service::{name.lower()}"
+            _add(ExtractedEntity(
+                node_type="Service",
+                id=eid,
+                label=name,
+                metadata={"source": "deep_extract", "context": content[max(0, m.start() - 40):m.end() + 40].strip()},
+                source_file=source_file,
+                source_line=content[:m.start()].count("\n") + 1,
+                confidence=0.55,
+            ))
+
+    # 2. ADR references
+    for m in _PROSE_ADR_RE.finditer(content):
+        adr_num = m.group(1)
+        eid = f"adr::adr-{adr_num}"
+        _add(ExtractedEntity(
+            node_type="ADR",
+            id=eid,
+            label=f"ADR-{adr_num}",
+            metadata={"source": "deep_extract", "context": content[max(0, m.start() - 60):m.end() + 60].strip()},
+            source_file=source_file,
+            source_line=content[:m.start()].count("\n") + 1,
+            confidence=0.70,
+        ))
+
+    # 3. File references (backtick-wrapped file paths)
+    for m in _PROSE_FILE_RE.finditer(content):
+        fpath = m.group(1)
+        eid = f"file::{fpath.replace('/', '.').replace(chr(92), '.')}"
+        _add(ExtractedEntity(
+            node_type="File",
+            id=eid,
+            label=fpath,
+            metadata={"source": "deep_extract", "path": fpath},
+            source_file=source_file,
+            source_line=content[:m.start()].count("\n") + 1,
+            confidence=0.60,
+        ))
+
+    # 4. Environment variables (ALL_CAPS with underscores, 4+ chars)
+    for m in _PROSE_ENV_RE.finditer(content):
+        var = m.group(1)
+        if var in _GENERIC_ENVVARS or len(var) < 4:
+            continue
+        # Must have at least one underscore to be a likely env var
+        if "_" not in var:
+            continue
+        eid = f"envvar::{var.lower()}"
+        _add(ExtractedEntity(
+            node_type="EnvVar",
+            id=eid,
+            label=var,
+            metadata={"source": "deep_extract"},
+            source_file=source_file,
+            source_line=content[:m.start()].count("\n") + 1,
+            confidence=0.50,
+        ))
+
+    # 5. Decisions from ADR-style docs
+    for m in _PROSE_DECISION_RE.finditer(content):
+        decision_text = m.group(1).strip()
+        if len(decision_text) > 10:
+            slug = re.sub(r"[^a-z0-9]+", "-", decision_text[:50].lower()).strip("-")
+            eid = f"decision::{slug}"
+            _add(ExtractedEntity(
+                node_type="Decision",
+                id=eid,
+                label=decision_text[:80],
+                metadata={"source": "deep_extract", "full_text": decision_text},
+                source_file=source_file,
+                source_line=content[:m.start()].count("\n") + 1,
+                confidence=0.50,
+            ))
+
+    # 6. Patterns and approaches
+    for m in _PROSE_PATTERN_RE.finditer(content):
+        pattern_text = m.group(1).strip()
+        if len(pattern_text) > 5:
+            slug = re.sub(r"[^a-z0-9]+", "-", pattern_text[:50].lower()).strip("-")
+            eid = f"pattern::{slug}"
+            _add(ExtractedEntity(
+                node_type="Pattern",
+                id=eid,
+                label=pattern_text[:80],
+                metadata={"source": "deep_extract"},
+                source_file=source_file,
+                source_line=content[:m.start()].count("\n") + 1,
+                confidence=0.45,
+            ))
+
+    # 7. Cross-reference edges: files mentioning the same ADR/service
+    adr_entities = [e for e in entities if e.node_type == "ADR"]
+    service_entities = [e for e in entities if e.node_type == "Service"]
+    file_entities = [e for e in entities if e.node_type == "File"]
+
+    # Link ADRs to services mentioned in the same file
+    for adr in adr_entities:
+        for svc in service_entities:
+            edges.append(ExtractedEdge(
+                source_id=adr.id,
+                target_id=svc.id,
+                relationship="GOVERNS",
+                confidence=0.40,
+                source_file=source_file,
+            ))
+
+    # Link files to services they're about
+    for fe in file_entities:
+        for svc in service_entities:
+            if svc.label.lower() in fe.label.lower():
+                edges.append(ExtractedEdge(
+                    source_id=fe.id,
+                    target_id=svc.id,
+                    relationship="IMPLEMENTS",
+                    confidence=0.45,
+                    source_file=source_file,
+                ))
+
+    return entities, edges
+
+
+def parse_and_infer_deep(
+    file_paths: list[str | Path],
+    verbose: bool = False,
+) -> tuple[list[ExtractedEntity], list[ExtractedEdge]]:
+    """Like parse_and_infer but with deep prose extraction for unstructured docs.
+
+    Use this for ADRs, strategy docs, deployment guides, sprint reports,
+    and other markdown that doesn't use formal KG ontology tables.
+    """
+    # First do standard parsing
+    entities, edges = parse_and_infer(file_paths, verbose=verbose)
+    existing_ids = {e.id for e in entities}
+
+    # Then deep-extract from each file
+    for fp in file_paths:
+        try:
+            content = Path(fp).read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        deep_entities, deep_edges = _deep_extract_prose(content, str(fp))
+
+        # Only add entities not already found by structured parsing
+        for e in deep_entities:
+            if e.id not in existing_ids:
+                existing_ids.add(e.id)
+                entities.append(e)
+
+        edges.extend(deep_edges)
+
+    # Deduplicate edges
+    seen_keys: set[tuple[str, str, str]] = set()
+    unique_edges: list[ExtractedEdge] = []
+    for edge in edges:
+        key = (edge.source_id, edge.target_id, edge.relationship)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            unique_edges.append(edge)
+
+    return entities, unique_edges

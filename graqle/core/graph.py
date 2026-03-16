@@ -572,21 +572,47 @@ class Graqle:
             empty_count += 1
             parts = []
 
-            # Start with type and label
-            if node.entity_type and node.entity_type != "Entity":
-                parts.append(f"[{node.entity_type}]")
-            if node.label and node.label != nid:
-                parts.append(node.label)
+            # Start with a human-readable type sentence
+            etype = node.entity_type if node.entity_type and node.entity_type != "Entity" else ""
+            label = node.label if node.label and node.label != nid else ""
+            if etype and label:
+                parts.append(f"{label} is a {etype.lower()}")
+            elif etype:
+                parts.append(f"[{etype}] {nid}")
+            elif label:
+                parts.append(label)
 
-            # Add all properties as key-value context
+            # Add contextual source file info
+            source_file = (node.properties or {}).get("source_file", "")
+            if source_file:
+                parts.append(f"defined in {source_file}")
+
+            # Add high-value properties with human-readable formatting
+            # Prioritise: purpose, context, risk, status, consumers, dependencies
+            priority_keys = [
+                "purpose", "context", "status", "risk", "risk_level",
+                "severity", "full_text", "root_cause", "fix",
+            ]
             if node.properties:
+                # Priority keys first
+                for key in priority_keys:
+                    val = node.properties.get(key)
+                    if val:
+                        val_str = str(val)
+                        if len(val_str) > 300:
+                            val_str = val_str[:300] + "..."
+                        parts.append(f"{key}: {val_str}")
+
+                # Then remaining properties (skip duplicates and internal keys)
+                skip_keys = {"id", "label", "type", "description", "source_file",
+                             "source_line", "confidence", "source"} | set(priority_keys)
                 for key, val in node.properties.items():
-                    if key in ("id", "label", "type", "description"):
+                    if key in skip_keys:
                         continue
                     val_str = str(val)
-                    if len(val_str) > 500:
-                        val_str = val_str[:500] + "..."
-                    if val_str:
+                    if len(val_str) > 300:
+                        val_str = val_str[:300] + "..."
+                    if val_str and val_str not in ("None", "0", ""):
                         parts.append(f"{key}: {val_str}")
 
             # Add edge context (what this node connects to)
