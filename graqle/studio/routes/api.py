@@ -204,10 +204,16 @@ async def graph_node_detail(request: Request, node_id: str):
 
 @router.post("/reason")
 async def reason_stream(request: Request):
-    """Start reasoning and stream results via SSE."""
+    """Start reasoning and stream results via SSE.
+
+    Supports two modes:
+    - mode="fast" (default): 1 round, fewer nodes — answers in 5-15s
+    - mode="deep": multi-round orchestration — thorough but 30-120s
+    """
     body = await request.json()
     query = body.get("query", "")
-    max_rounds = body.get("max_rounds", 5)
+    mode = body.get("mode", "fast")
+    max_rounds = body.get("max_rounds")
     strategy = body.get("strategy")
 
     state = request.app.state.studio_state
@@ -220,18 +226,57 @@ async def reason_stream(request: Request):
         strategy = getattr(getattr(config, "activation", None), "strategy", "chunk")
     strategy = strategy or "chunk"
 
+    # Fast mode: 1 round, cap nodes for speed
+    if mode == "fast":
+        max_rounds = max_rounds or 1
+        # Temporarily reduce max_nodes for fast activation
+        original_max = graph.config.activation.max_nodes
+        graph.config.activation.max_nodes = min(original_max, 8)
+    else:
+        max_rounds = max_rounds or 3  # deep mode: 3 rounds max (was 5)
+
     async def event_generator():
         import json
         import time
         try:
             start = time.time()
-            result = await graph.areason(query, max_rounds=max_rounds, strategy=strategy)
+
+            # Emit activation event
+            activation_start = time.time()
+            node_ids = graph._activate_subgraph(query, strategy)
+            node_ids = [nid for nid in node_ids if nid in graph.nodes]
+            activation_ms = (time.time() - activation_start) * 1000
+
+            activated_nodes = []
+            for nid in node_ids:
+                node = graph.nodes.get(nid)
+                if node:
+                    activated_nodes.append({
+                        "id": nid,
+                        "label": node.label,
+                        "type": node.entity_type,
+                    })
+
+            yield f"data: {json.dumps({'type': 'activation', 'nodes': activated_nodes, 'count': len(node_ids), 'latency_ms': round(activation_ms, 1), 'mode': mode})}\n\n"
+
+            # Run reasoning with pre-activated nodes
+            result = await graph.areason(
+                query,
+                max_rounds=max_rounds,
+                strategy=strategy,
+                node_ids=node_ids,
+            )
             latency = (time.time() - start) * 1000
 
             # Emit final answer
-            yield f"data: {json.dumps({'type': 'final_answer', 'answer': result.answer, 'confidence': result.confidence, 'rounds': result.rounds_completed, 'node_count': result.node_count, 'cost_usd': result.cost_usd, 'latency_ms': latency, 'active_nodes': result.active_nodes})}\n\n"
+            yield f"data: {json.dumps({'type': 'final_answer', 'answer': result.answer, 'confidence': result.confidence, 'rounds': result.rounds_completed, 'node_count': result.node_count, 'cost_usd': result.cost_usd, 'latency_ms': round(latency, 1), 'active_nodes': result.active_nodes, 'mode': mode})}\n\n"
         except Exception as e:
+            logger.exception("Reasoning failed")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            # Restore original max_nodes if we changed it
+            if mode == "fast":
+                graph.config.activation.max_nodes = original_max
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
