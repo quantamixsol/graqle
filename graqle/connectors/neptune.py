@@ -23,12 +23,26 @@ import os
 from typing import Any
 from urllib.parse import urlencode
 
-import requests
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
-import botocore.session
-
 logger = logging.getLogger("graqle.connectors.neptune")
+
+# Lazy imports — requests and botocore are only available on Lambda/production
+# Not included in base SDK install to keep dependencies minimal
+requests = None
+botocore = None
+
+
+def _ensure_deps():
+    """Lazy-import requests and botocore on first use."""
+    global requests, botocore
+    if requests is None:
+        import requests as _requests
+        requests = _requests
+    if botocore is None:
+        import botocore as _botocore
+        import botocore.session  # noqa: F811
+        import botocore.auth  # noqa: F811
+        import botocore.awsrequest  # noqa: F811
+        botocore = _botocore
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -41,10 +55,19 @@ NEPTUNE_REGION = os.environ.get("NEPTUNE_REGION", "eu-central-1")
 NEPTUNE_IAM_AUTH = os.environ.get("NEPTUNE_IAM_AUTH", "true").lower() in ("true", "1")
 
 _BASE_URL = f"https://{NEPTUNE_ENDPOINT}:{NEPTUNE_PORT}/openCypher"
-_SESSION = requests.Session()
-_SESSION.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
+_SESSION = None  # Lazy-initialized requests.Session
 _NEPTUNE_TIMEOUT = 30  # 30s for cold Neptune cluster startup
 _NEPTUNE_UNAVAILABLE = False  # Set True after first timeout — skip remaining calls
+
+
+def _get_session():
+    """Get or create the requests Session (lazy init)."""
+    global _SESSION
+    if _SESSION is None:
+        _ensure_deps()
+        _SESSION = requests.Session()
+        _SESSION.headers.update({"Content-Type": "application/x-www-form-urlencoded"})
+    return _SESSION
 
 
 # ─── Core query execution ───────────────────────────────────────────────────
@@ -52,6 +75,8 @@ _NEPTUNE_UNAVAILABLE = False  # Set True after first timeout — skip remaining 
 def execute_query(query: str, parameters: dict | None = None) -> list[dict]:
     """Execute an openCypher query against Neptune. Returns list of result rows."""
     global _NEPTUNE_UNAVAILABLE
+    _ensure_deps()
+
     if _NEPTUNE_UNAVAILABLE:
         raise RuntimeError("Neptune unavailable for this invocation (previous timeout)")
 
@@ -59,11 +84,12 @@ def execute_query(query: str, parameters: dict | None = None) -> list[dict]:
     if parameters:
         data["parameters"] = json.dumps(parameters)
 
+    session = _get_session()
     try:
         if NEPTUNE_IAM_AUTH:
             resp = _execute_with_iam(data)
         else:
-            resp = _SESSION.post(_BASE_URL, data=data, timeout=_NEPTUNE_TIMEOUT)
+            resp = session.post(_BASE_URL, data=data, timeout=_NEPTUNE_TIMEOUT)
     except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
         _NEPTUNE_UNAVAILABLE = True
         raise RuntimeError(f"Neptune timeout/connection error: {e}") from e
@@ -75,8 +101,11 @@ def execute_query(query: str, parameters: dict | None = None) -> list[dict]:
     return resp.json().get("results", [])
 
 
-def _execute_with_iam(data: dict) -> requests.Response:
+def _execute_with_iam(data: dict):
     """Execute query with SigV4 IAM auth signing."""
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
     session = botocore.session.get_session()
     credentials = session.get_credentials().get_frozen_credentials()
 
@@ -89,7 +118,7 @@ def _execute_with_iam(data: dict) -> requests.Response:
     )
     SigV4Auth(credentials, "neptune-db", NEPTUNE_REGION).add_auth(request)
 
-    return _SESSION.post(
+    return _get_session().post(
         _BASE_URL,
         data=encoded_body,
         headers=dict(request.headers),
