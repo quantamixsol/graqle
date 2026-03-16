@@ -45,6 +45,55 @@ def _read_json(path: Path) -> dict | list | None:
         return None
 
 
+# ---------- Graph Health Status ----------
+
+
+@router.get("")
+async def health_status(request: Request):
+    """Return graph health status — node/edge counts, version, health score.
+
+    This is the main endpoint the dashboard calls on load to determine
+    whether a graph is available and show stats in the sidebar.
+    """
+    state = request.app.state.studio_state
+    graph = state.get("graph")
+
+    if not graph:
+        return {
+            "status": "no_graph",
+            "graph_loaded": False,
+            "node_count": 0,
+            "edge_count": 0,
+        }
+
+    node_count = len(graph) if hasattr(graph, "__len__") else len(getattr(graph, "nodes", {}))
+    edge_count = len(getattr(graph, "edges", {}))
+
+    # Compute basic health score from intelligence data if available
+    health_score = 0
+    checks_passed = 0
+    checks_total = 0
+    root = _get_graqle_root(request)
+    if root:
+        scorecard = _read_json(root / "scorecard.json")
+        if isinstance(scorecard, dict):
+            health_str = scorecard.get("health", "UNKNOWN")
+            health_map = {"HEALTHY": 100, "GOOD": 80, "FAIR": 60, "POOR": 40, "UNKNOWN": 0}
+            health_score = health_map.get(health_str, 0)
+            checks_passed = scorecard.get("checks_passed", 0)
+            checks_total = scorecard.get("checks_total", 0)
+
+    return {
+        "status": "ok",
+        "graph_loaded": True,
+        "node_count": node_count,
+        "edge_count": edge_count,
+        "health_score": health_score,
+        "checks_passed": checks_passed,
+        "checks_total": checks_total,
+    }
+
+
 # ---------- Health Streak ----------
 
 
