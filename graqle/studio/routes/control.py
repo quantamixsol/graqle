@@ -137,6 +137,105 @@ async def instance_detail(request: Request, name: str):
     return {"error": f"Instance '{name}' not found"}
 
 
+# ── Cross-Project Queries (Sprint 6) ─────────────────────────────────
+
+
+@router.get("/cross-project/search")
+async def cross_project_search_route(request: Request, q: str = "", projects: str = ""):
+    """Search across multiple projects in Neptune.
+
+    Query params:
+      - q: search text
+      - projects: comma-separated project IDs
+    """
+    try:
+        from graqle.connectors import neptune as npt
+    except ImportError:
+        return {"error": "Neptune connector not available", "results": []}
+
+    project_list = [p.strip() for p in projects.split(",") if p.strip()] if projects else []
+    if not project_list:
+        # Try to get all projects if none specified
+        try:
+            all_projects = npt.list_all_projects()
+            project_list = [p["project_id"] for p in all_projects]
+        except Exception:
+            return {"error": "No projects specified and Neptune unavailable", "results": []}
+
+    if not q:
+        return {"error": "Missing search query 'q'", "results": []}
+
+    try:
+        results = npt.cross_project_search(project_list, q)
+        return {"results": results, "query": q, "projects": project_list}
+    except Exception as e:
+        logger.warning("Cross-project search failed: %s", str(e)[:200])
+        return {"error": str(e)[:200], "results": []}
+
+
+@router.get("/cross-project/connections")
+async def cross_project_connections_route(
+    request: Request, project_a: str = "", project_b: str = ""
+):
+    """Find connections between two projects.
+
+    Returns nodes with matching labels/types across project boundaries.
+    """
+    try:
+        from graqle.connectors import neptune as npt
+    except ImportError:
+        return {"error": "Neptune connector not available", "connections": []}
+
+    if not project_a or not project_b:
+        return {"error": "Both project_a and project_b are required", "connections": []}
+
+    try:
+        connections = npt.cross_project_connections(project_a, project_b)
+        return {
+            "connections": connections,
+            "project_a": project_a,
+            "project_b": project_b,
+            "count": len(connections),
+        }
+    except Exception as e:
+        logger.warning("Cross-project connections failed: %s", str(e)[:200])
+        return {"error": str(e)[:200], "connections": []}
+
+
+@router.get("/cross-project/shared-types")
+async def cross_project_shared_types_route(request: Request, projects: str = ""):
+    """Find entity types shared across projects."""
+    try:
+        from graqle.connectors import neptune as npt
+    except ImportError:
+        return {"error": "Neptune connector not available", "shared_types": []}
+
+    project_list = [p.strip() for p in projects.split(",") if p.strip()] if projects else []
+    if len(project_list) < 2:
+        return {"error": "At least 2 project IDs required", "shared_types": []}
+
+    try:
+        shared = npt.cross_project_shared_types(project_list)
+        return {"shared_types": shared, "projects": project_list}
+    except Exception as e:
+        logger.warning("Cross-project shared types failed: %s", str(e)[:200])
+        return {"error": str(e)[:200], "shared_types": []}
+
+
+@router.get("/cross-project/all")
+async def list_all_projects_route(request: Request):
+    """List all projects stored in Neptune."""
+    try:
+        from graqle.connectors import neptune as npt
+        projects = npt.list_all_projects()
+        return {"projects": projects, "count": len(projects)}
+    except ImportError:
+        return {"error": "Neptune connector not available", "projects": []}
+    except Exception as e:
+        logger.warning("Neptune project list failed: %s", str(e)[:200])
+        return {"error": str(e)[:200], "projects": []}
+
+
 # ── Shareable Badges (SVG) ───────────────────────────────────────────
 
 
