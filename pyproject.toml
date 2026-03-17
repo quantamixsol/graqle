@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.29.0"
+version = "0.29.1"
 description = "Query your architecture, not your files. Turn any codebase into a self-learning knowledge graph with governance, 201 skills, and multi-signal activation."
 readme = "README.md"
 license = "Apache-2.0"
