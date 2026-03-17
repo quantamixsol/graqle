@@ -91,12 +91,14 @@ def _create_backend_from_config(cfg: Any) -> Any:
 def create_app(
     config_path: str = "graqle.yaml",
     graph_path: str | None = None,
+    neptune_enabled: bool = False,
 ) -> Any:
     """Create the FastAPI application.
 
     Args:
         config_path: Path to graqle.yaml configuration
         graph_path: Path to graph JSON file (overrides config)
+        neptune_enabled: If True, enable Neptune as graph backend
 
     Returns:
         FastAPI application instance
@@ -171,8 +173,42 @@ def create_app(
     state: dict = {"graph": None, "config": None}
 
     def _load_graph_from_config(cfg: Any, fallback_path: str = "graqle.json") -> Any:
-        """Load graph using config-aware backend selection (Neo4j or JSON)."""
+        """Load graph using config-aware backend selection (Neptune, Neo4j or JSON)."""
         connector = getattr(getattr(cfg, "graph", None), "connector", "networkx")
+
+        # Neptune backend — load from Neptune cluster
+        if neptune_enabled or connector == "neptune":
+            try:
+                from graqle.connectors.neptune import get_visualization, check_neptune_available
+                if check_neptune_available():
+                    # Determine project_id from env or config
+                    project_id = os.environ.get("NEPTUNE_PROJECT_ID", "default")
+                    viz = get_visualization(project_id)
+                    if viz and viz.get("nodes"):
+                        g = Graqle(config=cfg)
+                        # Build graph from Neptune data
+                        for node in viz["nodes"]:
+                            g.add_node(
+                                node_id=node.get("id", ""),
+                                label=node.get("label", ""),
+                                entity_type=node.get("type", "Thing"),
+                                description=node.get("description", ""),
+                            )
+                        for edge in viz.get("links", []):
+                            src = edge.get("source", "")
+                            tgt = edge.get("target", "")
+                            rel = edge.get("type", "RELATES_TO")
+                            if src and tgt:
+                                g.add_edge(src, tgt, rel)
+                        logger.info("Loaded graph from Neptune: %d nodes, project=%s", len(g), project_id)
+                        state["neptune_project_id"] = project_id
+                        return g
+                    else:
+                        logger.info("Neptune has no data for project=%s, falling back", project_id)
+                else:
+                    logger.warning("Neptune dependencies not available, falling back to JSON")
+            except Exception as exc:
+                logger.warning("Neptune load failed (%s), falling back to JSON", exc)
 
         if connector == "neo4j":
             graph_cfg = cfg.graph
@@ -207,12 +243,15 @@ def create_app(
         else:
             state["config"] = GraqleConfig.default()
 
-        # Load graph (config-aware: Neo4j or JSON)
+        # Load graph (config-aware: Neptune, Neo4j or JSON)
         graph = _load_graph_from_config(state["config"])
         if graph is not None:
             state["graph"] = graph
             backend = _create_backend_from_config(state["config"])
             state["graph"].set_default_backend(backend)
+
+            # Track Neptune availability for cross-project queries
+            state["neptune_enabled"] = neptune_enabled or state.get("neptune_project_id") is not None
 
             # Initialize Neo4j traversal engine if Neo4j is configured
             connector = getattr(getattr(state["config"], "graph", None), "connector", "networkx")
