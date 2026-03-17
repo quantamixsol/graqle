@@ -38,8 +38,9 @@ from graqle.intelligence.claude_section import (
     inject_section,
 )
 from graqle.intelligence.emitter import IntelligenceEmitter
+from graqle.intelligence.invariants import detect_invariants
 from graqle.intelligence.headers import eject_header, generate_header, inject_header
-from graqle.intelligence.models import InsightCategory, ModulePacket
+from graqle.intelligence.models import CuriosityInsight, InsightCategory, ModulePacket
 from graqle.intelligence.pipeline import (
     import_graph_pass,
     resolve_pending_edges,
@@ -58,6 +59,7 @@ _INSIGHT_STYLES = {
     InsightCategory.SUGGESTION: ("blue", "💡"),
     InsightCategory.CONNECTION: ("magenta", "🔗"),
     InsightCategory.HISTORY: ("red", "📋"),
+    InsightCategory.INVARIANT: ("bold red", "🔍"),
 }
 
 
@@ -181,6 +183,18 @@ def compile_intelligence(
     # Recalculate scorecard coverage after resolution
     scorecard.recalculate_edge_coverage(all_units)
 
+    # ─── Phase 3c: Invariant Detection ─────────────────────────────
+    invariant_insights = detect_invariants(all_units)
+    if invariant_insights:
+        console.print(f"\n🔍 Invariant detector: {len(invariant_insights)} violations found")
+        for inv in invariant_insights:
+            style, icon = _INSIGHT_STYLES.get(inv.category, ("white", "•"))
+            short_mod = inv.module.rsplit(".", 1)[-1]
+            console.print(f"  {icon} [bold]{short_mod}[/bold] — [{style}]{inv.message}[/{style}]")
+        total_insights += len(invariant_insights)
+        # Attach invariant insights to the relevant units
+        _attach_invariant_insights(all_units, invariant_insights)
+
     # ─── Phase 4: Emit Index + CLAUDE.md Section ─────────────────
     emitter = IntelligenceEmitter(root)
     for unit in all_units:
@@ -239,6 +253,23 @@ def compile_intelligence(
         "insights": total_insights,
         "duration_seconds": round(total_time, 1),
     }
+
+
+def _attach_invariant_insights(
+    all_units: list[FileIntelligenceUnit],
+    insights: list[CuriosityInsight],
+) -> None:
+    """Attach invariant insights to the unit whose module matches."""
+    module_to_unit: dict[str, FileIntelligenceUnit] = {
+        u.module_packet.module: u for u in all_units
+    }
+    for insight in insights:
+        unit = module_to_unit.get(insight.module)
+        if unit:
+            unit.insights.append(insight)
+        elif all_units:
+            # Fallback: attach to first unit so it's not lost
+            all_units[0].insights.append(insight)
 
 
 def _run_eject(root: Path) -> dict[str, Any]:

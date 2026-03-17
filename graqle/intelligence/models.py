@@ -40,6 +40,7 @@ class InsightCategory(str, Enum):
     SUGGESTION = "suggestion"      # "Consider splitting?"
     CONNECTION = "connection"      # "Bridges 4 isolated modules"
     HISTORY = "history"            # "Changed 12 times in 30 days"
+    INVARIANT = "invariant"        # "Write-without-read", "format mismatch"
 
 
 class ValidatedNode(BaseModel):
