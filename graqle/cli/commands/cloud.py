@@ -213,6 +213,61 @@ def cloud_push(
             ContentType="application/json",
         )
 
+    # Upload module index (needed by intelligence dashboard)
+    module_index_path = root_path / ".graqle" / "intelligence" / "module_index.json"
+    if module_index_path.exists():
+        console.print("  Uploading module index...")
+        s3.put_object(
+            Bucket=GRAPHS_BUCKET,
+            Key=f"{s3_prefix}/module_index.json",
+            Body=module_index_path.read_bytes(),
+            ContentType="application/json",
+        )
+
+    # Upload impact matrix
+    impact_path = root_path / ".graqle" / "intelligence" / "impact_matrix.json"
+    if impact_path.exists():
+        console.print("  Uploading impact matrix...")
+        s3.put_object(
+            Bucket=GRAPHS_BUCKET,
+            Key=f"{s3_prefix}/impact_matrix.json",
+            Body=impact_path.read_bytes(),
+            ContentType="application/json",
+        )
+
+    # Upload individual module packets (batch)
+    modules_dir = root_path / ".graqle" / "intelligence" / "modules"
+    module_files_uploaded = 0
+    if modules_dir.is_dir():
+        module_files = list(modules_dir.glob("*.json"))
+        if module_files:
+            console.print(f"  Uploading {len(module_files)} module packets...")
+            for mf in module_files:
+                s3.put_object(
+                    Bucket=GRAPHS_BUCKET,
+                    Key=f"{s3_prefix}/modules/{mf.name}",
+                    Body=mf.read_bytes(),
+                    ContentType="application/json",
+                )
+                module_files_uploaded += 1
+
+    # Upload governance audit sessions
+    governance_dir = root_path / ".graqle" / "governance"
+    has_governance = False
+    if governance_dir.is_dir():
+        gov_files = list(governance_dir.rglob("*.json"))
+        if gov_files:
+            console.print(f"  Uploading {len(gov_files)} governance artifacts...")
+            has_governance = True
+            for gf in gov_files:
+                rel = gf.relative_to(governance_dir)
+                s3.put_object(
+                    Bucket=GRAPHS_BUCKET,
+                    Key=f"{s3_prefix}/governance/{rel.as_posix()}",
+                    Body=gf.read_bytes(),
+                    ContentType="application/json",
+                )
+
     # Write project metadata
     import time
     metadata = {
@@ -223,6 +278,8 @@ def cloud_push(
         "lastPush": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "health": "HEALTHY" if scorecard_path.exists() else "UNKNOWN",
         "hasIntelligence": scorecard_path.exists(),
+        "hasGovernance": has_governance,
+        "moduleCount": module_files_uploaded,
     }
     s3.put_object(
         Bucket=GRAPHS_BUCKET,
@@ -231,30 +288,24 @@ def cloud_push(
         ContentType="application/json",
     )
 
-    # Neptune sync (Team plan and above)
+    # Neptune sync (Team/Enterprise plan — uses cloud credentials, not LicenseManager)
     neptune_synced = False
-    try:
-        from graqle.cloud.plans import check_feature
-        from graqle.licensing.manager import LicenseManager
-        manager = LicenseManager()
-        plan = manager.current_tier.value
-        neptune_ok = check_feature(plan, "cloud_sync")
-        if neptune_ok.allowed:
-            try:
-                from graqle.connectors.neptune import upsert_nodes, upsert_edges, check_neptune_available
-                available, _ = check_neptune_available()
-                if available:
-                    console.print("  Syncing to Neptune (Team feature)...")
-                    nodes = graph_json.get("nodes", [])
-                    edges = graph_json.get("links", graph_json.get("edges", []))
-                    n_count = upsert_nodes(proj_name, nodes)
-                    e_count = upsert_edges(proj_name, edges)
-                    console.print(f"  Neptune: {n_count} nodes, {e_count} edges synced")
-                    neptune_synced = True
-            except Exception as e:
-                console.print(f"  [dim]Neptune sync skipped: {e}[/dim]")
-    except Exception:
-        pass  # Plan check failed — skip Neptune
+    if creds.plan in ("team", "enterprise"):
+        try:
+            from graqle.connectors.neptune import upsert_nodes, upsert_edges, check_neptune_available
+            available, _ = check_neptune_available()
+            if available:
+                console.print("  Syncing to Neptune (Team feature)...")
+                nodes = graph_json.get("nodes", [])
+                edges = graph_json.get("links", graph_json.get("edges", []))
+                n_count = upsert_nodes(proj_name, nodes)
+                e_count = upsert_edges(proj_name, edges)
+                console.print(f"  Neptune: {n_count} nodes, {e_count} edges synced")
+                neptune_synced = True
+            else:
+                console.print("  [dim]Neptune not available in this environment[/dim]")
+        except Exception as e:
+            console.print(f"  [dim]Neptune sync skipped: {e}[/dim]")
 
     console.print(Panel(
         f"[bold green]Pushed successfully![/bold green]\n\n"
