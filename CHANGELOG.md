@@ -4,6 +4,92 @@ All notable changes to Graqle are documented in this file.
 
 ---
 
+## v0.29.0 — Cloud Sync + Multi-Project Dashboard (2026-03-17)
+
+**Push your knowledge graph to Graqle Cloud. View it anywhere. Share with your team.**
+
+The cloud release: `graq cloud push` sends your knowledge graph to [graqle.com/dashboard](https://graqle.com/dashboard). Pull it on any machine. See all your projects in one control plane.
+
+### Cloud CLI (`graq cloud`)
+
+New command group for managing your knowledge graph in the cloud:
+
+```bash
+graq login --api-key grq_your_key    # Connect (get key at graqle.com/account)
+graq cloud push                       # Upload graph + scorecard + intelligence
+graq cloud pull                       # Download graph to any machine
+graq cloud status                     # List cloud projects + connection info
+```
+
+- **Auto-detects project name** from `graqle.yaml`, `package.json`, `pyproject.toml`, or directory name
+- **Uploads to S3** at `graphs/{email_hash}/{project}/` — graqle.json, scorecard, insights, metadata
+- **Neptune sync** for Team tier — graphs synced to production Neptune for cross-project queries
+- **Pull** downloads the latest graph from cloud to your local project
+
+### Enhanced Login
+
+`graq login --api-key grq_xxx` now validates the key against the Graqle Cloud API:
+- Returns email, plan tier, and validation status
+- Falls back gracefully when offline — key saved locally
+- Key format validation (`grq_` prefix required)
+
+### API Key Management (Studio)
+
+New Account page at [graqle.com/dashboard/account](https://graqle.com/dashboard/account):
+- **Generate API keys** (up to 5 per user) — `grq_` + 64-char hex
+- **Key shown once** — copy button, then masked forever
+- **Revoke keys** (soft-delete) — immediate invalidation
+- **Connected Projects** — see all pushed projects with node count, health, last push time
+- **Validation endpoint** — `POST /api/keys/validate` (used by `graq login`)
+
+### Project Selector (Studio)
+
+TopBar project dropdown — switch between projects pushed to cloud:
+- Auto-fetches from S3 on auth
+- Loads project-specific graph in explorer
+- Per-user, per-project graph loading with fallback
+
+### Control Plane — Cloud Integration
+
+`/dashboard/control` now merges local backend instances with cloud projects:
+- Local instances from `graq serve` + cloud instances from S3
+- Deduplicated by project name
+- Health status, node/edge counts, last scan time
+
+### Lambda — Neptune-Aware Loading
+
+Lambda handler (`cognigraph-api`) now checks `NEPTUNE_ENDPOINT`:
+- If set: passes `neptune_enabled=True` to create_app — serves from Neptune
+- If not: falls back to S3 JSON (existing behavior)
+- Warm container caching preserved
+
+### Cloud Gateway
+
+`CloudGateway.upload_graph()` upgraded from stub to real S3 upload:
+- Uploads `graqle.json` and optional `scorecard.json`
+- Returns S3 prefix for verification
+- Error handling with logging
+
+### Tests
+
+**2,009 tests passing.** No regressions from v0.28.0.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `graqle/cli/commands/cloud.py` | NEW — `graq cloud push/pull/status` |
+| `graqle/cli/commands/login.py` | Enhanced — API key validation against cloud |
+| `graqle/cli/main.py` | Added — `cloud` command group registration |
+| `graqle/cloud/gateway.py` | Upgraded — real `upload_graph()` method |
+| `graqle/server/lambda_handler.py` | Enhanced — Neptune-aware graph loading |
+
+### Breaking Changes
+
+None. All new features are additive. Existing configs work unchanged.
+
+---
+
 ## v0.22.0 — Multi-Provider LLM + Task-Based Routing (2026-03-14)
 
 **Use any LLM provider. Route tasks to the right model.** The biggest backend expansion since launch — 10+ providers, task-based routing, and Google Gemini native support.
