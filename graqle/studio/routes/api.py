@@ -215,6 +215,7 @@ async def reason_stream(request: Request):
     mode = body.get("mode", "fast")
     max_rounds = body.get("max_rounds")
     strategy = body.get("strategy")
+    ring_fence = body.get("ring_fence", "read-only")  # Default: graph protected
 
     state = request.app.state.studio_state
     graph = state.get("graph")
@@ -259,7 +260,7 @@ async def reason_stream(request: Request):
                         "type": node.entity_type,
                     })
 
-            yield f"data: {json.dumps({'type': 'activation', 'nodes': activated_nodes, 'count': len(node_ids), 'latency_ms': round(activation_ms, 1), 'mode': mode})}\n\n"
+            yield f"data: {json.dumps({'type': 'activation', 'nodes': activated_nodes, 'count': len(node_ids), 'latency_ms': round(activation_ms, 1), 'mode': mode, 'ring_fence': ring_fence})}\n\n"
 
             # Run reasoning with pre-activated nodes
             result = await graph.areason(
@@ -271,7 +272,7 @@ async def reason_stream(request: Request):
             latency = (time.time() - start) * 1000
 
             # Emit final answer
-            yield f"data: {json.dumps({'type': 'final_answer', 'answer': result.answer, 'confidence': result.confidence, 'rounds': result.rounds_completed, 'node_count': result.node_count, 'cost_usd': result.cost_usd, 'latency_ms': round(latency, 1), 'active_nodes': result.active_nodes, 'mode': mode})}\n\n"
+            yield f"data: {json.dumps({'type': 'final_answer', 'answer': result.answer, 'confidence': result.confidence, 'rounds': result.rounds_completed, 'node_count': result.node_count, 'cost_usd': result.cost_usd, 'latency_ms': round(latency, 1), 'active_nodes': result.active_nodes, 'mode': mode, 'ring_fence': ring_fence})}\n\n"
         except Exception as e:
             logger.exception("Reasoning failed")
             error_msg = str(e)
