@@ -908,6 +908,43 @@ IMPORTANT:
 """
 
 
+def _call_bedrock_api(
+    prompt: str,
+    model: str = "anthropic.claude-sonnet-4-6",
+    region: str = "eu-central-1",
+) -> str:
+    """Call Anthropic model via AWS Bedrock Converse API."""
+    try:
+        import boto3
+    except ImportError:
+        raise RuntimeError("boto3 is required for Bedrock ontology generation. Install: pip install boto3")
+
+    # Normalize model ID for Bedrock
+    bedrock_model = model
+    if not bedrock_model.startswith(("anthropic.", "amazon.", "meta.")):
+        bedrock_model = f"anthropic.{bedrock_model}"
+    # Add cross-region prefix if needed
+    if not bedrock_model.startswith(("us.", "eu.", "ap.")):
+        region_prefix = region.split("-")[0]  # eu-central-1 -> eu
+        bedrock_model = f"{region_prefix}.{bedrock_model}"
+
+    client = boto3.client("bedrock-runtime", region_name=region)
+
+    response = client.converse(
+        modelId=bedrock_model,
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": 8192, "temperature": 0.1},
+    )
+
+    # Extract text from response
+    output = response.get("output", {})
+    message = output.get("message", {})
+    for block in message.get("content", []):
+        if "text" in block:
+            return block["text"]
+    return ""
+
+
 def _call_anthropic_api(
     prompt: str,
     api_key: str,
@@ -2018,6 +2055,42 @@ def generate_ontology(
                     break
         except Exception:
             pass
+
+    # Detect configured backend — route through Bedrock if configured
+    configured_backend = None
+    configured_region = None
+    try:
+        from graqle.config.settings import GraqleConfig
+        for parent in [Path.cwd(), *Path.cwd().parents]:
+            cfg_path = parent / "graqle.yaml"
+            if cfg_path.exists():
+                cfg = GraqleConfig.from_yaml(cfg_path)
+                configured_backend = cfg.model.backend
+                configured_region = cfg.model.region
+                if not effective_key and cfg.model.api_key:
+                    effective_key = cfg.model.api_key
+                if not effective_model or effective_model == "claude-sonnet-4-6":
+                    effective_model = cfg.model.model or effective_model
+                break
+    except Exception:
+        pass
+
+    # Bedrock backend — use boto3, not Anthropic direct API
+    if configured_backend == "bedrock":
+        try:
+            logger.info(f"Generating ontology with Bedrock ({effective_model} in {configured_region})...")
+            prompt = _build_llm_prompt(profile)
+            response = _call_bedrock_api(prompt, effective_model, configured_region or "eu-central-1")
+            node_shapes, edge_shapes = _parse_llm_ontology(response)
+            if len(node_shapes) >= 10 and len(edge_shapes) >= 10:
+                logger.info(f"Bedrock ontology: {len(node_shapes)} node types, {len(edge_shapes)} edge types")
+                return node_shapes, edge_shapes
+            else:
+                logger.warning(f"Bedrock returned sparse ontology. Falling back to heuristic.")
+        except Exception as e:
+            logger.warning(f"Bedrock ontology generation failed: {e}. Falling back to heuristic.")
+        # Fall through to heuristic
+        return _build_heuristic_ontology(profile)
 
     if effective_key:
         try:

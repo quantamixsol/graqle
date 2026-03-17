@@ -219,6 +219,16 @@ class BedrockBackend(BaseBackend):
         "anthropic.claude-opus-4-5-20251101-v1:0": {"input": 0.015, "output": 0.075},
     }
 
+    # Region-to-inference-profile prefix mapping
+    # AWS Bedrock requires cross-region inference profiles for newer models (Sonnet 4.5+)
+    _REGION_PROFILE_PREFIXES = {
+        "eu-central-1": "eu", "eu-west-1": "eu", "eu-west-2": "eu", "eu-west-3": "eu",
+        "eu-north-1": "eu", "eu-south-1": "eu",
+        "us-east-1": "us", "us-east-2": "us", "us-west-1": "us", "us-west-2": "us",
+        "ap-southeast-1": "apac", "ap-southeast-2": "apac", "ap-northeast-1": "apac",
+        "ap-northeast-2": "apac", "ap-south-1": "apac",
+    }
+
     def __init__(
         self,
         model: str = "anthropic.claude-sonnet-4-6-v1:0",
@@ -229,6 +239,7 @@ class BedrockBackend(BaseBackend):
         self._region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
         self._client = None
         self._max_retries = max_retries
+        self._inference_profile_attempted = False  # Track if we've tried profile fallback
         # Cumulative token/cost tracking
         self.total_input_tokens = 0
         self.total_output_tokens = 0
@@ -335,9 +346,34 @@ class BedrockBackend(BaseBackend):
                 return ""
             return result["content"][0].get("text", "")
 
-        return await _retry_with_backoff(
-            _call, backend_name=self.name, max_retries=self._max_retries
-        )
+        try:
+            return await _retry_with_backoff(
+                _call, backend_name=self.name, max_retries=self._max_retries
+            )
+        except Exception as e:
+            # Auto-detect inference profile requirement and retry
+            err_msg = str(e).lower()
+            if (
+                "inference profile" in err_msg
+                and not self._inference_profile_attempted
+                and not self._model.startswith(("eu.", "us.", "apac.", "global."))
+            ):
+                self._inference_profile_attempted = True
+                prefix = self._REGION_PROFILE_PREFIXES.get(self._region, "us")
+                old_model = self._model
+                self._model = f"{prefix}.{self._model}"
+                logger.warning(
+                    "Bedrock requires inference profile for %s in %s. "
+                    "Auto-retrying with: %s",
+                    old_model, self._region, self._model,
+                )
+                # Update pricing lookup to include new model ID
+                if old_model in self.PRICING and self._model not in self.PRICING:
+                    self.PRICING[self._model] = self.PRICING[old_model]
+                return await _retry_with_backoff(
+                    _call, backend_name=self.name, max_retries=self._max_retries
+                )
+            raise
 
     def get_cost_report(self) -> dict:
         """Return detailed cost breakdown."""

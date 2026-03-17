@@ -1922,38 +1922,18 @@ def _format_summary(
 scan_app = typer.Typer(help="Scan a codebase to build a Graqle knowledge graph.")
 
 
-@scan_app.command("repo")
-def scan_repo(
-    path: str = typer.Argument(".", help="Repository path to scan"),
-    output: str = typer.Option("graqle.json", "--output", "-o", help="Output JSON file path"),
-    depth: int = typer.Option(5, "--depth", "-d", help="Max directory depth"),
-    include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging output"),
-    exclude: list[str] | None = typer.Option(
-        None, "--exclude", "-e",
-        help="Gitignore-style patterns to exclude (repeatable, e.g. --exclude '*.log' --exclude 'tmp/')",
-    ),
-    config: str | None = typer.Option(
-        None, "--config", "-c",
-        help="Path to graqle.yaml config file (default: auto-detect in repo root)",
-    ),
-    follow_repos: bool = typer.Option(
-        False, "--follow-repos",
-        help="Traverse into subdirectories that are separate git repos",
-    ),
-    docs: bool = typer.Option(
-        False, "--docs",
-        help="Include .md documentation files (ADRs, plans, changelogs) as graph nodes",
-    ),
+def _scan_repo_impl(
+    path: str = ".",
+    output: str = "graqle.json",
+    depth: int = 5,
+    include_tests: bool = True,
+    verbose: bool = False,
+    exclude: list[str] | None = None,
+    config: str | None = None,
+    follow_repos: bool = False,
+    docs: bool = False,
 ) -> None:
-    """Scan a code repository and build a knowledge graph.
-
-    Discovers Python & JS/TS modules, classes, functions, API endpoints,
-    ORM models, tests, configs, dependencies, Docker services, CI pipelines,
-    and environment variable usage.
-
-    Output is networkx JSON format, compatible with ``Graqle.from_json()``.
-    """
+    """Core scan logic — no Typer decorators. Safe to call from Python."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
@@ -2012,6 +1992,29 @@ def scan_repo(
 
     data = scanner.scan()
 
+    # React/JSX/TSX component scan — merge into graph if React files exist
+    try:
+        from graqle.scanner.react_scanner import scan_react_components
+
+        react_nodes, react_edges = scan_react_components(
+            repo, exclude_patterns=all_excludes,
+        )
+        if react_nodes:
+            existing_ids = {n.get("id") for n in data.get("nodes", [])}
+            for rn in react_nodes:
+                if rn["id"] not in existing_ids:
+                    data["nodes"].append(rn)
+                    existing_ids.add(rn["id"])
+            for re_ in react_edges:
+                data.setdefault("links", []).append(re_)
+            console.print(
+                f"  [green]React:[/green] {len(react_nodes)} components, "
+                f"{len(react_edges)} edges"
+            )
+    except Exception as exc:
+        if verbose:
+            console.print(f"[dim]React scan skipped: {exc}[/dim]")
+
     # Write JSON
     out_path = Path(output)
     out_path.write_text(json.dumps(data, indent=2, default=str))
@@ -2054,6 +2057,45 @@ def scan_repo(
             "\n[dim]Tip: Run [bold]graq rebuild --embeddings[/bold] to build the embedding cache "
             "for fast query activation.[/dim]"
         )
+
+
+@scan_app.command("repo")
+def scan_repo(
+    path: str = typer.Argument(".", help="Repository path to scan"),
+    output: str = typer.Option("graqle.json", "--output", "-o", help="Output JSON file path"),
+    depth: int = typer.Option(5, "--depth", "-d", help="Max directory depth"),
+    include_tests: bool = typer.Option(True, "--tests/--no-tests", help="Include test files"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging output"),
+    exclude: list[str] | None = typer.Option(
+        None, "--exclude", "-e",
+        help="Gitignore-style patterns to exclude (repeatable, e.g. --exclude '*.log' --exclude 'tmp/')",
+    ),
+    config: str | None = typer.Option(
+        None, "--config", "-c",
+        help="Path to graqle.yaml config file (default: auto-detect in repo root)",
+    ),
+    follow_repos: bool = typer.Option(
+        False, "--follow-repos",
+        help="Traverse into subdirectories that are separate git repos",
+    ),
+    docs: bool = typer.Option(
+        False, "--docs",
+        help="Include .md documentation files (ADRs, plans, changelogs) as graph nodes",
+    ),
+) -> None:
+    """Scan a code repository and build a knowledge graph.
+
+    Discovers Python & JS/TS modules, classes, functions, API endpoints,
+    ORM models, tests, configs, dependencies, Docker services, CI pipelines,
+    and environment variable usage.
+
+    Output is networkx JSON format, compatible with ``Graqle.from_json()``.
+    """
+    _scan_repo_impl(
+        path=path, output=output, depth=depth, include_tests=include_tests,
+        verbose=verbose, exclude=exclude, config=config,
+        follow_repos=follow_repos, docs=docs,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2180,9 +2222,9 @@ def scan_all(
     JSON is scanned immediately after code because it's fast and produces
     bridge nodes that help document linking.
     """
-    # Step 1: Code scan (foreground)
-    scan_repo(path=path, output=output, depth=depth,
-              include_tests=include_tests, verbose=verbose, exclude=exclude)
+    # Step 1: Code scan (foreground) — call impl directly to avoid Typer decorator issues
+    _scan_repo_impl(path=path, output=output, depth=depth,
+                    include_tests=include_tests, verbose=verbose, exclude=exclude)
 
     # Step 2: JSON scan (foreground — fast, produces bridge nodes)
     console.print()

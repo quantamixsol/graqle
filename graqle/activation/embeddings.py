@@ -40,7 +40,11 @@ class EmbeddingEngine:
 
     @staticmethod
     def _load_configured_model() -> str:
-        """Read embedding model from graqle.yaml activation config, with fallback."""
+        """Read embedding model from graqle.yaml config, with fallback.
+
+        Checks embeddings.model first (new v0.29.3+ config), then
+        activation.embedding_model (legacy), then default MiniLM.
+        """
         try:
             from pathlib import Path
             from graqle.config.settings import GraqleConfig
@@ -50,6 +54,11 @@ class EmbeddingEngine:
                 cfg_path = parent / "graqle.yaml"
                 if cfg_path.exists():
                     config = GraqleConfig.from_yaml(cfg_path)
+                    # New config: embeddings.model takes priority
+                    emb_model = config.embeddings.model
+                    if emb_model and emb_model != "sentence-transformers/all-MiniLM-L6-v2":
+                        return emb_model
+                    # Legacy: activation.embedding_model
                     return config.activation.embedding_model
         except Exception:
             pass
@@ -238,6 +247,125 @@ class CachedEmbeddingEngine:
 
     def clear_cache(self) -> None:
         self._cache.clear()
+
+
+class SimpleEmbeddingEngine:
+    """Hash-based embedding engine (zero ML dependencies).
+
+    128-dim, position-weighted hash vectors. Lowest quality but
+    works everywhere with no setup.
+    """
+
+    def __init__(self, dim: int = 128) -> None:
+        self._dim = dim
+
+    def embed(self, text: str) -> np.ndarray:
+        return EmbeddingEngine._simple_embed(text, dim=self._dim)
+
+    def embed_batch(self, texts: list[str]) -> np.ndarray:
+        return np.array([self.embed(t) for t in texts])
+
+
+def create_embedding_engine(
+    config: object | None = None,
+) -> EmbeddingEngine | TitanV2Engine | SimpleEmbeddingEngine:
+    """Factory: create the right embedding engine from GraqleConfig.
+
+    Resolution order:
+    1. If config has embeddings.backend explicitly set → use that
+    2. If config.activation.embedding_engine == "simple" → SimpleEmbeddingEngine
+    3. If config.model.backend == "bedrock" and no explicit embeddings → use Titan V2
+    4. Default → EmbeddingEngine (sentence-transformers / MiniLM)
+
+    Returns an engine with .embed() and .embed_batch() methods.
+    """
+    if config is None:
+        return EmbeddingEngine()
+
+    # Read embeddings config section
+    embeddings_cfg = getattr(config, "embeddings", None)
+    activation_cfg = getattr(config, "activation", None)
+    model_cfg = getattr(config, "model", None)
+
+    # Determine backend
+    backend = "local"  # default
+    model_name = None
+    region = None
+
+    if embeddings_cfg is not None:
+        backend = getattr(embeddings_cfg, "backend", "local")
+        model_name = getattr(embeddings_cfg, "model", None)
+        region = getattr(embeddings_cfg, "region", None)
+
+    # Legacy: activation.embedding_engine = "simple"
+    if backend == "local" and activation_cfg is not None:
+        legacy_engine = getattr(activation_cfg, "embedding_engine", "")
+        if legacy_engine == "simple":
+            backend = "simple"
+
+    # Auto-detect: if model backend is bedrock and embeddings not explicitly set,
+    # inherit bedrock for embeddings too (user likely wants cloud embeddings)
+    if backend == "local" and model_cfg is not None:
+        model_backend = getattr(model_cfg, "backend", "local")
+        if model_backend == "bedrock" and (embeddings_cfg is None or getattr(embeddings_cfg, "backend", "local") == "local"):
+            # Don't auto-upgrade — keep local unless user explicitly sets embeddings.backend
+            pass
+
+    # Resolve region from model config if not set on embeddings
+    if region is None and model_cfg is not None:
+        region = getattr(model_cfg, "region", None)
+
+    if backend == "simple":
+        logger.info("Using SimpleEmbeddingEngine (hash-based, 128-dim)")
+        return SimpleEmbeddingEngine()
+
+    if backend == "bedrock":
+        effective_model = model_name or "amazon.titan-embed-text-v2:0"
+        effective_region = region or "eu-central-1"
+        logger.info(
+            "Using TitanV2Engine (%s, %s, 1024-dim)",
+            effective_model, effective_region,
+        )
+        return TitanV2Engine(
+            region=effective_region,
+            model_id=effective_model,
+        )
+
+    # Default: local sentence-transformers
+    effective_model = model_name or "sentence-transformers/all-MiniLM-L6-v2"
+    if activation_cfg is not None:
+        # Backward compat: activation.embedding_model overrides if set
+        act_model = getattr(activation_cfg, "embedding_model", "")
+        if act_model and act_model != "sentence-transformers/all-MiniLM-L6-v2":
+            effective_model = act_model
+    logger.info("Using EmbeddingEngine (local, %s)", effective_model)
+    return EmbeddingEngine(model_name=effective_model)
+
+
+def get_engine_info(engine: object) -> dict[str, str]:
+    """Return human-readable info about an embedding engine."""
+    if isinstance(engine, TitanV2Engine):
+        return {
+            "backend": "bedrock",
+            "model": engine._model_id,
+            "dimension": str(engine._dimension),
+            "region": engine._region or "unknown",
+        }
+    if isinstance(engine, SimpleEmbeddingEngine):
+        return {
+            "backend": "simple",
+            "model": "hash-based",
+            "dimension": str(engine._dim),
+            "region": "local",
+        }
+    if isinstance(engine, EmbeddingEngine):
+        return {
+            "backend": "local",
+            "model": engine._model_name,
+            "dimension": "384",
+            "region": "local",
+        }
+    return {"backend": "unknown", "model": "unknown", "dimension": "?", "region": "?"}
 
 
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:

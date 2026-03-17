@@ -39,6 +39,7 @@ class GraphConfig(BaseModel):
     """Graph connector configuration."""
 
     connector: str = "networkx"
+    path: str | None = None  # JSON graph file path (default: graqle.json)
     uri: str | None = None
     username: str | None = None
     password: str | None = None
@@ -49,12 +50,32 @@ class GraphConfig(BaseModel):
     embedding_model: str = "amazon.titan-embed-text-v2:0"
 
 
+class EmbeddingsConfig(BaseModel):
+    """Embedding engine configuration.
+
+    Controls which embedding backend is used for chunk scoring,
+    activation, and semantic search. Users should choose the best
+    embedding model available to maximize reasoning quality.
+
+    Backends:
+        - "local": sentence-transformers (free, local, 384-dim default)
+        - "bedrock": Amazon Bedrock Titan V2 (production, 1024-dim)
+        - "simple": hash-based fallback (zero deps, 128-dim, lowest quality)
+    """
+
+    backend: str = "local"  # "local", "bedrock", "simple"
+    model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    region: str | None = None  # AWS region for Bedrock
+    dimension: int = 0  # 0 = auto (384 for local, 1024 for bedrock, 128 for simple)
+
+
 class ActivationConfig(BaseModel):
     """Subgraph activation configuration."""
 
     strategy: str = "chunk"  # "chunk" (default), "pcst" (legacy), "full", "top_k"
     max_nodes: int = 50
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_engine: str = ""  # deprecated — use top-level embeddings section
     pcst_pruning: str = "strong"
     prize_scaling: float = 1.0
     cost_scaling: float = 1.0
@@ -313,6 +334,7 @@ class GraqleConfig(BaseModel):
     reformulator: ReformulatorConfig = Field(default_factory=ReformulatorConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
     scan: ScanConfig = Field(default_factory=ScanConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     domain: str = "custom"

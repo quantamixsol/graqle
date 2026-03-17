@@ -183,7 +183,6 @@ def _check_api_keys() -> list[CheckResult]:
     keys = {
         "ANTHROPIC_API_KEY": ("sk-ant-", "Anthropic"),
         "OPENAI_API_KEY": ("sk-", "OpenAI"),
-        "AWS_ACCESS_KEY_ID": ("AKIA", "AWS Bedrock"),
     }
     for var, (prefix, label) in keys.items():
         val = os.environ.get(var, "")
@@ -196,6 +195,36 @@ def _check_api_keys() -> list[CheckResult]:
                 results.append((PASS, f"Key: {var}", masked))
         else:
             results.append((INFO, f"Key: {var}", "not set"))
+
+    # AWS credentials: check full boto3 chain (env vars, ~/.aws/credentials, SSO, instance profile)
+    # Not just AWS_ACCESS_KEY_ID env var — users commonly use ~/.aws/credentials
+    aws_env = os.environ.get("AWS_ACCESS_KEY_ID", "")
+    if aws_env:
+        masked = aws_env[:8] + "..." + aws_env[-4:] if len(aws_env) > 12 else "***"
+        if not aws_env.startswith("AKIA"):
+            results.append((WARN, "Key: AWS credentials", f"{masked} (unexpected format)"))
+        else:
+            results.append((PASS, "Key: AWS credentials", f"env: {masked}"))
+    else:
+        # Check boto3 credential chain (covers ~/.aws/credentials, SSO, instance profiles)
+        try:
+            import boto3
+            session = boto3.Session()
+            creds = session.get_credentials()
+            if creds is not None:
+                frozen = creds.get_frozen_credentials()
+                if frozen and frozen.access_key:
+                    masked = frozen.access_key[:8] + "..." + frozen.access_key[-4:]
+                    results.append((PASS, "Key: AWS credentials", f"~/.aws/credentials: {masked}"))
+                else:
+                    results.append((PASS, "Key: AWS credentials", "found via boto3 chain"))
+            else:
+                results.append((INFO, "Key: AWS credentials", "not configured"))
+        except ImportError:
+            results.append((INFO, "Key: AWS credentials", "boto3 not installed"))
+        except Exception:
+            results.append((INFO, "Key: AWS credentials", "not configured"))
+
     return results
 
 

@@ -67,6 +67,8 @@ class RunningScorecard:
 
         # All insights generated
         self.insights: list[CuriosityInsight] = []
+        # Dedup key: (normalized_module, category, message_pattern)
+        self._seen_insight_keys: set[tuple[str, str, str]] = set()
 
     def ingest(self, unit: FileIntelligenceUnit) -> list[CuriosityInsight]:
         """Ingest one file's intelligence and return new insights.
@@ -109,8 +111,17 @@ class RunningScorecard:
         new_insights.extend(self._check_connections(pkt))
         new_insights.extend(self._check_suggestions(pkt))
 
-        self.insights.extend(new_insights)
-        return new_insights
+        # Deduplicate: skip insights for the same normalized module + category + pattern
+        # This prevents duplicate insights from source/dist/bundle variants of the same module
+        deduped: list[CuriosityInsight] = []
+        for insight in new_insights:
+            key = self._insight_dedup_key(insight)
+            if key not in self._seen_insight_keys:
+                self._seen_insight_keys.add(key)
+                deduped.append(insight)
+
+        self.insights.extend(deduped)
+        return deduped
 
     @property
     def coverage(self) -> CoverageReport:
@@ -163,6 +174,36 @@ class RunningScorecard:
             self.total_edges += cov.total_edges
             self.valid_edges += cov.valid_edges
             self.pending_edges += cov.pending_edges
+
+    @staticmethod
+    def _normalize_module(module: str) -> str:
+        """Normalize module name to avoid duplicates from source/dist/bundle variants.
+
+        Examples:
+            graqle.core.graph      -> graqle.core.graph
+            dist.graqle.core.graph -> graqle.core.graph
+            src.graqle.core.graph  -> graqle.core.graph
+            build.lib.graqle.x    -> graqle.x
+        """
+        parts = module.split(".")
+        # Strip common build/dist prefixes
+        strip_prefixes = {"dist", "build", "src", "lib", "out", "output", "lambda_patch", "lambda_repack"}
+        while parts and parts[0].lower().replace("-", "_").replace(" ", "_") in strip_prefixes:
+            parts = parts[1:]
+        return ".".join(parts) if parts else module
+
+    @staticmethod
+    def _insight_dedup_key(insight: CuriosityInsight) -> tuple[str, str, str]:
+        """Create a dedup key from insight category + normalized module + message pattern."""
+        import re
+        # Strip numbers from message to match patterns like "HIGH RISK — impact radius: 5"
+        # and "HIGH RISK — impact radius: 5" (same module, same pattern)
+        msg_pattern = re.sub(r"\d+", "N", insight.message[:60])
+        return (
+            RunningScorecard._normalize_module(insight.module),
+            insight.category.value,
+            msg_pattern,
+        )
 
     # ─── Insight Generators ──────────────────────────────────────────
 

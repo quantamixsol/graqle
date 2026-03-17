@@ -57,6 +57,18 @@
     <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('open')"></div>
 
     <main class="main-content">
+        <!-- Deprecation banner: this is the lightweight Studio -->
+        <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border: 1px solid #4f46e5; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 20px;">&#x26A0;</span>
+            <div style="flex: 1;">
+                <strong style="color: #c7d2fe;">This is the lightweight built-in Studio.</strong>
+                <span style="color: #a5b4fc;"> For the full experience (Intelligence, Governance, DRACE, rich graph filters), use </span>
+                <a href="https://graqle.com/dashboard" target="_blank" style="color: #818cf8; text-decoration: underline; font-weight: 600;">graqle.com/dashboard</a>
+                <span style="color: #a5b4fc;"> or run </span>
+                <code style="background: rgba(99,102,241,0.2); padding: 2px 6px; border-radius: 4px; color: #c7d2fe;">npm run dev</code>
+                <span style="color: #a5b4fc;"> in graqle-studio/.</span>
+            </div>
+        </div>
         {% block content %}{% endblock %}
     </main>
 

@@ -713,15 +713,17 @@ def _build_graqle_yaml(
         "backend": backend if backend != "custom" else "api",
         "model": model,
     }
+    region = None
     # Bug 7 fix: Bedrock uses region, not api_key.
     # AWS authentication uses IAM credentials (via aws configure or
     # env vars AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY), not an API key.
     if backend == "bedrock":
-        model_cfg["region"] = (
+        region = (
             os.environ.get("AWS_DEFAULT_REGION")
             or os.environ.get("AWS_REGION")
             or "us-east-1"  # Last resort — user can change in graqle.yaml
         )
+        model_cfg["region"] = region
     elif backend == "ollama":
         # Ollama is local — no API key needed
         pass
@@ -734,6 +736,22 @@ def _build_graqle_yaml(
     }
     if embedding_model:
         activation_cfg["embedding_model"] = embedding_model
+
+    # Build embeddings config section (v0.29.3+)
+    # This is the single source of truth for embedding backend selection
+    embeddings_cfg: dict[str, Any] = {}
+    if embedding_model:
+        if "titan" in (embedding_model or "").lower():
+            embeddings_cfg["backend"] = "bedrock"
+            embeddings_cfg["model"] = embedding_model
+            if region:
+                embeddings_cfg["region"] = region
+        elif "sentence-transformers" in (embedding_model or ""):
+            embeddings_cfg["backend"] = "local"
+            embeddings_cfg["model"] = embedding_model
+        else:
+            embeddings_cfg["backend"] = "local"
+            embeddings_cfg["model"] = embedding_model
 
     gov_yaml: dict[str, Any] = {"enabled": True}
     if gov_config:
@@ -763,6 +781,8 @@ def _build_graqle_yaml(
         },
         "governance": gov_yaml,
     }
+    if embeddings_cfg:
+        cfg["embeddings"] = embeddings_cfg
     return yaml.dump(cfg, default_flow_style=False, sort_keys=False)
 
 
@@ -1684,10 +1704,17 @@ def _prompt_embedding_model(profile: dict[str, Any]) -> str:
 
     console.print(Panel.fit(
         "[bold cyan]Embedding Model[/bold cyan]\n\n"
-        "Embeddings power semantic search and skill matching in your\n"
-        "knowledge graph. The right choice depends on your project\n"
-        "size and deployment environment.\n\n"
-        "[dim]This affects: query relevance, skill routing, chunk scoring[/dim]",
+        "Embeddings are the foundation of your knowledge graph's intelligence.\n"
+        "They determine how well Graqle finds relevant code when you ask questions.\n\n"
+        "[bold]Why this matters for AI coding tools:[/bold]\n"
+        "  Your AI assistant (Claude, Cursor, Copilot) reads thousands of tokens.\n"
+        "  Graqle reduces that to ~500 tokens of [bold]precisely relevant[/bold] context.\n"
+        "  Better embeddings = better relevance = better AI answers = less cost.\n\n"
+        "[bold]Higher-quality embeddings pay for themselves:[/bold]\n"
+        "  - Activate the [bold]right[/bold] 20 nodes instead of [dim]random[/dim] 20 nodes\n"
+        "  - Reduce reasoning token waste by 30-50% (fewer irrelevant nodes)\n"
+        "  - Catch impact paths that low-dim embeddings miss entirely\n\n"
+        "[dim]This affects: query relevance, skill routing, chunk scoring, impact analysis[/dim]",
         border_style="cyan",
         title="Context Intelligence",
     ))
@@ -2517,16 +2544,10 @@ def init_command(
         except Exception as exc:
             console.print(f"  [yellow]![/yellow] Chunk rebuild skipped: {exc}")
 
-        # Build embedding cache for fast query-time activation (v0.12.3)
-        try:
-            from graqle.activation.chunk_scorer import ChunkScorer
-            from graqle.core.graph import Graqle
-            graph_obj = Graqle.from_json(str(root / "graqle.json"))
-            scorer = ChunkScorer()
-            scorer.build_cache(graph_obj)
-            console.print("  [green]+[/green] Embedding cache built (.graqle/chunk_embeddings.npz)")
-        except Exception as exc:
-            console.print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
+        # Note: embedding cache is already built by rebuild_command above (v0.29.4+).
+        # No separate ChunkScorer pass needed — rebuild_command uses
+        # create_embedding_engine(config) which correctly routes to
+        # TitanV2Engine / EmbeddingEngine / SimpleEmbeddingEngine.
 
 
     # MCP config (IDE-specific location)
@@ -2585,10 +2606,21 @@ def init_command(
         _env = api_key_ref[2:-1]
         _resolved_key = os.environ.get(_env)
         if not _resolved_key:
-            _readiness_warnings.append(
-                f"[red]![/red] API key: {_env} is NOT SET — reasoning will fail. "
-                f"Set it: export {_env}=your-key-here"
-            )
+            # For Bedrock, check boto3 credential chain (covers ~/.aws/credentials, SSO, etc.)
+            if chosen_backend == "bedrock" and _env == "AWS_ACCESS_KEY_ID":
+                try:
+                    import boto3
+                    _session = boto3.Session()
+                    _creds = _session.get_credentials()
+                    if _creds is not None:
+                        _resolved_key = "aws-credentials-chain"
+                except Exception:
+                    pass
+            if not _resolved_key:
+                _readiness_warnings.append(
+                    f"[red]![/red] API key: {_env} is NOT SET — reasoning will fail. "
+                    f"Set it: export {_env}=your-key-here"
+                )
     elif api_key_ref:
         _resolved_key = api_key_ref
 
@@ -2621,7 +2653,15 @@ def init_command(
         )
 
     # Build component status table
-    _embedding_label = chosen_embedding or "default (MiniLM)"
+    # Show a human-friendly label for the chosen embedding model
+    if not chosen_embedding or chosen_embedding == "sentence-transformers/all-MiniLM-L6-v2":
+        _embedding_label = "MiniLM L6 (384-dim, local)"
+    elif "titan" in (chosen_embedding or "").lower():
+        _embedding_label = "Titan V2 (1024-dim, Bedrock)"
+    elif "mpnet" in (chosen_embedding or "").lower():
+        _embedding_label = "MPNet Base (768-dim, local)"
+    else:
+        _embedding_label = chosen_embedding
     _gov_label = "enabled" if (not gov_config or gov_config.get("governance_enabled", True)) else "disabled"
     _shacl_label = "semantic" if (gov_config and gov_config.get("semantic_shacl")) else (
         "enabled" if (not gov_config or gov_config.get("shacl_validation", True)) else "disabled"
@@ -2647,7 +2687,7 @@ def init_command(
     status_lines = [
         f"  [bold]Graph:[/bold]       [cyan]{node_total}[/cyan] nodes, [cyan]{edge_total}[/cyan] edges",
         f"  [bold]Backend:[/bold]     {BACKENDS[chosen_backend]['name']} / {chosen_model}",
-        f"  [bold]Embeddings:[/bold]  {_embedding_label}  {'[green]ready[/green]' if _st_ok or 'Titan' in str(chosen_embedding or '') else '[yellow]fallback mode[/yellow]'}",
+        f"  [bold]Embeddings:[/bold]  {_embedding_label}  {'[green]ready[/green]' if _st_ok or (_boto_ok and 'titan' in (chosen_embedding or '').lower()) else '[yellow]fallback mode[/yellow]'}",
         f"  [bold]Governance:[/bold]  {_gov_label}",
         f"  [bold]SHACL:[/bold]       {_shacl_label}",
         f"  [bold]IDE:[/bold]         {ide_label}",

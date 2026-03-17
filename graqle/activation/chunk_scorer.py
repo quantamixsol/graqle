@@ -51,7 +51,10 @@ class ChunkScorer:
         max_nodes: int = 50,
         min_score: float = 0.15,
     ) -> None:
-        self.embedding_engine = embedding_engine or EmbeddingEngine()
+        if embedding_engine is not None:
+            self.embedding_engine = embedding_engine
+        else:
+            self.embedding_engine = EmbeddingEngine()
         self.max_nodes = max_nodes
         self.min_score = min_score
         self.last_relevance: dict[str, float] = {}

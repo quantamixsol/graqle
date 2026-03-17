@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 13 graq_* tools + 13 kogni_* backward-compat aliases
-        assert len(TOOL_DEFINITIONS) == 26
+        # 15 graq_* tools + 15 kogni_* backward-compat aliases
+        assert len(TOOL_DEFINITIONS) == 30
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -129,9 +129,11 @@ class TestToolDefinitions:
             "graq_context",
             "graq_inspect",
             "graq_reason",
+            "graq_reason_batch",
             "graq_preflight",
             "graq_lessons",
             "graq_impact",
+            "graq_safety_check",
             "graq_learn",
             "graq_reload",
             "graq_audit",
@@ -145,9 +147,11 @@ class TestToolDefinitions:
             "kogni_context",
             "kogni_inspect",
             "kogni_reason",
+            "kogni_reason_batch",
             "kogni_preflight",
             "kogni_lessons",
             "kogni_impact",
+            "kogni_safety_check",
             "kogni_learn",
             "kogni_runtime",
             "kogni_route",
@@ -155,7 +159,7 @@ class TestToolDefinitions:
             "kogni_drace",
             "kogni_gate",
         }
-        # 13 graq_* + 13 kogni_* = 26 total (includes Wave 5 governance tools)
+        # 15 graq_* + 15 kogni_* = 30 total (includes Wave 5 + batch + safety-check)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -185,7 +189,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 26  # 13 graq_* + 13 kogni_* aliases (includes Wave 5 governance tools)
+        assert len(tools) == 30  # 15 graq_* + 15 kogni_* aliases (includes Wave 5 + batch + safety-check)
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 
 logger = logging.getLogger("graqle.cli.rebuild")
@@ -70,6 +71,8 @@ def rebuild_command(
     if force:
         _print("[yellow]Force mode: re-reading ALL source files[/yellow]")
 
+    t0 = time.monotonic()
+
     # Count nodes with chunks before
     before_count = sum(
         1 for n in graph.nodes.values()
@@ -85,12 +88,15 @@ def rebuild_command(
         if n.properties.get("chunks")
     )
 
+    chunk_time = time.monotonic() - t0
+
     # Save back to JSON
     _save_graph(graph, str(gp))
 
     _print("\n[green]Done![/green]")
     _print(f"  Nodes with chunks: {before_count} -> {after_count}")
     _print(f"  Nodes updated: {updated}")
+    _print(f"  Chunk rebuild time: {chunk_time:.1f}s")
 
     if after_count == 0:
         _print(
@@ -99,15 +105,32 @@ def rebuild_command(
             "properties pointing to readable files."
         )
 
-
     # Rebuild embedding cache for fast query-time activation (v0.12.3)
+    # Use config-driven embedding engine (BUG-2 fix: respects graqle.yaml embeddings section)
+    t1 = time.monotonic()
     try:
         from graqle.activation.chunk_scorer import ChunkScorer
-        scorer = ChunkScorer()
+        from graqle.activation.embeddings import create_embedding_engine, get_engine_info
+
+        engine = create_embedding_engine(config)
+        engine_info = get_engine_info(engine)
+        scorer = ChunkScorer(embedding_engine=engine)
         scorer.build_cache(graph)
-        _print("  [green]Embedding cache rebuilt[/green]")
+
+        embed_time = time.monotonic() - t1
+        cache_path = Path(".graqle/chunk_embeddings.npz")
+        cache_size = cache_path.stat().st_size / 1024 if cache_path.exists() else 0
+
+        _print(f"  [green]Embedding cache rebuilt[/green]")
+        _print(f"  Embedding backend: [cyan]{engine_info['backend']}[/cyan]")
+        _print(f"  Embedding model: [cyan]{engine_info['model']}[/cyan] ({engine_info['dimension']}-dim)")
+        _print(f"  Embedding time: {embed_time:.1f}s")
+        _print(f"  Cache size: {cache_size:.0f}KB")
     except Exception as exc:
         _print(f"  [dim]Embedding cache skipped: {exc}[/dim]")
+
+    total_time = time.monotonic() - t0
+    _print(f"\n  [bold]Total rebuild time: {total_time:.1f}s[/bold]")
 
     return updated
 

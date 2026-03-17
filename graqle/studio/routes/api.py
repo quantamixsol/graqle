@@ -108,6 +108,217 @@ async def graph_visualization(request: Request):
     return {"nodes": nodes, "links": links}
 
 
+@router.get("/graph/visualization/filtered")
+async def graph_visualization_filtered(
+    request: Request,
+    strategy: str = Query(
+        "intelligence",
+        description="Filter strategy: intelligence, risk, hub, architecture",
+    ),
+    limit: int = Query(200, ge=10, le=1000, description="Max nodes to return"),
+    min_risk: str = Query("", description="Minimum risk level: LOW, MEDIUM, HIGH, CRITICAL"),
+    include_neighbors: bool = Query(True, description="Include 1-hop neighbors of selected nodes"),
+):
+    """Return a pre-filtered graph optimized for large KGs (500+ nodes).
+
+    Strategies:
+    - intelligence: Top modules by risk_score * impact_radius (intelligence data)
+    - risk: Only CRITICAL/HIGH risk modules + their direct dependencies
+    - hub: Top hub nodes by degree centrality (most connected)
+    - architecture: Module-level architecture view (collapses functions into modules)
+    """
+    import json as _json
+    from pathlib import Path
+
+    state = request.app.state.studio_state
+    graph = state.get("graph")
+    if not graph:
+        return {"nodes": [], "links": [], "strategy": strategy, "total_before": 0}
+
+    total_before = len(graph.nodes)
+
+    # Build degree map
+    degree_map: dict[str, int] = {}
+    for eid, edge in graph.edges.items():
+        degree_map[edge.source_id] = degree_map.get(edge.source_id, 0) + 1
+        degree_map[edge.target_id] = degree_map.get(edge.target_id, 0) + 1
+
+    selected_ids: set[str] = set()
+
+    if strategy == "intelligence":
+        # Use compiled intelligence to pick highest-impact modules
+        root = Path(state.get("root", "."))
+        modules_dir = root / ".graqle" / "intelligence" / "modules"
+        scored: list[tuple[str, float]] = []
+
+        if modules_dir.is_dir():
+            for mf in modules_dir.glob("*.json"):
+                try:
+                    mod = _json.loads(mf.read_text(encoding="utf-8"))
+                    risk_score = mod.get("risk_score", 0)
+                    impact = mod.get("impact_radius", 0)
+                    consumers = mod.get("consumer_count", 0)
+                    funcs = mod.get("function_count", 0)
+                    risk_level = mod.get("risk_level", "LOW")
+                    # Composite score: risk * impact * (1 + log(consumers+1))
+                    composite = risk_score * (impact + 1) * (1 + math.log(consumers + 1))
+                    # Boost CRITICAL/HIGH
+                    if risk_level == "CRITICAL":
+                        composite *= 5
+                    elif risk_level == "HIGH":
+                        composite *= 2
+                    # Match module to graph nodes by file paths
+                    files = mod.get("files", [])
+                    for fp in files:
+                        # Node ID is typically the file path without extension
+                        base = fp.replace("\\", "/")
+                        candidates = [base, base.replace(".py", ""), base.replace("/", ".")]
+                        for nid in graph.nodes:
+                            nlabel = graph.nodes[nid].label or ""
+                            if nid in candidates or base in nid or nlabel == Path(base).stem:
+                                scored.append((nid, composite))
+                                break
+                except Exception:
+                    continue
+
+        # Sort by composite score, take top N
+        scored.sort(key=lambda x: x[1], reverse=True)
+        for nid, _ in scored[:limit]:
+            selected_ids.add(nid)
+
+        # If intelligence didn't yield enough, fall back to hub strategy
+        if len(selected_ids) < limit // 2:
+            hub_sorted = sorted(degree_map.items(), key=lambda x: x[1], reverse=True)
+            for nid, _ in hub_sorted:
+                if len(selected_ids) >= limit:
+                    break
+                selected_ids.add(nid)
+
+    elif strategy == "risk":
+        # Only CRITICAL and HIGH risk modules
+        root = Path(state.get("root", "."))
+        modules_dir = root / ".graqle" / "intelligence" / "modules"
+        min_levels = {"CRITICAL", "HIGH"}
+        if min_risk:
+            level_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+            idx = level_order.index(min_risk) if min_risk in level_order else 0
+            min_levels = set(level_order[idx:])
+
+        if modules_dir.is_dir():
+            for mf in modules_dir.glob("*.json"):
+                try:
+                    mod = _json.loads(mf.read_text(encoding="utf-8"))
+                    if mod.get("risk_level") in min_levels:
+                        for fp in mod.get("files", []):
+                            base = fp.replace("\\", "/")
+                            for nid in graph.nodes:
+                                if base in nid or nid.endswith(base.replace(".py", "")):
+                                    selected_ids.add(nid)
+                                    break
+                except Exception:
+                    continue
+
+    elif strategy == "hub":
+        # Top N by degree centrality
+        hub_sorted = sorted(degree_map.items(), key=lambda x: x[1], reverse=True)
+        for nid, _ in hub_sorted[:limit]:
+            selected_ids.add(nid)
+
+    elif strategy == "architecture":
+        # Module-level view: only PythonModule, JavaScriptModule, Class, Directory, Package
+        arch_types = {"PythonModule", "JavaScriptModule", "Class", "Directory", "Package"}
+        scored_arch = []
+        for nid, node in graph.nodes.items():
+            if node.entity_type in arch_types:
+                scored_arch.append((nid, degree_map.get(nid, 0)))
+        scored_arch.sort(key=lambda x: x[1], reverse=True)
+        for nid, _ in scored_arch[:limit]:
+            selected_ids.add(nid)
+
+    # Include 1-hop neighbors of selected nodes (keeps context)
+    if include_neighbors and len(selected_ids) < limit * 2:
+        neighbor_ids: set[str] = set()
+        for eid, edge in graph.edges.items():
+            if edge.source_id in selected_ids:
+                neighbor_ids.add(edge.target_id)
+            elif edge.target_id in selected_ids:
+                neighbor_ids.add(edge.source_id)
+        # Add neighbors up to 2x limit
+        remaining = limit * 2 - len(selected_ids)
+        # Prioritize neighbors by degree
+        neighbor_scored = [(nid, degree_map.get(nid, 0)) for nid in neighbor_ids - selected_ids]
+        neighbor_scored.sort(key=lambda x: x[1], reverse=True)
+        for nid, _ in neighbor_scored[:remaining]:
+            selected_ids.add(nid)
+
+    # Build filtered graph
+    # Load intelligence data for risk coloring
+    root = Path(state.get("root", "."))
+    risk_map: dict[str, str] = {}  # file path -> risk level
+    modules_dir = root / ".graqle" / "intelligence" / "modules"
+    if modules_dir.is_dir():
+        for mf in modules_dir.glob("*.json"):
+            try:
+                mod = _json.loads(mf.read_text(encoding="utf-8"))
+                rl = mod.get("risk_level", "LOW")
+                for fp in mod.get("files", []):
+                    risk_map[fp.replace("\\", "/")] = rl
+            except Exception:
+                continue
+
+    risk_colors = {
+        "CRITICAL": "#ef4444",
+        "HIGH": "#f97316",
+        "MEDIUM": "#eab308",
+        "LOW": "#22c55e",
+    }
+
+    nodes_out = []
+    for nid in selected_ids:
+        if nid not in graph.nodes:
+            continue
+        node = graph.nodes[nid]
+        deg = degree_map.get(nid, 0)
+
+        # Determine risk level for this node
+        node_risk = "LOW"
+        for fp, rl in risk_map.items():
+            if fp.replace(".py", "") in nid or nid.endswith(Path(fp).stem):
+                node_risk = rl
+                break
+
+        nodes_out.append({
+            "id": nid,
+            "label": node.label,
+            "type": node.entity_type,
+            "description": (node.description or "")[:200],
+            "degree": deg,
+            "size": max(10, min(50, 10 + math.sqrt(deg) * 8)),
+            "color": risk_colors.get(node_risk, _type_color(node.entity_type)),
+            "risk": node_risk,
+        })
+
+    links_out = []
+    selected_set = selected_ids
+    for eid, edge in graph.edges.items():
+        if edge.source_id in selected_set and edge.target_id in selected_set:
+            links_out.append({
+                "id": eid,
+                "source": edge.source_id,
+                "target": edge.target_id,
+                "relationship": edge.relationship,
+                "weight": getattr(edge, "weight", 1.0),
+            })
+
+    return {
+        "nodes": nodes_out,
+        "links": links_out,
+        "strategy": strategy,
+        "total_before": total_before,
+        "total_after": len(nodes_out),
+    }
+
+
 @router.get("/graph/nodes")
 async def graph_nodes(
     request: Request,

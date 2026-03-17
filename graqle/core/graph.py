@@ -1507,7 +1507,17 @@ class Graqle:
                 adaptive_max = configured_max
 
             if self._activator is None or not isinstance(self._activator, ChunkScorer):
+                # Use config-driven embedding engine factory (BUG-5 fix)
+                # Routes to TitanV2Engine / EmbeddingEngine / SimpleEmbeddingEngine
+                # based on graqle.yaml embeddings config
+                _emb_engine = None
+                try:
+                    from graqle.activation.embeddings import create_embedding_engine
+                    _emb_engine = create_embedding_engine(self._config)
+                except Exception:
+                    pass
                 self._activator = ChunkScorer(
+                    embedding_engine=_emb_engine,
                     max_nodes=adaptive_max,
                 )
             else:

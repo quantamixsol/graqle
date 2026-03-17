@@ -88,7 +88,8 @@ def _build_instance_info(path: Path) -> dict[str, Any]:
     scorecard = _read_json(graqle_dir / "scorecard.json")
     if scorecard:
         info["health"] = scorecard.get("health", "UNKNOWN")
-        info["nodes"] = scorecard.get("nodes", 0)
+        info["nodes"] = scorecard.get("total_nodes", scorecard.get("nodes", 0))
+        info["edges"] = scorecard.get("total_edges", scorecard.get("edges", 0))
         info["active"] = True
 
     # Read config for connector type
@@ -327,7 +328,7 @@ async def nodes_badge(request: Request):
     """Shareable node count badge (SVG)."""
     root = _get_root(request)
     scorecard = _read_json(root / ".graqle" / "scorecard.json")
-    nodes = scorecard.get("nodes", 0) if scorecard else 0
+    nodes = scorecard.get("total_nodes", scorecard.get("nodes", 0)) if scorecard else 0
 
     svg = _badge_svg("Graqle Nodes", str(nodes), "#007ec6")
     return Response(content=svg, media_type="image/svg+xml")

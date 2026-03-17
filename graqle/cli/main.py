@@ -688,6 +688,15 @@ def studio(
         pass
 
     console.print(f"{BRAND_NAME} Studio — Graphs that think")
+    console.print()
+    console.print("  [yellow]⚠  This is the lightweight built-in Studio (Jinja2/HTMX).[/yellow]")
+    console.print("  [yellow]   For the full Studio experience with Intelligence, Governance,[/yellow]")
+    console.print("  [yellow]   DRACE radar, and rich graph filters, use:[/yellow]")
+    console.print()
+    console.print("     [cyan]graq serve --port 8077[/cyan]   ← start the API backend")
+    console.print("     [cyan]graqle.com/dashboard[/cyan]     ← open the modern Studio")
+    console.print("     [dim]Or run npm run dev in graqle-studio/ for local development[/dim]")
+    console.print()
     if graph:
         console.print(f"  Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
     else:
@@ -1062,6 +1071,7 @@ def impact_command(
     config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
     change_type: str = typer.Option("modify", "--change-type", "-t", help="Type of change: modify, add, remove, deploy"),
     depth: int = typer.Option(3, "--depth", "-d", help="Max BFS depth for impact traversal"),
+    code_only: bool = typer.Option(False, "--code-only", help="Filter out non-code nodes (DOCUMENT, SECTION, CHUNK, Directory, etc.)"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Trace downstream impact of changing a component.
@@ -1129,6 +1139,16 @@ def impact_command(
                     "depth": current_depth + 1,
                 })
 
+    # Filter non-code nodes if --code-only
+    _NON_CODE_TYPES = frozenset({
+        "Document", "DOCUMENT", "Section", "SECTION", "Chunk", "CHUNK",
+        "Paragraph", "PARAGRAPH", "Directory", "Config", "EnvVar",
+        "DatabaseModel", "DockerService", "CIPipeline",
+    })
+    total_before_filter = len(impact_nodes)
+    if code_only:
+        impact_nodes = [n for n in impact_nodes if n["type"] not in _NON_CODE_TYPES]
+
     # Risk assessment
     risk_scores = {"remove": 3, "deploy": 2, "modify": 1, "add": 0.5}
     base_risk = risk_scores.get(change_type, 1)
@@ -1140,18 +1160,23 @@ def impact_command(
 
     if json_output:
         import json
-        print(json.dumps({
+        result = {
             "component": node.id,
             "change_type": change_type,
             "risk_level": risk_level,
             "impacted_count": len(impact_nodes),
             "impacted": impact_nodes,
-        }, indent=2, default=str))
+        }
+        if code_only:
+            result["filtered_out"] = total_before_filter - len(impact_nodes)
+        print(json.dumps(result, indent=2, default=str))
     else:
         risk_color = {"low": "green", "medium": "yellow", "high": "red"}[risk_level]
         console.print(f"[bold cyan]Impact Analysis[/bold cyan] — {node.label}")
         console.print(f"  Change type: {change_type} | Risk: [{risk_color}]{risk_level}[/{risk_color}]")
         console.print(f"  Affected components: {len(impact_nodes)}")
+        if code_only and total_before_filter != len(impact_nodes):
+            console.print(f"  [dim](filtered {total_before_filter - len(impact_nodes)} non-code nodes)[/dim]")
         if impact_nodes:
             console.print()
             for imp in impact_nodes[:20]:
@@ -1209,15 +1234,22 @@ def preflight_command(
                 continue
             node_text = f"{node.id} {node.label} {node.description}".lower()
             if any(word in node_text for word in search_text.lower().split() if len(word) > 3):
+                severity = node.properties.get("severity", "medium") if node.properties else "medium"
+                hit_count = node.properties.get("hit_count", 0) if node.properties else 0
                 entry = {
+                    "id": node.id,
                     "label": node.label,
                     "type": node.entity_type,
+                    "severity": severity,
                     "description": node.description[:200],
+                    "hit_count": hit_count,
                 }
-                severity = node.properties.get("severity", "medium") if node.properties else "medium"
-                entry["severity"] = severity
                 if node.entity_type in ("SAFETY", "SAFETY_BOUNDARY"):
                     report["safety_boundaries"].append(entry)
+                elif node.entity_type in ("ADR", "DECISION"):
+                    if "adrs" not in report:
+                        report["adrs"] = []
+                    report["adrs"].append(entry)
                 else:
                     report["lessons"].append(entry)
 
@@ -1253,20 +1285,198 @@ def preflight_command(
         if report["safety_boundaries"]:
             console.print("\n  [bold red]Safety Boundaries:[/bold red]")
             for s in report["safety_boundaries"]:
-                console.print(f"    ! {s['label']}: {s['description']}")
+                hit_info = f" (hit {s['hit_count']}x)" if s.get("hit_count") else ""
+                console.print(f"    ! {s['label']}{hit_info}: {s['description']}")
+
+        if report.get("adrs"):
+            console.print("\n  [bold magenta]Relevant ADRs/Decisions:[/bold magenta]")
+            for a in report["adrs"]:
+                console.print(f"    [{a.get('severity', 'medium')}] {a['id']}: {a['label']}")
+                if a.get("description"):
+                    console.print(f"      {a['description']}")
 
         if report["lessons"]:
             console.print("\n  [bold yellow]Relevant Lessons:[/bold yellow]")
             for l in report["lessons"]:
-                console.print(f"    [{l.get('severity', 'medium')}] {l['label']}: {l['description']}")
+                sev = l.get("severity", "medium")
+                hit_info = f" (hit {l['hit_count']}x)" if l.get("hit_count") else ""
+                sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow"}.get(sev.upper(), "dim")
+                console.print(f"    [{sev_color}]{sev}[/{sev_color}] {l['id']}: {l['label']}{hit_info}")
+                if l.get("description"):
+                    console.print(f"      {l['description']}")
 
         if report["warnings"]:
             console.print("\n  [bold]Warnings:[/bold]")
             for w in report["warnings"]:
                 console.print(f"    {w}")
 
-        if not report["lessons"] and not report["warnings"] and not report["safety_boundaries"]:
+        if not report["lessons"] and not report["warnings"] and not report["safety_boundaries"] and not report.get("adrs"):
             console.print("  [green]No issues found. Proceed with caution.[/green]")
+
+
+@app.command("safety-check")
+def safety_check_command(
+    component: str = typer.Argument(..., help="Component or file to safety-check"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
+    change_type: str = typer.Option("modify", "--change-type", "-t", help="Type of change"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    skip_reasoning: bool = typer.Option(False, "--skip-reasoning", help="Skip the reasoning step (faster, cheaper)"),
+) -> None:
+    """Combined safety check: impact → preflight → reasoning (if risk warrants).
+
+    Chains three Graqle tools into a single pipeline to give a complete
+    safety picture before making a change. Reasoning is only triggered
+    if the preflight risk level is medium or high.
+
+    \b
+    Examples:
+        graq safety-check graqle.cli.main
+        graq safety-check handler.py --change-type remove
+        graq safety-check "auth_middleware" --json
+    """
+    import asyncio
+    from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
+
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+    else:
+        cfg = GraqleConfig.default()
+
+    graph = _load_graph(cfg)
+    if graph is None:
+        console.print("[red]No graph found. Run 'graq scan repo .' first.[/red]")
+        raise typer.Exit(1)
+
+    combined: dict = {"component": component, "change_type": change_type}
+
+    # ── Step 1: Impact Analysis ───────────────────────────────────────
+    if not json_output:
+        console.print("[bold cyan]Step 1/3:[/bold cyan] Impact Analysis...")
+
+    node = graph.nodes.get(component)
+    if node is None:
+        matches = [nid for nid in graph.nodes if component.lower() in nid.lower()]
+        if matches:
+            node = graph.nodes[matches[0]]
+    if node is None:
+        console.print(f"[yellow]Component '{component}' not found in graph — skipping impact.[/yellow]")
+        combined["impact"] = {"error": "component not found"}
+    else:
+        # BFS impact (code-only by default in safety-check)
+        _NON_CODE = frozenset({
+            "Document", "DOCUMENT", "Section", "SECTION", "Chunk", "CHUNK",
+            "Paragraph", "PARAGRAPH", "Directory", "Config", "EnvVar",
+            "DatabaseModel", "DockerService", "CIPipeline",
+        })
+        visited: dict[str, int] = {node.id: 0}
+        queue = [node.id]
+        impact_nodes: list[dict] = []
+        while queue:
+            current_id = queue.pop(0)
+            current_depth = visited[current_id]
+            if current_depth >= 3:
+                continue
+            neighbors = graph.get_neighbors(current_id)
+            for nid in neighbors:
+                if nid not in visited:
+                    visited[nid] = current_depth + 1
+                    queue.append(nid)
+                    n = graph.nodes.get(nid)
+                    if n and n.entity_type not in _NON_CODE:
+                        impact_nodes.append({
+                            "id": nid, "label": n.label, "type": n.entity_type,
+                            "depth": current_depth + 1,
+                        })
+        combined["impact"] = {
+            "affected_count": len(impact_nodes),
+            "top_affected": impact_nodes[:10],
+        }
+        if not json_output:
+            console.print(f"  Affected: {len(impact_nodes)} code components")
+
+    # ── Step 2: Preflight Check ───────────────────────────────────────
+    if not json_output:
+        console.print("[bold cyan]Step 2/3:[/bold cyan] Preflight Check...")
+
+    search_text = component
+    lessons = []
+    safety = []
+    adrs = []
+    for n in graph.nodes.values():
+        if n.entity_type not in ("LESSON", "MISTAKE", "SAFETY", "SAFETY_BOUNDARY", "ADR", "DECISION"):
+            continue
+        node_text = f"{n.id} {n.label} {n.description}".lower()
+        if any(word in node_text for word in search_text.lower().split() if len(word) > 3):
+            entry = {
+                "id": n.id, "label": n.label, "type": n.entity_type,
+                "severity": n.properties.get("severity", "MEDIUM") if n.properties else "MEDIUM",
+                "description": n.description[:200],
+            }
+            if n.entity_type in ("SAFETY", "SAFETY_BOUNDARY"):
+                safety.append(entry)
+            elif n.entity_type in ("ADR", "DECISION"):
+                adrs.append(entry)
+            else:
+                lessons.append(entry)
+
+    n_critical = sum(1 for l in lessons if l.get("severity", "").upper() in ("CRITICAL", "HIGH"))
+    risk_level = "high" if n_critical > 0 or safety else "medium" if len(lessons) > 2 else "low"
+
+    combined["preflight"] = {
+        "risk_level": risk_level,
+        "lessons": lessons[:5],
+        "safety_boundaries": safety,
+        "adrs": adrs[:3],
+    }
+    if not json_output:
+        risk_color = {"low": "green", "medium": "yellow", "high": "red"}[risk_level]
+        console.print(f"  Risk: [{risk_color}]{risk_level}[/{risk_color}] "
+                      f"({len(lessons)} lessons, {len(safety)} safety, {len(adrs)} ADRs)")
+
+    # ── Step 3: Reasoning (only if risk warrants it) ──────────────────
+    combined["reasoning"] = None
+    if not skip_reasoning and risk_level in ("medium", "high"):
+        if not json_output:
+            console.print("[bold cyan]Step 3/3:[/bold cyan] Reasoning (risk warrants deeper analysis)...")
+        try:
+            backend = _create_backend_from_config(cfg)
+            graph.set_default_backend(backend)
+            affected_labels = [n["label"] for n in impact_nodes[:5]] if "impact_nodes" in dir() else []
+            question = (
+                f"What are the risks of {change_type}ing {component}? "
+                f"Affected components: {', '.join(affected_labels[:3]) if affected_labels else 'unknown'}. "
+                f"Risk level: {risk_level}."
+            )
+            result = asyncio.run(graph.areason(question, max_rounds=2))
+            combined["reasoning"] = {
+                "answer": result.answer,
+                "confidence": result.confidence,
+                "cost_usd": result.cost_usd,
+            }
+            if not json_output:
+                from rich.markup import escape as rich_escape
+                console.print(f"  {rich_escape(result.answer[:300])}")
+                console.print(f"  [dim]Confidence: {result.confidence:.0%} | Cost: ${result.cost_usd:.4f}[/dim]")
+        except Exception as exc:
+            combined["reasoning"] = {"error": str(exc)[:200]}
+            if not json_output:
+                console.print(f"  [yellow]Reasoning skipped: {exc}[/yellow]")
+    elif not json_output:
+        if skip_reasoning:
+            console.print("[bold cyan]Step 3/3:[/bold cyan] Reasoning [dim](skipped by --skip-reasoning)[/dim]")
+        else:
+            console.print("[bold cyan]Step 3/3:[/bold cyan] Reasoning [green](skipped — low risk)[/green]")
+
+    # ── Summary ───────────────────────────────────────────────────────
+    combined["overall_risk"] = risk_level
+    if json_output:
+        import json
+        print(json.dumps(combined, indent=2, default=str))
+    else:
+        risk_color = {"low": "green", "medium": "yellow", "high": "red"}[risk_level]
+        console.print(f"\n[bold]Overall:[/bold] [{risk_color}]{risk_level.upper()}[/{risk_color}] risk")
 
 
 @app.command("runtime")
@@ -1462,7 +1672,7 @@ def route_command(
 
 @app.command()
 def reason(
-    query: str = typer.Argument(..., help="The reasoning query"),
+    query: str = typer.Argument("", help="The reasoning query (or use --batch with queries file)"),
     config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
     graph_path: str = typer.Option(None, "--graph", "-g", help="Path to JSON graph file"),
     backend_name: str = typer.Option(None, "--backend", "-b", help="Backend: anthropic, bedrock, openai, ollama (default: from graqle.yaml)"),
@@ -1472,6 +1682,8 @@ def reason(
     max_rounds: int = typer.Option(3, "--max-rounds", "-r", help="Max message-passing rounds"),
     strategy: str = typer.Option(None, "--strategy", "-s", help="Activation strategy (default: from config, usually 'chunk')"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
+    batch: str = typer.Option(None, "--batch", help="Path to queries file (one query per line) for parallel batch reasoning"),
+    max_concurrent: int = typer.Option(5, "--max-concurrent", help="Max concurrent queries in batch mode"),
 ) -> None:
     """Run reasoning query on the knowledge graph.
 
@@ -1483,14 +1695,17 @@ def reason(
     Examples:
         graq reason "what calls auth?"                     # uses graqle.yaml backend
         graq reason "query" --backend bedrock --region eu-central-1
-        graq reason "query" --backend anthropic
-        graq reason "query" --backend ollama --model qwen2.5:3b
+        graq reason --batch queries.txt --max-concurrent 3  # parallel batch mode
     """
     import asyncio
     from pathlib import Path
 
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
+
+    if not query and not batch:
+        console.print("[red]Provide a query argument or --batch <file>[/red]")
+        raise typer.Exit(1)
 
     # Load config
     if Path(config).exists():
@@ -1538,6 +1753,67 @@ def reason(
     backend_label = getattr(backend, "name", effective_backend)
     console.print(f"{BRAND_NAME} reasoning with {backend_label}")
     console.print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+
+    # ── Batch mode ────────────────────────────────────────────────────
+    if batch:
+        batch_path = Path(batch)
+        if not batch_path.exists():
+            console.print(f"[red]Batch file not found: {batch}[/red]")
+            raise typer.Exit(1)
+        queries = [line.strip() for line in batch_path.read_text().splitlines() if line.strip()]
+        if not queries:
+            console.print("[red]Batch file is empty.[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"Batch: [green]{len(queries)} queries[/green] (max_concurrent={max_concurrent})")
+        results = asyncio.run(
+            graph.areason_batch(
+                queries, max_rounds=max_rounds, strategy=strategy,
+                max_concurrent=max_concurrent,
+            )
+        )
+
+        total_cost = sum(r.cost_usd for r in results)
+        total_latency = sum(r.latency_ms for r in results)
+        avg_confidence = sum(r.confidence for r in results) / len(results) if results else 0
+
+        if output_format == "json":
+            import json
+            console.print(json.dumps({
+                "batch_size": len(queries),
+                "total_cost_usd": total_cost,
+                "total_latency_ms": total_latency,
+                "avg_confidence": round(avg_confidence, 3),
+                "results": [
+                    {
+                        "question": q,
+                        "answer": r.answer,
+                        "confidence": r.confidence,
+                        "rounds": r.rounds_completed,
+                        "nodes": r.node_count,
+                        "cost_usd": r.cost_usd,
+                        "latency_ms": r.latency_ms,
+                        "reasoning_mode": r.reasoning_mode,
+                    }
+                    for q, r in zip(queries, results)
+                ],
+            }, indent=2))
+        else:
+            from rich.markup import escape as rich_escape
+            for i, (q, r) in enumerate(zip(queries, results), 1):
+                console.print(f"\n[bold cyan]── Query {i}/{len(queries)} ──[/bold cyan]")
+                console.print(f"Q: [green]{rich_escape(q)}[/green]")
+                console.print(f"A: {rich_escape(r.answer[:500])}")
+                mode_color = "green" if r.reasoning_mode == "full" else "yellow"
+                console.print(f"[dim]Confidence: {r.confidence:.0%} | Cost: ${r.cost_usd:.4f} | "
+                              f"Mode: [{mode_color}]{r.reasoning_mode}[/{mode_color}][/dim]")
+            console.print(f"\n[bold]Batch Summary:[/bold] {len(queries)} queries | "
+                          f"Avg confidence: {avg_confidence:.0%} | "
+                          f"Total cost: ${total_cost:.4f} | "
+                          f"Total latency: {total_latency:.0f}ms")
+        return
+
+    # ── Single query mode ─────────────────────────────────────────────
     console.print(f"Query: [green]{query}[/green]")
 
     result = asyncio.run(
@@ -1558,7 +1834,8 @@ def reason(
             "reasoning_mode": result.reasoning_mode,
         }, indent=2))
     else:
-        console.print(f"\n[bold green]Answer:[/bold green] {result.answer}")
+        from rich.markup import escape as rich_escape
+        console.print(f"\n[bold green]Answer:[/bold green] {rich_escape(result.answer)}")
         mode_color = "green" if result.reasoning_mode == "full" else "yellow"
         console.print(f"[dim]Confidence: {result.confidence:.0%} | Rounds: {result.rounds_completed} | "
                       f"Nodes: {result.node_count} | Cost: ${result.cost_usd:.4f} | "
@@ -1572,19 +1849,35 @@ def _load_graph(cfg):
 
     from graqle.core.graph import Graqle
 
-    # 1. Neo4j backend — primary production path
+    # 1. Neo4j backend — primary production path (with JSON fallback)
     if cfg.graph.connector == "neo4j":
-        return Graqle.from_neo4j(
-            uri=cfg.graph.uri or "bolt://localhost:7687",
-            username=cfg.graph.username or "neo4j",
-            password=cfg.graph.password or "",
-            database=cfg.graph.database or "neo4j",
-            config=cfg,
-        )
+        try:
+            return Graqle.from_neo4j(
+                uri=cfg.graph.uri or "bolt://localhost:7687",
+                username=cfg.graph.username or "neo4j",
+                password=cfg.graph.password or "",
+                database=cfg.graph.database or "neo4j",
+                config=cfg,
+            )
+        except Exception as e:
+            # Neo4j unavailable — fall through to JSON fallback
+            json_fallback = Path(cfg.graph.path or "graqle.json")
+            if json_fallback.exists():
+                console.print(
+                    f"[yellow]Neo4j unavailable ({type(e).__name__}), "
+                    f"falling back to {json_fallback}[/yellow]"
+                )
+                return Graqle.from_json(str(json_fallback), config=cfg)
+            # No JSON fallback available — re-raise with helpful message
+            console.print(
+                f"[red]Neo4j unavailable ({type(e).__name__}) and no JSON "
+                f"fallback found. Run 'graq scan repo .' to build one.[/red]"
+            )
+            return None
 
     # 2. JSON/NetworkX fallback — local development / quick testing
     if cfg.graph.connector == "networkx":
-        json_path = Path("graqle.json")
+        json_path = Path(cfg.graph.path or "graqle.json")
         if json_path.exists():
             return Graqle.from_json(str(json_path), config=cfg)
 

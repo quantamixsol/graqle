@@ -157,6 +157,36 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["question"],
         },
     },
+    {
+        "name": "graq_reason_batch",
+        "description": (
+            "Run multiple reasoning queries in parallel over the knowledge graph. "
+            "Each query gets its own graph-of-agents reasoning session, running "
+            "concurrently with semaphore-controlled parallelism. "
+            "Use for analyzing multiple questions at once (e.g., batch code review)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of questions to reason about in parallel",
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Maximum message-passing rounds per query (1-5)",
+                },
+                "max_concurrent": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Maximum concurrent reasoning sessions (1-10)",
+                },
+            },
+            "required": ["questions"],
+        },
+    },
     # ── PRO tier ───────────────────────────────────────────────────────────
     {
         "name": "graq_preflight",
@@ -231,6 +261,46 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "enum": ["modify", "add", "remove", "deploy"],
                     "default": "modify",
                     "description": "Type of change being made",
+                },
+                "code_only": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": (
+                        "Filter out non-code nodes (DOCUMENT, SECTION, CHUNK, "
+                        "Directory, Config, EnvVar, etc.) from results. "
+                        "Reduces noise significantly for large codebases."
+                    ),
+                },
+            },
+            "required": ["component"],
+        },
+    },
+    {
+        "name": "graq_safety_check",
+        "description": (
+            "Combined safety check: chains impact → preflight → reasoning "
+            "into a single call. Gives a complete safety picture before "
+            "making a change. Reasoning is only triggered if risk is "
+            "medium or high (cost-aware). Equivalent to running "
+            "graq_impact + graq_preflight + graq_reason in sequence."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string",
+                    "description": "Component or file to safety-check",
+                },
+                "change_type": {
+                    "type": "string",
+                    "enum": ["modify", "add", "remove", "deploy"],
+                    "default": "modify",
+                    "description": "Type of change being made",
+                },
+                "skip_reasoning": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Skip the reasoning step (faster, cheaper)",
                 },
             },
             "required": ["component"],
@@ -835,9 +905,11 @@ class KogniDevServer:
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
             "graq_reason": self._handle_reason,
+            "graq_reason_batch": self._handle_reason_batch,
             "graq_preflight": self._handle_preflight,
             "graq_lessons": self._handle_lessons,
             "graq_impact": self._handle_impact,
+            "graq_safety_check": self._handle_safety_check,
             "graq_learn": self._handle_learn,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
@@ -850,9 +922,11 @@ class KogniDevServer:
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
             "kogni_reason": self._handle_reason,
+            "kogni_reason_batch": self._handle_reason_batch,
             "kogni_preflight": self._handle_preflight,
             "kogni_lessons": self._handle_lessons,
             "kogni_impact": self._handle_impact,
+            "kogni_safety_check": self._handle_safety_check,
             "kogni_learn": self._handle_learn,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
@@ -1117,6 +1191,46 @@ class KogniDevServer:
             ),
         })
 
+    # ── 3b. graq_reason_batch (PRO) ──────────────────────────────────
+
+    async def _handle_reason_batch(self, args: dict[str, Any]) -> str:
+        """Handle batch reasoning — multiple questions in parallel."""
+        import time as _time
+
+        questions = args.get("questions", [])
+        max_rounds = min(max(args.get("max_rounds", 2), 1), 5)
+        max_concurrent = min(max(args.get("max_concurrent", 5), 1), 10)
+
+        if not questions or not isinstance(questions, list):
+            return json.dumps({"error": "Parameter 'questions' (list of strings) is required."})
+
+        t0 = _time.monotonic()
+        graph = self._require_graph()
+        results = await graph.areason_batch(
+            questions, max_rounds=max_rounds, max_concurrent=max_concurrent,
+        )
+        total_ms = (_time.monotonic() - t0) * 1000
+
+        return json.dumps({
+            "batch_size": len(questions),
+            "total_latency_ms": round(total_ms, 1),
+            "total_cost_usd": round(sum(r.cost_usd for r in results), 6),
+            "avg_confidence": round(
+                sum(r.confidence for r in results) / len(results), 3
+            ) if results else 0,
+            "results": [
+                {
+                    "question": q,
+                    "answer": r.answer,
+                    "confidence": round(r.confidence, 3),
+                    "nodes_used": r.node_count,
+                    "cost_usd": round(r.cost_usd, 6),
+                    "mode": r.reasoning_mode,
+                }
+                for q, r in zip(questions, results)
+            ],
+        })
+
     # ── 4. graq_preflight (PRO) ──────────────────────────────────────
 
     async def _handle_preflight(self, args: dict[str, Any]) -> str:
@@ -1149,10 +1263,13 @@ class KogniDevServer:
 
         for lesson in lessons:
             entry = {
+                "id": lesson.get("id", lesson["label"]),
                 "label": lesson["label"],
                 "severity": lesson["severity"],
                 "description": lesson["description"],
                 "type": lesson["entity_type"],
+                "hit_count": lesson.get("hit_count", 0),
+                "relevance_score": lesson.get("score", 0),
             }
             if lesson["entity_type"] in ("SAFETY", "SAFETY_BOUNDARY"):
                 report["safety_boundaries"].append(entry)
@@ -1208,9 +1325,17 @@ class KogniDevServer:
 
     # ── 6. graq_impact (PRO) ─────────────────────────────────────────
 
+    # Node types excluded from impact results when code_only is True
+    _NON_CODE_TYPES: frozenset[str] = frozenset({
+        "Document", "DOCUMENT", "Section", "SECTION", "Chunk", "CHUNK",
+        "Paragraph", "PARAGRAPH", "Directory", "Config", "EnvVar",
+        "DatabaseModel", "DockerService", "CIPipeline",
+    })
+
     async def _handle_impact(self, args: dict[str, Any]) -> str:
         component = args.get("component", "")
         change_type = args.get("change_type", "modify")
+        code_only = args.get("code_only", False)
 
         if not component:
             return json.dumps({"error": "Parameter 'component' is required."})
@@ -1236,6 +1361,14 @@ class KogniDevServer:
             start_node.id, change_type=change_type, max_depth=_MAX_BFS_DEPTH
         )
 
+        # Filter non-code nodes if requested
+        total_before_filter = len(impact_tree)
+        if code_only:
+            impact_tree = [
+                n for n in impact_tree
+                if n.get("type", "") not in self._NON_CODE_TYPES
+            ]
+
         # Risk summary
         risk_scores = {"remove": 3, "deploy": 2, "modify": 1, "add": 0.5}
         base_risk = risk_scores.get(change_type, 1)
@@ -1246,13 +1379,16 @@ class KogniDevServer:
         elif total_affected > 2 or base_risk >= 2:
             overall_risk = "medium"
 
-        return json.dumps({
+        result = {
             "component": start_node.label,
             "change_type": change_type,
             "overall_risk": overall_risk,
             "affected_count": total_affected,
             "impact_tree": impact_tree,
-        })
+        }
+        if code_only:
+            result["filtered_out"] = total_before_filter - total_affected
+        return json.dumps(result)
 
     # Structural edges that should NOT propagate impact (they connect siblings
     # via parent directories, producing "everything in components/" results).
@@ -1343,6 +1479,55 @@ class KogniDevServer:
                         queue.append((next_id, depth + 1, edge_rel))
 
         return results
+
+    # ── 6b. graq_safety_check (PRO) ──────────────────────────────────
+
+    async def _handle_safety_check(self, args: dict[str, Any]) -> str:
+        """Combined safety check: impact → preflight → reasoning (if risk warrants)."""
+        component = args.get("component", "")
+        change_type = args.get("change_type", "modify")
+        skip_reasoning = args.get("skip_reasoning", False)
+
+        if not component:
+            return json.dumps({"error": "Parameter 'component' is required."})
+
+        # Step 1: Impact
+        impact_result = json.loads(await self._handle_impact({
+            "component": component,
+            "change_type": change_type,
+            "code_only": True,
+        }))
+
+        # Step 2: Preflight
+        affected = [n.get("label", "") for n in impact_result.get("impact_tree", [])[:5]]
+        preflight_result = json.loads(await self._handle_preflight({
+            "action": f"{change_type} {component}",
+            "files": affected,
+        }))
+
+        # Step 3: Reasoning (only if risk warrants it)
+        reasoning_result = None
+        risk_level = preflight_result.get("risk_level", "low")
+        if not skip_reasoning and risk_level in ("medium", "high"):
+            try:
+                reasoning_result = json.loads(await self._handle_reason({
+                    "question": (
+                        f"What are the risks of {change_type}ing {component}? "
+                        f"Affected: {', '.join(affected[:3])}. Risk: {risk_level}."
+                    ),
+                    "max_rounds": 2,
+                }))
+            except Exception as exc:
+                reasoning_result = {"error": str(exc)[:200]}
+
+        return json.dumps({
+            "component": component,
+            "change_type": change_type,
+            "overall_risk": risk_level,
+            "impact": impact_result,
+            "preflight": preflight_result,
+            "reasoning": reasoning_result,
+        })
 
     # ── 7. graq_learn (PRO) ──────────────────────────────────────────
 
