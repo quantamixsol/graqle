@@ -246,6 +246,50 @@ class CloudGateway:
             message="Cloud gateway connected (foundation mode).",
         )
 
+    def upload_graph(
+        self,
+        graph_data: str,
+        email: str,
+        project: str,
+        scorecard_data: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload a full graph to S3 cloud storage.
+
+        This is the real cloud upload — not a stub.
+        """
+        if not self.is_connected:
+            return {"error": "Not connected to Graqle Cloud", "code": "NOT_CONNECTED"}
+
+        import hashlib
+        email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+        s3_prefix = f"graphs/{email_hash}/{project}"
+
+        try:
+            import boto3
+            s3 = boto3.client("s3", region_name="eu-central-1")
+            bucket = "graqle-graphs-eu"
+
+            s3.put_object(
+                Bucket=bucket,
+                Key=f"{s3_prefix}/graqle.json",
+                Body=graph_data.encode("utf-8"),
+                ContentType="application/json",
+            )
+
+            if scorecard_data:
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=f"{s3_prefix}/scorecard.json",
+                    Body=scorecard_data.encode("utf-8"),
+                    ContentType="application/json",
+                )
+
+            logger.info("Graph uploaded to s3://%s/%s/", bucket, s3_prefix)
+            return {"status": "uploaded", "s3_prefix": s3_prefix}
+        except Exception as e:
+            logger.error("Cloud upload failed: %s", e)
+            return {"error": str(e), "status": "failed"}
+
     def push_delta(self, delta: dict[str, Any], team_id: str) -> dict[str, Any]:
         """Push a delta to the cloud graph.
 

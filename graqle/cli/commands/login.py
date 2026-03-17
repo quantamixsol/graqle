@@ -94,28 +94,57 @@ def login_command(
     # Validate key format
     if not api_key.startswith("grq_"):
         console.print("[red]Invalid API key format. Keys start with 'grq_'.[/red]")
-        console.print("Get a key at [cyan]https://graqle.com/account[/cyan]")
+        console.print("Get a key at [cyan]https://graqle.com/dashboard/account[/cyan]")
         raise typer.Exit(1)
+
+    # Validate key against cloud API
+    validated_email = email
+    validated_plan = "free"
+
+    try:
+        import httpx
+        response = httpx.post(
+            "https://graqle.com/api/keys/validate",
+            json={"apiKey": api_key},
+            timeout=10,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("valid"):
+                validated_email = data.get("email", email)
+                validated_plan = data.get("plan", "free")
+                console.print("[green]API key validated![/green]")
+            else:
+                console.print("[red]Invalid API key. Generate a new one at graqle.com/dashboard/account[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("[yellow]Could not validate key online. Saving locally.[/yellow]")
+    except ImportError:
+        console.print("[dim]httpx not installed — skipping online validation. Key saved locally.[/dim]")
+    except Exception:
+        console.print("[yellow]Could not reach Graqle Cloud. Key saved locally.[/yellow]")
 
     # Save credentials
     creds = CloudCredentials(
         api_key=api_key,
-        email=email,
-        plan="free",  # Will be updated when cloud validates
+        email=validated_email,
+        plan=validated_plan,
         connected=True,
     )
     save_credentials(creds)
 
     console.print()
     console.print("[green]Connected to Graqle Cloud![/green]")
-    if email:
-        console.print(f"  Email: {email}")
-    console.print(f"  Key: {api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else f"  Key: {api_key}")
+    if validated_email:
+        console.print(f"  Email: {validated_email}")
+    console.print(f"  Plan:  {validated_plan.title()}")
+    console.print(f"  Key:   {api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else f"  Key: {api_key}")
     console.print()
     console.print("Cloud features now available:")
-    console.print("  - Graph backup:  [cyan]graq cloud backup[/cyan]")
-    console.print("  - Team sync:     [cyan]graq cloud sync[/cyan] (Team plan)")
-    console.print("  - Status:        [cyan]graq login --status[/cyan]")
+    console.print("  - Push graph:    [cyan]graq cloud push[/cyan]")
+    console.print("  - Pull graph:    [cyan]graq cloud pull[/cyan]")
+    console.print("  - Cloud status:  [cyan]graq cloud status[/cyan]")
+    console.print("  - Team sync:     [cyan]graq sync push[/cyan] (Team plan)")
 
 
 def logout_command() -> None:

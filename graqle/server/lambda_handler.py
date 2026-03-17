@@ -78,7 +78,11 @@ def _ensure_graph_local() -> tuple[str, str]:
 
 
 def _get_app():
-    """Create or return cached FastAPI app."""
+    """Create or return cached FastAPI app.
+
+    If NEPTUNE_ENDPOINT is set, the app uses Neptune as the graph backend
+    and serves per-project graphs. Otherwise, falls back to S3/local JSON.
+    """
     global _app
     if _app is not None:
         return _app
@@ -87,9 +91,17 @@ def _get_app():
 
     from graqle.server.app import create_app
 
+    # Check if Neptune backend is configured
+    neptune_endpoint = os.environ.get("NEPTUNE_ENDPOINT", "")
+    neptune_kwargs = {}
+    if neptune_endpoint:
+        logger.info("Neptune endpoint configured: %s — enabling Neptune backend", neptune_endpoint)
+        neptune_kwargs["neptune_enabled"] = True
+
     _app = create_app(
         graph_path=graph_path,
         config_path=config_path,
+        **neptune_kwargs,
     )
     return _app
 
