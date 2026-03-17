@@ -79,6 +79,7 @@ class ActivationConfig(BaseModel):
     pcst_pruning: str = "strong"
     prize_scaling: float = 1.0
     cost_scaling: float = 1.0
+    skill_aware: bool = True  # Boost nodes whose skills match query keywords
 
 
 class SkillConfig(BaseModel):
