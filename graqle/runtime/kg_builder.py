@@ -105,7 +105,7 @@ class RuntimeKGBuilder:
             return {"error": f"Failed to read graph: {e}"}
 
         nodes_list = graph_data.get("nodes", [])
-        edges_list = graph_data.get("edges", [])
+        edges_list = graph_data.get("links", graph_data.get("edges", []))
 
         existing_ids = {n.get("id", n.get("name", "")) for n in nodes_list}
 

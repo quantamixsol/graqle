@@ -1999,14 +1999,31 @@ def generate_ontology(
     tuple[list[NodeShape], list[EdgeShape]]
         Generated node shapes and edge shapes.
     """
-    # Resolve API key
+    # Resolve API key — check graqle.yaml config first, then env var
     effective_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    effective_model = model
+
+    if not effective_key:
+        # Try to read API key from graqle.yaml config
+        try:
+            from pathlib import Path
+            from graqle.config.settings import GraqleConfig
+            for parent in [Path.cwd(), *Path.cwd().parents]:
+                cfg_path = parent / "graqle.yaml"
+                if cfg_path.exists():
+                    cfg = GraqleConfig.from_yaml(cfg_path)
+                    if cfg.model.api_key:
+                        effective_key = cfg.model.api_key
+                        logger.info("Using API key from graqle.yaml config")
+                    break
+        except Exception:
+            pass
 
     if effective_key:
         try:
-            logger.info(f"Generating ontology with LLM ({model})...")
+            logger.info(f"Generating ontology with LLM ({effective_model})...")
             prompt = _build_llm_prompt(profile)
-            response = _call_anthropic_api(prompt, effective_key, model)
+            response = _call_anthropic_api(prompt, effective_key, effective_model)
             node_shapes, edge_shapes = _parse_llm_ontology(response)
 
             if len(node_shapes) >= 10 and len(edge_shapes) >= 10:

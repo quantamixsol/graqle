@@ -713,6 +713,45 @@ def _check_governance_gate() -> list[CheckResult]:
     return results
 
 
+def _check_cloud_connection() -> list[CheckResult]:
+    """Check Graqle Cloud connectivity and credentials."""
+    results: list[CheckResult] = []
+
+    # Check credentials file
+    try:
+        from graqle.cloud.credentials import load_credentials
+        creds = load_credentials()
+        if creds and creds.email:
+            results.append((PASS, "Cloud: credentials", f"logged in as {creds.email}"))
+        else:
+            results.append((INFO, "Cloud: credentials", "not logged in (run: graq login)"))
+            return results
+    except Exception:
+        results.append((INFO, "Cloud: credentials", "not configured (run: graq login)"))
+        return results
+
+    # Check S3 connectivity
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name="eu-central-1")
+        import hashlib
+        email_h = hashlib.sha256(creds.email.lower().encode()).hexdigest()[:16]
+        resp = s3.list_objects_v2(
+            Bucket="graqle-graphs-eu",
+            Prefix=f"graphs/{email_h}/",
+            MaxKeys=10,
+        )
+        count = resp.get("KeyCount", 0)
+        if count > 0:
+            results.append((PASS, "Cloud: projects", f"{count} files in cloud"))
+        else:
+            results.append((INFO, "Cloud: projects", "no projects pushed yet (run: graq cloud push)"))
+    except Exception as e:
+        results.append((WARN, "Cloud: S3 access", f"cannot reach cloud: {e}"))
+
+    return results
+
+
 def doctor_command(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all checks including passed"),
     fix: bool = typer.Option(False, "--fix", help="Show fix commands for failures"),
@@ -751,6 +790,7 @@ def doctor_command(
     all_results.extend(_check_skill_system())
     all_results.extend(_check_neo4j_backend())
     all_results.extend(_check_governance_gate())
+    all_results.extend(_check_cloud_connection())
 
     # Count results
     passes = sum(1 for r in all_results if r[0] == PASS)

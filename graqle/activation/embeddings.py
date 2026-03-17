@@ -31,10 +31,29 @@ class EmbeddingEngine:
     simple TF-IDF bag-of-words for zero-dependency operation.
     """
 
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
+    def __init__(self, model_name: str | None = None) -> None:
+        if model_name is None:
+            model_name = self._load_configured_model()
         self._model_name = model_name
         self._model = None
         self._use_simple = False
+
+    @staticmethod
+    def _load_configured_model() -> str:
+        """Read embedding model from graqle.yaml activation config, with fallback."""
+        try:
+            from pathlib import Path
+            from graqle.config.settings import GraqleConfig
+            # Search for graqle.yaml in cwd and ancestors
+            cwd = Path.cwd()
+            for parent in [cwd, *cwd.parents]:
+                cfg_path = parent / "graqle.yaml"
+                if cfg_path.exists():
+                    config = GraqleConfig.from_yaml(cfg_path)
+                    return config.activation.embedding_model
+        except Exception:
+            pass
+        return "sentence-transformers/all-MiniLM-L6-v2"
 
     @staticmethod
     def _patch_stderr_flush() -> None:

@@ -869,7 +869,7 @@ def learn_batch(
         nodes_added += 1
 
     edges_added = 0
-    for edge_data in data.get("edges", []):
+    for edge_data in data.get("links", data.get("edges", [])):
         src = edge_data.get("source")
         tgt = edge_data.get("target")
         if src and tgt and src in graph.nodes and tgt in graph.nodes:

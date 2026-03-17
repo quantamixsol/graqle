@@ -152,7 +152,30 @@ def cloud_push(
     graph_data = graph_path.read_text(encoding="utf-8")
     graph_json = json.loads(graph_data)
     node_count = len(graph_json.get("nodes", []))
-    edge_count = len(graph_json.get("edges", []))
+    edge_count = len(graph_json.get("links", graph_json.get("edges", [])))
+
+    # Plan-aware warnings
+    try:
+        from graqle.cloud.plans import get_plan_limits, check_node_limit
+        from graqle.licensing.manager import LicenseManager
+        plan = LicenseManager().current_tier.value
+        limits = get_plan_limits(plan)
+        check = check_node_limit(plan, node_count)
+        if not check.allowed:
+            console.print(Panel(
+                f"[bold yellow]Plan limit reached[/bold yellow]\n\n"
+                f"  Your graph has [bold]{node_count:,}[/bold] nodes but the "
+                f"[bold]{plan.title()}[/bold] plan allows [bold]{limits.max_nodes:,}[/bold].\n"
+                f"  Cloud viewers will only see the first {limits.max_nodes:,} nodes.\n\n"
+                f"  Upgrade: [bold cyan]graqle.com/pricing[/bold cyan]",
+                title="Plan Limit Warning",
+                border_style="yellow",
+            ))
+        elif node_count > limits.max_nodes * 0.8 and limits.max_nodes > 0:
+            pct = int(node_count / limits.max_nodes * 100)
+            console.print(f"  [yellow]⚠ {pct}% of {plan.title()} plan node limit ({node_count:,}/{limits.max_nodes:,})[/yellow]")
+    except Exception:
+        pass  # Plan checks are non-blocking
 
     console.print(f"  Uploading graph ({node_count} nodes, {edge_count} edges)...")
     s3.put_object(
@@ -223,7 +246,7 @@ def cloud_push(
                 if available:
                     console.print("  Syncing to Neptune (Team feature)...")
                     nodes = graph_json.get("nodes", [])
-                    edges = graph_json.get("edges", []) + graph_json.get("links", [])
+                    edges = graph_json.get("links", graph_json.get("edges", []))
                     n_count = upsert_nodes(proj_name, nodes)
                     e_count = upsert_edges(proj_name, edges)
                     console.print(f"  Neptune: {n_count} nodes, {e_count} edges synced")

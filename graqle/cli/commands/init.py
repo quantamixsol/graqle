@@ -702,7 +702,11 @@ def scan_repository(root: Path) -> dict[str, Any]:
 
 
 def _build_graqle_yaml(
-    backend: str, model: str, api_key_ref: str
+    backend: str,
+    model: str,
+    api_key_ref: str,
+    embedding_model: str | None = None,
+    gov_config: dict[str, Any] | None = None,
 ) -> str:
     """Return the contents of graqle.yaml."""
     model_cfg: dict[str, Any] = {
@@ -724,15 +728,27 @@ def _build_graqle_yaml(
     else:
         model_cfg["api_key"] = api_key_ref
 
+    activation_cfg: dict[str, Any] = {
+        "strategy": "chunk",
+        "max_nodes": 20,
+    }
+    if embedding_model:
+        activation_cfg["embedding_model"] = embedding_model
+
+    gov_yaml: dict[str, Any] = {"enabled": True}
+    if gov_config:
+        gov_yaml["enabled"] = gov_config.get("governance_enabled", True)
+        if gov_config.get("shacl_validation") is False:
+            gov_yaml["shacl_validation"] = False
+        if gov_config.get("semantic_shacl"):
+            gov_yaml["semantic_shacl"] = True
+
     cfg: dict[str, Any] = {
         "model": model_cfg,
         "graph": {
             "connector": "networkx",
         },
-        "activation": {
-            "strategy": "chunk",
-            "max_nodes": 20,
-        },
+        "activation": activation_cfg,
         "orchestration": {
             "max_rounds": 3,
             "convergence_threshold": 0.92,
@@ -745,9 +761,7 @@ def _build_graqle_yaml(
         "observer": {
             "enabled": True,
         },
-        "governance": {
-            "enabled": True,
-        },
+        "governance": gov_yaml,
     }
     return yaml.dump(cfg, default_flow_style=False, sort_keys=False)
 
@@ -1263,10 +1277,18 @@ def _prompt_backend() -> str:
             except ImportError:
                 pkg_ok = False
 
-        # Check env var
+        # Check env var (for Bedrock, also check ~/.aws/credentials)
         env_ok = True
         if env:
             env_ok = bool(os.environ.get(env))
+            if not env_ok and key == "bedrock":
+                try:
+                    import boto3
+                    session = boto3.Session()
+                    creds = session.get_credentials()
+                    env_ok = creds is not None
+                except Exception:
+                    pass
 
         # Build status string
         if pkg_ok and env_ok and env:
@@ -1291,7 +1313,44 @@ def _prompt_backend() -> str:
         default=recommended_idx,
         choices=[str(i) for i in range(1, len(backend_keys) + 1)],
     )
-    return backend_keys[choice - 1]
+    selected_key = backend_keys[choice - 1]
+
+    # Check if required package is missing and offer to install
+    det = detection.get(selected_key, {})
+    pkg = det.get("pkg")
+    if pkg:
+        try:
+            importlib.import_module(pkg)
+        except ImportError:
+            console.print(
+                f"\n  [yellow]The '{selected_key}' backend requires '{pkg}' package.[/yellow]"
+            )
+            install = Prompt.ask(
+                f"  Install {pkg} now?",
+                choices=["y", "n"],
+                default="y",
+            )
+            if install == "y":
+                import subprocess
+                pip_pkg = pkg
+                # Map import names to pip package names
+                pip_map = {"anthropic": "anthropic", "openai": "openai", "boto3": "boto3"}
+                pip_pkg = pip_map.get(pkg, pkg)
+                console.print(f"  [dim]Installing {pip_pkg}...[/dim]")
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", pip_pkg],
+                    capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    console.print(f"  [green]{pip_pkg} installed successfully![/green]\n")
+                else:
+                    console.print(
+                        f"  [red]Installation failed.[/red] Install manually: pip install {pip_pkg}\n"
+                    )
+            else:
+                console.print(f"  [dim]Skipped. Install later: pip install {pkg}[/dim]\n")
+
+    return selected_key
 
 
 def _prompt_model(backend: str) -> str:
@@ -1358,6 +1417,498 @@ def _prompt_api_key(backend: str) -> str:
     else:
         key = Prompt.ask("Enter your API key", password=True)
         return key
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Smart project pre-scan + model recommendations
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _quick_project_scan(root: Path) -> dict[str, Any]:
+    """Fast pre-scan of the project to determine size and complexity.
+
+    Returns a profile dict used to recommend the best model/embedding combo.
+    """
+    import fnmatch
+
+    profile: dict[str, Any] = {
+        "file_count": 0,
+        "py_files": 0,
+        "ts_files": 0,
+        "js_files": 0,
+        "go_files": 0,
+        "java_files": 0,
+        "rust_files": 0,
+        "doc_files": 0,
+        "has_tests": False,
+        "has_docker": False,
+        "has_ci": False,
+        "estimated_nodes": 0,
+        "size_category": "small",  # small/medium/large/enterprise
+        "primary_language": "unknown",
+        "frameworks": [],
+    }
+
+    exclude = {"node_modules", ".git", "__pycache__", ".next", "dist", "build", ".venv", "venv", "env"}
+    code_extensions = {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".java", ".rs", ".rb", ".php", ".cs", ".cpp", ".c", ".swift", ".kt"}
+    doc_extensions = {".md", ".rst", ".txt", ".pdf", ".docx"}
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in exclude and not d.startswith(".")]
+        for f in filenames:
+            ext = os.path.splitext(f)[1].lower()
+            if ext in code_extensions:
+                profile["file_count"] += 1
+                if ext == ".py":
+                    profile["py_files"] += 1
+                elif ext in (".ts", ".tsx"):
+                    profile["ts_files"] += 1
+                elif ext in (".js", ".jsx"):
+                    profile["js_files"] += 1
+                elif ext == ".go":
+                    profile["go_files"] += 1
+                elif ext == ".java":
+                    profile["java_files"] += 1
+                elif ext == ".rs":
+                    profile["rust_files"] += 1
+            elif ext in doc_extensions:
+                profile["doc_files"] += 1
+            if f in ("Dockerfile", "docker-compose.yml", "docker-compose.yaml"):
+                profile["has_docker"] = True
+            if f in (".github", "Jenkinsfile", ".gitlab-ci.yml", ".circleci"):
+                profile["has_ci"] = True
+            if "test" in f.lower() or "spec" in f.lower():
+                profile["has_tests"] = True
+
+    # Detect CI from directories
+    if (root / ".github" / "workflows").exists():
+        profile["has_ci"] = True
+
+    # Detect frameworks
+    if (root / "package.json").exists():
+        profile["frameworks"].append("Node.js")
+        try:
+            pkg = json.loads((root / "package.json").read_text(encoding="utf-8", errors="ignore"))
+            deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+            if "next" in deps:
+                profile["frameworks"].append("Next.js")
+            if "react" in deps:
+                profile["frameworks"].append("React")
+            if "vue" in deps:
+                profile["frameworks"].append("Vue")
+            if "express" in deps:
+                profile["frameworks"].append("Express")
+        except Exception:
+            pass
+    if (root / "pyproject.toml").exists() or (root / "setup.py").exists():
+        profile["frameworks"].append("Python")
+    if (root / "go.mod").exists():
+        profile["frameworks"].append("Go")
+    if (root / "Cargo.toml").exists():
+        profile["frameworks"].append("Rust")
+
+    # Determine primary language
+    lang_counts = {
+        "Python": profile["py_files"],
+        "TypeScript": profile["ts_files"],
+        "JavaScript": profile["js_files"],
+        "Go": profile["go_files"],
+        "Java": profile["java_files"],
+        "Rust": profile["rust_files"],
+    }
+    if any(lang_counts.values()):
+        profile["primary_language"] = max(lang_counts, key=lang_counts.get)
+
+    # Estimate nodes (roughly 3-8 nodes per code file)
+    profile["estimated_nodes"] = profile["file_count"] * 5
+
+    # Size category
+    fc = profile["file_count"]
+    if fc < 50:
+        profile["size_category"] = "small"
+    elif fc < 200:
+        profile["size_category"] = "medium"
+    elif fc < 1000:
+        profile["size_category"] = "large"
+    else:
+        profile["size_category"] = "enterprise"
+
+    return profile
+
+
+def _show_project_profile(profile: dict[str, Any]) -> None:
+    """Display the quick project profile to the user."""
+    table = Table(title="Project Profile (Quick Scan)", show_header=False, border_style="cyan")
+    table.add_column("Property", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Code files", str(profile["file_count"]))
+    table.add_row("Primary language", profile["primary_language"])
+    if profile["frameworks"]:
+        table.add_row("Frameworks", ", ".join(profile["frameworks"]))
+    table.add_row("Estimated KG nodes", f"~{profile['estimated_nodes']:,}")
+    table.add_row("Size category", profile["size_category"].upper())
+    table.add_row("Documentation files", str(profile["doc_files"]))
+    table.add_row("Has tests", "[green]yes[/green]" if profile["has_tests"] else "[yellow]no[/yellow]")
+    table.add_row("Has Docker", "[green]yes[/green]" if profile["has_docker"] else "[dim]no[/dim]")
+    table.add_row("Has CI/CD", "[green]yes[/green]" if profile["has_ci"] else "[dim]no[/dim]")
+
+    console.print(table)
+
+
+def _recommend_model(backend: str, profile: dict[str, Any]) -> str | None:
+    """Recommend the best model for this backend based on project profile.
+
+    Returns the recommended model ID, or None if no strong recommendation.
+    """
+    size = profile["size_category"]
+    models = BACKENDS[backend]["models"]
+    if not models:
+        return None
+
+    # For large/enterprise projects, recommend more capable models
+    if size in ("large", "enterprise"):
+        # Find the most capable (usually non-default, more expensive)
+        for model_id, desc, _ in models:
+            if any(kw in desc.lower() for kw in ("capable", "opus", "large", "pro", "4o ", "command-r+")):
+                return model_id
+
+    # For small/medium, default is usually right
+    for model_id, _, is_default in models:
+        if is_default:
+            return model_id
+
+    return models[0][0]
+
+
+def _prompt_model_with_recommendation(backend: str, profile: dict[str, Any]) -> str:
+    """Enhanced model prompt with project-aware recommendations and pros/cons."""
+    models = BACKENDS[backend]["models"]
+    if not models:
+        return Prompt.ask("Enter model name or endpoint URL", default="gpt-4o-mini")
+
+    recommended = _recommend_model(backend, profile)
+    size = profile["size_category"]
+
+    table = Table(
+        title=f"Models for {BACKENDS[backend]['name']}",
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Model", style="bold")
+    table.add_column("Description")
+    table.add_column("Fit", style="dim")
+
+    for i, (model_id, desc, is_default) in enumerate(models, 1):
+        # Determine fit for this project
+        if model_id == recommended:
+            fit = "[green]RECOMMENDED[/green]"
+        elif "cheap" in desc.lower() or "fast" in desc.lower() or "mini" in desc.lower() or "lite" in desc.lower():
+            fit = "[green]good[/green]" if size in ("small", "medium") else "[yellow]may be limited[/yellow]"
+        elif "capable" in desc.lower() or "opus" in desc.lower() or "large" in desc.lower() or "pro" in desc.lower():
+            fit = "[green]good[/green]" if size in ("large", "enterprise") else "[dim]overkill[/dim]"
+        else:
+            fit = "[green]good[/green]"
+
+        table.add_row(str(i), model_id, desc, fit)
+
+    console.print(table)
+
+    # Show recommendation reasoning
+    if recommended:
+        rec_desc = next((d for m, d, _ in models if m == recommended), "")
+        if size in ("large", "enterprise"):
+            console.print(
+                f"\n  [bold cyan]Recommendation:[/bold cyan] Your project has {profile['file_count']} code files "
+                f"(~{profile['estimated_nodes']:,} estimated nodes).\n"
+                f"  A more capable model produces [bold]better ontologies[/bold] and "
+                f"[bold]higher-quality reasoning[/bold] for complex codebases.\n"
+            )
+        elif size == "small":
+            console.print(
+                f"\n  [bold cyan]Recommendation:[/bold cyan] Your project is small ({profile['file_count']} files). "
+                f"A fast model keeps costs low while still producing accurate results.\n"
+            )
+        else:
+            console.print(
+                f"\n  [bold cyan]Recommendation:[/bold cyan] Good balance of quality and cost for "
+                f"a {profile['file_count']}-file codebase.\n"
+            )
+
+    rec_idx = next((i for i, (m, _, _) in enumerate(models, 1) if m == recommended), 1)
+    choice = IntPrompt.ask(
+        "Choose a model",
+        default=rec_idx,
+        choices=[str(i) for i in range(1, len(models) + 1)],
+    )
+    return models[choice - 1][0]
+
+
+# ── Embedding model selection ─────────────────────────────────────────
+
+EMBEDDING_OPTIONS = [
+    {
+        "id": "sentence-transformers/all-MiniLM-L6-v2",
+        "name": "MiniLM L6 (Local)",
+        "dims": 384,
+        "pros": "Free, runs locally, no API key needed, fast",
+        "cons": "Lower quality for complex semantic matching",
+        "best_for": "Small-medium projects, offline use, cost-sensitive",
+        "requires": "pip install sentence-transformers",
+    },
+    {
+        "id": "sentence-transformers/all-mpnet-base-v2",
+        "name": "MPNet Base (Local)",
+        "dims": 768,
+        "pros": "Best local model quality, good semantic understanding",
+        "cons": "Slower than MiniLM, larger model download (~420MB)",
+        "best_for": "Medium-large projects wanting best local quality",
+        "requires": "pip install sentence-transformers",
+    },
+    {
+        "id": "amazon.titan-embed-text-v2:0",
+        "name": "Amazon Titan V2 (AWS Bedrock)",
+        "dims": 1024,
+        "pros": "Highest quality, production-grade, 1024 dimensions",
+        "cons": "Requires AWS account + Bedrock access, ~$0.0001/query",
+        "best_for": "Large/enterprise projects, production deployments",
+        "requires": "AWS credentials + Bedrock model access enabled",
+    },
+]
+
+
+def _prompt_embedding_model(profile: dict[str, Any]) -> str:
+    """Ask the user to choose an embedding model with pros/cons."""
+    size = profile["size_category"]
+
+    console.print(Panel.fit(
+        "[bold cyan]Embedding Model[/bold cyan]\n\n"
+        "Embeddings power semantic search and skill matching in your\n"
+        "knowledge graph. The right choice depends on your project\n"
+        "size and deployment environment.\n\n"
+        "[dim]This affects: query relevance, skill routing, chunk scoring[/dim]",
+        border_style="cyan",
+        title="Context Intelligence",
+    ))
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Model", style="bold", min_width=20)
+    table.add_column("Dims", style="dim", width=5)
+    table.add_column("Pros", style="green")
+    table.add_column("Cons", style="yellow")
+    table.add_column("Fit", style="dim")
+
+    # Check availability
+    has_st = False
+    try:
+        import importlib
+        importlib.import_module("sentence_transformers")
+        has_st = True
+    except ImportError:
+        pass
+
+    has_bedrock = False
+    try:
+        import boto3
+        session = boto3.Session()
+        has_bedrock = session.get_credentials() is not None
+    except Exception:
+        pass
+
+    # Determine recommended
+    if size in ("large", "enterprise") and has_bedrock:
+        recommended_idx = 3  # Titan V2
+    elif size in ("medium", "large") and has_st:
+        recommended_idx = 2  # MPNet
+    else:
+        recommended_idx = 1  # MiniLM
+
+    for i, opt in enumerate(EMBEDDING_OPTIONS, 1):
+        available = True
+        if "MiniLM" in opt["name"] or "MPNet" in opt["name"]:
+            available = has_st
+        elif "Titan" in opt["name"]:
+            available = has_bedrock
+
+        fit = ""
+        if i == recommended_idx:
+            fit = "[green]RECOMMENDED[/green]"
+        elif not available:
+            fit = f"[red]needs: {opt['requires']}[/red]"
+        elif size in ("large", "enterprise") and opt["dims"] >= 768:
+            fit = "[green]good[/green]"
+        elif size in ("small", "medium") and "Local" in opt["name"]:
+            fit = "[green]good[/green]"
+        else:
+            fit = "[dim]ok[/dim]"
+
+        table.add_row(
+            str(i),
+            opt["name"],
+            str(opt["dims"]),
+            opt["pros"],
+            opt["cons"],
+            fit,
+        )
+
+    console.print(table)
+
+    rec = EMBEDDING_OPTIONS[recommended_idx - 1]
+    console.print(
+        f"\n  [bold cyan]Recommendation:[/bold cyan] [bold]{rec['name']}[/bold] — {rec['best_for']}\n"
+    )
+
+    choice = IntPrompt.ask(
+        "Choose an embedding model",
+        default=recommended_idx,
+        choices=["1", "2", "3"],
+    )
+
+    selected = EMBEDDING_OPTIONS[choice - 1]
+
+    # Check if required dependencies are installed, offer to install
+    if "MiniLM" in selected["name"] or "MPNet" in selected["name"]:
+        if not has_st:
+            console.print(
+                f"\n  [yellow]'{selected['name']}' requires sentence-transformers.[/yellow]\n"
+                f"  Without it, Graqle falls back to a basic hash-based embedding\n"
+                f"  (much lower quality for semantic search and skill matching).\n"
+            )
+            install = Prompt.ask(
+                "  Install sentence-transformers now?",
+                choices=["y", "n"],
+                default="y",
+            )
+            if install == "y":
+                console.print("  [dim]Installing sentence-transformers (this may take a minute)...[/dim]")
+                import subprocess
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "sentence-transformers"],
+                    capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    console.print("  [green]sentence-transformers installed successfully![/green]\n")
+                else:
+                    console.print(
+                        f"  [red]Installation failed.[/red] You can install manually:\n"
+                        f"  [dim]pip install sentence-transformers[/dim]\n"
+                    )
+            else:
+                console.print(
+                    "  [dim]Skipped. Install later: pip install sentence-transformers[/dim]\n"
+                    "  [dim]Without it, embedding quality will be reduced.[/dim]\n"
+                )
+    elif "Titan" in selected["name"]:
+        if not has_bedrock:
+            console.print(
+                f"\n  [yellow]'{selected['name']}' requires AWS Bedrock access.[/yellow]\n"
+                f"  You need:\n"
+                f"  1. [bold]boto3[/bold] installed: pip install boto3\n"
+                f"  2. [bold]AWS credentials[/bold] configured: aws configure\n"
+                f"  3. [bold]Bedrock model access[/bold] enabled in AWS console\n"
+            )
+            try:
+                import importlib
+                importlib.import_module("boto3")
+            except ImportError:
+                install_boto = Prompt.ask(
+                    "  Install boto3 now?",
+                    choices=["y", "n"],
+                    default="y",
+                )
+                if install_boto == "y":
+                    console.print("  [dim]Installing boto3...[/dim]")
+                    import subprocess
+                    result = subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "boto3"],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode == 0:
+                        console.print("  [green]boto3 installed successfully![/green]\n")
+                    else:
+                        console.print(f"  [red]Installation failed.[/red] Install manually: pip install boto3\n")
+
+    return selected["id"]
+
+
+# ── Governance / ontology configuration ───────────────────────────────
+
+def _prompt_governance(profile: dict[str, Any]) -> dict[str, Any]:
+    """Ask about governance, ontology, and SHACL constraint preferences."""
+    console.print(Panel.fit(
+        "[bold cyan]Governance & Ontology[/bold cyan]\n\n"
+        "Graqle builds a domain-specific ontology for your codebase and\n"
+        "validates it with SHACL-like constraints. This ensures your\n"
+        "knowledge graph stays consistent and trustworthy.\n\n"
+        "[dim]Features: DRACE scoring, audit trails, evidence chains,\n"
+        "SHACL constraint validation, scope gates[/dim]",
+        border_style="cyan",
+        title="Quality Assurance",
+    ))
+
+    gov_config: dict[str, Any] = {
+        "governance_enabled": True,
+        "shacl_validation": True,
+        "ontology_mode": "auto",
+        "scan_docs": True,
+    }
+
+    # Ontology mode
+    console.print("\n[bold]Ontology Generation[/bold]")
+    console.print("  [bold]1.[/bold] Auto (recommended) — LLM generates domain-specific ontology")
+    console.print("  [bold]2.[/bold] Heuristic — Pattern-based, no LLM needed (faster but generic)")
+    console.print("  [bold]3.[/bold] Custom — Provide your own ontology YAML file")
+
+    ont_choice = IntPrompt.ask(
+        "Ontology mode",
+        default=1,
+        choices=["1", "2", "3"],
+    )
+    gov_config["ontology_mode"] = ["auto", "heuristic", "custom"][ont_choice - 1]
+
+    # SHACL constraints
+    console.print("\n[bold]SHACL Constraint Validation[/bold]")
+    console.print(
+        "  SHACL gates validate that nodes and edges conform to your ontology.\n"
+        "  This catches malformed data during scan and prevents graph corruption.\n"
+    )
+    console.print("  [bold]1.[/bold] Enabled (recommended) — Validate all nodes/edges against ontology")
+    console.print("  [bold]2.[/bold] Semantic SHACL — Enhanced validation using embeddings (slower, more accurate)")
+    console.print("  [bold]3.[/bold] Disabled — Skip validation (faster scan, no guarantees)")
+
+    shacl_choice = IntPrompt.ask(
+        "SHACL validation level",
+        default=1,
+        choices=["1", "2", "3"],
+    )
+    if shacl_choice == 3:
+        gov_config["shacl_validation"] = False
+    elif shacl_choice == 2:
+        gov_config["shacl_validation"] = True
+        gov_config["semantic_shacl"] = True
+
+    # Document scanning
+    if profile["doc_files"] > 0:
+        console.print(f"\n[bold]Document Scanning[/bold] ({profile['doc_files']} docs found)")
+        console.print(
+            "  Graqle can ingest Markdown, PDF, DOCX, PPTX, and XLSX files\n"
+            "  into the knowledge graph with cross-referencing to code.\n"
+        )
+        console.print("  [bold]1.[/bold] Scan all documents (recommended)")
+        console.print("  [bold]2.[/bold] Code only — skip document scanning")
+
+        doc_choice = IntPrompt.ask(
+            "Document scanning",
+            default=1,
+            choices=["1", "2"],
+        )
+        gov_config["scan_docs"] = doc_choice == 1
+    else:
+        console.print("\n  [dim]No documentation files detected — skipping doc scan config[/dim]")
+
+    return gov_config
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -1746,8 +2297,17 @@ def init_command(
         else:
             env_name = BACKENDS[chosen_backend].get("api_key_env")
             api_key_ref = f"${{{env_name}}}" if env_name else ""
+        chosen_embedding = None  # Use default in non-interactive mode
+        gov_config = None
     else:
-        # Interactive
+        # Interactive — smart guided wizard
+
+        # ── Step 0: Quick project pre-scan ──────────────────────────
+        console.print("[bold]Analyzing your project...[/bold]\n")
+        project_profile = _quick_project_scan(root)
+        _show_project_profile(project_profile)
+        console.print()
+
         console.print(Panel.fit(
             "[bold cyan]Why Graqle needs an LLM backend[/bold cyan]\n\n"
             "Graqle builds a knowledge graph of your codebase so your AI\n"
@@ -1762,23 +2322,61 @@ def init_command(
             title="Context Intelligence",
         ))
         console.print()
-        console.print("[bold]Step 1/3:[/bold] Choose your AI backend\n")
+
+        # ── Step 1/5: Backend selection ──────────────────────────────
+        console.print("[bold]Step 1/5:[/bold] Choose your AI backend\n")
         chosen_backend = _prompt_backend()
 
-        console.print("\n[bold]Step 2/3:[/bold] Choose a model\n")
-        chosen_model = _prompt_model(chosen_backend)
+        # ── Step 2/5: Model selection with recommendations ───────────
+        console.print("\n[bold]Step 2/5:[/bold] Choose a reasoning model\n")
+        chosen_model = _prompt_model_with_recommendation(chosen_backend, project_profile)
 
-        console.print("\n[bold]Step 3/3:[/bold] API key configuration\n")
+        # ── Step 3/5: API key configuration ──────────────────────────
+        console.print("\n[bold]Step 3/5:[/bold] API key configuration\n")
         api_key_ref = _prompt_api_key(chosen_backend)
+
+        # ── Step 4/5: Embedding model selection ──────────────────────
+        console.print("\n[bold]Step 4/5:[/bold] Choose an embedding model\n")
+        chosen_embedding = _prompt_embedding_model(project_profile)
+
+        # ── Step 5/5: Governance & ontology ───────────────────────────
+        console.print("\n[bold]Step 5/5:[/bold] Governance & ontology configuration\n")
+        gov_config = _prompt_governance(project_profile)
 
     console.print(
         f"\n[bold green]Configuration:[/bold green] "
         f"{BACKENDS[chosen_backend]['name']} / {chosen_model}\n"
     )
 
-    # ── Step 1b: Verify backend connection ──────────────────────────
-    console.print("[bold]Verifying backend connection...[/bold]")
-    _verify_backend(chosen_backend, chosen_model, api_key_ref, no_interactive)
+    # ── Verify backend connection (with retry) ──────────────────────
+    max_retries = 3
+    for attempt in range(max_retries):
+        console.print("[bold]Verifying backend connection...[/bold]")
+        try:
+            _verify_backend(chosen_backend, chosen_model, api_key_ref, no_interactive)
+            break  # Success
+        except SystemExit:
+            raise  # Let typer.Exit propagate
+        except Exception:
+            if attempt < max_retries - 1 and not no_interactive:
+                console.print(
+                    "\n[yellow]Backend verification failed.[/yellow] "
+                    "Would you like to try different settings?\n"
+                )
+                retry = Prompt.ask("Retry with different backend/model?", choices=["y", "n"], default="y")
+                if retry == "y":
+                    console.print("\n[bold]Step 1/5:[/bold] Choose your AI backend\n")
+                    chosen_backend = _prompt_backend()
+                    console.print("\n[bold]Step 2/5:[/bold] Choose a reasoning model\n")
+                    chosen_model = _prompt_model_with_recommendation(chosen_backend, project_profile)
+                    console.print("\n[bold]Step 3/5:[/bold] API key configuration\n")
+                    api_key_ref = _prompt_api_key(chosen_backend)
+                else:
+                    console.print("[dim]Continuing without verified backend...[/dim]\n")
+                    break
+            else:
+                console.print("[dim]Continuing without verified backend...[/dim]\n")
+                break
 
     # ── Step 2: Scan + domain detection + ingest ────────────────────
     graph_data: dict[str, Any] | None = None
@@ -1895,7 +2493,9 @@ def init_command(
     console.print("[bold]Creating files...[/bold]")
 
     # graqle.yaml
-    yaml_content = _build_graqle_yaml(chosen_backend, chosen_model, api_key_ref)
+    yaml_content = _build_graqle_yaml(
+        chosen_backend, chosen_model, api_key_ref, chosen_embedding, gov_config
+    )
     _write_graqle_yaml(root, yaml_content)
     console.print("  [green]+[/green] graqle.yaml")
 
@@ -2020,23 +2620,72 @@ def init_command(
             + "\n"
         )
 
+    # Build component status table
+    _embedding_label = chosen_embedding or "default (MiniLM)"
+    _gov_label = "enabled" if (not gov_config or gov_config.get("governance_enabled", True)) else "disabled"
+    _shacl_label = "semantic" if (gov_config and gov_config.get("semantic_shacl")) else (
+        "enabled" if (not gov_config or gov_config.get("shacl_validation", True)) else "disabled"
+    )
+
+    # Check component availability
+    _st_ok = False
+    try:
+        import importlib as _il
+        _il.import_module("sentence_transformers")
+        _st_ok = True
+    except ImportError:
+        pass
+
+    _boto_ok = False
+    try:
+        import importlib as _il
+        _il.import_module("boto3")
+        _boto_ok = True
+    except ImportError:
+        pass
+
+    status_lines = [
+        f"  [bold]Graph:[/bold]       [cyan]{node_total}[/cyan] nodes, [cyan]{edge_total}[/cyan] edges",
+        f"  [bold]Backend:[/bold]     {BACKENDS[chosen_backend]['name']} / {chosen_model}",
+        f"  [bold]Embeddings:[/bold]  {_embedding_label}  {'[green]ready[/green]' if _st_ok or 'Titan' in str(chosen_embedding or '') else '[yellow]fallback mode[/yellow]'}",
+        f"  [bold]Governance:[/bold]  {_gov_label}",
+        f"  [bold]SHACL:[/bold]       {_shacl_label}",
+        f"  [bold]IDE:[/bold]         {ide_label}",
+    ]
+
+    # Plugin status
+    plugin_lines = []
+    if _st_ok:
+        plugin_lines.append("  [green]OK[/green] sentence-transformers (semantic embeddings)")
+    else:
+        plugin_lines.append("  [yellow]--[/yellow] sentence-transformers [dim](pip install sentence-transformers)[/dim]")
+    if _boto_ok:
+        plugin_lines.append("  [green]OK[/green] boto3 (AWS Bedrock / cloud push)")
+    else:
+        plugin_lines.append("  [yellow]--[/yellow] boto3 [dim](pip install boto3)[/dim]")
+    if _resolved_key:
+        plugin_lines.append(f"  [green]OK[/green] API key ({chosen_backend})")
+    else:
+        plugin_lines.append(f"  [red]--[/red] API key [dim](set {BACKENDS[chosen_backend].get('api_key_env', 'API_KEY')})[/dim]")
+
     console.print(
         Panel(
             f"[bold green]Project initialized![/bold green]\n\n"
-            f"  Graph: [cyan]{node_total}[/cyan] nodes, [cyan]{edge_total}[/cyan] edges\n"
+            + "\n".join(status_lines) + "\n"
             f"{readiness_section}\n"
+            "[bold]Component Status:[/bold]\n"
+            + "\n".join(plugin_lines) + "\n\n"
             "[bold]Next steps:[/bold]\n"
             "  1. [bold]graq doctor[/bold]          — verify your setup is complete\n"
             "  2. [bold]/graq <question>[/bold]     — smart-routed query (cheapest approach)\n"
             "  3. [bold]graq run \"query\"[/bold]    — full graph reasoning\n\n"
             "[bold]All commands:[/bold]\n"
-            "  [bold]graq doctor[/bold]             — health check (run this first!)\n"
+            "  [bold]graq doctor[/bold]             — health check\n"
             "  [bold]graq context <name>[/bold]    — 500-token focused context\n"
-            "  [bold]graq ingest[/bold]             — re-ingest knowledge sources\n"
-            "  [bold]graq metrics[/bold]            — usage metrics and ROI\n"
+            "  [bold]graq impact <module>[/bold]   — dependency impact analysis\n"
+            "  [bold]graq cloud push[/bold]        — push graph to cloud dashboard\n"
             "  [bold]graq inspect --stats[/bold]   — graph statistics\n\n"
-            f"[dim]Auto-grow: git post-commit hook keeps the knowledge graph in sync.\n"
-            f"IDE: {ide_label}[/dim]",
+            f"[dim]Auto-grow: git post-commit hook keeps the knowledge graph in sync.[/dim]",
             border_style="green",
             title="Done",
         )
