@@ -165,7 +165,7 @@ class _graph_lock:
                 G = self._graph.to_networkx()
                 import networkx as _nx
                 data = _nx.node_link_data(G, edges="links")
-                _validate_graph_data(data)
+                _validate_graph_data(data, existing_path=self._gpath)
                 content = _json.dumps(data, indent=2, default=str)
                 with open(self._gpath, "w", encoding="utf-8") as f:
                     f.write(content)
