@@ -56,4 +56,26 @@ def mount_studio(app: Any, state: dict) -> None:
     app.include_router(control_router, prefix="/studio/api/control")
     app.include_router(learning_router, prefix="/studio/api/learning")
 
-    logger.info("Graqle Studio mounted at /studio/")
+    # Ring-fence guard: Studio routes are read-only on the knowledge graph.
+    # No /learn or /reload endpoints are mounted in Studio — this is the
+    # architectural Chinese wall. The guard below explicitly blocks any
+    # POST/PUT/PATCH/DELETE to /studio/api/learn or /studio/api/reload
+    # as defense-in-depth, even though no such routes are registered.
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse as StarletteJSONResponse
+
+    _BLOCKED_STUDIO_PATHS = {"/studio/api/learn", "/studio/api/reload"}
+
+    class StudioRingFenceMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):  # type: ignore[override]
+            if request.url.path in _BLOCKED_STUDIO_PATHS and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+                logger.warning("Ring-fence blocked write attempt: %s %s", request.method, request.url.path)
+                return StarletteJSONResponse(
+                    {"error": "Ring-fenced: Studio reasoning is read-only on the knowledge graph. Use the SDK CLI (graq learn, graq scan) to modify the graph."},
+                    status_code=403,
+                )
+            return await call_next(request)
+
+    app.add_middleware(StudioRingFenceMiddleware)
+
+    logger.info("Graqle Studio mounted at /studio/ (ring-fence: active)")
