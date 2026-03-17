@@ -50,14 +50,20 @@ class ChunkScorer:
         embedding_engine: EmbeddingEngine | None = None,
         max_nodes: int = 50,
         min_score: float = 0.15,
+        domain_registry: Any | None = None,
     ) -> None:
         if embedding_engine is not None:
             self.embedding_engine = embedding_engine
         else:
-            self.embedding_engine = EmbeddingEngine()
+            from graqle.activation.embeddings import create_embedding_engine
+            from graqle.config.settings import GraqleConfig
+            from pathlib import Path
+            cfg = GraqleConfig.from_yaml(Path("graqle.yaml")) if Path("graqle.yaml").exists() else None
+            self.embedding_engine = create_embedding_engine(cfg)
         self.max_nodes = max_nodes
         self.min_score = min_score
         self.last_relevance: dict[str, float] = {}
+        self._domain_registry = domain_registry
         # Embedding cache: chunk_key -> embedding vector
         self._cache_loaded = False
         self._chunk_keys: list[str] = []        # [node_id::chunk_idx, ...]
@@ -336,6 +342,60 @@ class ChunkScorer:
 
         return scores
 
+    def _skill_aware_boost(
+        self, graph: Graqle, query: str, scores: dict[str, float],
+    ) -> int:
+        """Boost nodes whose entity_type has skills matching query keywords.
+
+        Extracts keywords from skill names (e.g. "audit_auth_flow" →
+        {"audit", "auth", "flow"}) and matches against query words.
+        Nodes with matching skills get a +0.15 boost per matching skill
+        (capped at +0.45 total).
+
+        Returns count of boosted nodes.
+        """
+        if self._domain_registry is None:
+            return 0
+
+        import re
+        query_words = set(re.findall(r"\b[a-z]{3,}\b", query.lower()))
+        if not query_words:
+            return 0
+
+        # Build a cache of entity_type → skill keywords (once per call)
+        type_skill_keywords: dict[str, set[str]] = {}
+        boosted = 0
+
+        for nid in scores:
+            node = graph.get_node(nid)
+            if node is None:
+                continue
+            etype = getattr(node, "entity_type", None) or ""
+            if not etype:
+                continue
+
+            if etype not in type_skill_keywords:
+                skills = self._domain_registry.get_skills_for_type(etype)
+                kw: set[str] = set()
+                for s in skills:
+                    kw.update(s.lower().split("_"))
+                # Remove very short / generic words
+                kw.discard("")
+                kw -= {"check", "the", "and", "for"}
+                type_skill_keywords[etype] = kw
+
+            skill_kw = type_skill_keywords[etype]
+            if not skill_kw:
+                continue
+
+            matched = query_words & skill_kw
+            if matched:
+                boost = min(len(matched) * 0.15, 0.45)
+                scores[nid] += boost
+                boosted += 1
+
+        return boosted
+
     def activate(
         self, graph: Graqle, query: str,
         activation_boosts: dict[str, float] | None = None,
@@ -371,13 +431,31 @@ class ChunkScorer:
                     "Applied activation memory boosts to %d nodes", boosted_count
                 )
 
+        # Skill-aware boost: nodes whose entity_type has skills
+        # matching query keywords get a relevance bump.
+        if self._domain_registry is not None:
+            skill_boosted = self._skill_aware_boost(graph, query, scores)
+            if skill_boosted:
+                logger.info(
+                    "Skill-aware boost applied to %d nodes", skill_boosted
+                )
+
         # Property-based fallback: when semantic scores are weak,
         # augment with regex matches on node IDs/labels/descriptions.
         # This catches cases like "onboarding flow" matching
         # "onboarding_service.py" even when embeddings miss it.
         top_semantic = sorted(scores.values(), reverse=True)[:5]
         avg_top = sum(top_semantic) / max(len(top_semantic), 1)
-        if avg_top < 0.35:
+
+        # Lower threshold for multi-file / broad-scope queries
+        import re as _re_fb
+        _multi_file_kw = _re_fb.compile(
+            r"\b(?:audit|consistency|completeness|compare|across|review\s+all|check\s+all)\b",
+            _re_fb.IGNORECASE,
+        )
+        fallback_threshold = 0.25 if _multi_file_kw.search(query) else 0.35
+
+        if avg_top < fallback_threshold:
             property_scores = self._property_search_fallback(graph, query)
             fallback_count = 0
             for nid, pscore in property_scores.items():

@@ -1516,9 +1516,20 @@ class Graqle:
                     _emb_engine = create_embedding_engine(self._config)
                 except Exception:
                     pass
+                # Pass domain registry for skill-aware activation boost
+                _domain_reg = None
+                if self._config and self._config.activation.skill_aware:
+                    try:
+                        from graqle.ontology.domain_registry import DomainRegistry
+                        from graqle.ontology.domains import register_all_domains
+                        _domain_reg = DomainRegistry()
+                        register_all_domains(_domain_reg)
+                    except Exception:
+                        _domain_reg = None
                 self._activator = ChunkScorer(
                     embedding_engine=_emb_engine,
                     max_nodes=adaptive_max,
+                    domain_registry=_domain_reg,
                 )
             else:
                 self._activator.max_nodes = adaptive_max
