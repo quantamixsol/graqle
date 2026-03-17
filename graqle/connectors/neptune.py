@@ -296,6 +296,82 @@ def upsert_edges(project_id: str, edges: list[dict]) -> int:
     return count
 
 
+# ─── Cross-Project Queries (Sprint 6) ──────────────────────────────────────
+
+def cross_project_search(project_ids: list[str], query_text: str, limit: int = 50) -> list[dict]:
+    """Search for nodes matching a text pattern across multiple projects.
+
+    This is the cross-project reasoning query — answers questions like
+    "what connects crawlq to graqle?" by finding shared node types,
+    similar labels, and cross-boundary dependencies.
+    """
+    if not project_ids:
+        return []
+    query = """
+    MATCH (n:GraqleNode)
+    WHERE n.project_id IN $pids
+      AND (toLower(n.label) CONTAINS toLower($q) OR toLower(n.description) CONTAINS toLower($q))
+    RETURN n.id AS id, n.label AS label, n.type AS type,
+           n.project_id AS project_id, n.description AS description,
+           n.degree AS degree
+    ORDER BY n.degree DESC
+    LIMIT $lim
+    """
+    return execute_query(query, {"pids": project_ids, "q": query_text, "lim": limit})
+
+
+def cross_project_shared_types(project_ids: list[str]) -> list[dict]:
+    """Find entity types that appear in multiple projects.
+
+    Useful for identifying shared patterns, common services,
+    and architectural overlaps between codebases.
+    """
+    if len(project_ids) < 2:
+        return []
+    query = """
+    MATCH (n:GraqleNode)
+    WHERE n.project_id IN $pids
+    WITH n.type AS type, n.project_id AS pid
+    WITH type, collect(DISTINCT pid) AS projects, count(*) AS total
+    WHERE size(projects) > 1
+    RETURN type, projects, total
+    ORDER BY total DESC
+    """
+    return execute_query(query, {"pids": project_ids})
+
+
+def cross_project_connections(project_a: str, project_b: str, limit: int = 20) -> list[dict]:
+    """Find potential connections between two projects.
+
+    Looks for nodes with the same label or type across project boundaries.
+    These represent shared abstractions, common services, or integration points.
+    """
+    query = """
+    MATCH (a:GraqleNode {project_id: $pa}), (b:GraqleNode {project_id: $pb})
+    WHERE a.label = b.label OR (a.type = b.type AND a.type <> 'MODULE')
+    RETURN a.id AS source_id, a.label AS source_label, a.type AS source_type,
+           a.project_id AS source_project,
+           b.id AS target_id, b.label AS target_label, b.type AS target_type,
+           b.project_id AS target_project,
+           CASE WHEN a.label = b.label THEN 'SAME_NAME' ELSE 'SAME_TYPE' END AS connection_type
+    ORDER BY connection_type, a.label
+    LIMIT $lim
+    """
+    return execute_query(query, {"pa": project_a, "pb": project_b, "lim": limit})
+
+
+def list_all_projects() -> list[dict]:
+    """List all projects in Neptune with node/edge counts."""
+    query = """
+    MATCH (n:GraqleNode)
+    WITH n.project_id AS project_id, count(n) AS node_count,
+         collect(DISTINCT n.type) AS types
+    RETURN project_id, node_count, size(types) AS type_count
+    ORDER BY node_count DESC
+    """
+    return execute_query(query)
+
+
 # ─── Health & Utility ───────────────────────────────────────────────────────
 
 def neptune_health() -> dict:
