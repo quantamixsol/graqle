@@ -53,6 +53,14 @@ _MULTI_HOP_PATTERNS = [
     r"\brelationship\s+between\b",
     r"\bwhat\s+(?:files|components|services|modules)\b",
     r"\bexplain\s+(?:how|the|this)\b",
+    # Multi-file / broad-scope patterns
+    r"\baudit\b",
+    r"\bconsistency\b",
+    r"\bcompleteness\b",
+    r"\bcompare\b",
+    r"\bacross\s+(?:files|touchpoints|guidelines|modules|services)\b",
+    r"\breview\s+(?:all|every|each)\b",
+    r"\bcheck\s+(?:all|every|each)\b",
 ]
 
 # Entity/framework markers (EU regulatory domain + general dev)
