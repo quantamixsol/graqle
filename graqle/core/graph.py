@@ -185,8 +185,8 @@ def _read_modify_write(file_path: str, modify_fn) -> None:
         if result is not None:
             data = result
 
-        # Validate before writing
-        _validate_graph_data(data, existing_path=None)
+        # Validate before writing (pass existing_path for loss protection)
+        _validate_graph_data(data, existing_path=file_path)
 
         # Write back under same lock
         content = _json.dumps(data, indent=2, default=str)
