@@ -3,9 +3,10 @@
 
 # gra**Q**le
 
-### Stop feeding files to your AI. Feed it your architecture.
+### Give your AI a brain that understands your code.
 
-The intelligence layer for vibe coders who want their AI to actually understand the codebase.
+Claude, Cursor, Copilot — they read files. Graqle gives them a knowledge graph
+of your entire architecture. 500 tokens instead of 50,000. Real answers instead of guesses.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
@@ -19,27 +20,24 @@ The intelligence layer for vibe coders who want their AI to actually understand 
 
 ---
 
-## The problem every vibe coder hits
+## The vibe coding wall
 
 You're deep in flow. Claude/Cursor/Copilot is writing code. You ask: *"What breaks if I change auth?"*
 
 Your AI reads 60 files. Burns 50,000 tokens. Takes 3 minutes. **And still guesses** — because reading files is not understanding architecture.
 
 ```bash
-pip install graqle
-graq init
+pip install graqle && graq init
 ```
 
-Now your AI assistant has a knowledge graph of your entire codebase. It doesn't read files anymore — it **queries your architecture**.
-
-**500 tokens. 5 seconds. $0.0003. Verified answer with confidence score.**
+**Your AI is now architecture-aware. 500 tokens. 5 seconds. $0.0003. Verified answer with confidence score.**
 
 ---
 
 ## How it works (30 seconds)
 
 ```
-Step 1:  graq init                              # Scans your repo → builds knowledge graph → auto-wires into your IDE
+Step 1:  graq init                              # Scans your repo → builds knowledge graph → auto-wires MCP into your IDE
 Step 2:  Ask your AI anything                   # Claude/Cursor/Copilot now uses graq_reason, graq_impact, graq_context
 Step 3:  graq studio                            # See your architecture as an interactive visual dashboard
 ```
@@ -50,23 +48,29 @@ Graqle turns your codebase into a graph. Every module becomes a reasoning agent.
 
 ---
 
-## Built for the way you actually code
+## Your AI is fast. But is it right?
 
-If you use AI to write code, you've felt the pain:
+Vibe coding is incredible — until your AI breaks something it didn't understand. It reads files one at a time, has no idea what connects to what, and burns 50K tokens to give you a guess.
+
+The answer isn't a smarter model. It's giving your model the right context.
 
 | Your AI without Graqle | Your AI with Graqle |
 |------------------------|-------------------|
 | Reads random files hoping to find context | Queries a graph that **knows** the relationships |
-| Burns 50K tokens per question | Uses 500 tokens (99% reduction) |
+| Burns 50K tokens per question | Uses 500 tokens (100x reduction) |
 | Loses context when conversation gets long | Graph persists — context is never lost |
 | Can't trace dependencies | `graq_impact` shows the full blast radius |
 | Repeats past mistakes | `graq_lessons` surfaces them before you do |
 | Forgets what you taught it | `graq_learn` — the graph remembers everything |
-| Same dumb answers no matter how much you use it | Self-learning — gets smarter with every query |
+| Same answers no matter how much you use it | Self-learning — gets smarter with every query |
 
 ---
 
-## Zero-config IDE support
+## Make your AI actually understand your code
+
+### Your AI assistant, supercharged
+
+One command and your AI gets 7 new superpowers via MCP. It stops reading files and starts querying a knowledge graph. Same AI, dramatically better answers.
 
 | IDE | Setup | What happens |
 |-----|-------|-------------|
@@ -76,7 +80,7 @@ If you use AI to write code, you've felt the pain:
 | **Windsurf** | `graq init --ide windsurf` | MCP + .windsurfrules |
 | **Any IDE** | `graq init --ide generic` | CLI works everywhere |
 
-After `graq init`, your AI assistant automatically gets these graph-powered tools:
+After `graq init`, your AI automatically gets these graph-powered tools:
 
 | MCP Tool | What it does | Why vibe coders love it |
 |----------|-------------|----------------------|
@@ -90,9 +94,26 @@ After `graq init`, your AI assistant automatically gets these graph-powered tool
 
 ---
 
-## Self-learning — the graph gets smarter
+### 100x fewer tokens. 500x cheaper.
 
-This is what makes Graqle different from every other dev tool:
+Your AI reads 60 files per question — 50,000 tokens, $0.15 each. Graqle gives it exactly the right 500 tokens of structured context. Same question, 100x less context, better answer. For a team of 10, that's $9,000/year saved.
+
+| | Graqle | Reading files |
+|---|:---:|:---:|
+| Tokens per query | **500** | 50,000 |
+| Cost per query | **$0.0003** | $0.15 |
+| Time to answer | **5 sec** | 3+ min |
+| Confidence scored | **Yes** | No |
+
+---
+
+### Confidence scores. Not vibes.
+
+Every answer comes with a confidence percentage, which graph nodes were consulted, and exact token cost. When confidence is low, Graqle tells you what's missing — no more "I think this is how it works." You ship decisions based on evidence.
+
+---
+
+### Self-learning — the graph gets smarter
 
 ```
 You code → graq learn → graph grows → auto-recompile → AI gets smarter → you code better → repeat
@@ -102,7 +123,7 @@ Other tools give static analysis. Graqle gives you a **living knowledge graph** 
 
 ---
 
-## Intelligence compilation
+### Intelligence compilation
 
 ```bash
 graq compile
@@ -115,13 +136,13 @@ One command. Your entire codebase analyzed:
 - **135 actionable insights** — warnings you'd never find manually
 - **CLAUDE.md auto-injection** — your AI learns your architecture automatically
 
-This is the difference between "AI that reads your code" and "AI that understands your system."
+The difference between "AI that reads your code" and "AI that understands your system."
 
 ---
 
-## Governed AI reasoning (DRACE)
+### Governed AI. Audit everything. (DRACE)
 
-Every answer is scored: **D**ata quality, **R**elevance, **A**ccuracy, **C**ompleteness, **E**vidence.
+Every AI decision is scored on 5 axes: **D**ata quality, **R**elevance, **A**ccuracy, **C**ompleteness, **E**vidence.
 
 - Tamper-evident audit trails (hash-chained)
 - Evidence linking every answer to source code
@@ -129,7 +150,13 @@ Every answer is scored: **D**ata quality, **R**elevance, **A**ccuracy, **C**ompl
 - `graq verify` — governance gate before you deploy
 
 Your team lead asks: *"How do we know the AI isn't hallucinating?"*
-You show them the DRACE score.
+You show them the DRACE dashboard.
+
+---
+
+### Your machine. Your keys. Your data.
+
+Run offline with Ollama ($0). Use your own Claude, GPT-4, or Gemini keys. Deploy on Bedrock for enterprise. 14 backends, one config line. Graqle never phones home — your code stays on your infrastructure.
 
 ---
 
@@ -198,18 +225,11 @@ graq studio                                   # Local dashboard
 
 ## The numbers
 
-| | Graqle | Reading files |
-|---|:---:|:---:|
-| Tokens per query | **500** | 50,000 |
-| Cost per query | **$0.0003** | $0.15 |
-| Time to answer | **5 sec** | 3+ min |
-| Confidence scored | **Yes** | No |
-
 | Graqle stats | |
 |---|---|
-| Tests | 2,009 |
-| Modules | 396 |
-| Skills | 201 |
+| Tests passing | 2,009 |
+| Modules compiled | 396 |
+| Skills available | 201 |
 | LLM backends | 14 |
 | Patented innovations | 15 |
 
@@ -235,7 +255,7 @@ graq learn node "auth-service" --type SERVICE
 graq learn edge "payments" "auth" -r DEPENDS_ON
 graq learn doc architecture.pdf               # Ingest documents
 
-# Cloud
+# Cloud (new in v0.29.0)
 graq login --api-key grq_your_key             # Connect to cloud
 graq cloud push                               # Upload graph
 graq cloud pull                               # Download graph
@@ -307,6 +327,25 @@ Cross-source linking. Deduplication. Contradiction detection. Automatic.
 
 ---
 
+## FAQ
+
+**I already use Cursor / Claude Code / Copilot. Why do I need this?**
+Graqle doesn't replace your AI — it makes it dramatically better. Your AI reads files one at a time and guesses at relationships. With Graqle, it queries a knowledge graph that knows your architecture. Same AI, 100x fewer tokens, real answers. Zero workflow change — plugs in via MCP.
+
+**How fast is the setup?**
+Two commands: `pip install graqle && graq init`. Under 10 seconds. No config files, no schema, no cloud accounts. Scans your code, builds the graph, wires MCP tools into your IDE automatically.
+
+**My AI already gives decent answers. What's different?**
+Ask "what breaks if I change auth?" — your AI will read random files and guess. Graqle traverses the actual dependency graph, finds the 3 modules that consume auth, tells you exactly what breaks — with a confidence score. Searching vs understanding.
+
+**Is it free? Actually free?**
+Yes. Apache 2.0 — all 15 patented innovations, every MCP tool, all 14 backends. Free tier is the full product. We monetize team features. No trials. No credit card.
+
+**Does my code leave my machine?**
+Never. Runs entirely on your machine. No cloud. No telemetry. Use your own API keys or run offline with Ollama. Cloud sync is opt-in and only uploads the graph structure, never source code.
+
+---
+
 ## 15 patented innovations, all open source
 
 European Patent EP26162901.8. Every innovation is free under Apache 2.0.
@@ -317,7 +356,7 @@ Chunk-level scoring, convergent message passing, 3-layer governance, adaptive ac
 
 <div align="center">
 
-### Your AI assistant is only as smart as the context you give it.
+### Your AI is only as good as the context you give it.
 
 ### Give it your architecture.
 
