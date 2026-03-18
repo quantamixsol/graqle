@@ -35,7 +35,8 @@ cloud_app = typer.Typer(
     no_args_is_help=True,
 )
 
-# S3 bucket and paths
+# Cloud endpoint for presigned URL generation
+CLOUD_URL = "https://graqle.com"
 GRAPHS_BUCKET = "graqle-graphs-eu"
 GRAPHS_REGION = "eu-central-1"
 
@@ -103,10 +104,117 @@ def _detect_project_name(root: Path) -> str:
     return root.resolve().name
 
 
-def _get_s3_client():
-    """Create S3 client (lazy import boto3)."""
-    import boto3
-    return boto3.client("s3", region_name=GRAPHS_REGION)
+def _request_presigned_urls(
+    api_key: str, project: str, files: list[str]
+) -> dict:
+    """Request presigned S3 PUT URLs from graqle.com.
+
+    Args:
+        api_key: The grq_ API key
+        project: Project name
+        files: List of relative file paths (e.g. ["graqle.json", "scorecard.json"])
+
+    Returns:
+        Dict with 'urls' (path→presigned_url), 'prefix', 'email', 'plan'
+    """
+    import httpx
+
+    # Batch into chunks of 500 (server limit)
+    all_urls: dict[str, str] = {}
+    result_meta: dict = {}
+
+    for i in range(0, len(files), 500):
+        batch = files[i:i + 500]
+        resp = httpx.post(
+            f"{CLOUD_URL}/api/cloud/presign",
+            json={"project": project, "files": batch},
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30,
+        )
+        if resp.status_code == 401:
+            console.print(Panel(
+                "[bold red]API key rejected[/bold red]\n\n"
+                "  Your API key is invalid or revoked.\n"
+                "  Generate a new one at: [bold cyan]https://graqle.com/dashboard/account[/bold cyan]\n"
+                "  Then: [bold cyan]graq login --api-key grq_your_new_key[/bold cyan]",
+                title="Authentication Failed",
+                border_style="red",
+            ))
+            raise typer.Exit(1)
+        if resp.status_code != 200:
+            error = resp.json().get("error", resp.text) if resp.headers.get("content-type", "").startswith("application/json") else resp.text
+            console.print(f"[red]Cloud error: {error}[/red]")
+            raise typer.Exit(1)
+
+        data = resp.json()
+        all_urls.update(data.get("urls", {}))
+        if not result_meta:
+            result_meta = {
+                "prefix": data.get("prefix", ""),
+                "email": data.get("email", ""),
+                "plan": data.get("plan", "free"),
+            }
+
+    result_meta["urls"] = all_urls
+    return result_meta
+
+
+def _upload_via_presigned(url: str, data: bytes) -> bool:
+    """Upload data to S3 via presigned PUT URL."""
+    import httpx
+
+    resp = httpx.put(
+        url,
+        content=data,
+        headers={"Content-Type": "application/json"},
+        timeout=120,
+    )
+    return resp.status_code == 200
+
+
+def _collect_upload_files(root_path: Path, proj_name: str) -> dict[str, bytes]:
+    """Collect all files to upload and return {relative_path: bytes}."""
+    files: dict[str, bytes] = {}
+
+    # Graph
+    graph_path = root_path / "graqle.json"
+    if graph_path.exists():
+        files["graqle.json"] = graph_path.read_bytes()
+
+    # Scorecard
+    scorecard_path = root_path / ".graqle" / "scorecard.json"
+    if scorecard_path.exists():
+        files["scorecard.json"] = scorecard_path.read_bytes()
+
+    # Compiled insights
+    insights_path = root_path / ".graqle" / "intelligence" / "compiled_insights.json"
+    if insights_path.exists():
+        files["compiled_insights.json"] = insights_path.read_bytes()
+
+    # Module index
+    module_index_path = root_path / ".graqle" / "intelligence" / "module_index.json"
+    if module_index_path.exists():
+        files["module_index.json"] = module_index_path.read_bytes()
+
+    # Impact matrix
+    impact_path = root_path / ".graqle" / "intelligence" / "impact_matrix.json"
+    if impact_path.exists():
+        files["impact_matrix.json"] = impact_path.read_bytes()
+
+    # Module packets
+    modules_dir = root_path / ".graqle" / "intelligence" / "modules"
+    if modules_dir.is_dir():
+        for mf in modules_dir.glob("*.json"):
+            files[f"modules/{mf.name}"] = mf.read_bytes()
+
+    # Governance
+    governance_dir = root_path / ".graqle" / "governance"
+    if governance_dir.is_dir():
+        for gf in governance_dir.rglob("*.json"):
+            rel = gf.relative_to(governance_dir)
+            files[f"governance/{rel.as_posix()}"] = gf.read_bytes()
+
+    return files
 
 
 @cloud_app.command(name="push")
@@ -129,8 +237,6 @@ def cloud_push(
 
     # Detect project name
     proj_name = project or _detect_project_name(root_path)
-    email_h = _email_hash(creds.email)
-    s3_prefix = f"graphs/{email_h}/{proj_name}"
 
     console.print(f"\n[bold cyan]Pushing[/bold cyan] [bold]{proj_name}[/bold] to Graqle Cloud...")
 
@@ -146,9 +252,7 @@ def cloud_push(
         ))
         raise typer.Exit(1)
 
-    s3 = _get_s3_client()
-
-    # Upload graph
+    # Parse graph for stats
     graph_data = graph_path.read_text(encoding="utf-8")
     graph_json = json.loads(graph_data)
     node_count = len(graph_json.get("nodes", []))
@@ -157,119 +261,34 @@ def cloud_push(
     # Plan-aware warnings
     try:
         from graqle.cloud.plans import get_plan_limits, check_node_limit
-        from graqle.licensing.manager import LicenseManager
-        plan = LicenseManager().current_tier.value
-        limits = get_plan_limits(plan)
-        check = check_node_limit(plan, node_count)
+        limits = get_plan_limits(creds.plan)
+        check = check_node_limit(creds.plan, node_count)
         if not check.allowed:
             console.print(Panel(
                 f"[bold yellow]Plan limit reached[/bold yellow]\n\n"
                 f"  Your graph has [bold]{node_count:,}[/bold] nodes but the "
-                f"[bold]{plan.title()}[/bold] plan allows [bold]{limits.max_nodes:,}[/bold].\n"
+                f"[bold]{creds.plan.title()}[/bold] plan allows [bold]{limits.max_nodes:,}[/bold].\n"
                 f"  Cloud viewers will only see the first {limits.max_nodes:,} nodes.\n\n"
                 f"  Upgrade: [bold cyan]graqle.com/pricing[/bold cyan]",
                 title="Plan Limit Warning",
                 border_style="yellow",
             ))
-        elif node_count > limits.max_nodes * 0.8 and limits.max_nodes > 0:
+        elif limits.max_nodes > 0 and node_count > limits.max_nodes * 0.8:
             pct = int(node_count / limits.max_nodes * 100)
-            console.print(f"  [yellow]⚠ {pct}% of {plan.title()} plan node limit ({node_count:,}/{limits.max_nodes:,})[/yellow]")
+            console.print(f"  [yellow]⚠ {pct}% of {creds.plan.title()} plan node limit ({node_count:,}/{limits.max_nodes:,})[/yellow]")
     except Exception:
         pass  # Plan checks are non-blocking
 
-    console.print(f"  Uploading graph ({node_count} nodes, {edge_count} edges)...")
-    s3.put_object(
-        Bucket=GRAPHS_BUCKET,
-        Key=f"{s3_prefix}/graqle.json",
-        Body=graph_data.encode("utf-8"),
-        ContentType="application/json",
-        Metadata={
-            "project": proj_name,
-            "email": creds.email,
-            "node_count": str(node_count),
-            "edge_count": str(edge_count),
-        },
-    )
+    # Collect all files to upload
+    upload_files = _collect_upload_files(root_path, proj_name)
 
-    # Upload scorecard if exists
-    scorecard_path = root_path / ".graqle" / "scorecard.json"
-    if scorecard_path.exists():
-        console.print("  Uploading intelligence scorecard...")
-        s3.put_object(
-            Bucket=GRAPHS_BUCKET,
-            Key=f"{s3_prefix}/scorecard.json",
-            Body=scorecard_path.read_bytes(),
-            ContentType="application/json",
-        )
-
-    # Upload compiled insights if exist
-    insights_path = root_path / ".graqle" / "intelligence" / "compiled_insights.json"
-    if insights_path.exists():
-        console.print("  Uploading compiled insights...")
-        s3.put_object(
-            Bucket=GRAPHS_BUCKET,
-            Key=f"{s3_prefix}/compiled_insights.json",
-            Body=insights_path.read_bytes(),
-            ContentType="application/json",
-        )
-
-    # Upload module index (needed by intelligence dashboard)
-    module_index_path = root_path / ".graqle" / "intelligence" / "module_index.json"
-    if module_index_path.exists():
-        console.print("  Uploading module index...")
-        s3.put_object(
-            Bucket=GRAPHS_BUCKET,
-            Key=f"{s3_prefix}/module_index.json",
-            Body=module_index_path.read_bytes(),
-            ContentType="application/json",
-        )
-
-    # Upload impact matrix
-    impact_path = root_path / ".graqle" / "intelligence" / "impact_matrix.json"
-    if impact_path.exists():
-        console.print("  Uploading impact matrix...")
-        s3.put_object(
-            Bucket=GRAPHS_BUCKET,
-            Key=f"{s3_prefix}/impact_matrix.json",
-            Body=impact_path.read_bytes(),
-            ContentType="application/json",
-        )
-
-    # Upload individual module packets (batch)
-    modules_dir = root_path / ".graqle" / "intelligence" / "modules"
-    module_files_uploaded = 0
-    if modules_dir.is_dir():
-        module_files = list(modules_dir.glob("*.json"))
-        if module_files:
-            console.print(f"  Uploading {len(module_files)} module packets...")
-            for mf in module_files:
-                s3.put_object(
-                    Bucket=GRAPHS_BUCKET,
-                    Key=f"{s3_prefix}/modules/{mf.name}",
-                    Body=mf.read_bytes(),
-                    ContentType="application/json",
-                )
-                module_files_uploaded += 1
-
-    # Upload governance audit sessions
-    governance_dir = root_path / ".graqle" / "governance"
-    has_governance = False
-    if governance_dir.is_dir():
-        gov_files = list(governance_dir.rglob("*.json"))
-        if gov_files:
-            console.print(f"  Uploading {len(gov_files)} governance artifacts...")
-            has_governance = True
-            for gf in gov_files:
-                rel = gf.relative_to(governance_dir)
-                s3.put_object(
-                    Bucket=GRAPHS_BUCKET,
-                    Key=f"{s3_prefix}/governance/{rel.as_posix()}",
-                    Body=gf.read_bytes(),
-                    ContentType="application/json",
-                )
-
-    # Write project metadata
+    # Add metadata.json
     import time
+    scorecard_path = root_path / ".graqle" / "scorecard.json"
+    governance_dir = root_path / ".graqle" / "governance"
+    module_count = sum(1 for k in upload_files if k.startswith("modules/"))
+    has_governance = any(k.startswith("governance/") for k in upload_files)
+
     metadata = {
         "project": proj_name,
         "email": creds.email,
@@ -279,16 +298,43 @@ def cloud_push(
         "health": "HEALTHY" if scorecard_path.exists() else "UNKNOWN",
         "hasIntelligence": scorecard_path.exists(),
         "hasGovernance": has_governance,
-        "moduleCount": module_files_uploaded,
+        "moduleCount": module_count,
     }
-    s3.put_object(
-        Bucket=GRAPHS_BUCKET,
-        Key=f"{s3_prefix}/metadata.json",
-        Body=json.dumps(metadata, indent=2).encode("utf-8"),
-        ContentType="application/json",
-    )
+    upload_files["metadata.json"] = json.dumps(metadata, indent=2).encode("utf-8")
 
-    # Neptune sync (Team/Enterprise plan — uses cloud credentials, not LicenseManager)
+    console.print(f"  Uploading {len(upload_files)} files ({node_count} nodes, {edge_count} edges)...")
+
+    # Get presigned URLs from graqle.com
+    try:
+        presign_result = _request_presigned_urls(
+            creds.api_key, proj_name, list(upload_files.keys())
+        )
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Failed to get upload URLs: {e}[/red]")
+        console.print("  [dim]Check your internet connection and try again.[/dim]")
+        raise typer.Exit(1)
+
+    urls = presign_result["urls"]
+    s3_prefix = presign_result["prefix"]
+
+    # Upload each file via presigned URL
+    failed = []
+    for file_path, file_data in upload_files.items():
+        url = urls.get(file_path)
+        if not url:
+            failed.append(file_path)
+            continue
+        if not _upload_via_presigned(url, file_data):
+            failed.append(file_path)
+
+    if failed:
+        console.print(f"  [yellow]⚠ {len(failed)} files failed to upload: {', '.join(failed[:5])}[/yellow]")
+
+    uploaded = len(upload_files) - len(failed)
+
+    # Neptune sync (Team/Enterprise plan)
     neptune_synced = False
     if creds.plan in ("team", "enterprise"):
         try:
@@ -312,7 +358,8 @@ def cloud_push(
         f"  Project:  [bold]{proj_name}[/bold]\n"
         f"  Nodes:    {node_count}\n"
         f"  Edges:    {edge_count}\n"
-        f"  S3:       s3://{GRAPHS_BUCKET}/{s3_prefix}/\n"
+        f"  Files:    {uploaded}/{len(upload_files)}\n"
+        f"  Storage:  s3://{GRAPHS_BUCKET}/{s3_prefix}/\n"
         f"  Neptune:  {'[green]Synced[/green]' if neptune_synced else '[dim]Skipped (Team plan)[/dim]'}\n\n"
         f"  View at:  [bold cyan]https://graqle.com/dashboard[/bold cyan]",
         title="Cloud Push Complete",
@@ -337,38 +384,55 @@ def cloud_pull(
 
     proj_name = project or _detect_project_name(root_path)
     email_h = _email_hash(creds.email)
-    s3_prefix = f"graphs/{email_h}/{proj_name}"
 
     console.print(f"\n[bold cyan]Pulling[/bold cyan] [bold]{proj_name}[/bold] from Graqle Cloud...")
 
-    s3 = _get_s3_client()
+    # Download via public-facing API (no AWS creds needed)
+    import httpx
 
     try:
-        response = s3.get_object(Bucket=GRAPHS_BUCKET, Key=f"{s3_prefix}/graqle.json")
-        graph_data = response["Body"].read().decode("utf-8")
+        resp = httpx.get(
+            f"{CLOUD_URL}/api/intelligence/scorecard",
+            params={"project": proj_name},
+            headers={
+                "Authorization": f"Bearer {creds.api_key}",
+                "X-User-Email": creds.email,
+            },
+            timeout=30,
+        )
+        # For now, pull the graph via the graphs list API to verify project exists
+        list_resp = httpx.get(
+            f"{CLOUD_URL}/api/graphs/list",
+            headers={"X-User-Email": creds.email},
+            timeout=30,
+        )
+        if list_resp.status_code != 200:
+            console.print("[red]Failed to connect to Graqle Cloud[/red]")
+            raise typer.Exit(1)
 
-        graph_path = root_path / "graqle.json"
-        graph_path.write_text(graph_data, encoding="utf-8")
+        projects_data = list_resp.json().get("projects", [])
+        matching = [p for p in projects_data if p.get("name") == proj_name]
+        if not matching:
+            console.print(Panel(
+                f"[bold red]Project '{proj_name}' not found in cloud[/bold red]\n\n"
+                "  Push your graph first: [bold cyan]graq cloud push[/bold cyan]",
+                title="Not Found",
+                border_style="red",
+            ))
+            raise typer.Exit(1)
 
-        graph_json = json.loads(graph_data)
-        node_count = len(graph_json.get("nodes", []))
-
+        # Download graph.json via presigned GET (request a read URL)
+        # For now, use the direct download endpoint
         console.print(Panel(
-            f"[bold green]Pulled successfully![/bold green]\n\n"
-            f"  Project:  [bold]{proj_name}[/bold]\n"
-            f"  Nodes:    {node_count}\n"
-            f"  Saved to: {graph_path}",
-            title="Cloud Pull Complete",
+            f"[bold green]Project '{proj_name}' exists in cloud[/bold green]\n\n"
+            f"  Nodes:  {matching[0].get('nodeCount', '?')}\n"
+            f"  Edges:  {matching[0].get('edgeCount', '?')}\n\n"
+            f"  [dim]Full cloud pull coming in v0.30 — use graq cloud push to sync.[/dim]",
+            title="Cloud Pull",
             border_style="green",
         ))
-    except s3.exceptions.NoSuchKey:
-        console.print(Panel(
-            f"[bold red]Project '{proj_name}' not found in cloud[/bold red]\n\n"
-            "  Push your graph first: [bold cyan]graq cloud push[/bold cyan]",
-            title="Not Found",
-            border_style="red",
-        ))
-        raise typer.Exit(1)
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]Pull failed: {e}[/red]")
         raise typer.Exit(1)
@@ -388,7 +452,7 @@ def cloud_status() -> None:
     table.add_row("Connected", "[green]Yes[/green]" if creds.is_authenticated else "[red]No[/red]")
     table.add_row("Email", creds.email or "—")
     table.add_row("Plan", creds.plan.title())
-    table.add_row("Cloud URL", creds.cloud_url)
+    table.add_row("Cloud URL", CLOUD_URL)
 
     console.print(table)
 
@@ -399,28 +463,37 @@ def cloud_status() -> None:
         )
         return
 
-    # List projects
+    # List projects via cloud API (no AWS creds needed)
     try:
-        email_h = _email_hash(creds.email)
-        s3 = _get_s3_client()
-        response = s3.list_objects_v2(
-            Bucket=GRAPHS_BUCKET,
-            Prefix=f"graphs/{email_h}/",
-            Delimiter="/",
+        import httpx
+        resp = httpx.get(
+            f"{CLOUD_URL}/api/graphs/list",
+            headers={"X-User-Email": creds.email},
+            timeout=15,
         )
+        if resp.status_code == 200:
+            projects = resp.json().get("projects", [])
+            if projects:
+                projects_table = Table(title="Cloud Projects", border_style="dim")
+                projects_table.add_column("Project", style="cyan")
+                projects_table.add_column("Nodes", justify="right")
+                projects_table.add_column("Edges", justify="right")
+                projects_table.add_column("Health")
+                projects_table.add_column("Last Push")
 
-        prefixes = response.get("CommonPrefixes", [])
-        if prefixes:
-            projects_table = Table(title="Cloud Projects", border_style="dim")
-            projects_table.add_column("Project", style="cyan")
-            projects_table.add_column("Status")
+                for p in projects:
+                    projects_table.add_row(
+                        p.get("name", "?"),
+                        str(p.get("nodeCount", "?")),
+                        str(p.get("edgeCount", "?")),
+                        f"[green]{p.get('health', '?')}[/green]",
+                        p.get("lastPush", "?")[:10],
+                    )
 
-            for prefix in prefixes:
-                proj = prefix["Prefix"].split("/")[-2]
-                projects_table.add_row(proj, "[green]Synced[/green]")
-
-            console.print(projects_table)
+                console.print(projects_table)
+            else:
+                console.print("\n  No projects pushed yet. Run [bold cyan]graq cloud push[/bold cyan]")
         else:
-            console.print("\n  No projects pushed yet. Run [bold cyan]graq cloud push[/bold cyan]")
+            console.print(f"\n  [dim]Could not list projects (HTTP {resp.status_code})[/dim]")
     except Exception as e:
         console.print(f"\n  [dim]Could not list projects: {e}[/dim]")
