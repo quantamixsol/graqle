@@ -456,6 +456,26 @@ class TestRepoScanner:
         ]
         assert len(matching) == 1
 
+    def test_scan_repo_max_files(self, tmp_path):
+        """--max-files limits the number of files the scanner processes."""
+        # Create 10 Python files
+        for i in range(10):
+            (tmp_path / f"mod_{i}.py").write_text(f"x_{i} = {i}\ndef func_{i}(): pass\n")
+
+        # Scan with max_files=3
+        scanner = RepoScanner(tmp_path, max_files=3)
+        files = scanner._collect_files()
+        assert len(files) == 3
+
+    def test_scan_repo_max_files_zero_is_unlimited(self, tmp_path):
+        """max_files=0 means no limit (default behavior)."""
+        for i in range(5):
+            (tmp_path / f"mod_{i}.py").write_text(f"x_{i} = {i}\ndef func_{i}(): pass\n")
+
+        scanner = RepoScanner(tmp_path, max_files=0)
+        files = scanner._collect_files()
+        assert len(files) == 5
+
 
 # ---------------------------------------------------------------------------
 # _is_test_file
