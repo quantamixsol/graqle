@@ -135,19 +135,45 @@ def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
 
 
 def _write_with_lock(file_path: str, content: str) -> None:
-    """Write content to a file with cross-platform file locking.
+    """Write content to a file with cross-platform file locking and atomic rename.
 
     Uses ``msvcrt.locking`` on Windows and ``fcntl.flock`` on Unix to
     prevent concurrent write corruption when multiple agents or processes
     access the same graph file.
+
+    Writes to a temporary file first, then renames to the target path.
+    This prevents data loss if serialization or disk write fails mid-way
+    (e.g. MemoryError, disk full). The original file is only replaced
+    after the new content is fully written and flushed.
     """
+    import os
+    import tempfile
+
     lock_path = file_path + ".lock"
     fd = None
+    tmp_path = None
     try:
         fd = _acquire_lock(lock_path)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        # Write to temp file in same directory (ensures same filesystem for rename)
+        dir_path = os.path.dirname(file_path) or "."
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=dir_path,
+            suffix=".tmp", delete=False,
+        ) as tmp:
+            tmp_path = tmp.name
+            tmp.write(content)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        # Atomic rename (POSIX) / near-atomic (Windows)
+        os.replace(tmp_path, file_path)
+        tmp_path = None  # Rename succeeded, don't clean up
     finally:
+        # Clean up temp file if rename didn't happen
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
         _release_lock(fd, lock_path)
 
 
@@ -1967,9 +1993,14 @@ class Graqle:
             G.add_node(nid, label=node.label, type=node.entity_type,
                        description=node.description, **node.properties)
         for eid, edge in self.edges.items():
+            # Filter out keys already passed as named args to avoid
+            # "got multiple values for keyword argument" when properties
+            # contain 'relationship' or 'weight' (e.g. loaded from Neo4j).
+            props = {k: v for k, v in edge.properties.items()
+                     if k not in ("relationship", "weight")}
             G.add_edge(edge.source_id, edge.target_id,
                        relationship=edge.relationship, weight=edge.weight,
-                       **edge.properties)
+                       **props)
         return G
 
     # --- Inspection ---

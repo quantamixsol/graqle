@@ -151,9 +151,8 @@ def link_merge(
         "links": merged_links,
     }
 
-    Path(output).write_text(
-        json.dumps(merged_data, indent=2, default=str), encoding="utf-8"
-    )
+    from graqle.core.graph import _write_with_lock
+    _write_with_lock(str(Path(output)), json.dumps(merged_data, indent=2, default=str))
 
     console.print(f"\n[bold green]{CHECK} Merged {len(sources)} projects[/bold green]")
     table = Table(title="Merge Summary")
@@ -591,7 +590,7 @@ def link_infer(
     if not dry_run and all_new:
         links.extend(all_new)
         data["links"] = links
-        p.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        _write_with_lock(str(p), json.dumps(data, indent=2, default=str))
         console.print(f"\n  {CHECK} Saved to {graph_path}")
         console.print(f"  Total edges now: {len(links)}")
     elif dry_run:

@@ -136,13 +136,11 @@ def rebuild_command(
 
 
 def _save_graph(graph: Graqle, path: str) -> None:
-    """Save graph back to JSON, preserving node_link format."""
+    """Save graph back to JSON, preserving node_link format (atomic write)."""
     import networkx as nx
+    from graqle.core.graph import _write_with_lock
 
     G = graph.to_networkx()
     data = nx.node_link_data(G, edges="links")
-
-    Path(path).write_text(
-        json.dumps(data, indent=2, ensure_ascii=False, default=str),
-        encoding="utf-8",
-    )
+    content = json.dumps(data, indent=2, ensure_ascii=False, default=str)
+    _write_with_lock(path, content)
