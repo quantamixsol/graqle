@@ -283,11 +283,10 @@ def grow_command(
     merged = _merge_graphs(existing, new_nodes, new_links)
     stats = merged.pop("_merge_stats", {})
 
-    # Write
-    graph_path.write_text(
-        json.dumps(merged, indent=2, default=str, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    # Write (atomic: temp file + rename to prevent data loss on MemoryError)
+    from graqle.core.graph import _write_with_lock
+    content = json.dumps(merged, indent=2, default=str, ensure_ascii=False)
+    _write_with_lock(str(graph_path), content)
 
     elapsed = time.perf_counter() - start
 

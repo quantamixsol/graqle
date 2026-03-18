@@ -2229,9 +2229,8 @@ class KogniDevServer:
 
             G = graph.to_networkx()
             data = nx.node_link_data(G)
-            Path(self._graph_file).write_text(
-                json.dumps(data, indent=2, default=str), encoding="utf-8"
-            )
+            from graqle.core.graph import _write_with_lock
+            _write_with_lock(str(self._graph_file), json.dumps(data, indent=2, default=str))
             logger.info("Graph saved to %s", self._graph_file)
         except Exception as exc:
             logger.error("Failed to save graph: %s", exc)

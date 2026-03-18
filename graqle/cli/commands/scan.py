@@ -2015,9 +2015,11 @@ def _scan_repo_impl(
         if verbose:
             console.print(f"[dim]React scan skipped: {exc}[/dim]")
 
-    # Write JSON
+    # Write JSON (atomic: temp file + rename to prevent data loss)
+    from graqle.core.graph import _write_with_lock
     out_path = Path(output)
-    out_path.write_text(json.dumps(data, indent=2, default=str))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_with_lock(str(out_path), json.dumps(data, indent=2, default=str))
 
     # Print summary
     console.print()

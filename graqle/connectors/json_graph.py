@@ -45,9 +45,10 @@ class JSONGraphConnector(BaseConnector):
         nodes: dict[str, Any],
         edges: dict[str, Any],
     ) -> None:
-        """Save graph to JSON file."""
+        """Save graph to JSON file (atomic write)."""
+        from graqle.core.graph import _write_with_lock
         data = {"nodes": nodes, "edges": edges}
-        self.path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        _write_with_lock(str(self.path), json.dumps(data, indent=2, default=str))
 
     def validate(self) -> bool:
         return self.path.exists()
