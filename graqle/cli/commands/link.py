@@ -30,6 +30,23 @@ from rich.console import Console
 from rich.table import Table
 
 from graqle.cli.console import ARROW, CHECK
+from graqle.core.graph import _write_with_lock
+
+# Tokens too generic to be meaningful for cross-project name similarity
+_NAME_SIMILARITY_STOPLIST = {
+    # Original 14
+    "test", "spec", "index", "main", "util", "utils", "helper",
+    "helpers", "types", "type", "config", "const", "model",
+    "component", "service", "module", "init", "base", "abstract",
+    # Common code tokens (high false-positive rate)
+    "handler", "handlers", "store", "stores", "data", "error", "errors",
+    "state", "context", "provider", "providers", "router", "page", "view",
+    "form", "list", "item", "items", "user", "users", "auth", "hook",
+    "hooks", "action", "actions", "reducer", "reducers", "schema", "query",
+    "client", "server", "manager", "factory", "wrapper", "layout", "default",
+    "common", "shared", "core", "setup", "create", "update", "delete",
+    "fetch", "load", "save", "render", "parse", "build", "handle",
+}
 
 link_app = typer.Typer(
     name="link",
@@ -151,7 +168,6 @@ def link_merge(
         "links": merged_links,
     }
 
-    from graqle.core.graph import _write_with_lock
     _write_with_lock(str(Path(output)), json.dumps(merged_data, indent=2, default=str))
 
     console.print(f"\n[bold green]{CHECK} Merged {len(sources)} projects[/bold green]")
@@ -477,11 +493,7 @@ def _infer_name_similarity_edges(
             subtokens = re.findall(r"[A-Z][a-z]+|[a-z]+|[A-Z]+(?=[A-Z]|$)", part)
             for t in subtokens:
                 t_lower = t.lower()
-                if len(t_lower) >= 4 and t_lower not in {
-                    "test", "spec", "index", "main", "util", "utils", "helper",
-                    "helpers", "types", "type", "config", "const", "model",
-                    "component", "service", "module", "init", "base", "abstract",
-                }:
+                if len(t_lower) >= 4 and t_lower not in _NAME_SIMILARITY_STOPLIST:
                     tokens.add(t_lower)
 
         if not tokens:
@@ -503,26 +515,36 @@ def _infer_name_similarity_edges(
     projects = list(project_tokens.keys())
     for i, proj_a in enumerate(projects):
         for proj_b in projects[i + 1:]:
-            # Find shared tokens
+            # Find shared tokens between these two projects
             shared_tokens = set(project_tokens[proj_a].keys()) & set(project_tokens[proj_b].keys())
+            if not shared_tokens:
+                continue
+
+            # Build pair → shared-tokens map (require 2+ shared tokens per pair)
+            pair_tokens: dict[tuple[str, str], list[str]] = {}
             for token in shared_tokens:
-                nodes_a = project_tokens[proj_a][token][:5]
-                nodes_b = project_tokens[proj_b][token][:5]
+                nodes_a = project_tokens[proj_a][token][:3]  # cap per-token
+                nodes_b = project_tokens[proj_b][token][:3]
                 for nid_a in nodes_a:
                     for nid_b in nodes_b:
-                        edge_key = (nid_a, nid_b, "RELATED_TO")
-                        if edge_key not in existing_edges:
-                            new_edges.append({
-                                "source": nid_a,
-                                "target": nid_b,
-                                "relationship": "RELATED_TO",
-                                "properties": {
-                                    "inferred": True,
-                                    "method": "name_similarity",
-                                    "shared_token": token,
-                                },
-                            })
-                            existing_edges.add(edge_key)
+                        pair_tokens.setdefault((nid_a, nid_b), []).append(token)
+
+            # Only create edges for pairs sharing 2+ domain tokens
+            for (nid_a, nid_b), tokens in pair_tokens.items():
+                if len(tokens) >= 2:
+                    edge_key = (nid_a, nid_b, "RELATED_TO")
+                    if edge_key not in existing_edges:
+                        new_edges.append({
+                            "source": nid_a,
+                            "target": nid_b,
+                            "relationship": "RELATED_TO",
+                            "properties": {
+                                "inferred": True,
+                                "method": "name_similarity",
+                                "shared_tokens": tokens,
+                            },
+                        })
+                        existing_edges.add(edge_key)
 
     return new_edges
 
@@ -532,6 +554,10 @@ def link_infer(
     graph_path: str = typer.Argument("graqle.json", help="Path to merged graph file"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show inferred edges without saving"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show each inferred edge"),
+    strategy: str = typer.Option(
+        "all", "--strategy", "-s",
+        help="Inference strategies to run: api, env, name, all (comma-separated)",
+    ),
 ) -> None:
     """Infer cross-project edges in a merged graph.
 
@@ -556,13 +582,19 @@ def link_infer(
     nodes = data.get("nodes", [])
     links = data.get("links", data.get("edges", []))
 
+    # Parse strategy selection
+    strategies = {s.strip().lower() for s in strategy.split(",")}
+    if "all" in strategies:
+        strategies = {"api", "env", "name"}
+
     console.print("[bold]Inferring cross-project edges...[/bold]")
     console.print(f"  Graph: {len(nodes)} nodes, {len(links)} edges")
+    console.print(f"  Strategies: {', '.join(sorted(strategies))}")
 
-    # Run all inference strategies
-    api_edges = _infer_api_edges(nodes, links)
-    env_edges = _infer_env_var_edges(nodes, links)
-    name_edges = _infer_name_similarity_edges(nodes, links)
+    # Run selected inference strategies
+    api_edges = _infer_api_edges(nodes, links) if "api" in strategies else []
+    env_edges = _infer_env_var_edges(nodes, links) if "env" in strategies else []
+    name_edges = _infer_name_similarity_edges(nodes, links) if "name" in strategies else []
 
     all_new = api_edges + env_edges + name_edges
 
