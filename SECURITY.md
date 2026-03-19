@@ -67,4 +67,4 @@ We monitor dependencies for known vulnerabilities using GitHub Dependabot. All d
 
 ## License
 
-Graqle is open source under the Apache 2.0 license. You can audit the entire codebase at [github.com/quantamixsol/graqle](https://github.com/quantamixsol/graqle).
+Graqle source code is fully auditable. See [LICENSE](LICENSE) for terms. The codebase is available at [github.com/quantamixsol/graqle](https://github.com/quantamixsol/graqle).

@@ -11,7 +11,7 @@ dependencies, impact paths, and institutional memory — so it reasons over stru
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
 [![Tests: 2009 passing](https://img.shields.io/badge/tests-2%2C009%20passing-06b6d4.svg)]()
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-06b6d4.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/graqle?color=06b6d4)](https://pypi.org/project/graqle/)
 
 ```bash
@@ -490,7 +490,21 @@ No Docker, no database, no cloud account required for local use. Neo4j is option
 - **No telemetry.** Graqle does not phone home or collect usage data.
 - **Your API keys.** LLM calls go directly from your machine to your chosen provider.
 - **Cloud is opt-in.** `graq cloud push` uploads graph structure only — never source code.
-- **Open source.** Apache 2.0 — read and audit every line. See [SECURITY.md](SECURITY.md).
+- **Auditable.** Source code is fully readable. See [SECURITY.md](SECURITY.md) for our security model.
+
+---
+
+## Patent Notice
+
+Graqle implements methods covered by European Patent Applications
+[EP26162901.8](https://register.epo.org/application?number=EP26162901)
+and
+[EP26166054.2](https://register.epo.org/application?number=EP26166054),
+owned by Quantamix Solutions B.V.
+
+Use of graqle is permitted under the license terms. Reimplementation
+of the patented methods outside this software requires a separate
+patent license. See [LICENSE](LICENSE) for details.
 
 ---
 
@@ -535,11 +549,11 @@ Yes. Scanning, graph building, impact analysis, and the visual dashboard all wor
 
 ## License & Innovation
 
-[Apache 2.0](LICENSE) — use commercially, modify, distribute. Keep attribution.
+Graqle is free to use, integrate, and deploy. See [LICENSE](LICENSE) for full terms.
 
-Graqle is backed by patented research in graph-based AI reasoning (European Patent EP26162901.8). All innovations are open source under Apache 2.0.
+The SDK implements methods covered by European Patent Applications EP26162901.8 (18 claims) and EP26166054.2 (15 claims), owned by Quantamix Solutions B.V. Use of the SDK is licensed — reimplementation of the patented methods outside this software requires a separate patent license.
 
-Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com)
+Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com) — Uithoorn, The Netherlands.
 
 ### Citation
 
