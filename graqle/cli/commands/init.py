@@ -226,13 +226,24 @@ These are the PRIMARY tools. Use them when Graqle is triggered.
 
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| `kogni_context` | Focused context for a service/module | "Tell me about X", "What does X do?" |
-| `kogni_reason` | Multi-agent graph reasoning | "Why does X?", "How does X work end-to-end?" |
-| `kogni_inspect` | Graph structure inspection | "How many nodes?", "Graph stats" |
-| `kogni_preflight` | Pre-change safety check | "What should I check before changing X?" |
-| `kogni_impact` | Impact analysis for changes | "What breaks if I change X?" |
-| `kogni_lessons` | Past mistake patterns | "What went wrong with X?", "Common failures?" |
-| `kogni_learn` | Teach the graph new knowledge | "Remember that X depends on Y" |
+| `graq_context` | Focused context for a service/module | "Tell me about X", "What does X do?" |
+| `graq_reason` | Multi-agent graph reasoning | "Why does X?", "How does X work end-to-end?" |
+| `graq_reason_batch` | Parallel reasoning over multiple queries | Batch code review, multi-file analysis |
+| `graq_inspect` | Graph structure inspection | "How many nodes?", "Graph stats" |
+| `graq_preflight` | Pre-change safety check | "What should I check before changing X?" |
+| `graq_impact` | Impact analysis for changes | "What breaks if I change X?" |
+| `graq_lessons` | Past mistake patterns | "What went wrong with X?", "Common failures?" |
+| `graq_learn` | Teach the graph new knowledge | "Remember that X depends on Y" |
+| `graq_safety_check` | Combined impact + preflight + reasoning | Pre-deployment safety gate |
+| `graq_reload` | Force-reload graph from disk | After manual graph edits or graq learn |
+| `graq_audit` | Deep KG health audit (chunk coverage) | Validate evidence quality for reasoning |
+| `graq_gate` | Pre-compiled intelligence gate | Instant module context, impact, scorecard |
+| `graq_drace` | DRACE governance scoring | Audit trails, explainability |
+| `graq_runtime` | Live runtime observability | CloudWatch/Azure/GCP log queries |
+| `graq_route` | Task routing to optimal backend | Route queries by complexity/cost |
+| `graq_lifecycle` | Module lifecycle analysis | Track module maturity and stability |
+
+All tools are also available with `kogni_` prefix (backward compatibility).
 
 ### CLI (works in any terminal)
 | Command | What it does |

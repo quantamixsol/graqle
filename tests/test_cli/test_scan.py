@@ -594,3 +594,102 @@ class TestGraqleIgnore:
         node_ids = {n["id"] for n in data["nodes"]}
         assert "keep.py" in node_ids
         assert "skip_me.py" not in node_ids
+
+
+class TestScanPreservesLearnedNodes:
+    """Verify that graq scan repo preserves manually-taught nodes (graq learn)."""
+
+    def test_scan_preserves_graq_learn_nodes(self, tmp_path):
+        """Scan must not drop nodes with source='graq_learn'."""
+        # Create a Python file for scanning
+        (tmp_path / "app.py").write_text("def main(): pass")
+
+        # Pre-existing graph with a learned node
+        existing_graph = {
+            "directed": True, "multigraph": False, "graph": {},
+            "nodes": [
+                {"id": "app.py", "label": "app.py", "type": "Module", "description": ""},
+                {"id": "CRUCIBLE", "label": "CRUCIBLE", "type": "TEST_SUITE",
+                 "description": "Playwright-based testing",
+                 "source": "graq_learn_entity", "manual": True,
+                 "business_entity": True},
+            ],
+            "links": [
+                {"source": "CRUCIBLE", "target": "app.py", "relationship": "TESTS"},
+            ],
+        }
+        graph_path = tmp_path / "graqle.json"
+        graph_path.write_text(json.dumps(existing_graph))
+
+        # Run scan — should preserve the learned node
+        from graqle.cli.commands.scan import _scan_repo_impl
+        _scan_repo_impl(
+            path=str(tmp_path), output=str(graph_path),
+            depth=3, include_tests=False, verbose=False,
+            exclude=None, follow_repos=False, docs=False,
+            max_files=0,
+        )
+
+        result = json.loads(graph_path.read_text())
+        node_ids = {n["id"] for n in result["nodes"]}
+        assert "CRUCIBLE" in node_ids, "Learned node CRUCIBLE was dropped by scan"
+
+    def test_scan_preserves_learned_edges(self, tmp_path):
+        """Edges connecting learned nodes to scanned nodes should survive."""
+        (tmp_path / "app.py").write_text("def main(): pass")
+
+        existing_graph = {
+            "directed": True, "multigraph": False, "graph": {},
+            "nodes": [
+                {"id": "app.py", "label": "app.py", "type": "Module", "description": ""},
+                {"id": "MY_CONCEPT", "label": "My Concept", "type": "CONCEPT",
+                 "description": "A business concept", "source": "graq_learn", "manual": True},
+            ],
+            "links": [
+                {"source": "MY_CONCEPT", "target": "app.py", "relationship": "RELATES_TO"},
+            ],
+        }
+        graph_path = tmp_path / "graqle.json"
+        graph_path.write_text(json.dumps(existing_graph))
+
+        from graqle.cli.commands.scan import _scan_repo_impl
+        _scan_repo_impl(
+            path=str(tmp_path), output=str(graph_path),
+            depth=3, include_tests=False, verbose=False,
+            exclude=None, follow_repos=False, docs=False,
+            max_files=0,
+        )
+
+        result = json.loads(graph_path.read_text())
+        node_ids = {n["id"] for n in result["nodes"]}
+        assert "MY_CONCEPT" in node_ids
+        # Check edge preserved
+        edge_pairs = {(e["source"], e["target"]) for e in result.get("links", [])}
+        assert ("MY_CONCEPT", "app.py") in edge_pairs, "Learned edge was dropped by scan"
+
+    def test_scan_does_not_preserve_non_learned_stale_nodes(self, tmp_path):
+        """Regular scan nodes that are no longer found should be dropped."""
+        (tmp_path / "app.py").write_text("def main(): pass")
+
+        existing_graph = {
+            "directed": True, "multigraph": False, "graph": {},
+            "nodes": [
+                {"id": "deleted_file.py", "label": "deleted_file.py", "type": "Module",
+                 "description": "This file was deleted"},
+            ],
+            "links": [],
+        }
+        graph_path = tmp_path / "graqle.json"
+        graph_path.write_text(json.dumps(existing_graph))
+
+        from graqle.cli.commands.scan import _scan_repo_impl
+        _scan_repo_impl(
+            path=str(tmp_path), output=str(graph_path),
+            depth=3, include_tests=False, verbose=False,
+            exclude=None, follow_repos=False, docs=False,
+            max_files=0,
+        )
+
+        result = json.loads(graph_path.read_text())
+        node_ids = {n["id"] for n in result["nodes"]}
+        assert "deleted_file.py" not in node_ids, "Stale scan node should be dropped"
