@@ -96,6 +96,15 @@ def _load_graph(graph_path: str = "graqle.json"):
     return Graqle.from_json(str(gpath), config=config), str(gpath)
 
 
+def _verify_node_persisted(graph_path: str, node_id: str) -> bool:
+    """Read graph file back and confirm node_id exists. Returns True if found."""
+    try:
+        data = json.loads(Path(graph_path).read_text(encoding="utf-8"))
+        return any(n.get("id") == node_id for n in data.get("nodes", []))
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
 def _save_graph(graph, gpath: str) -> None:
     """Persist graph to Neo4j (if configured) or JSON file."""
     if gpath.startswith("neo4j://"):
@@ -184,6 +193,7 @@ def learn_node(
     auto_connect: bool = typer.Option(True, "--auto-connect/--no-auto-connect", help="Auto-discover edges"),
     semantic: bool = typer.Option(True, "--semantic/--no-semantic", help="Use semantic similarity (Bedrock/transformers/keyword fallback)"),
     threshold: float = typer.Option(0.7, "--threshold", help="Semantic similarity threshold (0.0-1.0)"),
+    verify: bool = typer.Option(False, "--verify", help="Read back graph file and confirm node persisted"),
 ) -> None:
     """Add a new node to the knowledge graph.
 
@@ -192,27 +202,24 @@ def learn_node(
 
     Uses semantic auto-connect by default (Bedrock Titan V2 -> sentence-transformers -> keyword).
     """
-    graph, gpath = _load_graph(graph_path)
+    with _graph_lock(graph_path) as (graph, gpath):
+        if node_id in graph.nodes:
+            console.print(f"[yellow]Node '{node_id}' already exists — updating.[/yellow]")
 
-    if node_id in graph.nodes:
-        console.print(f"[yellow]Node '{node_id}' already exists — updating.[/yellow]")
-
-    graph.add_node_simple(
-        node_id,
-        label=label or node_id,
-        entity_type=node_type.upper(),
-        description=description,
-        properties={"source": "graq_learn", "manual": True},
-    )
-
-    auto_edges = 0
-    if auto_connect and hasattr(graph, "semantic_auto_connect"):
-        method = "auto" if semantic else "keyword"
-        auto_edges = graph.semantic_auto_connect(
-            [node_id], threshold=threshold, method=method,
+        graph.add_node_simple(
+            node_id,
+            label=label or node_id,
+            entity_type=node_type.upper(),
+            description=description,
+            properties={"source": "graq_learn", "manual": True},
         )
 
-    _save_graph(graph, gpath)
+        auto_edges = 0
+        if auto_connect and hasattr(graph, "semantic_auto_connect"):
+            method = "auto" if semantic else "keyword"
+            auto_edges = graph.semantic_auto_connect(
+                [node_id], threshold=threshold, method=method,
+            )
 
     console.print(f"[green]{CHECK} Added node:[/green] {node_id} ({node_type})")
     if description:
@@ -221,6 +228,12 @@ def learn_node(
         connections = _describe_connections(graph, node_id)
         console.print(f"  [cyan]Auto-connected to: {', '.join(connections)}[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
+
+    if verify:
+        if _verify_node_persisted(graph_path, node_id):
+            console.print(f"  [green]{CHECK} Verified: node '{node_id}' persisted in {graph_path}[/green]")
+        else:
+            console.print(f"  [red]WARNING: node '{node_id}' NOT found in {graph_path} after save![/red]")
 
 
 @learn_app.command("edge")
@@ -231,15 +244,13 @@ def learn_edge(
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
 ) -> None:
     """Add a relationship between two nodes."""
-    graph, gpath = _load_graph(graph_path)
+    with _graph_lock(graph_path) as (graph, gpath):
+        for nid in [source, target]:
+            if nid not in graph.nodes:
+                console.print(f"[red]Node '{nid}' not found in graph[/red]")
+                raise typer.Exit(1)
 
-    for nid in [source, target]:
-        if nid not in graph.nodes:
-            console.print(f"[red]Node '{nid}' not found in graph[/red]")
-            raise typer.Exit(1)
-
-    graph.add_edge_simple(source, target, relation=relation.upper())
-    _save_graph(graph, gpath)
+        graph.add_edge_simple(source, target, relation=relation.upper())
 
     console.print(f"[green]{CHECK} Added edge:[/green] {source} --[{relation}]{ARROW} {target}")
 
@@ -260,28 +271,26 @@ def learn_file(
         console.print(f"[red]File not found: {file_path}[/red]")
         raise typer.Exit(1)
 
-    graph, gpath = _load_graph(graph_path)
     content = fpath.read_text(encoding="utf-8", errors="ignore")
 
-    # Add the file as a node
-    node_id = fpath.stem.replace(" ", "_").lower()
-    graph.add_node_simple(
-        node_id,
-        label=fpath.name,
-        entity_type=node_type.upper(),
-        description=content[:500],  # First 500 chars as description
-        properties={
-            "source": "graq_learn",
-            "file_path": str(fpath),
-            "content_length": len(content),
-        },
-    )
+    with _graph_lock(graph_path) as (graph, gpath):
+        # Add the file as a node
+        node_id = fpath.stem.replace(" ", "_").lower()
+        graph.add_node_simple(
+            node_id,
+            label=fpath.name,
+            entity_type=node_type.upper(),
+            description=content[:500],  # First 500 chars as description
+            properties={
+                "source": "graq_learn",
+                "file_path": str(fpath),
+                "content_length": len(content),
+            },
+        )
 
-    auto_edges = 0
-    if auto_connect and hasattr(graph, "semantic_auto_connect"):
-        auto_edges = graph.semantic_auto_connect([node_id])
-
-    _save_graph(graph, gpath)
+        auto_edges = 0
+        if auto_connect and hasattr(graph, "semantic_auto_connect"):
+            auto_edges = graph.semantic_auto_connect([node_id])
 
     console.print(f"[green]{CHECK} Learned from file:[/green] {fpath.name}")
     console.print(f"  Node: {node_id} ({node_type})")
@@ -298,6 +307,7 @@ def learn_entity(
     connects: str = typer.Option(None, "--connects", help="Comma-separated node IDs to connect to"),
     relation: str = typer.Option("RELATES_TO", "--relation", "-r", help="Edge relation for --connects"),
     graph_path: str = typer.Option("graqle.json", "--graph", "-g", help="Graph file path"),
+    verify: bool = typer.Option(False, "--verify", help="Read back graph file and confirm entity persisted"),
 ) -> None:
     """Add a business-level entity to the knowledge graph.
 
@@ -311,53 +321,50 @@ def learn_entity(
         graq learn entity "Philips" --type CLIENT --desc "75% content time reduction"
         graq learn entity "content_compliance" --type SYNERGY --connects "CrawlQ,TracGov"
     """
-    graph, gpath = _load_graph(graph_path)
-
     # Business types get special properties
     business_types = {"PRODUCT", "CLIENT", "BUSINESS_OUTCOME", "TEAM", "SYNERGY", "MARKET", "COMPETITOR", "METRIC"}
     etype = entity_type.upper()
     if etype not in business_types:
         console.print(f"[yellow]Note: '{etype}' is not a standard business type. Standard types: {', '.join(sorted(business_types))}[/yellow]")
 
-    if entity_id in graph.nodes:
-        console.print(f"[yellow]Entity '{entity_id}' already exists — updating.[/yellow]")
+    with _graph_lock(graph_path) as (graph, gpath):
+        if entity_id in graph.nodes:
+            console.print(f"[yellow]Entity '{entity_id}' already exists — updating.[/yellow]")
 
-    graph.add_node_simple(
-        entity_id,
-        label=entity_id.replace("_", " ").title(),
-        entity_type=etype,
-        description=description,
-        properties={
-            "source": "graq_learn_entity",
-            "manual": True,
-            "business_entity": True,
-        },
-    )
+        graph.add_node_simple(
+            entity_id,
+            label=entity_id.replace("_", " ").title(),
+            entity_type=etype,
+            description=description,
+            properties={
+                "source": "graq_learn_entity",
+                "manual": True,
+                "business_entity": True,
+            },
+        )
 
-    edges_added = 0
-    if connects:
-        # Support multiple delimiters: comma, semicolon, " and ", " + "
-        import re
-        raw_targets = re.split(r'[,;]\s*|\s+and\s+|\s*\+\s*', connects)
-        targets = [t.strip() for t in raw_targets if t.strip()]
-        for target in targets:
-            if target not in graph.nodes:
-                # Fuzzy match
-                matches = [nid for nid in graph.nodes if target.lower() in nid.lower()]
-                if matches:
-                    target = matches[0]
-                    console.print(f"  [dim]Fuzzy matched {ARROW} {target}[/dim]")
-                else:
-                    console.print(f"  [yellow]Skipping '{target}' — not found in graph[/yellow]")
-                    continue
-            graph.add_edge_simple(entity_id, target, relation=relation.upper())
-            edges_added += 1
+        edges_added = 0
+        if connects:
+            # Support multiple delimiters: comma, semicolon, " and ", " + "
+            import re
+            raw_targets = re.split(r'[,;]\s*|\s+and\s+|\s*\+\s*', connects)
+            targets = [t.strip() for t in raw_targets if t.strip()]
+            for target in targets:
+                if target not in graph.nodes:
+                    # Fuzzy match
+                    matches = [nid for nid in graph.nodes if target.lower() in nid.lower()]
+                    if matches:
+                        target = matches[0]
+                        console.print(f"  [dim]Fuzzy matched {ARROW} {target}[/dim]")
+                    else:
+                        console.print(f"  [yellow]Skipping '{target}' — not found in graph[/yellow]")
+                        continue
+                graph.add_edge_simple(entity_id, target, relation=relation.upper())
+                edges_added += 1
 
-    auto_edges = 0
-    if hasattr(graph, "semantic_auto_connect"):
-        auto_edges = graph.semantic_auto_connect([entity_id])
-
-    _save_graph(graph, gpath)
+        auto_edges = 0
+        if hasattr(graph, "semantic_auto_connect"):
+            auto_edges = graph.semantic_auto_connect([entity_id])
 
     console.print(f"[green]{CHECK} Business entity added:[/green] {entity_id} ({etype})")
     if description:
@@ -372,6 +379,12 @@ def learn_entity(
             if auto_edges:
                 console.print(f"  [cyan]Semantically discovered {auto_edges} additional edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
+
+    if verify:
+        if _verify_node_persisted(graph_path, entity_id):
+            console.print(f"  [green]{CHECK} Verified: entity '{entity_id}' persisted in {graph_path}[/green]")
+        else:
+            console.print(f"  [red]WARNING: entity '{entity_id}' NOT found in {graph_path} after save![/red]")
 
 
 @learn_app.command("knowledge")
@@ -852,31 +865,29 @@ def learn_batch(
         raise typer.Exit(1)
 
     data = json.loads(fpath.read_text())
-    graph, gpath = _load_graph(graph_path)
 
-    nodes_added = 0
-    for node_data in data.get("nodes", []):
-        nid = node_data.get("id")
-        if not nid:
-            continue
-        graph.add_node_simple(
-            nid,
-            label=node_data.get("label", nid),
-            entity_type=node_data.get("type", "CONCEPT").upper(),
-            description=node_data.get("description", ""),
-            properties=node_data.get("properties", {}),
-        )
-        nodes_added += 1
+    with _graph_lock(graph_path) as (graph, gpath):
+        nodes_added = 0
+        for node_data in data.get("nodes", []):
+            nid = node_data.get("id")
+            if not nid:
+                continue
+            graph.add_node_simple(
+                nid,
+                label=node_data.get("label", nid),
+                entity_type=node_data.get("type", "CONCEPT").upper(),
+                description=node_data.get("description", ""),
+                properties=node_data.get("properties", {}),
+            )
+            nodes_added += 1
 
-    edges_added = 0
-    for edge_data in data.get("links", data.get("edges", [])):
-        src = edge_data.get("source")
-        tgt = edge_data.get("target")
-        if src and tgt and src in graph.nodes and tgt in graph.nodes:
-            graph.add_edge_simple(src, tgt, relation=edge_data.get("relation", "RELATES_TO").upper())
-            edges_added += 1
-
-    _save_graph(graph, gpath)
+        edges_added = 0
+        for edge_data in data.get("links", data.get("edges", [])):
+            src = edge_data.get("source")
+            tgt = edge_data.get("target")
+            if src and tgt and src in graph.nodes and tgt in graph.nodes:
+                graph.add_edge_simple(src, tgt, relation=edge_data.get("relation", "RELATES_TO").upper())
+                edges_added += 1
 
     console.print(f"[green]{CHECK} Batch learned:[/green] {nodes_added} nodes, {edges_added} edges")
     console.print(f"  Graph: {len(graph)} nodes total")
@@ -916,54 +927,62 @@ def learn_doc(
             raise typer.Exit(1)
         targets.append(t)
 
+    from graqle.core.graph import _acquire_lock, _release_lock
+
     gp = Path(graph_path)
-    nodes, edges = _load_graph_data(gp)
-    manifest_path = gp.parent / ".graqle-doc-manifest.json"
+    lock_path = str(gp) + ".lock"
+    fd = _acquire_lock(lock_path)
+    try:
+        nodes, edges = _load_graph_data(gp)
+        manifest_path = gp.parent / ".graqle-doc-manifest.json"
 
-    opts = DocScanOptions(
-        link_exact=not no_link,
-        link_fuzzy=not no_link,
-        redaction_enabled=not no_redact,
-        incremental=False,  # On-demand always re-processes
-    )
+        opts = DocScanOptions(
+            link_exact=not no_link,
+            link_fuzzy=not no_link,
+            redaction_enabled=not no_redact,
+            incremental=False,  # On-demand always re-processes
+        )
 
-    scanner = DocumentScanner(nodes, edges, options=opts, manifest_path=manifest_path)
+        scanner = DocumentScanner(nodes, edges, options=opts, manifest_path=manifest_path)
 
-    from rich.progress import Progress
+        from rich.progress import Progress
 
-    # Accumulate results across all paths
-    combined = ScanResult()
+        # Accumulate results across all paths
+        combined = ScanResult()
 
-    with Progress(console=console) as progress:
-        task = progress.add_task("[cyan]Ingesting documents...", total=0)
+        with Progress(console=console) as progress:
+            task = progress.add_task("[cyan]Ingesting documents...", total=0)
 
-        def progress_cb(fp, idx, total):
-            progress.update(task, total=total, completed=idx,
-                            description=f"[cyan]{fp.name}")
+            def progress_cb(fp, idx, total):
+                progress.update(task, total=total, completed=idx,
+                                description=f"[cyan]{fp.name}")
 
-        for target in targets:
-            if target.is_file():
-                result = scanner.scan_file(target, base_dir=target.parent)
-            else:
-                result = scanner.scan_directory(target, progress_callback=progress_cb)
+            for target in targets:
+                if target.is_file():
+                    result = scanner.scan_file(target, base_dir=target.parent)
+                else:
+                    result = scanner.scan_directory(target, progress_callback=progress_cb)
 
-            # Merge into combined result
-            combined.files_scanned += result.files_scanned
-            combined.files_skipped += result.files_skipped
-            combined.files_errored += result.files_errored
-            combined.nodes_added += result.nodes_added
-            combined.edges_added += result.edges_added
-            combined.file_results.extend(result.file_results)
-            combined.duration_seconds += result.duration_seconds
-            combined.stale_removed += result.stale_removed
+                # Merge into combined result
+                combined.files_scanned += result.files_scanned
+                combined.files_skipped += result.files_skipped
+                combined.files_errored += result.files_errored
+                combined.nodes_added += result.nodes_added
+                combined.edges_added += result.edges_added
+                combined.file_results.extend(result.file_results)
+                combined.duration_seconds += result.duration_seconds
+                combined.stale_removed += result.stale_removed
 
-        progress.update(task, completed=combined.files_total)
+            progress.update(task, completed=combined.files_total)
 
-    if dry_run:
-        console.print("[yellow]Dry run — no changes saved.[/yellow]")
-        _print_doc_scan_summary(combined)
-        return
+        if dry_run:
+            console.print("[yellow]Dry run — no changes saved.[/yellow]")
+            _print_doc_scan_summary(combined)
+            return
 
-    _save_graph_data(gp, nodes, edges)
+        _save_graph_data(gp, nodes, edges)
+    finally:
+        _release_lock(fd, lock_path)
+
     _print_doc_scan_summary(combined)
     console.print(f"[green]{CHECK} Documents ingested into graph.[/green]")

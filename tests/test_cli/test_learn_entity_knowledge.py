@@ -46,9 +46,10 @@ def _mock_graph_lock(graph):
 
 
 class TestLearnEntity:
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_entity_basic(self, mock_load):
-        mock_load.return_value = (_mock_graph(), "test.json")
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_entity_basic(self, mock_lock_cls):
+        graph = _mock_graph()
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "entity", "CrawlQ",
@@ -59,10 +60,10 @@ class TestLearnEntity:
         assert "Business entity added" in result.output
         assert "CrawlQ" in result.output
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_entity_with_connects(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_entity_with_connects(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         result = runner.invoke(learn_app, [
             "entity", "MyProduct",
@@ -73,9 +74,9 @@ class TestLearnEntity:
         assert result.exit_code == 0
         graph.add_edge_simple.assert_called_once()
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_entity_custom_type_warning(self, mock_load):
-        mock_load.return_value = (_mock_graph(), "test.json")
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_entity_custom_type_warning(self, mock_lock_cls):
+        mock_lock_cls.side_effect = _mock_graph_lock(_mock_graph())
 
         result = runner.invoke(learn_app, [
             "entity", "something",
@@ -84,10 +85,10 @@ class TestLearnEntity:
         assert result.exit_code == 0
         assert "not a standard business type" in result.output
 
-    @patch("graqle.cli.commands.learn._load_graph")
-    def test_entity_uses_semantic_auto_connect(self, mock_load):
+    @patch("graqle.cli.commands.learn._graph_lock")
+    def test_entity_uses_semantic_auto_connect(self, mock_lock_cls):
         graph = _mock_graph()
-        mock_load.return_value = (graph, "test.json")
+        mock_lock_cls.side_effect = _mock_graph_lock(graph)
 
         runner.invoke(learn_app, [
             "entity", "TestEntity",
