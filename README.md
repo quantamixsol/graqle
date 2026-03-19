@@ -12,6 +12,8 @@ dependencies, impact paths, and institutional memory — so it reasons over stru
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
 [![Tests: 2009 passing](https://img.shields.io/badge/tests-2%2C009%20passing-06b6d4.svg)]()
 [![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](LICENSE)
+[![Patent: EP26162901.8](https://img.shields.io/badge/Patent-EP26162901.8-orange.svg)](https://quantamixsolutions.com/patents)
+[![Patent: EP26166054.2](https://img.shields.io/badge/Patent-EP26166054.2-orange.svg)](https://quantamixsolutions.com/patents)
 [![Downloads](https://img.shields.io/pypi/dm/graqle?color=06b6d4)](https://pypi.org/project/graqle/)
 
 ```bash
@@ -561,7 +563,7 @@ Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com) — Uithoorn
   author  = {Kumar, Harish},
   year    = {2026},
   institution = {Quantamix Solutions B.V.},
-  note    = {European Patent Application EP26162901.8},
+  note    = {European Patent Applications EP26162901.8 and EP26166054.2},
   url     = {https://github.com/quantamixsol/graqle}
 }
 ```
