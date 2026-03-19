@@ -15,3 +15,48 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+PATENT RIGHTS
+
+This software implements methods described in European Patent
+Applications EP26162901.8 (filed 2026-03-06) and EP26166054.2
+(filed 2026-03-19), both owned by Quantamix Solutions B.V.,
+Buitendijks 2, 1422 MM Uithoorn, The Netherlands.
+
+These patents cover, among other methods:
+- Multi-signal document retrieval with trust-aware scoring
+- Five-pillar development governance scoring (DRACE)
+- Three-layer semantic governance validation (SemanticSHACLGate)
+- Four-pass streaming intelligence compilation
+- Twelve-detector compile-time invariant analysis
+- Four-phase adversarial debate protocol
+- Cross-query activation memory with Bayesian boosting
+- Dual-backend graph data science intelligence
+- Scope boundary enforcement with transitive impact detection
+- Tamper-evident SHA-256 hash-chain audit trails
+- Privacy-preserving redaction with greedy precedence matching
+- Real-time streaming reasoning orchestration
+
+GRANT OF RIGHTS
+
+Your license to use this software ("graqle") grants you the right
+to use, execute, and integrate the software in your own projects
+and products, subject to the license terms.
+
+This license does NOT grant you any right to:
+- Reimplement, reproduce, or create derivative implementations of
+  the patented methods outside of this software
+- Extract the algorithms, formulas, or scoring weights for use in
+  competing software
+- Use the patented methods in any software other than this licensed
+  copy of graqle
+
+Any such use requires a separate patent license from
+Quantamix Solutions B.V.
+
+CONTACT
+
+For patent licensing inquiries:
+  Quantamix Solutions B.V.
+  Buitendijks 2, 1422 MM Uithoorn, The Netherlands
+  legal@quantamix.io
