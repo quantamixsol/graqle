@@ -9,7 +9,7 @@
 # Reimplementation of the patented methods outside this software
 # requires a separate patent license.
 #
-# Contact: legal@quantamix.io
+# Contact: support@quantamixsolutions.com
 # ──────────────────────────────────────────────────────────────────
 
 """MultiSignalActivation — Gate + Rerank activation for Neo4j.

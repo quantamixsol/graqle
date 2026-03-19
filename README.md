@@ -430,7 +430,7 @@ print(f"{result.confidence:.0%}")     # Confidence score
 print(f"${result.cost_usd:.4f}")      # Token cost
 ```
 
-Full programmatic access to scanning, reasoning, impact analysis, and graph manipulation. See the [API reference](https://github.com/quantamixsol/graqle/tree/main/docs) for details.
+Full programmatic access to scanning, reasoning, impact analysis, and graph manipulation.
 
 ---
 
@@ -497,10 +497,7 @@ No Docker, no database, no cloud account required for local use. Neo4j is option
 ## Patent Notice
 
 Graqle implements methods covered by European Patent Applications
-[EP26162901.8](https://register.epo.org/application?number=EP26162901)
-and
-[EP26166054.2](https://register.epo.org/application?number=EP26166054),
-owned by Quantamix Solutions B.V.
+EP26162901.8 and EP26166054.2, owned by Quantamix Solutions B.V.
 
 Use of graqle is permitted under the license terms. Reimplementation
 of the patented methods outside this software requires a separate
@@ -543,7 +540,7 @@ Under 30 seconds for most codebases. Large monorepos (10,000+ files) take 1-2 mi
 Yes. Scanning, graph building, impact analysis, and the visual dashboard all work without any LLM. You only need a backend configured for `graq reason` and `graq run` queries.
 
 **Is this production-ready?**
-2,009 tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. Apache 2.0 licensed. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
+2,009 tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
 
 ---
 

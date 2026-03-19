@@ -9,7 +9,7 @@
 # Reimplementation of the patented methods outside this software
 # requires a separate patent license.
 #
-# Contact: legal@quantamix.io
+# Contact: support@quantamixsolutions.com
 # ──────────────────────────────────────────────────────────────────
 
 """Neo4j GDS Intelligence — graph-topology-based link prediction and community detection.
