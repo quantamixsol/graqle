@@ -2228,7 +2228,7 @@ class KogniDevServer:
             import networkx as nx
 
             G = graph.to_networkx()
-            data = nx.node_link_data(G)
+            data = nx.node_link_data(G, edges="links")
             from graqle.core.graph import _write_with_lock
             _write_with_lock(str(self._graph_file), json.dumps(data, indent=2, default=str))
             logger.info("Graph saved to %s", self._graph_file)

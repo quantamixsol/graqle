@@ -1939,6 +1939,7 @@ def _scan_repo_impl(
     follow_repos: bool = False,
     docs: bool = False,
     max_files: int = 0,
+    preserve_learned: bool = True,
 ) -> None:
     """Core scan logic — no Typer decorators. Safe to call from Python."""
     if verbose:
@@ -1999,6 +2000,44 @@ def _scan_repo_impl(
     )
 
     data = scanner.scan()
+
+    # Preserve manually-taught nodes (graq_learn, graq_learn_entity, etc.)
+    # These have no filesystem path and would be lost by a filesystem-only scan.
+    # Controlled by --preserve-learned flag (default: on).
+    out_path_check = Path(output)
+    if preserve_learned and out_path_check.is_file():
+        try:
+            existing_data = json.loads(out_path_check.read_text(encoding="utf-8"))
+            scanned_ids = {n.get("id") for n in data.get("nodes", [])}
+            preserved_count = 0
+            for node in existing_data.get("nodes", []):
+                nid = node.get("id", "")
+                if nid in scanned_ids:
+                    continue
+                # Preserve nodes from graq learn (manual/business nodes)
+                source = node.get("source", node.get("properties", {}).get("source", ""))
+                manual = node.get("manual", node.get("properties", {}).get("manual", False))
+                if source.startswith("graq_learn") or manual:
+                    data["nodes"].append(node)
+                    scanned_ids.add(nid)
+                    preserved_count += 1
+            # Also preserve edges that reference preserved nodes
+            if preserved_count > 0:
+                for edge in existing_data.get("links", existing_data.get("edges", [])):
+                    src = edge.get("source", "")
+                    tgt = edge.get("target", "")
+                    if src in scanned_ids and tgt in scanned_ids:
+                        # Check it's not already in the scan data
+                        existing_edge_set = {
+                            (e.get("source"), e.get("target"))
+                            for e in data.get("links", [])
+                        }
+                        if (src, tgt) not in existing_edge_set:
+                            data.setdefault("links", []).append(edge)
+                if verbose:
+                    console.print(f"  [cyan]Preserved {preserved_count} learned nodes[/cyan]")
+        except (json.JSONDecodeError, OSError):
+            pass  # No existing graph or corrupt — skip preservation
 
     # React/JSX/TSX component scan — merge into graph if React files exist
     try:
@@ -2096,6 +2135,10 @@ def scan_repo(
         0, "--max-files",
         help="Max files to analyze (0=unlimited). Safety valve for very large repos.",
     ),
+    preserve_learned: bool = typer.Option(
+        True, "--preserve-learned/--no-preserve-learned",
+        help="Preserve nodes from graq learn during rescan (default: on).",
+    ),
 ) -> None:
     """Scan a code repository and build a knowledge graph.
 
@@ -2109,6 +2152,7 @@ def scan_repo(
         path=path, output=output, depth=depth, include_tests=include_tests,
         verbose=verbose, exclude=exclude, config=config,
         follow_repos=follow_repos, docs=docs, max_files=max_files,
+        preserve_learned=preserve_learned,
     )
 
 
