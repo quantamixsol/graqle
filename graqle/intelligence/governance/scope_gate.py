@@ -9,7 +9,7 @@
 # Reimplementation of the patented methods outside this software
 # requires a separate patent license.
 #
-# Contact: legal@quantamix.io
+# Contact: support@quantamixsolutions.com
 # ──────────────────────────────────────────────────────────────────
 
 """Scope Boundary Validation — Prevents AI tools from exceeding change scope.
