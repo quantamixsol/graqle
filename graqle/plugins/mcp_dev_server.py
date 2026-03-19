@@ -573,6 +573,93 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["event"],
         },
     },
+    # ── SCORCH plugin (PRO tier) ──────────────────────────────────────
+    {
+        "name": "graq_scorch_audit",
+        "description": (
+            "Run a full SCORCH v3 audit: screenshots + CSS metrics + "
+            "12 behavioral UX tests + Claude Vision journey psychology. "
+            "Returns pass/fail, issue list, journey score. "
+            "Requires: pip install graqle[scorch] && python -m playwright install chromium"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Base URL to audit (e.g., http://localhost:3000)",
+                },
+                "pages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Page paths to audit (e.g., [\"/\", \"/pricing\"]). Default: [\"/\"]",
+                },
+                "config_path": {
+                    "type": "string",
+                    "description": "Path to SCORCH config JSON (optional, overrides url/pages)",
+                },
+                "skip_behavioral": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Skip Phase 2.5 behavioral tests",
+                },
+                "skip_vision": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Skip Phase 3 Claude Vision (saves AI cost)",
+                },
+                "enrich_kg": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Auto-add critical/major findings to the knowledge graph",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "graq_scorch_behavioral",
+        "description": (
+            "Run ONLY the 12 behavioral UX friction tests (Phase 2.5). "
+            "Fast, no AI cost. Tests: dead clicks, silent submissions, "
+            "unexplained jargon, ghost elements, missing CTAs, copy-paste friction, "
+            "missing inline editors, incomplete generation, feature discoverability, "
+            "flow continuity, upsell integrity, action-response feedback."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Base URL to test",
+                },
+                "pages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Page paths to test",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_report",
+        "description": (
+            "Read and summarize a SCORCH audit report from disk. "
+            "Returns pass/fail status, issue counts, journey score, "
+            "and top recommendations."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "report_path": {
+                    "type": "string",
+                    "description": "Path to report.json (default: ./scorch-output/report.json)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -918,6 +1005,10 @@ class KogniDevServer:
             "graq_lifecycle": self._handle_lifecycle,
             "graq_gate": self._handle_gate,
             "graq_drace": self._handle_drace,
+            # SCORCH plugin
+            "graq_scorch_audit": self._handle_scorch_audit,
+            "graq_scorch_behavioral": self._handle_scorch_behavioral,
+            "graq_scorch_report": self._handle_scorch_report,
             # Backward-compat aliases (kogni_* → graq_*)
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
@@ -2197,6 +2288,94 @@ class KogniDevServer:
             return json.dumps(score.to_dict())
 
         return json.dumps({"error": f"Unknown action: {action}. Use: sessions, trail, score."})
+
+    # ── SCORCH plugin handlers ────────────────────────────────────────
+
+    async def _handle_scorch_audit(self, args: dict[str, Any]) -> str:
+        """Full SCORCH v3 audit pipeline."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({
+                "error": "SCORCH plugin not available. "
+                "Install with: pip install graqle[scorch] && python -m playwright install chromium"
+            })
+
+        config_path = args.get("config_path")
+        if config_path:
+            config = ScorchConfig.from_json(config_path)
+        else:
+            config = ScorchConfig(
+                base_url=args.get("url", "http://localhost:3000"),
+                pages=args.get("pages", ["/"]),
+                skip_behavioral=args.get("skip_behavioral", False),
+                skip_vision=args.get("skip_vision", False),
+            )
+
+        engine = ScorchEngine(config=config)
+        report = await engine.run()
+
+        # Auto-enrich KG if requested
+        if args.get("enrich_kg", True) and self._graph_file:
+            try:
+                from graqle.plugins.scorch.kg_enrichment import enrich_graph
+                graph_data = json.loads(
+                    Path(self._graph_file).read_text(encoding="utf-8")
+                )
+                graph_data, added = enrich_graph(graph_data, report)
+                if added > 0:
+                    from graqle.core.graph import _write_with_lock
+                    _write_with_lock(
+                        str(self._graph_file),
+                        json.dumps(graph_data, indent=2, default=str),
+                    )
+                    report["kg_nodes_added"] = added
+            except Exception as exc:
+                report["kg_enrichment_error"] = str(exc)
+
+        return json.dumps(report, default=str)
+
+    async def _handle_scorch_behavioral(self, args: dict[str, Any]) -> str:
+        """Behavioral-only SCORCH run (Phase 2.5 — fast, no AI cost)."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({
+                "error": "SCORCH plugin not available. "
+                "Install with: pip install graqle[scorch]"
+            })
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+
+        engine = ScorchEngine(config=config)
+        results = await engine.run_behavioral_only()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_report(self, args: dict[str, Any]) -> str:
+        """Read and summarize an existing SCORCH report."""
+        report_path = args.get("report_path", "./scorch-output/report.json")
+
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                report = json.load(f)
+        except FileNotFoundError:
+            return json.dumps({"error": f"No report found at {report_path}"})
+
+        summary = {
+            "pass": report.get("pass"),
+            "journeyPass": report.get("journeyPass"),
+            "severityCounts": report.get("severityCounts"),
+            "behavioralSummary": report.get("behavioralSummary"),
+            "journeyScore": report.get("journeyAnalysis", {}).get("journeyScore"),
+            "strandedPoints": len(report.get("journeyAnalysis", {}).get("strandedPoints", [])),
+            "flowBreaks": len(report.get("journeyAnalysis", {}).get("flowBreaks", [])),
+            "issueCount": len(report.get("issues", [])),
+            "summary": report.get("summary", ""),
+        }
+        return json.dumps(summary)
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""

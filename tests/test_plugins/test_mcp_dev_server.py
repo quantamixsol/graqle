@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 15 graq_* tools + 15 kogni_* backward-compat aliases
-        assert len(TOOL_DEFINITIONS) == 30
+        # 16 graq_* tools + 14 kogni_* aliases + 3 graq_scorch_* + 3 kogni_scorch_* = 36
+        assert len(TOOL_DEFINITIONS) == 36
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -142,6 +142,9 @@ class TestToolDefinitions:
             "graq_lifecycle",
             "graq_drace",
             "graq_gate",
+            "graq_scorch_audit",
+            "graq_scorch_behavioral",
+            "graq_scorch_report",
         }
         expected_kogni = {
             "kogni_context",
@@ -158,8 +161,11 @@ class TestToolDefinitions:
             "kogni_lifecycle",
             "kogni_drace",
             "kogni_gate",
+            "kogni_scorch_audit",
+            "kogni_scorch_behavioral",
+            "kogni_scorch_report",
         }
-        # 15 graq_* + 15 kogni_* = 30 total (includes Wave 5 + batch + safety-check)
+        # 19 graq_* + 17 kogni_* = 36 total
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -189,7 +195,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 30  # 15 graq_* + 15 kogni_* aliases (includes Wave 5 + batch + safety-check)
+        assert len(tools) == 36  # 19 graq_* + 17 kogni_* aliases (includes SCORCH)
 
 
 # ---------------------------------------------------------------------------

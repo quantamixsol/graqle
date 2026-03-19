@@ -1,0 +1,30 @@
+{
+  "base_url": "http://localhost:3000",
+  "pages": ["/"],
+  "viewports": [
+    {"name": "mobile", "width": 390, "height": 844, "device_scale_factor": 3},
+    {"name": "tablet", "width": 768, "height": 1024, "device_scale_factor": 2},
+    {"name": "desktop", "width": 1440, "height": 900, "device_scale_factor": 1}
+  ],
+  "output_dir": "./scorch-output",
+  "bedrock": {
+    "region": "us-east-1",
+    "model_id": "us.anthropic.claude-sonnet-4-6-20250514-v1:0"
+  },
+  "brand_rules": {
+    "min_body_font_px": 16,
+    "min_caption_font_px": 14,
+    "min_touch_target_px": 44,
+    "wcag_contrast_ratio": 4.5,
+    "max_content_width_px": 1440,
+    "primary_color": "#2563EB",
+    "secondary_color": "#0F1B2D",
+    "accent_color": "#059669",
+    "font_family": "Inter"
+  },
+  "wait_after_load": 2000,
+  "full_page": true,
+  "skip_behavioral": false,
+  "skip_vision": false,
+  "auth_state": null
+}
