@@ -4,6 +4,67 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.31.3 — SCORCH Extended Skills: 10 New Audit Modules (2026-03-20)
+
+**SCORCH v3 grows from 3 to 13 specialized audit skills.** Each skill is available as an MCP tool, CLI command, and Python SDK method.
+
+### New Skills
+
+| Skill | What It Audits |
+|-------|----------------|
+| `graq_scorch_a11y` | WCAG 2.1 AA/AAA: contrast, aria-labels, focus order, headings, landmarks |
+| `graq_scorch_perf` | Core Web Vitals: LCP, CLS, FID, render-blocking, DOM size, images |
+| `graq_scorch_seo` | Meta tags, Open Graph, Twitter Cards, JSON-LD, canonical, heading hierarchy |
+| `graq_scorch_mobile` | Touch targets (44px), viewport, text readability, horizontal scroll, pinch-zoom |
+| `graq_scorch_i18n` | html lang, RTL support, hardcoded strings, date/currency formatting |
+| `graq_scorch_security` | CSP headers, exposed API keys (13 patterns), XSS, mixed content, HSTS |
+| `graq_scorch_conversion` | CTA inventory/placement, form quality, trust signals, pricing clarity |
+| `graq_scorch_brand` | Color palette compliance, typography, spacing, button/heading uniformity |
+| `graq_scorch_auth_flow` | Login/signup/dashboard flows, auth vs unauth comparison |
+| `graq_scorch_diff` | Before/after report comparison: resolved/new/persistent issues, improvement % |
+
+### CLI
+
+All skills available via `graq scorch <skill>`:
+```bash
+graq scorch a11y --url http://localhost:3000 --page / --page /pricing
+graq scorch security --url https://myapp.com
+graq scorch diff --previous ./old-report.json
+```
+
+### MCP
+
+56 total tools (29 `graq_*` + 27 `kogni_*` aliases). All new skills auto-generate `kogni_scorch_*` backward-compatible aliases.
+
+### Tests
+
+**1,657 tests passing.** No regressions.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `graqle/plugins/scorch/phases/a11y.py` | NEW — Accessibility audit |
+| `graqle/plugins/scorch/phases/perf.py` | NEW — Performance audit |
+| `graqle/plugins/scorch/phases/seo.py` | NEW — SEO audit |
+| `graqle/plugins/scorch/phases/mobile.py` | NEW — Mobile audit |
+| `graqle/plugins/scorch/phases/i18n.py` | NEW — i18n audit |
+| `graqle/plugins/scorch/phases/security.py` | NEW — Security audit |
+| `graqle/plugins/scorch/phases/conversion.py` | NEW — Conversion funnel analysis |
+| `graqle/plugins/scorch/phases/brand.py` | NEW — Brand consistency audit |
+| `graqle/plugins/scorch/phases/auth_flow.py` | NEW — Auth flow audit |
+| `graqle/plugins/scorch/phases/diff.py` | NEW — Before/after comparison |
+| `graqle/plugins/scorch/engine.py` | Added 10 `run_*()` methods |
+| `graqle/plugins/mcp_dev_server.py` | Added 10 tool definitions + 10 handlers |
+| `graqle/cli/commands/scorch.py` | Added 10 CLI subcommands |
+| `README.md` | Updated SCORCH CLI reference + MCP tools table |
+
+### Breaking Changes
+
+None. All changes are additive.
+
+---
+
 ## v0.31.2 — Codex Audit Fixes: Observability, Smoke Tests, Windows Robustness (2026-03-20)
 
 **Community-reported issues validated and fixed.** The Codex team tested graqle==0.31.1 on Windows Python 3.10 and reported 10 issues. We validated each against the actual codebase — 7 confirmed real, 2 were design decisions (patent stubs), 1 was false (no encoding artifacts). This release fixes the 5 zero-regression-risk items.
