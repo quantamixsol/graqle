@@ -756,6 +756,58 @@ def _check_governance_gate() -> list[CheckResult]:
     return results
 
 
+def _check_reasoning_smoke() -> list[CheckResult]:
+    """Run a trivial reasoning smoke test if a backend + graph are available."""
+    results: list[CheckResult] = []
+
+    # Only attempt if we have a graph file and config
+    graph_file = None
+    for c in ["graqle.json", "knowledge_graph.json", "graph.json"]:
+        if Path(c).exists():
+            graph_file = c
+            break
+
+    if not graph_file:
+        results.append((INFO, "Smoke: reasoning", "skipped (no graph file)"))
+        return results
+
+    config_path = Path("graqle.yaml")
+    if not config_path.exists():
+        results.append((INFO, "Smoke: reasoning", "skipped (no graqle.yaml)"))
+        return results
+
+    try:
+        import yaml
+        with open(config_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        backend = data.get("model", {}).get("backend", "mock")
+        if backend in ("local", "mock"):
+            results.append((INFO, "Smoke: reasoning", f"skipped (backend={backend})"))
+            return results
+    except Exception:
+        results.append((INFO, "Smoke: reasoning", "skipped (config unreadable)"))
+        return results
+
+    # Attempt a lightweight graph load (no LLM call — just verify the pipeline initializes)
+    try:
+        from graqle.core.graph import Graqle
+        graph = Graqle.from_json(graph_file)
+        node_count = len(graph.nodes)
+        if node_count > 0:
+            results.append((
+                PASS,
+                "Smoke: graph loads",
+                f"{node_count} nodes from {graph_file} — ready for reasoning",
+            ))
+        else:
+            results.append((WARN, "Smoke: graph loads", "0 nodes — reasoning will have no data"))
+    except Exception as e:
+        err = str(e)[:80]
+        results.append((WARN, "Smoke: graph loads", f"failed to load {graph_file}: {err}"))
+
+    return results
+
+
 def _check_cloud_connection() -> list[CheckResult]:
     """Check GraQle Cloud connectivity and credentials."""
     results: list[CheckResult] = []
@@ -834,6 +886,7 @@ def doctor_command(
     all_results.extend(_check_skill_system())
     all_results.extend(_check_neo4j_backend())
     all_results.extend(_check_governance_gate())
+    all_results.extend(_check_reasoning_smoke())
     all_results.extend(_check_cloud_connection())
 
     # Count results
