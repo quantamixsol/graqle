@@ -32,6 +32,7 @@ from graqle.cli.commands.register import register_command
 from graqle.cli.commands.scan import scan_app
 from graqle.cli.commands.scorch import scorch_app
 from graqle.cli.commands.cloud import cloud_app
+from graqle.cli.commands.migrate import migrate_command
 from graqle.cli.commands.selfupdate import selfupdate_command
 from graqle.cli.commands.setup_guide import setup_guide_command
 from graqle.cli.commands.sync import sync_app as sync_sub_app
@@ -86,6 +87,7 @@ app.add_typer(learn_sub_app, name="learn")
 app.command(name="learned")(learned_command)
 app.add_typer(link_sub_app, name="link")
 app.command(name="self-update")(selfupdate_command)
+app.command(name="migrate")(migrate_command)
 app.command(name="login")(login_command)
 app.command(name="logout")(logout_command)
 app.add_typer(sync_sub_app, name="sync")

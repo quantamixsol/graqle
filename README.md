@@ -233,6 +233,18 @@ Graqle implements the [Model Context Protocol](https://modelcontextprotocol.io/)
 }
 ```
 
+**If `graq` is not on your PATH** (common on Windows / WSL / virtualenv), use the universal Python fallback:
+```json
+{
+  "mcpServers": {
+    "graqle": {
+      "command": "python",
+      "args": ["-m", "graqle.cli.main", "mcp", "serve"]
+    }
+  }
+}
+```
+
 Or skip manual config entirely: `graq init` auto-detects your IDE and wires everything.
 
 ### Available MCP Tools
@@ -372,6 +384,14 @@ pip install -e ".[dev,api]"
 pytest                                # 2,020 tests
 ```
 
+**Upgrading:**
+
+```bash
+graq self-update                      # Recommended — handles MCP server locks on Windows
+pip install --upgrade graqle          # Alternative — may require stopping MCP server first
+graq migrate                          # After upgrade: rename legacy cognigraph files to graqle
+```
+
 Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j at 5,000+ nodes.
 
 ---
@@ -430,6 +450,8 @@ Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j
 | `graq serve` | Start REST API server |
 | `graq mcp serve` | Start MCP server for IDE integration |
 | `graq doctor` | Health check and diagnostics |
+| `graq self-update` | Upgrade to latest version (handles MCP server locks on Windows) |
+| `graq migrate` | Migrate legacy cognigraph files to graqle branding |
 
 ### SCORCH — UX Friction Auditing
 

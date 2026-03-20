@@ -186,7 +186,7 @@ AI_INSTRUCTIONS_SECTION = r"""
 
 **When triggered, follow this protocol:**
 1. Classify the question (see Smart Query Routing below)
-2. Call the appropriate Graqle MCP tool (`kogni_reason`, `kogni_impact`, `kogni_preflight`, `kogni_context`, `kogni_lessons`, `kogni_learn`, `kogni_inspect`)
+2. Call the appropriate Graqle MCP tool (`graq_reason`, `graq_impact`, `graq_preflight`, `graq_context`, `graq_lessons`, `graq_learn`, `graq_inspect`)
 3. Present the Graqle answer to the user
 4. Only supplement with your own tools if Graqle's answer is incomplete
 
@@ -276,14 +276,14 @@ Always pick the **cheapest correct approach** before calling expensive tools:
 |-----------|-------|------|------|
 | **LOOKUP** | `grep` or read KG files | ~200 tokens | Single fact, named entity |
 | **CROSS-CUT** | Read specific KG section | ~300-800 tokens | Spans 2-3 known entities |
-| **IMPACT** | `kogni_impact` | ~800-1500 tokens | "What breaks if..." |
-| **REASONING** | `kogni_reason` | ~1500-3000 tokens | Multi-hop "why/how" questions |
-| **PREFLIGHT** | `kogni_preflight` | ~500-1000 tokens | Pre-change safety check |
-| **LESSONS** | `kogni_lessons` | ~400-800 tokens | Past mistake patterns |
+| **IMPACT** | `graq_impact` | ~800-1500 tokens | "What breaks if..." |
+| **REASONING** | `graq_reason` | ~1500-3000 tokens | Multi-hop "why/how" questions |
+| **PREFLIGHT** | `graq_preflight` | ~500-1000 tokens | Pre-change safety check |
+| **LESSONS** | `graq_lessons` | ~400-800 tokens | Past mistake patterns |
 
 **Rules:**
 1. **Cheapest first.** Always try grep/read before MCP tools.
-2. **Never use kogni_reason for lookups.** A grep is 10x cheaper.
+2. **Never use graq_reason for lookups.** A grep is 10x cheaper.
 3. **Escalate, don't guess.** If grep finds nothing, escalate to next tier.
 4. **When the user explicitly asks for Graqle, skip to the right MCP tool.** Don't second-guess — they want graph reasoning.
 
@@ -999,15 +999,15 @@ IMPORTANT: When the user explicitly says "use graqle", "ask graqle", "graqle rea
 ### Step 0: Check for explicit Graqle request
 
 If the user said "use graqle" or similar, go directly to Step 2 and pick the MCP tool that matches:
-- Impact/dependency questions -> `kogni_impact`
-- "What breaks / what depends" -> `kogni_impact`
-- "Why / how / explain" -> `kogni_reason`
-- Safety / preflight checks -> `kogni_preflight`
-- Past mistakes / lessons -> `kogni_lessons`
-- "Tell me about X" / context -> `kogni_context`
-- "Remember / teach" -> `kogni_learn`
-- Graph stats -> `kogni_inspect`
-- Everything else -> `kogni_reason`
+- Impact/dependency questions -> `graq_impact`
+- "What breaks / what depends" -> `graq_impact`
+- "Why / how / explain" -> `graq_reason`
+- Safety / preflight checks -> `graq_preflight`
+- Past mistakes / lessons -> `graq_lessons`
+- "Tell me about X" / context -> `graq_context`
+- "Remember / teach" -> `graq_learn`
+- Graph stats -> `graq_inspect`
+- Everything else -> `graq_reason`
 
 ### Step 1: Classify the query
 
@@ -1033,37 +1033,37 @@ Read the user's question (passed as $ARGUMENTS) and classify it into ONE of thes
 ```
 **Tools:** Grep, Read (targeted lines only)
 
-#### CROSS-CUT -> Targeted read or kogni_context (cost: 300-800 tokens)
+#### CROSS-CUT -> Targeted read or graq_context (cost: 300-800 tokens)
 ```
 1. Read only the relevant section(s) of .gcc/project-kg.md
-2. If project-kg.md doesn't have the relationships -> call kogni_context
+2. If project-kg.md doesn't have the relationships -> call graq_context
 3. Synthesize answer. DONE.
 ```
 
-#### IMPACT -> kogni_impact MCP tool (cost: ~800-1500 tokens)
+#### IMPACT -> graq_impact MCP tool (cost: ~800-1500 tokens)
 ```
-1. Call kogni_impact with the component name
+1. Call graq_impact with the component name
 2. Present the impact trace to the user
 ```
 **This is where Graqle earns its keep** — traversing dependency chains automatically.
 
-#### REASONING -> kogni_reason MCP tool (cost: ~1500-3000 tokens)
+#### REASONING -> graq_reason MCP tool (cost: ~1500-3000 tokens)
 ```
-1. Call kogni_reason with the question
+1. Call graq_reason with the question
 2. If confidence < 0.5, supplement with targeted file reads
 3. Present synthesized answer
 ```
 **This is Graqle's sweet spot** — multi-hop reasoning across nodes.
 
-#### PREFLIGHT -> kogni_preflight MCP tool (cost: ~500-1000 tokens)
+#### PREFLIGHT -> graq_preflight MCP tool (cost: ~500-1000 tokens)
 ```
-1. Call kogni_preflight with the action and files
+1. Call graq_preflight with the action and files
 2. Present warnings, lessons, and safety boundaries
 ```
 
-#### LESSONS -> kogni_lessons MCP tool (cost: ~400-800 tokens)
+#### LESSONS -> graq_lessons MCP tool (cost: ~400-800 tokens)
 ```
-1. Call kogni_lessons with the operation
+1. Call graq_lessons with the operation
 2. Present matched lessons with severity
 ```
 
@@ -1077,8 +1077,8 @@ Always start your response with a one-line routing tag so the user sees the cost
 
 Examples:
 - `[GRAQLE: LOOKUP -> grep project-kg.md | ~200 tokens]`
-- `[GRAQLE: IMPACT -> kogni_impact | ~1200 tokens]`
-- `[GRAQLE: REASONING -> kogni_reason (3 rounds) | ~2500 tokens]`
+- `[GRAQLE: IMPACT -> graq_impact | ~1200 tokens]`
+- `[GRAQLE: REASONING -> graq_reason (3 rounds) | ~2500 tokens]`
 
 ### Step 4: Answer the question
 
@@ -1090,10 +1090,10 @@ After routing, answer the user's question using the chosen approach. Be concise.
 |----------|-------------|-------------|
 | Grep project-kg.md | 100-300 tokens | Single fact, named entity |
 | Read section of KG | 300-800 tokens | Cross-referencing 2-3 tables |
-| kogni_lessons | 400-800 tokens | Past mistake patterns |
-| kogni_preflight | 500-1000 tokens | Pre-change safety check |
-| kogni_impact | 800-1500 tokens | Change impact analysis |
-| kogni_reason | 1500-3000 tokens | Multi-hop reasoning, "why" questions |
+| graq_lessons | 400-800 tokens | Past mistake patterns |
+| graq_preflight | 500-1000 tokens | Pre-change safety check |
+| graq_impact | 800-1500 tokens | Change impact analysis |
+| graq_reason | 1500-3000 tokens | Multi-hop reasoning, "why" questions |
 
 ## Rules
 
