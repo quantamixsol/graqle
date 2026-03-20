@@ -10,7 +10,7 @@ dependencies, impact paths, and institutional memory — so it reasons over stru
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 2009 passing](https://img.shields.io/badge/tests-2%2C009%20passing-06b6d4.svg)]()
+[![Tests: 2020 passing](https://img.shields.io/badge/tests-2%2C020%20passing-06b6d4.svg)]()
 [![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](LICENSE)
 [![Patent: EP26162901.8](https://img.shields.io/badge/Patent-EP26162901.8-orange.svg)](https://quantamixsolutions.com/patents)
 [![Patent: EP26166054.2](https://img.shields.io/badge/Patent-EP26166054.2-orange.svg)](https://quantamixsolutions.com/patents)
@@ -37,6 +37,7 @@ pip install graqle && graq scan repo . && graq run "what depends on auth?"
 - [What Graqle Understands](#what-graqle-understands)
 - [Installation Options](#installation-options)
 - [CLI Reference](#cli-reference)
+- [SCORCH — UX Friction Auditing](#scorch--ux-friction-auditing)
 - [Python SDK](#python-sdk)
 - [Cloud Sync](#cloud-sync)
 - [Pricing](#pricing)
@@ -177,6 +178,17 @@ graq compile
 
 One command produces a full intelligence report: risk heatmaps, module rankings, and auto-generated context files your AI tools consume directly.
 
+### Audit UX friction automatically
+
+```bash
+pip install "graqle[scorch]" && python -m playwright install chromium
+graq scorch run --url http://localhost:3000
+# → 5-phase audit: screenshots, CSS metrics, 12 behavioral tests, Claude Vision, journey score
+# → Findings auto-added to your knowledge graph
+```
+
+SCORCH v3 — Graqle's first-party UX audit plugin. 12 behavioral friction tests, 6 archetype classifications, and Claude Vision journey psychology. Runs from CLI, MCP, or Python. [Full details below](#scorch--ux-friction-auditing).
+
 ---
 
 ## IDE Integration (MCP)
@@ -243,6 +255,9 @@ Or skip manual config entirely: `graq init` auto-detects your IDE and wires ever
 | `graq_runtime` | Runtime configuration and diagnostics | Free |
 | `graq_route` | Task routing information across backends | Free |
 | `graq_lifecycle` | Module lifecycle and deprecation tracking | Pro |
+| `graq_scorch_audit` | Full SCORCH v3 UX audit (5-phase pipeline) | Pro |
+| `graq_scorch_behavioral` | 12 behavioral UX friction tests (no AI cost) | Free |
+| `graq_scorch_report` | Read and summarize a SCORCH audit report | Free |
 
 ---
 
@@ -345,6 +360,7 @@ pip install "graqle[api]"             # + Anthropic, OpenAI, Bedrock providers
 pip install "graqle[docs]"            # + PDF, DOCX, PPTX, XLSX parsing
 pip install "graqle[neo4j]"           # + Neo4j graph backend (for large codebases)
 pip install "graqle[embeddings]"      # + Sentence transformers for semantic search
+pip install "graqle[scorch]"          # + SCORCH v3: AI-powered UX friction auditing
 pip install "graqle[all]"             # Everything
 ```
 
@@ -353,7 +369,7 @@ For development:
 ```bash
 git clone https://github.com/quantamixsol/graqle && cd graqle
 pip install -e ".[dev,api]"
-pytest                                # 2,009 tests
+pytest                                # 2,020 tests
 ```
 
 Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j at 5,000+ nodes.
@@ -415,6 +431,88 @@ Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j
 | `graq mcp serve` | Start MCP server for IDE integration |
 | `graq doctor` | Health check and diagnostics |
 
+### SCORCH — UX Friction Auditing
+
+| Command | Description |
+|---------|-------------|
+| `graq scorch run` | Full 5-phase audit (screenshots + CSS + behavioral + Vision + report) |
+| `graq scorch behavioral` | 12 behavioral UX tests only (fast, no AI cost) |
+| `graq scorch config --init` | Create default SCORCH config file |
+| `graq scorch report` | View the latest audit report |
+
+---
+
+## SCORCH — UX Friction Auditing
+
+**New in v0.30** — SCORCH v3 is Graqle's first-party plugin for AI-powered UX friction auditing. It finds the invisible UX issues that make users quit — not just visual bugs, but broken user journeys.
+
+```bash
+pip install "graqle[scorch]" && python -m playwright install chromium
+graq scorch run --url http://localhost:3000 --page / --page /pricing
+```
+
+### 5-Phase Pipeline
+
+| Phase | What It Does | Cost |
+|-------|-------------|------|
+| **1. Screenshots** | Full-page captures at mobile, tablet, desktop | Free |
+| **2. CSS Metrics** | Font sizes, touch targets, overflow, contrast | Free |
+| **2.5. Behavioral UX** | 12 automated friction pattern tests | Free |
+| **3. Claude Vision** | AI analysis + Journey Psychology scoring | ~$0.05/page |
+| **4. Report** | Combined JSON + Markdown report with pass/fail | Free |
+
+### 12 Behavioral Friction Tests
+
+Every test maps to real user frustration — not theoretical heuristics:
+
+| Test | What It Catches |
+|------|----------------|
+| Dead Clicks | Buttons/links that look clickable but do nothing |
+| Silent Submissions | Forms that submit without any visible feedback |
+| Unexplained Jargon | Acronyms without tooltips or definitions |
+| Ghost Elements | Empty containers with borders but no content |
+| Missing Next-Step CTA | Pages that end without telling the user what to do next |
+| Copy-Paste Friction | Content in non-selectable elements |
+| Missing Inline Editor | AI-generated text with no edit/copy affordance |
+| Incomplete Generation | Truncated AI output with no "show more" |
+| Feature Discoverability | Interactive elements hidden behind display:none |
+| Flow Continuity | Dead-end pages with no back link or navigation |
+| Upsell Integrity | Upgrade prompts shown for already-owned tiers |
+| Action-Response Feedback | Buttons without loading states or confirmation |
+
+### 6 Friction Archetypes
+
+SCORCH classifies every issue into one of six universal UX failure patterns:
+
+1. **No Visible Response** — *"Is it working?"* — User acts but nothing changes
+2. **Response Mismatch** — *"Not what I asked for"* — UI promises X, delivers Y
+3. **Unusable Output** — *"Now what do I do with this?"* — Results the user can't act on
+4. **User Stranded** — *"Okay... now what?"* — Process completes but no next step
+5. **User Confused** — *"I'm lost"* — User doesn't understand the UI
+6. **UI Contradicts State** — *"That's wrong"* — UI shows incorrect information
+
+### MCP Integration
+
+SCORCH exposes 3 tools via the Graqle MCP server — your AI assistant can audit UX directly:
+
+| MCP Tool | Description |
+|----------|-------------|
+| `graq_scorch_audit` | Full 5-phase audit with pass/fail, journey score, issue list |
+| `graq_scorch_behavioral` | Fast behavioral-only scan (no AI cost) |
+| `graq_scorch_report` | Read and summarize an existing audit report |
+
+### Auto KG Enrichment
+
+Critical and major findings are automatically added to your Graqle knowledge graph as `FRICTION_FINDING` nodes. This means your AI assistant knows about UX issues when reasoning about your codebase — connecting code changes to UX impact.
+
+### Behavioral-Only Mode (Free, No AI)
+
+Don't want to use Claude Vision? Run just the 12 behavioral tests — zero AI cost, instant results:
+
+```bash
+graq scorch behavioral --url http://localhost:3000 --page / --page /dashboard
+```
+
 ---
 
 ## Python SDK
@@ -462,6 +560,8 @@ The SDK is 100% open source and always free. Cloud features are optional.
 | CLI + SDK + MCP server | Unlimited | Unlimited | Unlimited |
 | All 14 LLM backends | Yes | Yes | Yes |
 | Intelligence + governance | Yes | Yes | Yes |
+| SCORCH behavioral tests | Yes | Yes | Yes |
+| SCORCH Vision + Journey | -- | Yes | Yes |
 | Graph nodes | 500 | 25,000 | Unlimited |
 | Cloud projects | 1 | 3 | Unlimited |
 | Reasoning sessions | 3/month | 100/month | Unlimited |
@@ -511,7 +611,7 @@ patent license. See [LICENSE](LICENSE) for details.
 
 ```bash
 git clone https://github.com/quantamixsol/graqle && cd graqle
-pip install -e ".[dev]" && pytest     # 2,009 tests
+pip install -e ".[dev]" && pytest     # 2,020 tests
 ```
 
 We welcome contributions: bug fixes, new backend integrations, language scanner improvements, and documentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -542,7 +642,7 @@ Under 30 seconds for most codebases. Large monorepos (10,000+ files) take 1-2 mi
 Yes. Scanning, graph building, impact analysis, and the visual dashboard all work without any LLM. You only need a backend configured for `graq reason` and `graq run` queries.
 
 **Is this production-ready?**
-2,009 tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
+2,020 tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
 
 ---
 
