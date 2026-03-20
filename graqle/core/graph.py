@@ -43,16 +43,19 @@ def _acquire_lock(lock_path: str):
     if _sys.platform == "win32":
         import msvcrt
         fd = open(lock_path, "w")
-        for attempt in range(10):
-            try:
-                msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
-                return fd
-            except OSError:
-                if attempt == 9:
-                    fd.close()
-                    raise
-                _time.sleep(0.1)
-        return fd
+        try:
+            for attempt in range(10):
+                try:
+                    msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
+                    return fd
+                except OSError:
+                    if attempt == 9:
+                        raise
+                    _time.sleep(0.1)
+        except BaseException:
+            fd.close()
+            raise
+        return fd  # unreachable but satisfies type checkers
     else:
         import fcntl
         fd = open(lock_path, "w")

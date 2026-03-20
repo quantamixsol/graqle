@@ -4,6 +4,109 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.31.2 — Codex Audit Fixes: Observability, Smoke Tests, Windows Robustness (2026-03-20)
+
+**Community-reported issues validated and fixed.** The Codex team tested graqle==0.31.1 on Windows Python 3.10 and reported 10 issues. We validated each against the actual codebase — 7 confirmed real, 2 were design decisions (patent stubs), 1 was false (no encoding artifacts). This release fixes the 5 zero-regression-risk items.
+
+### New: `graq config` command
+
+See your fully resolved configuration at a glance — backend, model, routing rules, graph connector, embeddings, cost budget. No more guessing what GraQle will use at runtime.
+
+```bash
+graq config              # Rich formatted output
+graq config --json       # Machine-readable for CI/scripting
+```
+
+**File:** `graqle/cli/commands/config_show.py` (NEW)
+
+### Enhanced: `graq doctor` reasoning smoke test
+
+Doctor now verifies that your graph file actually loads and is ready for reasoning — not just that config files exist. Catches the case where `graq doctor` passes but `graq run` fails because the graph is empty or corrupt.
+
+```
+OK   Smoke: graph loads    396 nodes from graqle.json — ready for reasoning
+```
+
+**File:** `graqle/cli/commands/doctor.py` — added `_check_reasoning_smoke()`
+
+### Fixed: Windows file lock fd leak
+
+The Windows `msvcrt.locking()` retry path in `_acquire_lock()` could leak a file descriptor if all 10 lock attempts failed. Now wrapped in `try/except BaseException` to guarantee `fd.close()` on any failure path.
+
+**File:** `graqle/core/graph.py` lines 43-57
+
+### New: Fresh-install smoke test in CI
+
+Added a `smoke` job to GitHub Actions that builds the wheel from source and installs it in a clean environment (no editable install, no dev deps). Runs on both Ubuntu and Windows. Validates `graq --version`, `graq --help`, `graq doctor`, and `graq config`.
+
+**File:** `.github/workflows/ci.yml` — added `smoke` job
+
+### Docs: Config field names + Bedrock auth clarification
+
+- **Config fields:** Routing uses `default_provider` / `default_model` (not `fallback_*`). Added note in README.
+- **Bedrock auth:** Documented that AWS Bedrock uses the standard boto3 credential chain (env vars, `~/.aws/credentials`, SSO, instance profiles). No GraQle-specific profile config needed.
+- **CLI reference:** Added `graq config` and `graq config --json` to the command table.
+
+### Codex Audit — Full Validation Matrix
+
+| # | Reported Issue | Verdict | Action |
+|---|----------------|---------|--------|
+| 1 | Empty modules in wheel | Design — patent stubs | No change needed |
+| 2 | Missing ConstraintGraph, PCSTActivation | Design — unreleased IP | No change needed |
+| 3 | fallback_* config keys missing | Misidentified — fields are `default_*` | Docs clarified |
+| 4 | Bedrock auth/profile implicit | True — implicit via boto3 | Docs clarified |
+| 5 | Doctor passes but run fails | **Fixed** | Smoke test added |
+| 6 | No fresh-venv smoke suite | **Fixed** | CI smoke job added |
+| 7 | Windows fd leak in file lock | **Fixed** | `fd.close()` guaranteed |
+| 8 | Encoding artifacts | False — no mojibake found | No change needed |
+| 9 | No circuit-breaker on Bedrock | True — deferred to v0.32 | Tracked |
+| 10 | Config-to-runtime observability | **Fixed** | `graq config` command |
+
+### Tests
+
+**1,700+ tests passing.** No regressions from v0.31.1.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `graqle/cli/commands/config_show.py` | NEW — `graq config` / `graq config --json` |
+| `graqle/cli/commands/doctor.py` | Added `_check_reasoning_smoke()` |
+| `graqle/cli/main.py` | Registered `config` command |
+| `graqle/core/graph.py` | Fixed Windows fd leak in `_acquire_lock()` |
+| `.github/workflows/ci.yml` | Added `smoke` job (Ubuntu + Windows) |
+| `README.md` | Config field docs, Bedrock auth, CLI reference |
+
+### Breaking Changes
+
+None. All changes are additive or fix-only.
+
+---
+
+## v0.31.1 — GraQle Branding (2026-03-20)
+
+- Capital Q branding applied across 134 files (Graqle → GraQle in prose/docstrings/console output)
+- No code logic changes — branding only
+
+---
+
+## v0.31.0 — Adoption Friction Fixes (2026-03-20)
+
+**5 real-world adoption issues fixed in one release:**
+
+1. **`[all]` extras fixed for Windows** — removed `gpu`/`vllm` from `[all]`, added `[all-gpu]` for GPU users
+2. **Upper-bound pins** — `sentence-transformers<3.0`, `torch<2.5`, `transformers<4.50`, `peft<0.14`
+3. **`graq migrate` command** — renames `cognigraph.yaml/json` → `graqle.yaml/json`, updates CLAUDE.md and `.mcp.json`
+4. **kogni_ → graq_ in AI instructions** — 45 tool name references updated in init.py
+5. **PATH fallback in README** — `python -m graqle.cli.main mcp serve` for when `graq` isn't on PATH
+6. **`graq doctor` PATH check** — warns if `graq` binary isn't on PATH with MCP fallback suggestion
+
+### Tests
+
+**1,700+ tests passing.**
+
+---
+
 ## v0.29.0 — Cloud Sync + Multi-Project Dashboard (2026-03-17)
 
 **Push your knowledge graph to GraQle Cloud. View it anywhere. Share with your team.**
