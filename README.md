@@ -291,7 +291,7 @@ model:
 | **Anthropic** | Complex reasoning (Claude) | ~$0.001/query |
 | **OpenAI** | GPT-4o, broad compatibility | ~$0.001/query |
 | **Google Gemini** | Long context windows | ~$0.0001/query |
-| **AWS Bedrock** | Enterprise, IAM integration | AWS pricing |
+| **AWS Bedrock** | Enterprise, IAM integration (uses standard boto3 credential chain: env vars, `~/.aws/credentials`, SSO, instance profiles) | AWS pricing |
 | **Together** | Open-source model hosting | ~$0.0003/query |
 | **Mistral** | European data residency | ~$0.0003/query |
 | **Fireworks** | Fast open-source inference | ~$0.0003/query |
@@ -311,6 +311,9 @@ routing:
     - task: context
       provider: groq                  # Groq for instant context retrieval
 ```
+
+> **Config field reference:** The routing section uses `default_provider` and `default_model` (not `fallback_*`).
+> Run `graq config` to see your fully resolved configuration, or `graq config --json` for CI pipelines.
 
 ---
 
@@ -449,7 +452,9 @@ Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j
 | `graq studio` | Open visual dashboard |
 | `graq serve` | Start REST API server |
 | `graq mcp serve` | Start MCP server for IDE integration |
-| `graq doctor` | Health check and diagnostics |
+| `graq doctor` | Health check and diagnostics (includes reasoning smoke test) |
+| `graq config` | Show resolved configuration (backend, model, routing, graph) |
+| `graq config --json` | Machine-readable config output for CI/scripting |
 | `graq self-update` | Upgrade to latest version (handles MCP server locks on Windows) |
 | `graq migrate` | Migrate legacy cognigraph files to graqle branding |
 
