@@ -57,6 +57,20 @@ def _check_python_version() -> CheckResult:
     return (FAIL, "Python version", f"{ver_str} (requires 3.8+)")
 
 
+def _check_graq_on_path() -> CheckResult:
+    """Check if the graq CLI is on the system PATH."""
+    import shutil
+    graq_path = shutil.which("graq")
+    if graq_path:
+        return (PASS, "CLI: graq on PATH", graq_path)
+    return (
+        WARN,
+        "CLI: graq on PATH",
+        "not found — MCP servers may fail. Use fallback: "
+        '{"command": "python", "args": ["-m", "graqle.cli.main", "mcp", "serve"]}',
+    )
+
+
 def _check_core_deps() -> list[CheckResult]:
     results = []
     core = ["networkx", "numpy", "pydantic", "pyyaml", "typer", "rich"]
@@ -808,6 +822,7 @@ def doctor_command(
 
     # Run all checks
     all_results.append(_check_python_version())
+    all_results.append(_check_graq_on_path())
     all_results.extend(_check_core_deps())
     all_results.extend(_check_backend_packages())
     all_results.extend(_check_api_keys())

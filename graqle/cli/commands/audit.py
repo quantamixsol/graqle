@@ -243,7 +243,7 @@ def _display_report(report: dict, verbose: bool = False) -> None:
             "[red]Run 'graq audit --fix' to auto-synthesize from descriptions,[/red]"
         )
         console.print(
-            "[red]or add chunks manually to your cognigraph.json nodes.[/red]"
+            "[red]or add chunks manually to your graqle.json nodes.[/red]"
         )
     elif health == "WARNING":
         console.print(

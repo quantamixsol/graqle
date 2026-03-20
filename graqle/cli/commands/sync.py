@@ -107,7 +107,9 @@ def sync_push(
         raise typer.Exit(1)
 
     # Load local graph
-    graph_path = Path("cognigraph.json")
+    graph_path = Path("graqle.json")
+    if not graph_path.exists():
+        graph_path = Path("cognigraph.json")  # legacy fallback
     if not graph_path.exists():
         graph_path = Path(".graqle/graph.json")
     if not graph_path.exists():
