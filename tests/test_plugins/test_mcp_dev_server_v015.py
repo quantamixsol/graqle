@@ -86,7 +86,7 @@ def server():
 
 class TestToolDefinitionsV015:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 36  # 19 graq_* + 17 kogni_* aliases (includes SCORCH)
+        assert len(TOOL_DEFINITIONS) == 56  # 29 graq_* + 27 kogni_* aliases (includes 13 SCORCH skills)
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

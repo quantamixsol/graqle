@@ -92,3 +92,73 @@ class ScorchEngine:
 
         logger.info("SCORCH — CSS-only audit of %s", self.config.base_url)
         return await extract_css_metrics(self.config)
+
+    async def run_a11y(self) -> list[dict[str, Any]]:
+        """Run WCAG 2.1 AA/AAA accessibility audit."""
+        from graqle.plugins.scorch.phases.a11y import audit_accessibility
+
+        logger.info("SCORCH — Accessibility audit of %s", self.config.base_url)
+        return await audit_accessibility(self.config)
+
+    async def run_perf(self) -> list[dict[str, Any]]:
+        """Run Core Web Vitals performance audit."""
+        from graqle.plugins.scorch.phases.perf import audit_performance
+
+        logger.info("SCORCH — Performance audit of %s", self.config.base_url)
+        return await audit_performance(self.config)
+
+    async def run_seo(self) -> list[dict[str, Any]]:
+        """Run SEO audit (meta tags, structured data, Open Graph)."""
+        from graqle.plugins.scorch.phases.seo import audit_seo
+
+        logger.info("SCORCH — SEO audit of %s", self.config.base_url)
+        return await audit_seo(self.config)
+
+    async def run_mobile(self) -> list[dict[str, Any]]:
+        """Run mobile-specific audit (touch targets, viewport, text readability)."""
+        from graqle.plugins.scorch.phases.mobile import audit_mobile
+
+        logger.info("SCORCH — Mobile audit of %s", self.config.base_url)
+        return await audit_mobile(self.config)
+
+    async def run_i18n(self) -> list[dict[str, Any]]:
+        """Run internationalization audit (hardcoded strings, RTL, locale formatting)."""
+        from graqle.plugins.scorch.phases.i18n import audit_i18n
+
+        logger.info("SCORCH — i18n audit of %s", self.config.base_url)
+        return await audit_i18n(self.config)
+
+    async def run_security(self) -> list[dict[str, Any]]:
+        """Run frontend security audit (CSP, XSS vectors, exposed keys)."""
+        from graqle.plugins.scorch.phases.security import audit_security
+
+        logger.info("SCORCH — Security audit of %s", self.config.base_url)
+        return await audit_security(self.config)
+
+    async def run_conversion(self) -> list[dict[str, Any]]:
+        """Run conversion funnel analysis (CTAs, forms, trust signals)."""
+        from graqle.plugins.scorch.phases.conversion import audit_conversion
+
+        logger.info("SCORCH — Conversion audit of %s", self.config.base_url)
+        return await audit_conversion(self.config)
+
+    async def run_brand(self) -> list[dict[str, Any]]:
+        """Run brand consistency audit (colors, typography, logo, spacing)."""
+        from graqle.plugins.scorch.phases.brand import audit_brand
+
+        logger.info("SCORCH — Brand audit of %s", self.config.base_url)
+        return await audit_brand(self.config)
+
+    async def run_auth_flow(self) -> list[dict[str, Any]]:
+        """Run authenticated user journey audit (login/signup/dashboard flows)."""
+        from graqle.plugins.scorch.phases.auth_flow import audit_auth_flow
+
+        logger.info("SCORCH — Auth flow audit of %s", self.config.base_url)
+        return await audit_auth_flow(self.config)
+
+    async def run_diff(self, previous_report_path: str | None = None) -> dict[str, Any]:
+        """Run before/after comparison against a previous SCORCH report."""
+        from graqle.plugins.scorch.phases.diff import audit_diff
+
+        logger.info("SCORCH — Diff comparison for %s", self.config.base_url)
+        return await audit_diff(self.config, previous_report_path)

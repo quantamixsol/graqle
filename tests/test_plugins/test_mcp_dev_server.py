@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 16 graq_* tools + 14 kogni_* aliases + 3 graq_scorch_* + 3 kogni_scorch_* = 36
-        assert len(TOOL_DEFINITIONS) == 36
+        # 29 graq_* tools + 27 kogni_* aliases (includes 13 SCORCH skills) = 56
+        assert len(TOOL_DEFINITIONS) == 56
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -145,6 +145,16 @@ class TestToolDefinitions:
             "graq_scorch_audit",
             "graq_scorch_behavioral",
             "graq_scorch_report",
+            "graq_scorch_a11y",
+            "graq_scorch_perf",
+            "graq_scorch_seo",
+            "graq_scorch_mobile",
+            "graq_scorch_i18n",
+            "graq_scorch_security",
+            "graq_scorch_conversion",
+            "graq_scorch_brand",
+            "graq_scorch_auth_flow",
+            "graq_scorch_diff",
         }
         expected_kogni = {
             "kogni_context",
@@ -164,8 +174,18 @@ class TestToolDefinitions:
             "kogni_scorch_audit",
             "kogni_scorch_behavioral",
             "kogni_scorch_report",
+            "kogni_scorch_a11y",
+            "kogni_scorch_perf",
+            "kogni_scorch_seo",
+            "kogni_scorch_mobile",
+            "kogni_scorch_i18n",
+            "kogni_scorch_security",
+            "kogni_scorch_conversion",
+            "kogni_scorch_brand",
+            "kogni_scorch_auth_flow",
+            "kogni_scorch_diff",
         }
-        # 19 graq_* + 17 kogni_* = 36 total
+        # 29 graq_* + 27 kogni_* = 56 total
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -195,7 +215,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 36  # 19 graq_* + 17 kogni_* aliases (includes SCORCH)
+        assert len(tools) == 56  # 29 graq_* + 27 kogni_* aliases (includes 13 SCORCH skills)
 
 
 # ---------------------------------------------------------------------------

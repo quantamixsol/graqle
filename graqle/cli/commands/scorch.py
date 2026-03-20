@@ -131,6 +131,95 @@ async def _run_behavioral(config):
     return await engine.run_behavioral_only()
 
 
+# ── Extended SCORCH Skills ──
+
+def _scorch_skill_cmd(skill_name: str, engine_method: str, description: str):
+    """Factory for simple SCORCH skill CLI commands."""
+
+    @scorch_app.command(skill_name)
+    def cmd(
+        url: str = typer.Option("http://localhost:3000", "--url", "-u", help="Base URL to audit"),
+        pages: list[str] = typer.Option(["/"], "--page", "-p", help="Page paths to audit (repeatable)"),
+        output: str = typer.Option("./scorch-output", "--output", "-o", help="Output directory"),
+    ) -> None:
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            console.print(
+                "[red]SCORCH plugin not available.[/red]\n"
+                "Install with: [cyan]pip install graqle\\[scorch][/cyan]"
+            )
+            raise typer.Exit(1)
+
+        config = ScorchConfig(base_url=url, pages=pages, output_dir=output)
+        console.print(f"\n[bold cyan]SCORCH v3[/bold cyan] — {description} of {url}")
+
+        async def _run():
+            engine = ScorchEngine(config=config)
+            return await getattr(engine, engine_method)()
+
+        results = asyncio.run(_run())
+
+        out_dir = Path(output)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / f"{skill_name}.json"
+        out_file.write_text(json.dumps(results, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        console.print(f"\n[bold]Results written to {out_file}[/bold]")
+
+    cmd.__doc__ = description
+    return cmd
+
+
+_scorch_skill_cmd("a11y", "run_a11y", "WCAG 2.1 AA/AAA accessibility audit")
+_scorch_skill_cmd("perf", "run_perf", "Core Web Vitals performance audit")
+_scorch_skill_cmd("seo", "run_seo", "SEO audit (meta tags, structured data, Open Graph)")
+_scorch_skill_cmd("mobile", "run_mobile", "Mobile-specific audit (touch targets, viewport, readability)")
+_scorch_skill_cmd("i18n", "run_i18n", "Internationalization audit (lang, RTL, date/currency)")
+_scorch_skill_cmd("security", "run_security", "Frontend security audit (CSP, exposed keys, XSS)")
+_scorch_skill_cmd("conversion", "run_conversion", "Conversion funnel analysis (CTAs, forms, trust signals)")
+_scorch_skill_cmd("brand", "run_brand", "Brand consistency audit (colors, typography, spacing)")
+_scorch_skill_cmd("auth-flow", "run_auth_flow", "Authenticated user journey audit")
+
+
+@scorch_app.command("diff")
+def scorch_diff(
+    previous: str = typer.Option(None, "--previous", help="Path to previous report.json"),
+    current: str = typer.Option("./scorch-output/report.json", "--current", help="Path to current report.json"),
+) -> None:
+    """Compare two SCORCH reports (before/after diff)."""
+    try:
+        from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+    except ImportError:
+        console.print("[red]SCORCH plugin not available.[/red]")
+        raise typer.Exit(1)
+
+    import os
+    config = ScorchConfig(output_dir=os.path.dirname(current) or "./scorch-output")
+    console.print("\n[bold cyan]SCORCH v3[/bold cyan] — Before/after comparison")
+
+    async def _run():
+        engine = ScorchEngine(config=config)
+        return await engine.run_diff(previous_report_path=previous)
+
+    results = asyncio.run(_run())
+
+    # Print summary
+    if isinstance(results, dict):
+        resolved = results.get("resolved_count", 0)
+        new_issues = results.get("new_count", 0)
+        improvement = results.get("improvement_pct", 0)
+
+        color = "green" if improvement > 0 else "red" if improvement < 0 else "yellow"
+        console.print(f"\n[bold]Resolved:[/bold] [green]{resolved}[/green] issues")
+        console.print(f"[bold]New:[/bold] [red]{new_issues}[/red] issues")
+        console.print(f"[bold]Improvement:[/bold] [{color}]{improvement:+.1f}%[/{color}]")
+
+    out_file = Path(config.output_dir) / "diff.json"
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(json.dumps(results, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    console.print(f"\n[dim]Written to {out_file}[/dim]")
+
+
 @scorch_app.command("config")
 def scorch_config(
     init: bool = typer.Option(False, "--init", help="Create default scorch.json config file"),

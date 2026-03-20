@@ -660,6 +660,216 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    # ── SCORCH Extended Skills ──
+    {
+        "name": "graq_scorch_a11y",
+        "description": (
+            "WCAG 2.1 AA/AAA accessibility audit: color contrast scanner, "
+            "missing aria-labels, focus order validation, heading hierarchy, "
+            "landmark structure, form labels, image alt text. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_perf",
+        "description": (
+            "Core Web Vitals audit: LCP, FID, CLS measurement per page, "
+            "resource count/size analysis, render-blocking resource detection, "
+            "DOM size, image optimization checks. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_seo",
+        "description": (
+            "SEO audit: title/meta description, canonical URLs, Open Graph + "
+            "Twitter Card tags, structured data (JSON-LD), heading hierarchy, "
+            "internal/external link analysis, image alt coverage, robots meta. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_mobile",
+        "description": (
+            "Mobile-specific audit: touch target sizes (44px minimum), "
+            "viewport meta validation, text readability at mobile sizes, "
+            "horizontal scroll detection, input type correctness, "
+            "pinch-zoom restriction check. Runs on mobile viewport only. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_i18n",
+        "description": (
+            "Internationalization audit: html lang attribute, hardcoded strings, "
+            "RTL support, date/currency formatting patterns, mixed language "
+            "content detection, Unicode support checks. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_security",
+        "description": (
+            "Frontend security audit: CSP headers, exposed API keys (OpenAI/AWS/GitHub/Stripe), "
+            "inline scripts without nonce, mixed content, insecure form actions, "
+            "sensitive data in localStorage, missing security headers (HSTS, X-Frame-Options). "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_conversion",
+        "description": (
+            "Conversion funnel analysis: CTA inventory and placement (above/below fold), "
+            "form quality analysis, trust signal detection (testimonials, badges), "
+            "pricing clarity, micro-copy quality, exit-intent indicators. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_brand",
+        "description": (
+            "Brand consistency audit: color palette compliance against brand rules, "
+            "typography adherence, font size compliance, logo presence, "
+            "spacing consistency, button/link/heading style uniformity. "
+            "Uses brand_rules from ScorchConfig. "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_auth_flow",
+        "description": (
+            "Authenticated user journey audit: tests login/signup/onboarding flows, "
+            "verifies redirect behavior, session indicators, post-auth navigation. "
+            "Runs both unauthenticated and authenticated (if auth_state provided). "
+            "Requires: pip install graqle[scorch]"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Base URL to audit"},
+                "pages": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Page paths to audit",
+                },
+                "auth_state": {
+                    "type": "string",
+                    "description": "Path to Playwright storage state JSON for authenticated session",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_scorch_diff",
+        "description": (
+            "Before/after SCORCH comparison: compares current report against a previous one. "
+            "Shows resolved issues, new issues, persistent issues, journey score delta, "
+            "severity count changes, and overall improvement percentage. "
+            "No Playwright needed — works on saved report files."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "previous_report": {
+                    "type": "string",
+                    "description": "Path to previous report.json for comparison",
+                },
+                "current_report": {
+                    "type": "string",
+                    "description": "Path to current report.json (default: ./scorch-output/report.json)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1009,6 +1219,16 @@ class KogniDevServer:
             "graq_scorch_audit": self._handle_scorch_audit,
             "graq_scorch_behavioral": self._handle_scorch_behavioral,
             "graq_scorch_report": self._handle_scorch_report,
+            "graq_scorch_a11y": self._handle_scorch_a11y,
+            "graq_scorch_perf": self._handle_scorch_perf,
+            "graq_scorch_seo": self._handle_scorch_seo,
+            "graq_scorch_mobile": self._handle_scorch_mobile,
+            "graq_scorch_i18n": self._handle_scorch_i18n,
+            "graq_scorch_security": self._handle_scorch_security,
+            "graq_scorch_conversion": self._handle_scorch_conversion,
+            "graq_scorch_brand": self._handle_scorch_brand,
+            "graq_scorch_auth_flow": self._handle_scorch_auth_flow,
+            "graq_scorch_diff": self._handle_scorch_diff,
             # Backward-compat aliases (kogni_* → graq_*)
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
@@ -2376,6 +2596,160 @@ class KogniDevServer:
             "summary": report.get("summary", ""),
         }
         return json.dumps(summary)
+
+    # ── SCORCH Extended Skill Handlers ──
+
+    async def _handle_scorch_a11y(self, args: dict[str, Any]) -> str:
+        """WCAG 2.1 AA/AAA accessibility audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_a11y()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_perf(self, args: dict[str, Any]) -> str:
+        """Core Web Vitals performance audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_perf()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_seo(self, args: dict[str, Any]) -> str:
+        """SEO audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_seo()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_mobile(self, args: dict[str, Any]) -> str:
+        """Mobile-specific audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_mobile()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_i18n(self, args: dict[str, Any]) -> str:
+        """Internationalization audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_i18n()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_security(self, args: dict[str, Any]) -> str:
+        """Frontend security audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_security()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_conversion(self, args: dict[str, Any]) -> str:
+        """Conversion funnel analysis."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_conversion()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_brand(self, args: dict[str, Any]) -> str:
+        """Brand consistency audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_brand()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_auth_flow(self, args: dict[str, Any]) -> str:
+        """Authenticated user journey audit."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig(
+            base_url=args.get("url", "http://localhost:3000"),
+            pages=args.get("pages", ["/"]),
+            auth_state=args.get("auth_state"),
+        )
+        engine = ScorchEngine(config=config)
+        results = await engine.run_auth_flow()
+        return json.dumps(results, default=str)
+
+    async def _handle_scorch_diff(self, args: dict[str, Any]) -> str:
+        """Before/after SCORCH report comparison."""
+        try:
+            from graqle.plugins.scorch import ScorchEngine, ScorchConfig
+        except ImportError:
+            return json.dumps({"error": "SCORCH plugin not available. Install with: pip install graqle[scorch]"})
+
+        config = ScorchConfig()
+        if args.get("current_report"):
+            import os
+            config.output_dir = os.path.dirname(args["current_report"]) or "./scorch-output"
+
+        engine = ScorchEngine(config=config)
+        results = await engine.run_diff(previous_report_path=args.get("previous_report"))
+        return json.dumps(results, default=str)
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""

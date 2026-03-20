@@ -464,6 +464,16 @@ Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j
 |---------|-------------|
 | `graq scorch run` | Full 5-phase audit (screenshots + CSS + behavioral + Vision + report) |
 | `graq scorch behavioral` | 12 behavioral UX tests only (fast, no AI cost) |
+| `graq scorch a11y` | WCAG 2.1 AA/AAA accessibility audit |
+| `graq scorch perf` | Core Web Vitals (LCP, CLS, FID) + resource analysis |
+| `graq scorch seo` | Meta tags, Open Graph, structured data, heading hierarchy |
+| `graq scorch mobile` | Touch targets, viewport, text readability, pinch-zoom |
+| `graq scorch i18n` | Internationalization: lang, RTL, date/currency formatting |
+| `graq scorch security` | CSP headers, exposed API keys, XSS vectors, mixed content |
+| `graq scorch conversion` | CTA placement, form quality, trust signals, pricing clarity |
+| `graq scorch brand` | Color palette, typography, logo, spacing consistency |
+| `graq scorch auth-flow` | Login/signup/dashboard flows with auth state comparison |
+| `graq scorch diff` | Before/after report comparison with improvement metrics |
 | `graq scorch config --init` | Create default SCORCH config file |
 | `graq scorch report` | View the latest audit report |
 
@@ -520,13 +530,25 @@ SCORCH classifies every issue into one of six universal UX failure patterns:
 
 ### MCP Integration
 
-SCORCH exposes 3 tools via the GraQle MCP server — your AI assistant can audit UX directly:
+SCORCH exposes 13 tools via the GraQle MCP server — your AI assistant can audit UX directly:
 
-| MCP Tool | Description |
-|----------|-------------|
-| `graq_scorch_audit` | Full 5-phase audit with pass/fail, journey score, issue list |
-| `graq_scorch_behavioral` | Fast behavioral-only scan (no AI cost) |
-| `graq_scorch_report` | Read and summarize an existing audit report |
+| MCP Tool | Description | Cost |
+|----------|-------------|------|
+| `graq_scorch_audit` | Full 5-phase audit with pass/fail, journey score, issue list | ~$0.05/page |
+| `graq_scorch_behavioral` | 12 behavioral UX friction pattern tests | Free |
+| `graq_scorch_report` | Read and summarize an existing audit report | Free |
+| `graq_scorch_a11y` | WCAG 2.1 AA/AAA accessibility audit (contrast, aria, focus, headings) | Free |
+| `graq_scorch_perf` | Core Web Vitals: LCP, CLS, FID, resource analysis, render-blocking | Free |
+| `graq_scorch_seo` | SEO: meta tags, Open Graph, Twitter Cards, JSON-LD, canonical | Free |
+| `graq_scorch_mobile` | Mobile: touch targets (44px min), viewport, readability, scroll | Free |
+| `graq_scorch_i18n` | i18n: html lang, RTL, hardcoded strings, date/currency formatting | Free |
+| `graq_scorch_security` | Security: CSP, exposed API keys, XSS, mixed content, HSTS | Free |
+| `graq_scorch_conversion` | Conversion: CTA inventory, form quality, trust signals, pricing | Free |
+| `graq_scorch_brand` | Brand: color palette, typography, spacing, button consistency | Free |
+| `graq_scorch_auth_flow` | Auth flows: login/signup/dashboard with auth state comparison | Free |
+| `graq_scorch_diff` | Before/after comparison: resolved/new issues, improvement % | Free |
+
+All tools are also available with the `kogni_scorch_*` prefix for backward compatibility.
 
 ### Auto KG Enrichment
 
