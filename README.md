@@ -1,4 +1,3 @@
-<!-- mcp-name: com.graqle/graqle -->
 <div align="center">
 
 # gra**Q**le
@@ -10,11 +9,12 @@ dependencies, impact paths, and institutional memory — so it reasons over stru
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 2020 passing](https://img.shields.io/badge/tests-2%2C020%20passing-06b6d4.svg)]()
-[![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](LICENSE)
+[![Tests: 2020 passing](https://img.shields.io/badge/tests-1%2C700%2B%20passing-06b6d4.svg)]()
+[![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](https://github.com/quantamixsol/graqle/blob/master/LICENSE)
 [![Patent: EP26162901.8](https://img.shields.io/badge/Patent-EP26162901.8-orange.svg)](https://quantamixsolutions.com/patents)
 [![Patent: EP26166054.2](https://img.shields.io/badge/Patent-EP26166054.2-orange.svg)](https://quantamixsolutions.com/patents)
 [![Downloads](https://img.shields.io/pypi/dm/graqle?color=06b6d4)](https://pypi.org/project/graqle/)
+[![GitHub stars](https://img.shields.io/github/stars/quantamixsol/graqle?style=social)](https://github.com/quantamixsol/graqle)
 
 ```bash
 pip install graqle && graq scan repo . && graq run "what depends on auth?"
@@ -381,7 +381,7 @@ For development:
 ```bash
 git clone https://github.com/quantamixsol/graqle && cd graqle
 pip install -e ".[dev,api]"
-pytest                                # 2,020 tests
+pytest                                # 1,700+ tests
 ```
 
 **Upgrading:**
@@ -633,7 +633,7 @@ patent license. See [LICENSE](LICENSE) for details.
 
 ```bash
 git clone https://github.com/quantamixsol/graqle && cd graqle
-pip install -e ".[dev]" && pytest     # 2,020 tests
+pip install -e ".[dev]" && pytest     # 1,700+ tests
 ```
 
 We welcome contributions: bug fixes, new backend integrations, language scanner improvements, and documentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -664,7 +664,7 @@ Under 30 seconds for most codebases. Large monorepos (10,000+ files) take 1-2 mi
 Yes. Scanning, graph building, impact analysis, and the visual dashboard all work without any LLM. You only need a backend configured for `graq reason` and `graq run` queries.
 
 **Is this production-ready?**
-2,020 tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
+1,700+ tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
 
 ---
 
