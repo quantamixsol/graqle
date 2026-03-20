@@ -1,6 +1,6 @@
 <div align="center">
 
-# gra**Q**le
+# Gra**Q**le
 
 ### Code intelligence that understands your architecture.
 
