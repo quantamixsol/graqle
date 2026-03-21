@@ -2093,6 +2093,13 @@ def _scan_repo_impl(
             for nid in coverage["empty_code_nodes"][:10]:
                 console.print(f"    [dim]- {nid}[/dim]")
 
+    # Auto cloud sync (if authenticated — silent skip otherwise)
+    try:
+        from graqle.cli.commands.cloud import auto_cloud_sync
+        auto_cloud_sync(Path(path).resolve(), graph_json=data)
+    except Exception:
+        pass  # Cloud sync is non-blocking
+
     # Warn if embedding cache is stale or missing
     cache_path = Path(".graqle/chunk_embeddings.npz")
     if cache_path.exists():

@@ -315,3 +315,10 @@ def grow_command(
             f"+{added} nodes, ~{updated} updated, +{edges_added} edges "
             f"({total} total)"
         )
+
+    # Auto cloud sync (if authenticated — silent skip otherwise)
+    try:
+        from graqle.cli.commands.cloud import auto_cloud_sync
+        auto_cloud_sync(root, quiet=quiet, graph_json=merged)
+    except Exception:
+        pass  # Cloud sync is non-blocking
