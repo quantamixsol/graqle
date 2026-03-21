@@ -20,7 +20,10 @@ from __future__ import annotations
 from typing import Any
 
 from graqle.ontology.domain_registry import DomainRegistry
-from graqle.ontology.semantic_shacl_gate import SemanticConstraint
+try:
+    from graqle.ontology.semantic_shacl_gate import SemanticConstraint
+except ImportError:
+    SemanticConstraint = None  # type: ignore[assignment,misc]
 from graqle.ontology.skill_resolver import Skill
 
 # ============================================================================

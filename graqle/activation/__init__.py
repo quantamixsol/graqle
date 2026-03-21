@@ -15,14 +15,22 @@ from graqle.activation.chunk_scorer import ChunkScorer
 from graqle.activation.cypher_activation import CypherActivation
 from graqle.activation.embeddings import EmbeddingEngine, cosine_similarity
 from graqle.activation.multi_signal import MultiSignalActivation
-from graqle.activation.pcst import PCSTActivation
+
+try:
+    from graqle.activation.pcst import PCSTActivation
+except ImportError:
+    PCSTActivation = None  # type: ignore[assignment,misc]
+
 from graqle.activation.reformulator import (
     Attachment,
     QueryReformulator,
     ReformulationContext,
     ReformulationResult,
 )
-from graqle.activation.relevance import RelevanceScorer
+try:
+    from graqle.activation.relevance import RelevanceScorer
+except ImportError:
+    RelevanceScorer = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "PCSTActivation",

@@ -12,7 +12,11 @@ Domain-agnostic: any domain registers via the DomainRegistry API.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.ontology.constraint_graph import ConstraintGraph
+try:
+    from graqle.ontology.constraint_graph import ConstraintGraph
+except ImportError:
+    ConstraintGraph = None  # type: ignore[assignment,misc]
+
 from graqle.ontology.domain_registry import DomainOntology, DomainRegistry
 from graqle.ontology.markdown_parser import (
     EdgeInferenceEngine,
@@ -42,13 +46,17 @@ from graqle.ontology.schema import (
     register_node_shape,
     validate_graph,
 )
-from graqle.ontology.semantic_shacl_gate import (
-    SemanticConstraint,
-    SemanticSHACLGate,
-    SemanticValidationResult,
-    SemanticViolation,
-    build_semantic_constraints_from_kg,
-)
+try:
+    from graqle.ontology.semantic_shacl_gate import (
+        SemanticConstraint,
+        SemanticSHACLGate,
+        SemanticValidationResult,
+        SemanticViolation,
+        build_semantic_constraints_from_kg,
+    )
+except ImportError:
+    SemanticConstraint = SemanticSHACLGate = SemanticValidationResult = None  # type: ignore[assignment,misc]
+    SemanticViolation = build_semantic_constraints_from_kg = None  # type: ignore[assignment,misc]
 from graqle.ontology.shacl_gate import SHACLGate, ValidationResult
 from graqle.ontology.skill_resolver import Skill, SkillResolver
 from graqle.ontology.upper import UpperOntology
