@@ -1542,12 +1542,12 @@ class Graqle:
                 _emb_engine = None
                 try:
                     from graqle.activation.embeddings import create_embedding_engine
-                    _emb_engine = create_embedding_engine(self._config)
+                    _emb_engine = create_embedding_engine(self.config)
                 except Exception:
                     pass
                 # Pass domain registry for skill-aware activation boost
                 _domain_reg = None
-                if self._config and self._config.activation.skill_aware:
+                if self.config and self.config.activation.skill_aware:
                     try:
                         from graqle.ontology.domain_registry import DomainRegistry
                         from graqle.ontology.domains import register_all_domains
