@@ -43,7 +43,15 @@ def phantom_browse(
 
     console.print(f"\n[bold cyan]Phantom[/bold cyan] — Browsing {url}")
 
-    result = asyncio.run(engine.browse(url, viewport=viewport, auth_profile=auth_profile))
+    try:
+        result = asyncio.run(engine.browse(url, viewport=viewport, auth_profile=auth_profile))
+    except ModuleNotFoundError:
+        console.print(
+            "[red]Playwright not installed.[/red]\n"
+            "Install with: [cyan]pip install graqle\\[phantom] && python -m playwright install chromium[/cyan]"
+        )
+        raise typer.Exit(1)
+
     console.print(f"  Session: {result['session_id']}")
     console.print(f"  Screenshot: {result['screenshot_path']}")
     console.print(f"  DOM nodes: {result['dom_summary'].get('dom_nodes', 'N/A')}")
@@ -71,7 +79,14 @@ def phantom_audit(
         await engine.sessions.close_all()
         return audit_result
 
-    result = asyncio.run(_run())
+    try:
+        result = asyncio.run(_run())
+    except ModuleNotFoundError:
+        console.print(
+            "[red]Playwright not installed.[/red]\n"
+            "Install with: [cyan]pip install graqle\\[phantom] && python -m playwright install chromium[/cyan]"
+        )
+        raise typer.Exit(1)
 
     # Summary table
     summary = result.get("summary", {})
@@ -100,7 +115,14 @@ def phantom_discover(
 
     console.print(f"\n[bold cyan]Phantom Discovery[/bold cyan] — {url}")
 
-    result = asyncio.run(engine.discover(url, auth_profile=auth_profile, max_depth=max_depth, max_pages=max_pages))
+    try:
+        result = asyncio.run(engine.discover(url, auth_profile=auth_profile, max_depth=max_depth, max_pages=max_pages))
+    except ModuleNotFoundError:
+        console.print(
+            "[red]Playwright not installed.[/red]\n"
+            "Install with: [cyan]pip install graqle\\[phantom] && python -m playwright install chromium[/cyan]"
+        )
+        raise typer.Exit(1)
 
     table = Table(title=f"Discovered {result['pages_discovered']} pages")
     table.add_column("Path", style="cyan")
@@ -137,13 +159,20 @@ def phantom_flow(
     console.print(f"\n[bold cyan]Phantom Flow[/bold cyan] — {name}")
     console.print(f"  Steps: {len(steps)}")
 
-    result = asyncio.run(engine.flow(
-        name=name,
-        steps=steps,
-        viewport=flow_def.get("viewport", viewport),
-        auth_profile=flow_def.get("auth_profile"),
-        stop_on_failure=stop_on_failure,
-    ))
+    try:
+        result = asyncio.run(engine.flow(
+            name=name,
+            steps=steps,
+            viewport=flow_def.get("viewport", viewport),
+            auth_profile=flow_def.get("auth_profile"),
+            stop_on_failure=stop_on_failure,
+        ))
+    except ModuleNotFoundError:
+        console.print(
+            "[red]Playwright not installed.[/red]\n"
+            "Install with: [cyan]pip install graqle\\[phantom] && python -m playwright install chromium[/cyan]"
+        )
+        raise typer.Exit(1)
 
     status = "[green]PASS[/green]" if result["failed"] == 0 else "[red]FAIL[/red]"
     console.print(f"\n  Result: {status} ({result['passed']}/{result['total_steps']} passed)")
