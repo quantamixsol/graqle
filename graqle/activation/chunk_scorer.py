@@ -381,7 +381,7 @@ class ChunkScorer:
         boosted = 0
 
         for nid in scores:
-            node = graph.get_node(nid)
+            node = graph.nodes.get(nid) if hasattr(graph, 'nodes') else None
             if node is None:
                 continue
             etype = getattr(node, "entity_type", None) or ""
