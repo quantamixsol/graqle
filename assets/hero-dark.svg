@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" fill="none">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="800" y2="400">
+    <linearGradient id="bg" x1="0" y1="0" x2="800" y2="600">
       <stop offset="0%" stop-color="#0f172a"/>
       <stop offset="100%" stop-color="#020617"/>
     </linearGradient>
@@ -8,32 +8,12 @@
       <stop offset="0%" stop-color="#06b6d4"/>
       <stop offset="100%" stop-color="#0ea5e9"/>
     </linearGradient>
-    <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#a855f7"/>
-      <stop offset="100%" stop-color="#7c3aed"/>
-    </linearGradient>
-    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f59e0b"/>
-      <stop offset="100%" stop-color="#d97706"/>
-    </linearGradient>
-    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#10b981"/>
-      <stop offset="100%" stop-color="#059669"/>
-    </linearGradient>
-    <linearGradient id="rose" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f43f5e"/>
-      <stop offset="100%" stop-color="#e11d48"/>
-    </linearGradient>
-    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#0284c7"/>
-    </linearGradient>
     <filter id="glow">
       <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <filter id="glow-strong">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feGaussianBlur stdDeviation="5" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <filter id="glow-node">
@@ -43,250 +23,247 @@
   </defs>
 
   <!-- Background -->
-  <rect width="800" height="400" fill="url(#bg)" rx="12"/>
+  <rect width="800" height="600" fill="url(#bg)" rx="16"/>
 
-  <!-- Grid pattern -->
-  <g opacity="0.04" stroke="#06b6d4">
-    <line x1="0" y1="50" x2="800" y2="50"/><line x1="0" y1="100" x2="800" y2="100"/>
-    <line x1="0" y1="150" x2="800" y2="150"/><line x1="0" y1="200" x2="800" y2="200"/>
-    <line x1="0" y1="250" x2="800" y2="250"/><line x1="0" y1="300" x2="800" y2="300"/>
-    <line x1="0" y1="350" x2="800" y2="350"/>
-    <line x1="100" y1="0" x2="100" y2="400"/><line x1="200" y1="0" x2="200" y2="400"/>
-    <line x1="300" y1="0" x2="300" y2="400"/><line x1="400" y1="0" x2="400" y2="400"/>
-    <line x1="500" y1="0" x2="500" y2="400"/><line x1="600" y1="0" x2="600" y2="400"/>
-    <line x1="700" y1="0" x2="700" y2="400"/>
+  <!-- Subtle grid -->
+  <g opacity="0.03" stroke="#06b6d4">
+    <line x1="0" y1="75" x2="800" y2="75"/><line x1="0" y1="150" x2="800" y2="150"/>
+    <line x1="0" y1="225" x2="800" y2="225"/><line x1="0" y1="300" x2="800" y2="300"/>
+    <line x1="0" y1="375" x2="800" y2="375"/><line x1="0" y1="450" x2="800" y2="450"/>
+    <line x1="0" y1="525" x2="800" y2="525"/>
+    <line x1="100" y1="0" x2="100" y2="600"/><line x1="200" y1="0" x2="200" y2="600"/>
+    <line x1="300" y1="0" x2="300" y2="600"/><line x1="400" y1="0" x2="400" y2="600"/>
+    <line x1="500" y1="0" x2="500" y2="600"/><line x1="600" y1="0" x2="600" y2="600"/>
+    <line x1="700" y1="0" x2="700" y2="600"/>
   </g>
 
-  <!-- LEFT SIDE: File chaos (Before) -->
-  <g opacity="0.35">
-    <text x="65" y="28" fill="#94a3b8" font-family="monospace" font-size="10" font-weight="bold" letter-spacing="1">WITHOUT GRAQLE</text>
-  </g>
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LEFT COLUMN: Without GraQle                                -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
 
-  <!-- Scattered files — 8 files matching the 8 nodes -->
+  <text x="130" y="42" fill="#94a3b8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" letter-spacing="2">WITHOUT GRAQLE</text>
+
+  <!-- Scattered file cards — large readable text -->
   <g filter="url(#glow)">
-    <rect x="25" y="50" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="34" y="65" fill="#64748b" font-family="monospace" font-size="9">auth.py</text>
+    <rect x="25" y="65" width="110" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="80" y="87" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">auth.py</text>
 
-    <rect x="120" y="42" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="129" y="57" fill="#64748b" font-family="monospace" font-size="9">models.py</text>
+    <rect x="150" y="60" width="120" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="210" y="82" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">models.py</text>
 
-    <rect x="40" y="85" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="49" y="100" fill="#64748b" font-family="monospace" font-size="9">routes.py</text>
+    <rect x="35" y="112" width="115" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="92" y="134" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">routes.py</text>
 
-    <rect x="135" y="80" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="144" y="95" fill="#64748b" font-family="monospace" font-size="9">utils.py</text>
+    <rect x="165" y="108" width="100" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="215" y="130" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">utils.py</text>
 
-    <rect x="25" y="120" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="34" y="135" fill="#64748b" font-family="monospace" font-size="9">config.py</text>
+    <rect x="25" y="160" width="115" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="82" y="182" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">config.py</text>
 
-    <rect x="120" y="117" width="78" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="129" y="132" fill="#64748b" font-family="monospace" font-size="9">db.py</text>
+    <rect x="155" y="155" width="95" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="202" y="177" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">db.py</text>
 
-    <rect x="40" y="155" width="88" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="49" y="170" fill="#64748b" font-family="monospace" font-size="9">middleware.py</text>
+    <rect x="30" y="207" width="145" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="102" y="229" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">middleware.py</text>
 
-    <rect x="145" y="152" width="68" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="154" y="167" fill="#64748b" font-family="monospace" font-size="9">api.py</text>
+    <rect x="190" y="203" width="95" height="34" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="237" y="225" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">api.py</text>
   </g>
 
-  <!-- Confused AI stats -->
+  <!-- Pain stats — large red text -->
   <g>
-    <text x="70" y="200" fill="#ef4444" font-family="monospace" font-size="10" opacity="0.7">50,000 tokens</text>
-    <text x="70" y="215" fill="#ef4444" font-family="monospace" font-size="10" opacity="0.7">~2 minutes</text>
-    <text x="70" y="230" fill="#ef4444" font-family="monospace" font-size="10" opacity="0.7">"I think..."</text>
+    <text x="140" y="275" fill="#ef4444" font-family="monospace" font-size="16" text-anchor="middle" opacity="0.8">50,000 tokens</text>
+    <text x="140" y="298" fill="#ef4444" font-family="monospace" font-size="16" text-anchor="middle" opacity="0.8">~2 minutes</text>
+    <text x="140" y="321" fill="#ef4444" font-family="monospace" font-size="16" text-anchor="middle" opacity="0.8">"I think..."</text>
   </g>
 
-  <!-- CENTER: Arrow / transformation -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- CENTER: Transformation arrow                               -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
   <g filter="url(#glow-strong)">
-    <path d="M 248 115 L 325 115" stroke="url(#cyan)" stroke-width="2.5" stroke-dasharray="5 3">
-      <animate attributeName="stroke-dashoffset" values="8;0" dur="0.8s" repeatCount="indefinite"/>
+    <text x="400" y="155" fill="#06b6d4" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">graq scan</text>
+    <path d="M 340 170 L 460 170" stroke="url(#cyan)" stroke-width="3" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" values="10;0" dur="0.8s" repeatCount="indefinite"/>
     </path>
-    <polygon points="325,110 338,115 325,120" fill="#06b6d4"/>
-    <text x="258" y="105" fill="#06b6d4" font-family="monospace" font-size="10" font-weight="bold">graq scan</text>
+    <polygon points="458,163 475,170 458,177" fill="#06b6d4"/>
   </g>
 
-  <!-- RIGHT SIDE: Knowledge Graph with 8 NODES -->
-  <g opacity="0.35">
-    <text x="495" y="28" fill="#06b6d4" font-family="monospace" font-size="10" font-weight="bold" letter-spacing="1">WITH GRAQLE</text>
-  </g>
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- RIGHT COLUMN: With GraQle — 8-node graph                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
 
-  <!-- ═══ EDGES (18 connections for dense graph) ═══ -->
+  <text x="610" y="42" fill="#06b6d4" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" letter-spacing="2">WITH GRAQLE</text>
+
+  <!-- ═══ EDGES (18 connections) ═══ -->
   <g filter="url(#glow)">
-    <!-- auth → models -->
-    <line x1="500" y1="95" x2="610" y2="65" stroke="#06b6d4" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="3s" repeatCount="indefinite"/>
+    <!-- auth hub connections -->
+    <line x1="560" y1="120" x2="670" y2="80" stroke="#06b6d4" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="3s" repeatCount="indefinite"/>
     </line>
-    <!-- auth → routes -->
-    <line x1="500" y1="95" x2="415" y2="140" stroke="#a855f7" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.5s" repeatCount="indefinite"/>
+    <line x1="560" y1="120" x2="480" y2="185" stroke="#a855f7" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.5s" repeatCount="indefinite"/>
     </line>
-    <!-- auth → middleware -->
-    <line x1="500" y1="95" x2="555" y2="185" stroke="#f43f5e" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.8s" repeatCount="indefinite"/>
+    <line x1="560" y1="120" x2="620" y2="210" stroke="#f43f5e" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.8s" repeatCount="indefinite"/>
     </line>
-    <!-- auth → api -->
-    <line x1="500" y1="95" x2="595" y2="155" stroke="#f59e0b" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="3.2s" repeatCount="indefinite"/>
+    <line x1="560" y1="120" x2="680" y2="185" stroke="#f59e0b" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="3.2s" repeatCount="indefinite"/>
     </line>
-    <!-- models → db -->
-    <line x1="610" y1="65" x2="695" y2="110" stroke="#10b981" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.2s" repeatCount="indefinite"/>
+    <!-- models connections -->
+    <line x1="670" y1="80" x2="750" y2="145" stroke="#10b981" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.2s" repeatCount="indefinite"/>
     </line>
-    <!-- models → api -->
-    <line x1="610" y1="65" x2="595" y2="155" stroke="#a855f7" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.7s" repeatCount="indefinite"/>
+    <line x1="670" y1="80" x2="680" y2="185" stroke="#a855f7" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.7s" repeatCount="indefinite"/>
     </line>
-    <!-- routes → middleware -->
-    <line x1="415" y1="140" x2="555" y2="185" stroke="#06b6d4" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="3.5s" repeatCount="indefinite"/>
+    <line x1="670" y1="80" x2="620" y2="210" stroke="#f59e0b" stroke-width="1" opacity="0.18">
+      <animate attributeName="opacity" values="0.08;0.3;0.08" dur="4.2s" repeatCount="indefinite"/>
     </line>
-    <!-- routes → config -->
-    <line x1="415" y1="140" x2="470" y2="205" stroke="#f59e0b" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.9s" repeatCount="indefinite"/>
+    <!-- routes connections -->
+    <line x1="480" y1="185" x2="620" y2="210" stroke="#06b6d4" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="3.5s" repeatCount="indefinite"/>
     </line>
-    <!-- api → db -->
-    <line x1="595" y1="155" x2="695" y2="110" stroke="#38bdf8" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.4s" repeatCount="indefinite"/>
+    <line x1="480" y1="185" x2="535" y2="265" stroke="#f59e0b" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.9s" repeatCount="indefinite"/>
     </line>
-    <!-- api → utils -->
-    <line x1="595" y1="155" x2="690" y2="190" stroke="#10b981" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="3.1s" repeatCount="indefinite"/>
+    <line x1="480" y1="185" x2="680" y2="185" stroke="#10b981" stroke-width="1" opacity="0.18">
+      <animate attributeName="opacity" values="0.08;0.3;0.08" dur="3.7s" repeatCount="indefinite"/>
     </line>
-    <!-- middleware → config -->
-    <line x1="555" y1="185" x2="470" y2="205" stroke="#a855f7" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.6s" repeatCount="indefinite"/>
+    <!-- api → db, api → utils -->
+    <line x1="680" y1="185" x2="750" y2="145" stroke="#38bdf8" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.4s" repeatCount="indefinite"/>
     </line>
-    <!-- middleware → utils -->
-    <line x1="555" y1="185" x2="690" y2="190" stroke="#f43f5e" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="3.3s" repeatCount="indefinite"/>
+    <line x1="680" y1="185" x2="730" y2="245" stroke="#10b981" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="3.1s" repeatCount="indefinite"/>
+    </line>
+    <!-- middleware connections -->
+    <line x1="620" y1="210" x2="535" y2="265" stroke="#a855f7" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.6s" repeatCount="indefinite"/>
+    </line>
+    <line x1="620" y1="210" x2="730" y2="245" stroke="#f43f5e" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="3.3s" repeatCount="indefinite"/>
     </line>
     <!-- db → utils -->
-    <line x1="695" y1="110" x2="690" y2="190" stroke="#f59e0b" stroke-width="1.2" opacity="0.3">
-      <animate attributeName="opacity" values="0.15;0.5;0.15" dur="2.3s" repeatCount="indefinite"/>
+    <line x1="750" y1="145" x2="730" y2="245" stroke="#f59e0b" stroke-width="1.5" opacity="0.25">
+      <animate attributeName="opacity" values="0.12;0.45;0.12" dur="2.3s" repeatCount="indefinite"/>
     </line>
-    <!-- config → db -->
-    <line x1="470" y1="205" x2="695" y2="110" stroke="#06b6d4" stroke-width="0.8" opacity="0.2">
-      <animate attributeName="opacity" values="0.1;0.35;0.1" dur="4s" repeatCount="indefinite"/>
-    </line>
-    <!-- routes → api (cross) -->
-    <line x1="415" y1="140" x2="595" y2="155" stroke="#10b981" stroke-width="0.8" opacity="0.2">
-      <animate attributeName="opacity" values="0.1;0.35;0.1" dur="3.7s" repeatCount="indefinite"/>
-    </line>
-    <!-- models → middleware -->
-    <line x1="610" y1="65" x2="555" y2="185" stroke="#f59e0b" stroke-width="0.8" opacity="0.2">
-      <animate attributeName="opacity" values="0.1;0.35;0.1" dur="4.2s" repeatCount="indefinite"/>
+    <!-- config → db (long) -->
+    <line x1="535" y1="265" x2="750" y2="145" stroke="#06b6d4" stroke-width="1" opacity="0.15">
+      <animate attributeName="opacity" values="0.06;0.28;0.06" dur="4s" repeatCount="indefinite"/>
     </line>
   </g>
 
-  <!-- ═══ 8 NODES (matching "8 agents activated") ═══ -->
+  <!-- ═══ 8 NODES ═══ -->
   <g filter="url(#glow-node)">
-    <!-- Node 1: auth (hub, largest) -->
-    <circle cx="500" cy="95" r="22" fill="#06b6d4" opacity="0.12"/>
-    <circle cx="500" cy="95" r="15" fill="#06b6d4" opacity="0.85">
-      <animate attributeName="r" values="15;17;15" dur="2s" repeatCount="indefinite"/>
+    <!-- 1: auth (hub) -->
+    <circle cx="560" cy="120" r="30" fill="#06b6d4" opacity="0.1"/>
+    <circle cx="560" cy="120" r="22" fill="#06b6d4" opacity="0.85">
+      <animate attributeName="r" values="22;25;22" dur="2s" repeatCount="indefinite"/>
     </circle>
-    <text x="500" y="99" fill="white" font-family="monospace" font-size="7" text-anchor="middle" font-weight="bold">auth</text>
+    <text x="560" y="126" fill="white" font-family="monospace" font-size="12" text-anchor="middle" font-weight="bold">auth</text>
 
-    <!-- Node 2: models -->
-    <circle cx="610" cy="65" r="16" fill="#a855f7" opacity="0.12"/>
-    <circle cx="610" cy="65" r="11" fill="#a855f7" opacity="0.85">
-      <animate attributeName="r" values="11;12.5;11" dur="2.3s" repeatCount="indefinite"/>
+    <!-- 2: models -->
+    <circle cx="670" cy="80" r="22" fill="#a855f7" opacity="0.1"/>
+    <circle cx="670" cy="80" r="17" fill="#a855f7" opacity="0.85">
+      <animate attributeName="r" values="17;19;17" dur="2.3s" repeatCount="indefinite"/>
     </circle>
-    <text x="610" y="69" fill="white" font-family="monospace" font-size="6.5" text-anchor="middle">models</text>
+    <text x="670" y="85" fill="white" font-family="monospace" font-size="10" text-anchor="middle">models</text>
 
-    <!-- Node 3: routes -->
-    <circle cx="415" cy="140" r="16" fill="#f59e0b" opacity="0.12"/>
-    <circle cx="415" cy="140" r="11" fill="#f59e0b" opacity="0.85">
-      <animate attributeName="r" values="11;12.5;11" dur="2.6s" repeatCount="indefinite"/>
+    <!-- 3: routes -->
+    <circle cx="480" cy="185" r="22" fill="#f59e0b" opacity="0.1"/>
+    <circle cx="480" cy="185" r="17" fill="#f59e0b" opacity="0.85">
+      <animate attributeName="r" values="17;19;17" dur="2.6s" repeatCount="indefinite"/>
     </circle>
-    <text x="415" y="144" fill="white" font-family="monospace" font-size="6.5" text-anchor="middle">routes</text>
+    <text x="480" y="190" fill="white" font-family="monospace" font-size="10" text-anchor="middle">routes</text>
 
-    <!-- Node 4: api -->
-    <circle cx="595" cy="155" r="14" fill="#10b981" opacity="0.12"/>
-    <circle cx="595" cy="155" r="10" fill="#10b981" opacity="0.85">
-      <animate attributeName="r" values="10;11.5;10" dur="2.1s" repeatCount="indefinite"/>
+    <!-- 4: api -->
+    <circle cx="680" cy="185" r="20" fill="#10b981" opacity="0.1"/>
+    <circle cx="680" cy="185" r="15" fill="#10b981" opacity="0.85">
+      <animate attributeName="r" values="15;17;15" dur="2.1s" repeatCount="indefinite"/>
     </circle>
-    <text x="595" y="159" fill="white" font-family="monospace" font-size="6.5" text-anchor="middle">api</text>
+    <text x="680" y="190" fill="white" font-family="monospace" font-size="10" text-anchor="middle">api</text>
 
-    <!-- Node 5: db -->
-    <circle cx="695" cy="110" r="14" fill="#ec4899" opacity="0.12"/>
-    <circle cx="695" cy="110" r="10" fill="#ec4899" opacity="0.85">
-      <animate attributeName="r" values="10;11.5;10" dur="2.4s" repeatCount="indefinite"/>
+    <!-- 5: db -->
+    <circle cx="750" cy="145" r="20" fill="#ec4899" opacity="0.1"/>
+    <circle cx="750" cy="145" r="15" fill="#ec4899" opacity="0.85">
+      <animate attributeName="r" values="15;17;15" dur="2.4s" repeatCount="indefinite"/>
     </circle>
-    <text x="695" y="114" fill="white" font-family="monospace" font-size="6.5" text-anchor="middle">db</text>
+    <text x="750" y="150" fill="white" font-family="monospace" font-size="11" text-anchor="middle">db</text>
 
-    <!-- Node 6: config -->
-    <circle cx="470" cy="205" r="12" fill="#64748b" opacity="0.12"/>
-    <circle cx="470" cy="205" r="9" fill="#64748b" opacity="0.85">
-      <animate attributeName="r" values="9;10;9" dur="3s" repeatCount="indefinite"/>
+    <!-- 6: config -->
+    <circle cx="535" cy="265" r="18" fill="#64748b" opacity="0.1"/>
+    <circle cx="535" cy="265" r="14" fill="#64748b" opacity="0.85">
+      <animate attributeName="r" values="14;16;14" dur="3s" repeatCount="indefinite"/>
     </circle>
-    <text x="470" y="209" fill="white" font-family="monospace" font-size="6" text-anchor="middle">config</text>
+    <text x="535" y="270" fill="white" font-family="monospace" font-size="10" text-anchor="middle">config</text>
 
-    <!-- Node 7: middleware (NEW) -->
-    <circle cx="555" cy="185" r="14" fill="#f43f5e" opacity="0.12"/>
-    <circle cx="555" cy="185" r="10" fill="#f43f5e" opacity="0.85">
-      <animate attributeName="r" values="10;11.5;10" dur="2.7s" repeatCount="indefinite"/>
+    <!-- 7: middleware -->
+    <circle cx="620" cy="210" r="20" fill="#f43f5e" opacity="0.1"/>
+    <circle cx="620" cy="210" r="15" fill="#f43f5e" opacity="0.85">
+      <animate attributeName="r" values="15;17;15" dur="2.7s" repeatCount="indefinite"/>
     </circle>
-    <text x="555" y="189" fill="white" font-family="monospace" font-size="5.5" text-anchor="middle">middleware</text>
+    <text x="620" y="215" fill="white" font-family="monospace" font-size="9" text-anchor="middle">middleware</text>
 
-    <!-- Node 8: utils (NEW) -->
-    <circle cx="690" cy="190" r="12" fill="#38bdf8" opacity="0.12"/>
-    <circle cx="690" cy="190" r="9" fill="#38bdf8" opacity="0.85">
-      <animate attributeName="r" values="9;10;9" dur="3.2s" repeatCount="indefinite"/>
+    <!-- 8: utils -->
+    <circle cx="730" cy="245" r="18" fill="#38bdf8" opacity="0.1"/>
+    <circle cx="730" cy="245" r="14" fill="#38bdf8" opacity="0.85">
+      <animate attributeName="r" values="14;16;14" dur="3.2s" repeatCount="indefinite"/>
     </circle>
-    <text x="690" y="194" fill="white" font-family="monospace" font-size="6" text-anchor="middle">utils</text>
+    <text x="730" y="250" fill="white" font-family="monospace" font-size="10" text-anchor="middle">utils</text>
   </g>
 
-  <!-- Agent reasoning animation (3 message-passing particles) -->
+  <!-- Agent reasoning particles -->
   <g>
-    <!-- Particle 1: fast orbit through hub -->
-    <circle r="4" fill="#06b6d4" opacity="0.9">
-      <animate attributeName="cx" values="500;610;695;595;555;500" dur="3.5s" repeatCount="indefinite"/>
-      <animate attributeName="cy" values="95;65;110;155;185;95" dur="3.5s" repeatCount="indefinite"/>
+    <circle r="5" fill="#06b6d4" opacity="0.9">
+      <animate attributeName="cx" values="560;670;750;680;620;560" dur="3.5s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="120;80;145;185;210;120" dur="3.5s" repeatCount="indefinite"/>
       <animate attributeName="fill" values="#06b6d4;#a855f7;#ec4899;#10b981;#f43f5e;#06b6d4" dur="3.5s" repeatCount="indefinite"/>
     </circle>
-    <!-- Particle 2: slower counter-orbit -->
-    <circle r="3" fill="#f59e0b" opacity="0.7">
-      <animate attributeName="cx" values="415;470;690;610;500;415" dur="5s" repeatCount="indefinite"/>
-      <animate attributeName="cy" values="140;205;190;65;95;140" dur="5s" repeatCount="indefinite"/>
+    <circle r="4" fill="#f59e0b" opacity="0.7">
+      <animate attributeName="cx" values="480;535;730;670;560;480" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="185;265;245;80;120;185" dur="5s" repeatCount="indefinite"/>
       <animate attributeName="fill" values="#f59e0b;#64748b;#38bdf8;#a855f7;#06b6d4;#f59e0b" dur="5s" repeatCount="indefinite"/>
     </circle>
-    <!-- Particle 3: quick ping between api and db -->
-    <circle r="2.5" fill="#10b981" opacity="0.6">
-      <animate attributeName="cx" values="595;695;690;555;470;595" dur="4s" repeatCount="indefinite"/>
-      <animate attributeName="cy" values="155;110;190;185;205;155" dur="4s" repeatCount="indefinite"/>
+    <circle r="3" fill="#10b981" opacity="0.6">
+      <animate attributeName="cx" values="680;750;730;620;535;680" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="185;145;245;210;265;185" dur="4s" repeatCount="indefinite"/>
     </circle>
   </g>
 
-  <!-- Results panel -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- BOTTOM: Results panel — large readable terminal            -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
   <g>
-    <rect x="350" y="238" width="410" height="135" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+    <rect x="300" y="320" width="475" height="190" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
 
     <!-- Terminal header -->
-    <rect x="350" y="238" width="410" height="24" rx="8" fill="#1e293b"/>
-    <circle cx="366" cy="250" r="4" fill="#ef4444"/>
-    <circle cx="380" cy="250" r="4" fill="#f59e0b"/>
-    <circle cx="394" cy="250" r="4" fill="#10b981"/>
-    <text x="420" y="254" fill="#64748b" font-family="monospace" font-size="9">graq run "what depends on auth?"</text>
+    <rect x="300" y="320" width="475" height="32" rx="12" fill="#1e293b"/>
+    <circle cx="320" cy="336" r="5" fill="#ef4444"/>
+    <circle cx="338" cy="336" r="5" fill="#f59e0b"/>
+    <circle cx="356" cy="336" r="5" fill="#10b981"/>
+    <text x="380" y="341" fill="#64748b" font-family="monospace" font-size="12">graq run "what depends on auth?"</text>
 
-    <!-- Output -->
-    <text x="365" y="280" fill="#10b981" font-family="monospace" font-size="9">&#10003; 8 agents activated (graph-of-agents reasoning)</text>
-    <text x="365" y="296" fill="#06b6d4" font-family="monospace" font-size="9">&#8594; auth.py is consumed by: routes, api, middleware</text>
-    <text x="365" y="312" fill="#06b6d4" font-family="monospace" font-size="9">&#8594; Impact radius: 11 modules (3 direct, 8 transitive)</text>
-    <text x="365" y="328" fill="#f59e0b" font-family="monospace" font-size="9" font-weight="bold">  Confidence: 92% | Cost: $0.0003 | Time: 5.2s</text>
+    <!-- Output — large readable fonts -->
+    <text x="320" y="376" fill="#10b981" font-family="monospace" font-size="14">&#10003; 8 agents activated</text>
+    <text x="320" y="398" fill="#06b6d4" font-family="monospace" font-size="13">&#8594; auth consumed by: routes, api, middleware</text>
+    <text x="320" y="420" fill="#06b6d4" font-family="monospace" font-size="13">&#8594; Impact: 11 modules (3 direct, 8 transitive)</text>
+    <text x="320" y="446" fill="#f59e0b" font-family="monospace" font-size="14" font-weight="bold">Confidence: 92%  |  $0.0003  |  5.2s</text>
 
-    <!-- Stats comparison -->
-    <text x="365" y="358" fill="#64748b" font-family="monospace" font-size="8">500 tokens (was 50,000) &#8212; 100x cheaper, 24x faster</text>
+    <!-- Bottom stat -->
+    <text x="320" y="478" fill="#64748b" font-family="monospace" font-size="12">500 tokens (was 50,000) &#8212; 100x cheaper</text>
+    <text x="320" y="496" fill="#64748b" font-family="monospace" font-size="12">Graph-of-agents reasoning with audit trail</text>
   </g>
 
-  <!-- Bottom left: before stats -->
+  <!-- Bottom-left: Before stats — large readable -->
   <g>
-    <rect x="18" y="258" width="210" height="115" rx="8" fill="#0f172a" stroke="#ef4444" stroke-width="1" opacity="0.5"/>
-    <text x="33" y="280" fill="#ef4444" font-family="monospace" font-size="9" font-weight="bold">&#10060; Without GraQle</text>
-    <text x="33" y="298" fill="#64748b" font-family="monospace" font-size="8">Reads 60 files</text>
-    <text x="33" y="313" fill="#64748b" font-family="monospace" font-size="8">50,000 tokens ($0.15)</text>
-    <text x="33" y="328" fill="#64748b" font-family="monospace" font-size="8">2 minutes</text>
-    <text x="33" y="343" fill="#64748b" font-family="monospace" font-size="8">"I think auth is used by..."</text>
-    <text x="33" y="358" fill="#ef4444" font-family="monospace" font-size="8">No confidence score</text>
+    <rect x="18" y="360" width="260" height="155" rx="12" fill="#0f172a" stroke="#ef4444" stroke-width="1.5" opacity="0.6"/>
+    <text x="148" y="390" fill="#ef4444" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">&#10060; Without GraQle</text>
+    <text x="38" y="415" fill="#94a3b8" font-family="monospace" font-size="14">Reads 60 files</text>
+    <text x="38" y="437" fill="#94a3b8" font-family="monospace" font-size="14">50,000 tokens ($0.15)</text>
+    <text x="38" y="459" fill="#94a3b8" font-family="monospace" font-size="14">~2 minutes</text>
+    <text x="38" y="481" fill="#94a3b8" font-family="monospace" font-size="14">"I think auth is..."</text>
+    <text x="38" y="503" fill="#ef4444" font-family="monospace" font-size="14">No confidence score</text>
   </g>
 </svg>
