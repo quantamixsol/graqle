@@ -85,9 +85,17 @@ async def _load_project_graph(request: Request, project: str):
             return None
 
         # Build a Graqle instance from the loaded data
+        # Copy config and backend from the Lambda's default graph
         from graqle.core.graph import Graqle
 
-        g = Graqle()
+        state = request.app.state.studio_state
+        default_graph = state.get("graph")
+        default_config = state.get("config")
+
+        g = Graqle(config=default_config)
+        # Copy the default backend so reasoning has an LLM
+        if default_graph and hasattr(default_graph, '_default_backend') and default_graph._default_backend:
+            g._default_backend = default_graph._default_backend
         for node in nodes:
             g.add_node_simple(
                 node.get("id", ""),
