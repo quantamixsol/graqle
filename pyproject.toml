@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.31.8"
+version = "0.32.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
@@ -99,8 +99,13 @@ scorch = [
     "Pillow>=10.0",
     "boto3>=1.28",
 ]
+phantom = [
+    "playwright>=1.40",
+    "Pillow>=10.0",
+    "boto3>=1.28",
+]
 all = [
-    "graqle[embeddings,neo4j,api,server,studio,docs,scorch]",
+    "graqle[embeddings,neo4j,api,server,studio,docs,scorch,phantom]",
 ]
 all-gpu = [
     "graqle[all,gpu]",

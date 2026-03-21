@@ -31,6 +31,7 @@ from graqle.cli.commands.rebuild import rebuild_command
 from graqle.cli.commands.register import register_command
 from graqle.cli.commands.scan import scan_app
 from graqle.cli.commands.scorch import scorch_app
+from graqle.cli.commands.phantom import phantom_app
 from graqle.cli.commands.cloud import cloud_app
 from graqle.cli.commands.migrate import migrate_command
 from graqle.cli.commands.config_show import config_command
@@ -96,6 +97,7 @@ app.add_typer(sync_sub_app, name="sync")
 app.add_typer(team_sub_app, name="team")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(scorch_app, name="scorch")
+app.add_typer(phantom_app, name="phantom")
 app.add_typer(compile_command, name="compile")
 app.add_typer(verify_command, name="verify")
 

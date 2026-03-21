@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 29 graq_* tools + 27 kogni_* aliases (includes 13 SCORCH skills) = 56
-        assert len(TOOL_DEFINITIONS) == 56
+        # 37 graq_* tools + 35 kogni_* aliases (includes 13 SCORCH + 8 Phantom) = 72
+        assert len(TOOL_DEFINITIONS) == 72
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -155,6 +155,14 @@ class TestToolDefinitions:
             "graq_scorch_brand",
             "graq_scorch_auth_flow",
             "graq_scorch_diff",
+            "graq_phantom_browse",
+            "graq_phantom_click",
+            "graq_phantom_type",
+            "graq_phantom_screenshot",
+            "graq_phantom_audit",
+            "graq_phantom_flow",
+            "graq_phantom_discover",
+            "graq_phantom_session",
         }
         expected_kogni = {
             "kogni_context",
@@ -184,8 +192,16 @@ class TestToolDefinitions:
             "kogni_scorch_brand",
             "kogni_scorch_auth_flow",
             "kogni_scorch_diff",
+            "kogni_phantom_browse",
+            "kogni_phantom_click",
+            "kogni_phantom_type",
+            "kogni_phantom_screenshot",
+            "kogni_phantom_audit",
+            "kogni_phantom_flow",
+            "kogni_phantom_discover",
+            "kogni_phantom_session",
         }
-        # 29 graq_* + 27 kogni_* = 56 total
+        # 37 graq_* + 35 kogni_* = 72 total
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -215,7 +231,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 56  # 29 graq_* + 27 kogni_* aliases (includes 13 SCORCH skills)
+        assert len(tools) == 72  # 37 graq_* + 35 kogni_* aliases (includes 13 SCORCH + 8 Phantom)
 
 
 # ---------------------------------------------------------------------------

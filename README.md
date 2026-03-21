@@ -14,7 +14,7 @@ Every module becomes an agent. Ask questions — get architecture-aware answers 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
 [![Tests: 1,900+](https://img.shields.io/badge/tests-1%2C900%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
-[![MCP Tools: 19](https://img.shields.io/badge/MCP%20tools-19-06b6d4.svg)]()
+[![MCP Tools: 27](https://img.shields.io/badge/MCP%20tools-27-06b6d4.svg)]()
 
 ```bash
 pip install graqle && graq scan repo . && graq run "what's the riskiest file to change?"
@@ -62,7 +62,7 @@ graq run "explain the payment flow end to end"
 graq init          # Claude Code, Cursor, VS Code, Windsurf — auto-detected
 ```
 
-Your AI now has **19 architecture-aware MCP tools**. No workflow change — it uses them automatically.
+Your AI now has **27 architecture-aware MCP tools** — including Phantom computer skills for live browser automation. No workflow change — it uses them automatically.
 
 ---
 
@@ -164,6 +164,41 @@ GraQle scores itself on every release. From v0.12.3 (6.4/10) to v0.29.9 (8.5/10)
 
 ---
 
+## NEW: Phantom — Computer Skills for AI Agents
+
+**Your AI can now open a real browser, click buttons, fill forms, and audit any website.**
+
+Phantom is GraQle's browser automation plugin. It gives Claude Code, Cursor, and any MCP-compatible AI the ability to interact with live web applications — not just read code, but *use* the product.
+
+```bash
+pip install graqle[phantom] && python -m playwright install chromium
+```
+
+| Capability | What it does |
+|:-----------|:------------|
+| **Browse** | Open any URL, get screenshot + full DOM summary |
+| **Click / Type** | Interact with elements by text, CSS selector, or coordinates |
+| **Audit** | Run 10 dimensions (a11y, security, mobile, SEO, brand, performance, ...) |
+| **Flow** | Execute multi-step user journeys with assertions |
+| **Discover** | Auto-crawl all pages from a starting URL |
+| **Vision** | Claude Vision analyzes screenshots for UX friction |
+| **Learn** | Auto-record critical findings into the knowledge graph |
+
+```bash
+# Audit any website — 10 dimensions, one command
+graq phantom audit https://example.com
+
+# Discover all pages
+graq phantom discover https://example.com
+
+# Run a complete user journey from a JSON flow file
+graq phantom flow journey.json
+```
+
+**Product-agnostic.** Works on any website. No configuration needed. Results feed back into the GraQle knowledge graph so your AI learns from every audit.
+
+---
+
 ## IDE integration — one command
 
 ```bash
@@ -173,7 +208,7 @@ graq init --ide vscode       # VS Code + Copilot
 graq init --ide windsurf     # Windsurf — MCP + .windsurfrules
 ```
 
-### 19 MCP Tools
+### 27 MCP Tools
 
 | Tool | What it does | Free |
 |:-----|:------------|:----:|
@@ -187,7 +222,13 @@ graq init --ide windsurf     # Windsurf — MCP + .windsurfrules
 | `graq_drace` | DRACE quality score (5 dimensions) | ✅ |
 | `graq_scorch_audit` | Full UX friction audit (Claude Vision) | Pro |
 | `graq_scorch_behavioral` | 12 behavioral UX tests (free, no AI) | ✅ |
-| +9 more | inspect, reload, route, runtime, lifecycle... | ✅ |
+| `graq_phantom_browse` | Open browser, navigate, screenshot + DOM | Pro |
+| `graq_phantom_click` | Click elements by text, selector, or coordinates | Pro |
+| `graq_phantom_type` | Type into forms, search boxes, inputs | Pro |
+| `graq_phantom_audit` | Run 10 audit dimensions on any live page | Pro |
+| `graq_phantom_flow` | Execute multi-step user journeys | Pro |
+| `graq_phantom_discover` | Auto-discover all pages from a starting URL | Pro |
+| +11 more | inspect, reload, route, screenshot, session... | ✅ |
 
 ---
 
@@ -289,6 +330,33 @@ Your Code                    Knowledge Graph               AI Reasoning
 
 </details>
 
+<details>
+<summary><b>Phantom — Browser Automation + Computer Skills (8 tools)</b></summary>
+
+| Command | Description |
+|---------|-------------|
+| `graq phantom browse URL` | Open browser, screenshot + DOM summary |
+| `graq phantom audit URL` | Run 10 audit dimensions on any page |
+| `graq phantom discover URL` | Auto-discover all navigable pages |
+| `graq phantom flow file.json` | Execute multi-step user journey |
+
+**MCP tools (used automatically by your AI):**
+
+| Tool | Description |
+|------|-------------|
+| `graq_phantom_browse` | Navigate to URL, return screenshot + DOM |
+| `graq_phantom_click` | Click by text, CSS selector, or coordinates |
+| `graq_phantom_type` | Type into forms and inputs |
+| `graq_phantom_screenshot` | Capture + optional Claude Vision analysis |
+| `graq_phantom_audit` | 10-dimension audit on live page |
+| `graq_phantom_flow` | Multi-step user journey execution |
+| `graq_phantom_discover` | Auto-crawl all pages from starting URL |
+| `graq_phantom_session` | Session + auth profile management |
+
+Requires: `pip install graqle[phantom] && python -m playwright install chromium`
+
+</details>
+
 ---
 
 ## 14 LLM Backends
@@ -324,6 +392,7 @@ routing:
 | Graph nodes | 500 | 25,000 | Unlimited |
 | Cloud projects | 1 | 3 | Unlimited |
 | SCORCH Vision | — | ✅ | ✅ |
+| Phantom Computer Skills | — | ✅ | ✅ |
 | Cross-project | — | ✅ | ✅ |
 | Team graphs | — | — | ✅ |
 
@@ -382,6 +451,7 @@ Under 30 seconds for most codebases. 10K+ file monorepos take 1-2 minutes.
 ## Patent & License
 
 European Patent Applications EP26162901.8 and EP26166054.2 — Quantamix Solutions B.V.
+Phantom browser automation plugin: Copyright 2026 Quantamix Solutions B.V. All rights reserved.
 Free to use under the [license terms](LICENSE). See [SECURITY.md](SECURITY.md).
 
 ```bibtex
