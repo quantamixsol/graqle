@@ -41,7 +41,10 @@ import logging
 import re
 from dataclasses import dataclass
 
-from graqle.activation.pcst import PCSTActivation
+try:
+    from graqle.activation.pcst import PCSTActivation
+except ImportError:
+    PCSTActivation = None  # Patent-protected module — available in Lambda/Enterprise only
 
 logger = logging.getLogger("graqle.activation.adaptive")
 
@@ -260,7 +263,13 @@ class AdaptiveActivation:
             f"conj={profile.conjunction_score:.2f} dep={profile.depth_score:.2f}]"
         )
 
-        # Create PCST with adapted max_nodes
+        # Create PCST with adapted max_nodes (falls back to ChunkScorer if unavailable)
+        if PCSTActivation is None:
+            from graqle.activation.chunk_scorer import ChunkScorer
+            logger.info("PCSTActivation not available — falling back to ChunkScorer")
+            scorer = ChunkScorer(max_nodes=kmax)
+            return scorer.activate(graph, query)
+
         pcst = PCSTActivation(
             max_nodes=kmax,
             prize_scaling=self._config.prize_scaling,

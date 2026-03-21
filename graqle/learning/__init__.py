@@ -5,13 +5,17 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.learning.gds_intelligence import (
-    Community,
-    GDSIntelligence,
-    GDSReport,
-    LinkPrediction,
-    SimilarityPair,
-)
+try:
+    from graqle.learning.gds_intelligence import (
+        Community,
+        GDSIntelligence,
+        GDSReport,
+        LinkPrediction,
+        SimilarityPair,
+    )
+except ImportError:
+    Community = GDSIntelligence = GDSReport = LinkPrediction = SimilarityPair = None  # type: ignore[assignment,misc]
+
 from graqle.learning.graph_learner import EdgeUpdate, GraphLearner, LearningConfig
 
 __all__ = [

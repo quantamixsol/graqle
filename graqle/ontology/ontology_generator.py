@@ -28,7 +28,19 @@ import re
 from dataclasses import asdict
 from typing import Any
 
-from graqle.ontology.semantic_shacl_gate import SemanticConstraint
+try:
+    from graqle.ontology.semantic_shacl_gate import SemanticConstraint
+except ImportError:
+    from dataclasses import dataclass as _dc
+    @_dc
+    class SemanticConstraint:  # type: ignore[no-redef]
+        """Stub when patent module unavailable."""
+        name: str = ""
+        description: str = ""
+        node_type: str = ""
+        constraint_type: str = ""
+        severity: str = "warning"
+        message_template: str = ""
 
 logger = logging.getLogger("graqle.ontology.generator")
 
