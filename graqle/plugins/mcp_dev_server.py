@@ -870,6 +870,294 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    # ── Phantom plugin (computer skill) ──────────────────────────────
+    {
+        "name": "graq_phantom_browse",
+        "description": (
+            "Open a browser and navigate to a URL. Returns a screenshot "
+            "and summarized DOM structure (buttons, links, forms, inputs, "
+            "headings, landmarks). Supports authenticated sessions via "
+            "saved auth profiles. This is the starting point for all "
+            "Phantom computer skill interactions. "
+            "Requires: pip install graqle[phantom] && python -m playwright install chromium"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Full URL to navigate to (e.g., https://example.com/login)",
+                },
+                "viewport": {
+                    "type": "string",
+                    "enum": ["mobile", "tablet", "desktop"],
+                    "default": "desktop",
+                    "description": "Viewport size: mobile (390x844), tablet (768x1024), desktop (1920x1080)",
+                },
+                "auth_profile": {
+                    "type": "string",
+                    "description": "Name of saved auth profile to use. If omitted, opens unauthenticated.",
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Reuse an existing browser session. If omitted, creates new session.",
+                },
+                "wait_for": {
+                    "type": "string",
+                    "default": "networkidle",
+                    "enum": ["load", "domcontentloaded", "networkidle", "commit"],
+                    "description": "When to consider navigation complete",
+                },
+                "wait_after": {
+                    "type": "integer",
+                    "default": 2000,
+                    "description": "Additional ms to wait after navigation for JS rendering",
+                },
+                "full_page_screenshot": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Capture full scrollable page vs. viewport only",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_phantom_click",
+        "description": (
+            "Click an element on the current page. Supports targeting by "
+            "visible text content, CSS selector, or x,y coordinates. "
+            "Returns the page state after the click (new URL, screenshot, "
+            "any modals/dialogs that appeared). Requires an active Phantom session."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Active Phantom session ID (from graq_phantom_browse)",
+                },
+                "target": {
+                    "type": "string",
+                    "description": (
+                        "What to click. Accepts: "
+                        "(1) Visible text: 'Dashboard'. "
+                        "(2) CSS selector: '#submit-btn'. "
+                        "(3) Coordinates: '450,300'. "
+                        "(4) Role: 'role:button:Submit'."
+                    ),
+                },
+                "click_type": {
+                    "type": "string",
+                    "enum": ["click", "dblclick", "right_click", "hover"],
+                    "default": "click",
+                },
+                "wait_after": {"type": "integer", "default": 2000},
+                "screenshot_after": {"type": "boolean", "default": True},
+                "expect_navigation": {"type": "boolean", "default": False},
+            },
+            "required": ["session_id", "target"],
+        },
+    },
+    {
+        "name": "graq_phantom_type",
+        "description": (
+            "Type text into a form field or input element. Can target by "
+            "CSS selector, label text, placeholder text, or input name. "
+            "Supports clearing existing content, pressing Enter to submit, "
+            "and typing with delay (to trigger autocomplete/search-as-you-type)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Active Phantom session ID"},
+                "target": {
+                    "type": "string",
+                    "description": (
+                        "Input to type into. Accepts: "
+                        "(1) 'placeholder:Search...', "
+                        "(2) 'label:Email address', "
+                        "(3) CSS selector 'input[name=email]', "
+                        "(4) 'name:workspace_name', "
+                        "(5) 'type:email'"
+                    ),
+                },
+                "text": {"type": "string", "description": "Text to type"},
+                "clear_first": {"type": "boolean", "default": True},
+                "submit": {"type": "boolean", "default": False, "description": "Press Enter after typing"},
+                "type_delay": {
+                    "type": "integer", "default": 0,
+                    "description": "Delay between keystrokes in ms (0=instant, 50=human-like)",
+                },
+                "screenshot_after": {"type": "boolean", "default": True},
+            },
+            "required": ["session_id", "target", "text"],
+        },
+    },
+    {
+        "name": "graq_phantom_screenshot",
+        "description": (
+            "Capture the current page state as a screenshot. Optionally "
+            "analyze it with Claude Vision (Bedrock) to identify UX friction, "
+            "visual bugs, layout issues, or answer questions about the page."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Active Phantom session ID"},
+                "analyze": {
+                    "type": "boolean", "default": False,
+                    "description": "Send screenshot to Claude Vision for AI analysis (~$0.01-0.03)",
+                },
+                "analysis_prompt": {
+                    "type": "string",
+                    "description": "Custom prompt for Claude Vision analysis (only if analyze=true)",
+                },
+                "analysis_model": {
+                    "type": "string", "default": "sonnet",
+                    "enum": ["sonnet", "opus", "haiku"],
+                },
+                "region": {
+                    "type": "string",
+                    "description": "CSS selector to screenshot a specific element instead of full page",
+                },
+                "full_page": {"type": "boolean", "default": True},
+                "mask": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "CSS selectors of elements to mask (blur) in screenshot",
+                },
+            },
+            "required": ["session_id"],
+        },
+    },
+    {
+        "name": "graq_phantom_audit",
+        "description": (
+            "Run one or more SCORCH audit dimensions on the current page. "
+            "Analyzes the live page for behavioral UX issues, accessibility "
+            "violations, mobile problems, security gaps, brand inconsistency, "
+            "and more. Results feed into GraQle KG. Works on any website."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Active Phantom session ID"},
+                "dimensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "behavioral", "accessibility", "mobile", "security",
+                            "brand", "conversion", "performance", "seo",
+                            "i18n", "content", "visual", "all",
+                        ],
+                    },
+                    "default": ["all"],
+                    "description": "Audit dimensions to run. 'all' runs all 10. 'visual' requires Bedrock.",
+                },
+                "teach_kg": {
+                    "type": "boolean", "default": True,
+                    "description": "Auto-record critical/high findings to GraQle KG",
+                },
+                "compare_with": {
+                    "type": "string",
+                    "description": "Path to a previous audit JSON for improvement/regression tracking",
+                },
+            },
+            "required": ["session_id"],
+        },
+    },
+    {
+        "name": "graq_phantom_flow",
+        "description": (
+            "Execute a multi-step user journey. Define a sequence of actions "
+            "(navigate, click, type, wait, screenshot, assert, scroll, audit) "
+            "and Phantom executes them in order, capturing screenshots at each "
+            "step and recording pass/fail assertions. Works on any website."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Human-readable flow name"},
+                "auth_profile": {"type": "string", "description": "Auth profile for authenticated flows"},
+                "viewport": {
+                    "type": "string", "enum": ["mobile", "tablet", "desktop"], "default": "desktop",
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["navigate", "click", "type", "wait", "screenshot", "assert", "scroll", "audit"],
+                            },
+                            "params": {"type": "object"},
+                            "description": {"type": "string"},
+                        },
+                        "required": ["action"],
+                    },
+                },
+                "stop_on_failure": {"type": "boolean", "default": False},
+            },
+            "required": ["name", "steps"],
+        },
+    },
+    {
+        "name": "graq_phantom_discover",
+        "description": (
+            "Auto-discover all navigable pages from a starting URL. "
+            "Crawls the sidebar, navigation menus, and in-page links to build "
+            "a complete route map. Returns structured list of all discovered "
+            "pages with paths, titles, and authentication requirements."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Starting URL to begin discovery from"},
+                "auth_profile": {"type": "string", "description": "Auth profile for protected pages"},
+                "max_depth": {"type": "integer", "default": 3, "description": "Max navigation depth"},
+                "max_pages": {"type": "integer", "default": 50, "description": "Max pages to discover"},
+                "exclude_patterns": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "URL patterns to exclude (e.g., ['/api/', '/admin/'])",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "graq_phantom_session",
+        "description": (
+            "Manage Phantom browser sessions and authentication profiles. "
+            "Create sessions, save/load auth states, list active sessions, "
+            "and clean up resources."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["create", "login", "save_auth", "load_auth", "list", "close", "close_all"],
+                },
+                "session_id": {"type": "string", "description": "Session ID for close/save ops"},
+                "profile_name": {"type": "string", "description": "Auth profile name for save/load"},
+                "login_url": {"type": "string", "description": "Login page URL (for 'login' action)"},
+                "credentials": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string"},
+                        "password": {"type": "string"},
+                    },
+                    "description": "Login credentials (stored only in memory, never persisted)",
+                },
+                "viewport": {
+                    "type": "string", "enum": ["mobile", "tablet", "desktop"], "default": "desktop",
+                },
+            },
+            "required": ["action"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1229,6 +1517,15 @@ class KogniDevServer:
             "graq_scorch_brand": self._handle_scorch_brand,
             "graq_scorch_auth_flow": self._handle_scorch_auth_flow,
             "graq_scorch_diff": self._handle_scorch_diff,
+            # Phantom plugin (computer skill)
+            "graq_phantom_browse": self._handle_phantom_browse,
+            "graq_phantom_click": self._handle_phantom_click,
+            "graq_phantom_type": self._handle_phantom_type,
+            "graq_phantom_screenshot": self._handle_phantom_screenshot,
+            "graq_phantom_audit": self._handle_phantom_audit,
+            "graq_phantom_flow": self._handle_phantom_flow,
+            "graq_phantom_discover": self._handle_phantom_discover,
+            "graq_phantom_session": self._handle_phantom_session,
             # Backward-compat aliases (kogni_* → graq_*)
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
@@ -1244,6 +1541,15 @@ class KogniDevServer:
             "kogni_lifecycle": self._handle_lifecycle,
             "kogni_gate": self._handle_gate,
             "kogni_drace": self._handle_drace,
+            # Phantom kogni aliases
+            "kogni_phantom_browse": self._handle_phantom_browse,
+            "kogni_phantom_click": self._handle_phantom_click,
+            "kogni_phantom_type": self._handle_phantom_type,
+            "kogni_phantom_screenshot": self._handle_phantom_screenshot,
+            "kogni_phantom_audit": self._handle_phantom_audit,
+            "kogni_phantom_flow": self._handle_phantom_flow,
+            "kogni_phantom_discover": self._handle_phantom_discover,
+            "kogni_phantom_session": self._handle_phantom_session,
         }
 
         handler = handlers.get(name)
@@ -2750,6 +3056,95 @@ class KogniDevServer:
         engine = ScorchEngine(config=config)
         results = await engine.run_diff(previous_report_path=args.get("previous_report"))
         return json.dumps(results, default=str)
+
+    # ── Phantom plugin handlers ──────────────────────────────────────
+
+    def _phantom_engine(self) -> Any:
+        """Lazy-load PhantomEngine singleton."""
+        if not hasattr(self, "_phantom"):
+            self._phantom = None
+        if self._phantom is None:
+            try:
+                from graqle.plugins.phantom import PhantomEngine, PhantomConfig
+                self._phantom = PhantomEngine(PhantomConfig())
+            except ImportError:
+                raise ImportError(
+                    "Phantom plugin not available. "
+                    "Install with: pip install graqle[phantom] && python -m playwright install chromium"
+                )
+        return self._phantom
+
+    async def _handle_phantom_browse(self, args: dict[str, Any]) -> str:
+        """Open browser, navigate to URL, return screenshot + DOM summary."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.browse(args.pop("url"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_click(self, args: dict[str, Any]) -> str:
+        """Click an element on the current page."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.click(args.pop("session_id"), args.pop("target"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_type(self, args: dict[str, Any]) -> str:
+        """Type text into a form field."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.type_text(args.pop("session_id"), args.pop("target"), args.pop("text"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_screenshot(self, args: dict[str, Any]) -> str:
+        """Take screenshot with optional Vision analysis."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.screenshot(args.pop("session_id"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_audit(self, args: dict[str, Any]) -> str:
+        """Run SCORCH audit dimensions on current page."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.audit(args.pop("session_id"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_flow(self, args: dict[str, Any]) -> str:
+        """Execute a multi-step user journey."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.flow(args.pop("name"), args.pop("steps"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_discover(self, args: dict[str, Any]) -> str:
+        """Auto-discover all navigable pages from a starting URL."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.discover(args.pop("url"), **args)
+        return json.dumps(result, default=str)
+
+    async def _handle_phantom_session(self, args: dict[str, Any]) -> str:
+        """Manage browser sessions and auth profiles."""
+        try:
+            engine = self._phantom_engine()
+        except ImportError as e:
+            return json.dumps({"error": str(e)})
+        result = await engine.session_action(args.pop("action"), **args)
+        return json.dumps(result, default=str)
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""
