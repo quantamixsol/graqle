@@ -1,8 +1,13 @@
 <div align="center">
 
 <!-- HERO: The 5-second hook -->
+<!-- GitHub renders the animated SVG via <picture>. PyPI falls back to the <img> PNG. -->
 
-<img alt="GraQle — Your AI reads files. GraQle reads architecture." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark.png" width="800">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg" type="image/svg+xml">
+  <source media="(prefers-color-scheme: light)" srcset="assets/hero-dark.svg" type="image/svg+xml">
+  <img alt="GraQle — Your AI reads files. GraQle reads architecture." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark-hq.png" width="800">
+</picture>
 
 # Your AI reads files. Gra**Q**le reads architecture.
 
