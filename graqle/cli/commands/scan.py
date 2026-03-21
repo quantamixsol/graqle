@@ -2114,6 +2114,20 @@ def _scan_repo_impl(
             "for fast query activation.[/dim]"
         )
 
+    # Star nudge (show once per install, not on every scan)
+    nudge_file = Path(".graqle/.star_nudge_shown")
+    if not nudge_file.exists():
+        console.print(
+            "\n[dim]Enjoying GraQle? Help others find it: "
+            "[bold]graq star[/bold] or visit "
+            "[cyan]github.com/quantamixsol/graqle[/cyan][/dim]"
+        )
+        try:
+            nudge_file.parent.mkdir(parents=True, exist_ok=True)
+            nudge_file.touch()
+        except Exception:
+            pass
+
 
 @scan_app.command("repo")
 def scan_repo(
