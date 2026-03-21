@@ -19,6 +19,108 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# ---------- Per-Project Graph Loading ----------
+
+# Cache loaded project graphs to avoid re-downloading on every request
+_project_graph_cache: dict[str, object] = {}
+
+
+async def _load_project_graph(request: Request, project: str):
+    """Load a user's project graph from S3 for per-project reasoning.
+
+    The Lambda loads ONE default graph at cold start. When a user selects
+    a specific project (e.g. "Brand_Collaboration"), we need to load THAT
+    project's graph from S3 instead.
+
+    Uses in-memory cache to avoid re-downloading on every request.
+    """
+    import hashlib
+    import json
+    import os
+
+    # Check cache first
+    if project in _project_graph_cache:
+        return _project_graph_cache[project]
+
+    # Get user email from request headers (set by Studio frontend)
+    email = None
+    auth_header = request.headers.get("authorization", "")
+    user_email_header = request.headers.get("x-user-email", "")
+
+    if user_email_header:
+        email = user_email_header
+    elif auth_header:
+        # Try to extract email from JWT payload (base64 decode middle segment)
+        try:
+            import base64
+            token = auth_header.replace("Bearer ", "")
+            payload = token.split(".")[1]
+            # Add padding
+            payload += "=" * (4 - len(payload) % 4)
+            decoded = json.loads(base64.b64decode(payload))
+            email = decoded.get("email", "")
+        except Exception:
+            pass
+
+    if not email:
+        logger.debug("No email found for project graph loading")
+        return None
+
+    # Compute S3 key
+    email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+    bucket = os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
+    s3_key = f"graphs/{email_hash}/{project}/graqle.json"
+
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+        resp = s3.get_object(Bucket=bucket, Key=s3_key)
+        graph_data = json.loads(resp["Body"].read().decode("utf-8"))
+
+        nodes = graph_data.get("nodes", [])
+        links = graph_data.get("links", graph_data.get("edges", []))
+
+        if not nodes:
+            logger.info("Project %s has empty graph", project)
+            return None
+
+        # Build a Graqle instance from the loaded data
+        from graqle.core.graph import Graqle
+
+        g = Graqle()
+        for node in nodes:
+            g.add_node_simple(
+                node.get("id", ""),
+                label=node.get("label", ""),
+                entity_type=node.get("type", "CONCEPT"),
+                description=node.get("description", ""),
+            )
+        for link in links:
+            src = link.get("source", "")
+            tgt = link.get("target", "")
+            if isinstance(src, dict):
+                src = src.get("id", "")
+            if isinstance(tgt, dict):
+                tgt = tgt.get("id", "")
+            if src and tgt:
+                try:
+                    g.add_edge_simple(src, tgt, relation=link.get("type", "RELATED_TO"))
+                except Exception:
+                    pass
+
+        logger.info("Loaded project graph: %s (%d nodes, %d edges)", project, len(g), len(links))
+
+        # Cache for warm invocations (max 5 projects to limit memory)
+        if len(_project_graph_cache) >= 5:
+            _project_graph_cache.pop(next(iter(_project_graph_cache)))
+        _project_graph_cache[project] = g
+
+        return g
+
+    except Exception as e:
+        logger.warning("Failed to load project graph %s: %s", project, e)
+        return None
+
 
 # ---------- Metrics ----------
 
@@ -427,9 +529,18 @@ async def reason_stream(request: Request):
     max_rounds = body.get("max_rounds")
     strategy = body.get("strategy")
     ring_fence = body.get("ring_fence", "read-only")  # Default: graph protected
+    project = body.get("project")  # User's selected project
 
     state = request.app.state.studio_state
     graph = state.get("graph")
+
+    # Per-project graph loading: if a project is specified and we have S3 access,
+    # load that project's graph instead of the default Lambda graph.
+    if project:
+        project_graph = await _load_project_graph(request, project)
+        if project_graph is not None:
+            graph = project_graph
+
     if not graph:
         return JSONResponse({"error": "No graph loaded"}, status_code=400)
 
