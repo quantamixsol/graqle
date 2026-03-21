@@ -217,6 +217,127 @@ def _collect_upload_files(root_path: Path, proj_name: str) -> dict[str, bytes]:
     return files
 
 
+def auto_cloud_sync(
+    root_path: Path,
+    *,
+    quiet: bool = False,
+    graph_json: dict | None = None,
+) -> bool:
+    """Auto-push graph to cloud after scan/grow if user is authenticated.
+
+    Called silently after scan and grow. Does NOT require explicit login —
+    skips gracefully if not authenticated. For Team/Enterprise, also syncs
+    to Neptune.
+
+    Args:
+        root_path: Project root directory
+        quiet: Suppress output (for git hooks)
+        graph_json: Pre-loaded graph data (avoids re-reading file)
+
+    Returns:
+        True if push succeeded, False if skipped or failed
+    """
+    from graqle.cloud.credentials import load_credentials
+
+    creds = load_credentials()
+    if not creds.is_authenticated:
+        return False  # Not logged in — skip silently
+
+    # Check if plan allows cloud sync (pro+ can push to S3)
+    # Free plan can also push — cloud push is a core feature
+    graph_path = root_path / "graqle.json"
+    if not graph_path.exists():
+        return False
+
+    proj_name = _detect_project_name(root_path)
+
+    # Load graph if not provided
+    if graph_json is None:
+        try:
+            graph_json = json.loads(graph_path.read_text(encoding="utf-8"))
+        except Exception:
+            return False
+
+    node_count = len(graph_json.get("nodes", []))
+    edge_count = len(graph_json.get("links", graph_json.get("edges", [])))
+
+    if node_count == 0:
+        return False
+
+    if not quiet:
+        console.print(f"\n[dim]Auto-syncing to cloud ({proj_name}: {node_count} nodes)...[/dim]")
+
+    # Collect files to upload
+    try:
+        upload_files = _collect_upload_files(root_path, proj_name)
+    except Exception:
+        return False
+
+    # Add metadata
+    import time
+    scorecard_path = root_path / ".graqle" / "scorecard.json"
+    module_count = sum(1 for k in upload_files if k.startswith("modules/"))
+    has_governance = any(k.startswith("governance/") for k in upload_files)
+
+    metadata = {
+        "project": proj_name,
+        "email": creds.email,
+        "nodeCount": node_count,
+        "edgeCount": edge_count,
+        "lastPush": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "health": "HEALTHY" if scorecard_path.exists() else "UNKNOWN",
+        "hasIntelligence": scorecard_path.exists(),
+        "hasGovernance": has_governance,
+        "moduleCount": module_count,
+    }
+    upload_files["metadata.json"] = json.dumps(metadata, indent=2).encode("utf-8")
+
+    # Also include metrics if available
+    metrics_path = root_path / ".graqle" / "metrics.json"
+    if metrics_path.exists():
+        upload_files["metrics.json"] = metrics_path.read_bytes()
+
+    # Get presigned URLs and upload
+    try:
+        presign_result = _request_presigned_urls(
+            creds.api_key, proj_name, list(upload_files.keys())
+        )
+        urls = presign_result["urls"]
+
+        failed = 0
+        for file_path, file_data in upload_files.items():
+            url = urls.get(file_path)
+            if not url or not _upload_via_presigned(url, file_data):
+                failed += 1
+
+        if not quiet:
+            uploaded = len(upload_files) - failed
+            console.print(f"  [green]Cloud sync complete:[/green] {uploaded}/{len(upload_files)} files")
+
+    except Exception as e:
+        if not quiet:
+            console.print(f"  [dim]Cloud sync skipped: {e}[/dim]")
+        return False
+
+    # Neptune sync (Team/Enterprise plan only)
+    if creds.plan in ("team", "enterprise"):
+        try:
+            from graqle.connectors.neptune import upsert_nodes, upsert_edges, check_neptune_available
+            available, _ = check_neptune_available()
+            if available:
+                nodes = graph_json.get("nodes", [])
+                edges = graph_json.get("links", graph_json.get("edges", []))
+                n_count = upsert_nodes(proj_name, nodes)
+                e_count = upsert_edges(proj_name, edges)
+                if not quiet:
+                    console.print(f"  [green]Neptune synced:[/green] {n_count} nodes, {e_count} edges")
+        except Exception as e:
+            if not quiet:
+                console.print(f"  [dim]Neptune sync skipped: {e}[/dim]")
+
+    return True
+
+
 @cloud_app.command(name="push")
 def cloud_push(
     project: str = typer.Option(

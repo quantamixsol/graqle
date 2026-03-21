@@ -474,6 +474,13 @@ def learn_knowledge(
                 console.print(f"  [cyan]Entity-linked {entity_edges} edges[/cyan]")
     console.print(f"  Graph: {len(graph)} nodes total")
 
+    # Auto cloud sync after learning
+    try:
+        from graqle.cli.commands.cloud import auto_cloud_sync
+        auto_cloud_sync(Path(graph_path).resolve().parent)
+    except Exception:
+        pass  # Cloud sync is non-blocking
+
 
 def _extract_entities(text: str) -> list[str]:
     """Extract entities from text using lightweight NLP heuristics.
