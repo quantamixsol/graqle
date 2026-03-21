@@ -73,7 +73,10 @@ from graqle.ontology.domains.governance import register_governance_domain
 from graqle.ontology.domains.governance_v3 import (
     build_governance_semantic_constraints,
 )
-from graqle.ontology.semantic_shacl_gate import SemanticSHACLGate
+try:
+    from graqle.ontology.semantic_shacl_gate import SemanticSHACLGate
+except ImportError:
+    SemanticSHACLGate = None  # type: ignore[assignment,misc]
 from graqle.orchestration.aggregation import Aggregator
 from graqle.orchestration.convergence import ConvergenceDetector
 from graqle.orchestration.message_passing import MessagePassingProtocol
