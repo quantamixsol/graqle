@@ -105,6 +105,28 @@ app.add_typer(plugins_app, name="plugins")
 app.command(name="upgrade")(upgrade_command)
 console = create_console()
 
+
+# ---------------------------------------------------------------------------
+# graq star — open GitHub repo for starring
+# ---------------------------------------------------------------------------
+
+@app.command(name="star")
+def star_command() -> None:
+    """Open the GraQle GitHub repo to leave a star.
+
+    Every star helps other developers discover GraQle.
+    """
+    import webbrowser
+
+    url = "https://github.com/quantamixsol/graqle"
+    console.print()
+    console.print("[bold cyan]Thanks for using GraQle![/bold cyan]")
+    console.print(f"Opening [bold]{url}[/bold] in your browser...")
+    console.print("[dim]Every star helps other developers find GraQle.[/dim]")
+    console.print()
+    webbrowser.open(url)
+
+
 # ---------------------------------------------------------------------------
 # MCP subcommand group: graq mcp serve
 # ---------------------------------------------------------------------------
