@@ -2,11 +2,7 @@
 
 <!-- HERO: The 5-second hook -->
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://graqle.com/assets/hero-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://graqle.com/assets/hero-light.svg">
-  <img alt="GraQle — Your AI reads files. GraQle reads architecture." src="https://graqle.com/assets/hero-dark.svg" width="800">
-</picture>
+<img alt="GraQle — Your AI reads files. GraQle reads architecture." src="assets/hero-dark.svg" width="800">
 
 # Your AI reads files. Gra**Q**le reads architecture.
 
