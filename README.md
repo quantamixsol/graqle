@@ -1,23 +1,27 @@
 <div align="center">
 
-# Gra**Q**le
+<!-- HERO: The 5-second hook -->
 
-### Code intelligence that understands your architecture.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://graqle.com/assets/hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://graqle.com/assets/hero-light.svg">
+  <img alt="GraQle — Your AI reads files. GraQle reads architecture." src="https://graqle.com/assets/hero-dark.svg" width="800">
+</picture>
 
-Your AI reads files. GraQle gives it a knowledge graph of your entire codebase —
-dependencies, impact paths, and institutional memory — so it reasons over structure, not strings.
+# Your AI reads files. Gra**Q**le reads architecture.
+
+**The context layer for AI coding agents.** Scan any codebase into a knowledge graph.
+Every module becomes an agent. Ask questions — get architecture-aware answers in 5 seconds, not 2 minutes.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
+[![Downloads](https://img.shields.io/pypi/dw/graqle?color=%2306b6d4&label=downloads%2Fweek)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 2020 passing](https://img.shields.io/badge/tests-1%2C700%2B%20passing-06b6d4.svg)]()
-[![License](https://img.shields.io/badge/license-Proprietary-06b6d4.svg)](https://github.com/quantamixsol/graqle/blob/master/LICENSE)
-[![Patent: EP26162901.8](https://img.shields.io/badge/Patent-EP26162901.8-orange.svg)](https://quantamixsolutions.com/patents)
-[![Patent: EP26166054.2](https://img.shields.io/badge/Patent-EP26166054.2-orange.svg)](https://quantamixsolutions.com/patents)
-[![Downloads](https://img.shields.io/pypi/dm/graqle?color=06b6d4)](https://pypi.org/project/graqle/)
-[![GitHub stars](https://img.shields.io/github/stars/quantamixsol/graqle?style=social)](https://github.com/quantamixsol/graqle)
+[![Tests: 1,900+](https://img.shields.io/badge/tests-1%2C900%2B%20passing-06b6d4.svg)]()
+[![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
+[![MCP Tools: 19](https://img.shields.io/badge/MCP%20tools-19-06b6d4.svg)]()
 
 ```bash
-pip install graqle && graq scan repo . && graq run "what depends on auth?"
+pip install graqle && graq scan repo . && graq run "what's the riskiest file to change?"
 ```
 
 [Website](https://graqle.com) · [Dashboard](https://graqle.com/dashboard) · [PyPI](https://pypi.org/project/graqle/) · [Changelog](CHANGELOG.md)
@@ -26,294 +30,168 @@ pip install graqle && graq scan repo . && graq run "what depends on auth?"
 
 ---
 
-## Table of Contents
-
-- [Why GraQle](#why-graqle)
-- [Quick Start](#quick-start-60-seconds)
-- [What You Can Do](#what-you-can-do)
-- [IDE Integration (MCP)](#ide-integration-mcp)
-- [14 LLM Backends](#14-llm-backends)
-- [Architecture](#architecture)
-- [What GraQle Understands](#what-graqle-understands)
-- [Installation Options](#installation-options)
-- [CLI Reference](#cli-reference)
-- [SCORCH — UX Friction Auditing](#scorch--ux-friction-auditing)
-- [Python SDK](#python-sdk)
-- [Cloud Sync](#cloud-sync)
-- [Pricing](#pricing)
-- [System Requirements](#system-requirements)
-- [Security & Privacy](#security--privacy)
-- [Contributing](#contributing)
-- [FAQ](#faq)
-- [License & Innovation](#license--innovation)
-
----
-
-## Why GraQle
-
-### The problem
-
-AI coding tools are fast but structurally blind. They see files, not architecture. They read 60 files to answer a dependency question — burning 50,000 tokens, taking minutes, and still guessing. They forget everything between sessions. They cannot tell you what breaks before you break it.
-
-This is not a model problem. It is a context problem.
-
-### The solution
-
-GraQle builds a knowledge graph from your codebase that any AI tool can reason over. Every module becomes a node. Every import, call, and dependency becomes an edge. Instead of reading raw files, your AI queries the graph — getting precise, structured context in 500 tokens instead of 50,000.
-
-The graph tracks dependencies, maps impact paths, remembers lessons, and improves with every query you run.
-
-### Before and after
+## 50,000 tokens → 500 tokens. Same answer.
 
 | | Without GraQle | With GraQle |
-|---|---|---|
-| **"What depends on auth?"** | AI reads 60 files, guesses | Graph traversal, exact answer in 5s |
-| **Tokens per question** | 50,000 | 500 |
-| **Cost per question** | ~$0.15 | ~$0.0003 |
-| **Impact analysis** | Manual grep + hope | `graq impact auth.py` — full blast radius |
-| **Institutional memory** | Buried in Slack threads | `graq learn` — the graph remembers |
-| **Cross-session context** | Lost when chat resets | Persistent knowledge graph |
-| **Confidence in answers** | "I think..." | Confidence score + evidence chain |
+|:--|:--|:--|
+| **"What depends on auth?"** | AI reads 60 files, guesses | Graph traversal → exact answer in 5s |
+| **Tokens per question** | 50,000 | **500** |
+| **Cost per question** | ~$0.15 | **~$0.0003** |
+| **Impact analysis** | Manual grep + hope | `graq impact auth.py` → full blast radius |
+| **Memory across sessions** | Lost when chat resets | Persistent knowledge graph |
+| **Confidence in answers** | "I think..." | **Confidence score + evidence chain** |
 
-### Who uses GraQle
-
-- **Individual developers** working with AI coding assistants who want better answers, faster
-- **Engineering teams** who need dependency analysis and impact tracking across shared codebases
-- **Open source maintainers** who want contributors to understand architecture without reading every file
-- **Tech leads and architects** who need governed AI reasoning with audit trails
+> *"We scanned 17,418 nodes across 3 projects in one session. Found 807 jargon blind spots,
+> 218 ghost UI elements, and a CTA that was 20px tall (44px minimum). Cost: $0.30."*
+> — [Quantamix Website Audit](https://graqle.com)
 
 ---
 
-## Quick Start (60 seconds)
-
-**Prerequisites:** Python 3.10+
+## How it works — 60 seconds
 
 ```bash
-# Install
+# 1. Install
 pip install graqle
 
-# Scan your codebase and build the knowledge graph
+# 2. Scan your codebase into a knowledge graph
 graq scan repo .
+# → 2,847 nodes, 9,156 edges — your entire architecture mapped
 
-# Ask anything about your architecture
-graq run "what does the auth module depend on?"
+# 3. Ask anything about your architecture
+graq run "explain the payment flow end to end"
+# → Graph-of-agents activates 8 relevant nodes, synthesizes answer
+# → Confidence: 92% | Cost: $0.001 | Time: 5.2s
+
+# 4. Connect to your AI IDE (zero config change)
+graq init          # Claude Code, Cursor, VS Code, Windsurf — auto-detected
 ```
 
-Connect to your IDE in one command:
-
-```bash
-graq init                          # Claude Code — auto-wires MCP tools
-graq init --ide cursor             # Cursor — MCP + .cursorrules
-graq init --ide vscode             # VS Code + Copilot
-graq init --ide windsurf           # Windsurf — MCP + .windsurfrules
-```
-
-Your AI now has architecture-aware tools. No workflow change — it uses them automatically.
+Your AI now has **19 architecture-aware MCP tools**. No workflow change — it uses them automatically.
 
 ---
 
-## What You Can Do
+## What makes Graqle different
 
-### Understand your codebase
+<table>
+<tr>
+<td width="50%">
+
+### 🔬 Graph-of-Agents Reasoning
+
+Every module in your codebase becomes an autonomous agent. When you ask a question, only the relevant agents activate — they debate, exchange evidence, and synthesize one answer with a confidence score and full audit trail.
+
+This is not RAG. This is **structured multi-agent reasoning over your dependency graph.**
+
+</td>
+<td width="50%">
+
+### 🧠 The Graph Learns
 
 ```bash
-graq run "explain the payment flow end to end"
-graq context auth-module           # 500-token focused context for any module
+graq learn "auth requires refresh token rotation"
+graq grow            # Auto-runs on git commit
 ```
 
-Ask architectural questions in plain English. GraQle reasons over the dependency graph, not raw files.
+Every interaction makes the graph smarter. Lessons persist across sessions. New developers and AI tools inherit your team's institutional knowledge automatically.
 
-### Analyze impact before changes
+</td>
+</tr>
+<tr>
+<td>
 
-```bash
-graq impact auth.py
-# → Shows: 3 direct consumers, 11 transitive dependencies, risk: HIGH
-```
-
-See every affected module before you touch a line of code. No more "I didn't realize that was connected."
-
-### Get safety checks before refactoring
+### 🛡️ Governed AI Decisions
 
 ```bash
 graq preflight "refactor the database layer"
-# → Warnings: 4 modules depend on connection pool, 2 have no tests
+# → 4 modules depend on connection pool
+# → 2 have no tests
+# → DRACE score: 0.72 (proceed with caution)
 ```
 
-Governance-aware preflight checks surface risks before you commit, not after you deploy.
+Every answer is auditable. DRACE governance scores across 5 dimensions. Full evidence chains. Patent-protected.
 
-### Build institutional memory
+</td>
+<td>
 
-```bash
-graq learn "auth module requires refresh token rotation — never skip it"
-graq lessons auth
-# → Returns lessons learned, ranked by relevance
-```
-
-The graph remembers what your team learns. New developers and AI assistants inherit that knowledge automatically.
-
-### Connect your AI tools
-
-```bash
-graq init                          # MCP server with 16 tools for Claude, Cursor, Copilot
-```
-
-Your AI assistant gets graph-powered reasoning, impact analysis, and safety checks — all through the standard MCP protocol.
-
-### Cross-project analysis
-
-```bash
-graq link merge ../backend ../frontend    # Merge graphs from multiple repos
-graq link infer                           # Discover cross-project dependencies
-graq link stats                           # See how your projects connect
-```
-
-Monorepo or multi-repo — GraQle maps relationships across boundaries.
-
-### Compile intelligence
-
-```bash
-graq compile
-# → Risk scores, impact radii, 135+ actionable insights, CLAUDE.md auto-injection
-```
-
-One command produces a full intelligence report: risk heatmaps, module rankings, and auto-generated context files your AI tools consume directly.
-
-### Audit UX friction automatically
-
-```bash
-pip install "graqle[scorch]" && python -m playwright install chromium
-graq scorch run --url http://localhost:3000
-# → 5-phase audit: screenshots, CSS metrics, 12 behavioral tests, Claude Vision, journey score
-# → Findings auto-added to your knowledge graph
-```
-
-SCORCH v3 — GraQle's first-party UX audit plugin. 12 behavioral friction tests, 6 archetype classifications, and Claude Vision journey psychology. Runs from CLI, MCP, or Python. [Full details below](#scorch--ux-friction-auditing).
-
----
-
-## IDE Integration (MCP)
-
-GraQle implements the [Model Context Protocol](https://modelcontextprotocol.io/) so any MCP-compatible IDE can query your knowledge graph directly.
-
-### Setup
-
-**Claude Code** — add to `~/.claude/claude_code_config.json`:
-```json
-{
-  "mcpServers": {
-    "graqle": {
-      "command": "graq",
-      "args": ["mcp", "serve"]
-    }
-  }
-}
-```
-
-**Cursor** — add to `.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "graqle": {
-      "command": "graq",
-      "args": ["mcp", "serve"]
-    }
-  }
-}
-```
-
-**VS Code + Copilot** — add to `.vscode/mcp.json`:
-```json
-{
-  "servers": {
-    "graqle": {
-      "command": "graq",
-      "args": ["mcp", "serve"]
-    }
-  }
-}
-```
-
-**If `graq` is not on your PATH** (common on Windows / WSL / virtualenv), use the universal Python fallback:
-```json
-{
-  "mcpServers": {
-    "graqle": {
-      "command": "python",
-      "args": ["-m", "graqle.cli.main", "mcp", "serve"]
-    }
-  }
-}
-```
-
-Or skip manual config entirely: `graq init` auto-detects your IDE and wires everything.
-
-### Available MCP Tools
-
-| Tool | Description | Tier |
-|------|-------------|------|
-| `graq_context` | Focused context for a module (~500 tokens) | Free |
-| `graq_inspect` | Graph structure: nodes, edges, stats | Free |
-| `graq_reason` | Multi-agent graph reasoning | Free |
-| `graq_reason_batch` | Batch reasoning over multiple queries | Free |
-| `graq_preflight` | Governance check before code changes | Pro |
-| `graq_lessons` | Query relevant lessons and past mistakes | Pro |
-| `graq_impact` | Trace downstream impact through the dependency graph | Pro |
-| `graq_safety_check` | Pre-change safety analysis with risk scoring | Pro |
-| `graq_learn` | Record outcomes for graph learning | Pro |
-| `graq_reload` | Hot-reload the knowledge graph | Free |
-| `graq_audit` | Retrieve audit trail for any reasoning session | Pro |
-| `graq_gate` | Governance gate check (pass/fail) | Pro |
-| `graq_drace` | Quality scoring across 5 governance dimensions | Pro |
-| `graq_runtime` | Runtime configuration and diagnostics | Free |
-| `graq_route` | Task routing information across backends | Free |
-| `graq_lifecycle` | Module lifecycle and deprecation tracking | Pro |
-| `graq_scorch_audit` | Full SCORCH v3 UX audit (5-phase pipeline) | Pro |
-| `graq_scorch_behavioral` | 12 behavioral UX friction tests (no AI cost) | Free |
-| `graq_scorch_report` | Read and summarize a SCORCH audit report | Free |
-
----
-
-## 14 LLM Backends
-
-One config line switches your reasoning backend. Use your own API keys or run fully offline.
+### ⚡ 14 LLM Backends
 
 ```yaml
-# graqle.yaml
 model:
-  backend: anthropic    # or: openai, groq, ollama, bedrock, gemini, deepseek, ...
+  backend: ollama    # Free, offline, air-gapped
+  # Also: anthropic, openai, groq, deepseek,
+  # gemini, bedrock, together, mistral,
+  # fireworks, cohere, openrouter, vllm, custom
 ```
 
-| Backend | Best For | Pricing |
-|---------|----------|---------|
-| **Ollama / llama.cpp** | Offline, air-gapped, privacy | $0 (local) |
-| **Groq** | Speed — sub-second responses | ~$0.0005/query |
-| **DeepSeek** | Budget-conscious teams | ~$0.0001/query |
-| **Anthropic** | Complex reasoning (Claude) | ~$0.001/query |
-| **OpenAI** | GPT-4o, broad compatibility | ~$0.001/query |
-| **Google Gemini** | Long context windows | ~$0.0001/query |
-| **AWS Bedrock** | Enterprise, IAM integration (uses standard boto3 credential chain: env vars, `~/.aws/credentials`, SSO, instance profiles) | AWS pricing |
-| **Together** | Open-source model hosting | ~$0.0003/query |
-| **Mistral** | European data residency | ~$0.0003/query |
-| **Fireworks** | Fast open-source inference | ~$0.0003/query |
-| **Cohere** | Enterprise RAG workflows | ~$0.0005/query |
-| **OpenRouter** | Model marketplace, any model | Varies |
-| **vLLM** | Self-hosted GPU inference | $0 (self-hosted) |
-| **Custom** | Any OpenAI-compatible endpoint | Your pricing |
+Use your own API keys. Run fully offline with Ollama. Smart routing assigns different models to different tasks.
 
-**Smart routing** — assign different providers to different task types:
+</td>
+</tr>
+</table>
 
-```yaml
-routing:
-  default_provider: groq              # Fast + cheap for lookups
-  rules:
-    - task: reason
-      provider: anthropic             # Claude for deep reasoning
-    - task: context
-      provider: groq                  # Groq for instant context retrieval
+---
+
+## Real stories from production
+
+<details>
+<summary><b>📊 "807 jargon blind spots in 90 seconds"</b> — Website audit with SCORCH</summary>
+
+A professional website with WCAG AAA compliance still had 807 unexplained acronyms (TAMR+, TRACE, SHACL, HashGNN) that compliance officers would bounce on. GraQle's SCORCH engine found them all in one scan. Lighthouse missed every one.
+
+**Before:** "Explore our TAMR+ SHACL-compliant governance pipeline"
+**After:** "Explore our regulatory compliance pipeline" (with inline tooltips for technical terms)
+
+</details>
+
+<details>
+<summary><b>🏗️ "17,418 nodes, 8 audits, $0.30"</b> — Multi-project knowledge graph</summary>
+
+Three repos merged into one knowledge graph. 8 parallel audits ran across the entire surface. Found a CTA button that was only 20px tall (44px minimum for mobile touch targets). Fixed before a single prospect saw it.
+
+**Scale:** 17,418 nodes | 70,545 edges | 8 audits | Total cost: $0.30
+
+</details>
+
+<details>
+<summary><b>🎯 "From score 12 to production-ready in one night"</b> — Canvas workflow audit</summary>
+
+GraQle's SCORCH engine audited a complete Canvas workflow builder. Initial score: 12/100. After one session of GraQle-guided fixes: production-ready. Zero manual testing — the graph knew which components to check and in what order.
+
+</details>
+
+<details>
+<summary><b>🔄 "6.4 → 8.5 across 5 releases"</b> — SDK dogfooding journey</summary>
+
+GraQle scores itself on every release. From v0.12.3 (6.4/10) to v0.29.9 (8.5/10) — every improvement was guided by the knowledge graph's own intelligence layer. 2,000+ tests. 396 compiled modules. Graph-powered development, by the graph.
+
+</details>
+
+---
+
+## IDE integration — one command
+
+```bash
+graq init                    # Claude Code — auto-wires MCP tools
+graq init --ide cursor       # Cursor — MCP + .cursorrules
+graq init --ide vscode       # VS Code + Copilot
+graq init --ide windsurf     # Windsurf — MCP + .windsurfrules
 ```
 
-> **Config field reference:** The routing section uses `default_provider` and `default_model` (not `fallback_*`).
-> Run `graq config` to see your fully resolved configuration, or `graq config --json` for CI pipelines.
+### 19 MCP Tools
+
+| Tool | What it does | Free |
+|:-----|:------------|:----:|
+| `graq_context` | Focused 500-token context for any module | ✅ |
+| `graq_reason` | Multi-agent graph reasoning | ✅ |
+| `graq_impact` | Blast radius — what breaks if you change this | ✅ |
+| `graq_preflight` | Pre-change safety check with risk scoring | ✅ |
+| `graq_lessons` | Relevant lessons from past mistakes | ✅ |
+| `graq_learn` | Teach the graph new knowledge | ✅ |
+| `graq_gate` | Governance gate (pass/fail) | ✅ |
+| `graq_drace` | DRACE quality score (5 dimensions) | ✅ |
+| `graq_scorch_audit` | Full UX friction audit (Claude Vision) | Pro |
+| `graq_scorch_behavioral` | 12 behavioral UX tests (free, no AI) | ✅ |
+| +9 more | inspect, reload, route, runtime, lifecycle... | ✅ |
 
 ---
 
@@ -328,91 +206,35 @@ Your Code                    Knowledge Graph               AI Reasoning
 │ Docs        │             │  Lessons         │          │ Audit-trailed   │
 └─────────────┘             └──────────────────┘          └─────────────────┘
                                     │
-                              graq learn
+                              graq learn / graq grow
                                     │
                             Graph evolves with
                             every interaction
 ```
 
-Every file becomes a node. Every import, call, and dependency becomes an edge. When you ask a question, only the relevant nodes activate, reason about their domain, and synthesize one precise answer — with a confidence score and full evidence chain.
-
-The graph is not static. `graq learn` feeds outcomes back into edge weights. The more you use GraQle, the better it understands your codebase.
-
----
-
-## What GraQle Understands
-
-### Languages
-
-| Language | Support |
-|----------|---------|
-| Python | Full — imports, classes, functions, decorators, type hints |
-| JavaScript / TypeScript | Full — imports, exports, JSX, async patterns |
-| React / JSX / TSX | Full — components, hooks, props, context |
-| Go | Structural — packages, imports, function signatures |
-| Rust | Structural — modules, use declarations, traits |
-| Java | Structural — packages, imports, class hierarchy |
-
-### Frameworks
-
-FastAPI, Django, Flask, Next.js, React, Express, NestJS — GraQle recognizes framework-specific patterns like route decorators, middleware chains, and dependency injection.
-
-### Relationships Tracked
-
-Imports, function calls, class inheritance, API endpoint definitions, environment variable usage, configuration references, package dependencies, cross-file type references.
-
-### Documents
-
-PDF, DOCX, PPTX, XLSX, Markdown — `graq scan docs ./docs` ingests documentation into the graph alongside code, linking architecture decisions to the modules they describe.
+**Languages:** Python, JavaScript/TypeScript, React/JSX, Go, Rust, Java
+**Frameworks:** FastAPI, Django, Flask, Next.js, React, Express, NestJS
+**Documents:** PDF, DOCX, PPTX, XLSX, Markdown
 
 ---
 
-## Installation Options
+## Full CLI reference
 
-```bash
-pip install graqle                    # Core SDK + CLI (zero cloud dependencies)
-pip install "graqle[api]"             # + Anthropic, OpenAI, Bedrock providers
-pip install "graqle[docs]"            # + PDF, DOCX, PPTX, XLSX parsing
-pip install "graqle[neo4j]"           # + Neo4j graph backend (for large codebases)
-pip install "graqle[embeddings]"      # + Sentence transformers for semantic search
-pip install "graqle[scorch]"          # + SCORCH v3: AI-powered UX friction auditing
-pip install "graqle[all]"             # Everything
-```
-
-For development:
-
-```bash
-git clone https://github.com/quantamixsol/graqle && cd graqle
-pip install -e ".[dev,api]"
-pytest                                # 1,700+ tests
-```
-
-**Upgrading:**
-
-```bash
-graq self-update                      # Recommended — handles MCP server locks on Windows
-pip install --upgrade graqle          # Alternative — may require stopping MCP server first
-graq migrate                          # After upgrade: rename legacy cognigraph files to graqle
-```
-
-Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j at 5,000+ nodes.
-
----
-
-## CLI Reference
-
-### Scan & Build
+<details>
+<summary><b>Scan & Build</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `graq init` | Scan repo, build graph, auto-wire IDE integration |
+| `graq init` | Scan repo, build graph, auto-wire IDE |
 | `graq scan repo .` | Scan codebase into knowledge graph |
 | `graq scan docs ./docs` | Ingest documents into the graph |
-| `graq scan file path.py` | Scan a single file |
-| `graq compile` | Compile intelligence: risk scores, insights, CLAUDE.md |
+| `graq compile` | Risk scores, insights, CLAUDE.md auto-injection |
 | `graq verify` | Run governance gate checks |
 
-### Query & Reason
+</details>
+
+<details>
+<summary><b>Query & Reason</b></summary>
 
 | Command | Description |
 |---------|-------------|
@@ -420,299 +242,158 @@ Auto-scales: starts with JSON + NetworkX (zero infrastructure), recommends Neo4j
 | `graq reason "question"` | Multi-agent graph reasoning |
 | `graq context module-name` | Focused 500-token context |
 | `graq impact module-name` | Downstream impact analysis |
-| `graq preflight "planned change"` | Pre-change safety check |
+| `graq preflight "change"` | Pre-change safety check |
 | `graq lessons topic` | Surface relevant lessons |
 
-### Teach & Learn
+</details>
+
+<details>
+<summary><b>Teach & Learn</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `graq learn node "name" --type SERVICE` | Add a node to the graph |
-| `graq learn edge "A" "B" -r DEPENDS_ON` | Add a relationship |
-| `graq learn doc architecture.pdf` | Ingest a document |
-| `graq learn discover .` | Auto-discover entities from code |
-| `graq learned` | List what the graph has learned |
+| `graq learn "fact"` | Teach the graph knowledge |
+| `graq learn node "name"` | Add a node |
+| `graq learn edge "A" "B"` | Add a relationship |
+| `graq learned` | List what the graph knows |
+| `graq grow` | Incremental update (git hook) |
 
-### Cross-Project
+</details>
 
-| Command | Description |
-|---------|-------------|
-| `graq link merge ../other-repo` | Merge graphs from multiple repos |
-| `graq link infer` | Discover cross-project dependencies |
-| `graq link stats` | Cross-project relationship statistics |
-
-### Cloud & Infrastructure
+<details>
+<summary><b>Cloud & Infrastructure</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `graq login --api-key grq_...` | Authenticate with graqle.com |
+| `graq login --api-key grq_...` | Authenticate |
 | `graq cloud push` | Upload graph to cloud |
-| `graq cloud pull` | Download graph to local |
-| `graq cloud status` | List cloud projects |
-| `graq studio` | Open visual dashboard |
-| `graq serve` | Start REST API server |
-| `graq mcp serve` | Start MCP server for IDE integration |
-| `graq doctor` | Health check and diagnostics (includes reasoning smoke test) |
-| `graq config` | Show resolved configuration (backend, model, routing, graph) |
-| `graq config --json` | Machine-readable config output for CI/scripting |
-| `graq self-update` | Upgrade to latest version (handles MCP server locks on Windows) |
-| `graq migrate` | Migrate legacy cognigraph files to graqle branding |
+| `graq cloud pull` | Download graph |
+| `graq studio` | Visual dashboard |
+| `graq serve` | REST API server |
+| `graq mcp serve` | MCP server for IDEs |
+| `graq doctor` | Health check |
+| `graq self-update` | Upgrade GraQle |
 
-### SCORCH — UX Friction Auditing
+</details>
+
+<details>
+<summary><b>SCORCH — UX Friction Auditing (13 tests)</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `graq scorch run` | Full 5-phase audit (screenshots + CSS + behavioral + Vision + report) |
-| `graq scorch behavioral` | 12 behavioral UX tests only (fast, no AI cost) |
-| `graq scorch a11y` | WCAG 2.1 AA/AAA accessibility audit |
-| `graq scorch perf` | Core Web Vitals (LCP, CLS, FID) + resource analysis |
-| `graq scorch seo` | Meta tags, Open Graph, structured data, heading hierarchy |
-| `graq scorch mobile` | Touch targets, viewport, text readability, pinch-zoom |
-| `graq scorch i18n` | Internationalization: lang, RTL, date/currency formatting |
-| `graq scorch security` | CSP headers, exposed API keys, XSS vectors, mixed content |
-| `graq scorch conversion` | CTA placement, form quality, trust signals, pricing clarity |
-| `graq scorch brand` | Color palette, typography, logo, spacing consistency |
-| `graq scorch auth-flow` | Login/signup/dashboard flows with auth state comparison |
-| `graq scorch diff` | Before/after report comparison with improvement metrics |
-| `graq scorch config --init` | Create default SCORCH config file |
-| `graq scorch report` | View the latest audit report |
+| `graq scorch run` | Full 5-phase audit |
+| `graq scorch behavioral` | 12 behavioral tests (free) |
+| `graq scorch a11y` | Accessibility (WCAG 2.1) |
+| `graq scorch perf` | Core Web Vitals |
+| `graq scorch seo` | SEO + Open Graph |
+| `graq scorch mobile` | Touch targets + viewport |
+| `graq scorch security` | CSP, XSS, exposed keys |
+| `graq scorch conversion` | CTA + trust signals |
+| `graq scorch brand` | Visual consistency |
+
+</details>
 
 ---
 
-## SCORCH — UX Friction Auditing
+## 14 LLM Backends
 
-**New in v0.30** — SCORCH v3 is GraQle's first-party plugin for AI-powered UX friction auditing. It finds the invisible UX issues that make users quit — not just visual bugs, but broken user journeys.
+| Backend | Best For | Cost |
+|:--------|:---------|:-----|
+| **Ollama** | Offline, air-gapped, privacy | $0 |
+| **Groq** | Speed — sub-second responses | ~$0.0005/q |
+| **DeepSeek** | Budget-conscious | ~$0.0001/q |
+| **Anthropic** | Complex reasoning | ~$0.001/q |
+| **OpenAI** | Broad compatibility | ~$0.001/q |
+| **Google Gemini** | Long context | ~$0.0001/q |
+| **AWS Bedrock** | Enterprise IAM | AWS pricing |
+| **Together / Mistral / Fireworks / Cohere / OpenRouter / vLLM / Custom** | Various | Various |
 
-```bash
-pip install "graqle[scorch]" && python -m playwright install chromium
-graq scorch run --url http://localhost:3000 --page / --page /pricing
+```yaml
+# graqle.yaml — smart routing
+routing:
+  default_provider: groq          # Fast for lookups
+  rules:
+    - task: reason
+      provider: anthropic         # Claude for deep reasoning
 ```
-
-### 5-Phase Pipeline
-
-| Phase | What It Does | Cost |
-|-------|-------------|------|
-| **1. Screenshots** | Full-page captures at mobile, tablet, desktop | Free |
-| **2. CSS Metrics** | Font sizes, touch targets, overflow, contrast | Free |
-| **2.5. Behavioral UX** | 12 automated friction pattern tests | Free |
-| **3. Claude Vision** | AI analysis + Journey Psychology scoring | ~$0.05/page |
-| **4. Report** | Combined JSON + Markdown report with pass/fail | Free |
-
-### 12 Behavioral Friction Tests
-
-Every test maps to real user frustration — not theoretical heuristics:
-
-| Test | What It Catches |
-|------|----------------|
-| Dead Clicks | Buttons/links that look clickable but do nothing |
-| Silent Submissions | Forms that submit without any visible feedback |
-| Unexplained Jargon | Acronyms without tooltips or definitions |
-| Ghost Elements | Empty containers with borders but no content |
-| Missing Next-Step CTA | Pages that end without telling the user what to do next |
-| Copy-Paste Friction | Content in non-selectable elements |
-| Missing Inline Editor | AI-generated text with no edit/copy affordance |
-| Incomplete Generation | Truncated AI output with no "show more" |
-| Feature Discoverability | Interactive elements hidden behind display:none |
-| Flow Continuity | Dead-end pages with no back link or navigation |
-| Upsell Integrity | Upgrade prompts shown for already-owned tiers |
-| Action-Response Feedback | Buttons without loading states or confirmation |
-
-### 6 Friction Archetypes
-
-SCORCH classifies every issue into one of six universal UX failure patterns:
-
-1. **No Visible Response** — *"Is it working?"* — User acts but nothing changes
-2. **Response Mismatch** — *"Not what I asked for"* — UI promises X, delivers Y
-3. **Unusable Output** — *"Now what do I do with this?"* — Results the user can't act on
-4. **User Stranded** — *"Okay... now what?"* — Process completes but no next step
-5. **User Confused** — *"I'm lost"* — User doesn't understand the UI
-6. **UI Contradicts State** — *"That's wrong"* — UI shows incorrect information
-
-### MCP Integration
-
-SCORCH exposes 13 tools via the GraQle MCP server — your AI assistant can audit UX directly:
-
-| MCP Tool | Description | Cost |
-|----------|-------------|------|
-| `graq_scorch_audit` | Full 5-phase audit with pass/fail, journey score, issue list | ~$0.05/page |
-| `graq_scorch_behavioral` | 12 behavioral UX friction pattern tests | Free |
-| `graq_scorch_report` | Read and summarize an existing audit report | Free |
-| `graq_scorch_a11y` | WCAG 2.1 AA/AAA accessibility audit (contrast, aria, focus, headings) | Free |
-| `graq_scorch_perf` | Core Web Vitals: LCP, CLS, FID, resource analysis, render-blocking | Free |
-| `graq_scorch_seo` | SEO: meta tags, Open Graph, Twitter Cards, JSON-LD, canonical | Free |
-| `graq_scorch_mobile` | Mobile: touch targets (44px min), viewport, readability, scroll | Free |
-| `graq_scorch_i18n` | i18n: html lang, RTL, hardcoded strings, date/currency formatting | Free |
-| `graq_scorch_security` | Security: CSP, exposed API keys, XSS, mixed content, HSTS | Free |
-| `graq_scorch_conversion` | Conversion: CTA inventory, form quality, trust signals, pricing | Free |
-| `graq_scorch_brand` | Brand: color palette, typography, spacing, button consistency | Free |
-| `graq_scorch_auth_flow` | Auth flows: login/signup/dashboard with auth state comparison | Free |
-| `graq_scorch_diff` | Before/after comparison: resolved/new issues, improvement % | Free |
-
-All tools are also available with the `kogni_scorch_*` prefix for backward compatibility.
-
-### Auto KG Enrichment
-
-Critical and major findings are automatically added to your GraQle knowledge graph as `FRICTION_FINDING` nodes. This means your AI assistant knows about UX issues when reasoning about your codebase — connecting code changes to UX impact.
-
-### Behavioral-Only Mode (Free, No AI)
-
-Don't want to use Claude Vision? Run just the 12 behavioral tests — zero AI cost, instant results:
-
-```bash
-graq scorch behavioral --url http://localhost:3000 --page / --page /dashboard
-```
-
----
-
-## Python SDK
-
-```python
-from graqle.core.graph import Graqle
-from graqle.backends.api import AnthropicBackend
-
-graph = Graqle.from_json("graqle.json")
-graph.set_default_backend(AnthropicBackend(model="claude-sonnet-4-6"))
-
-result = graph.reason("What services depend on auth?", max_rounds=3)
-print(result.answer)                  # Graph-reasoned answer
-print(f"{result.confidence:.0%}")     # Confidence score
-print(f"${result.cost_usd:.4f}")      # Token cost
-```
-
-Full programmatic access to scanning, reasoning, impact analysis, and graph manipulation.
-
----
-
-## Cloud Sync
-
-New in v0.29 — sync knowledge graphs across machines and team members.
-
-```bash
-graq login --api-key grq_your_key       # Get key at graqle.com/dashboard/account
-graq cloud push                         # Graph appears on graqle.com/dashboard
-graq cloud pull                         # Download on any machine
-graq cloud status                       # See all your projects
-```
-
-Push from your laptop, pull on your workstation. Share with your team. View and explore on [graqle.com/dashboard](https://graqle.com/dashboard).
-
-Cloud sync uploads the graph structure only — never your source code.
 
 ---
 
 ## Pricing
 
-The SDK is 100% open source and always free. Cloud features are optional.
-
 | | Free ($0) | Pro ($19/mo) | Team ($29/dev/mo) |
-|---|:---:|:---:|:---:|
-| CLI + SDK + MCP server | Unlimited | Unlimited | Unlimited |
-| All 14 LLM backends | Yes | Yes | Yes |
-| Intelligence + governance | Yes | Yes | Yes |
-| SCORCH behavioral tests | Yes | Yes | Yes |
-| SCORCH Vision + Journey | -- | Yes | Yes |
+|:--|:--:|:--:|:--:|
+| CLI + SDK + MCP | Unlimited | Unlimited | Unlimited |
+| All 14 backends | ✅ | ✅ | ✅ |
 | Graph nodes | 500 | 25,000 | Unlimited |
 | Cloud projects | 1 | 3 | Unlimited |
-| Reasoning sessions | 3/month | 100/month | Unlimited |
-| Cross-project analysis | -- | Yes | Yes |
-| Team shared graphs | -- | -- | Yes |
-| Priority support | -- | Yes | Yes |
+| SCORCH Vision | — | ✅ | ✅ |
+| Cross-project | — | ✅ | ✅ |
+| Team graphs | — | — | ✅ |
 
-**[Start free at graqle.com](https://graqle.com)**
-
----
-
-## System Requirements
-
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| Python | 3.10+ | 3.12+ |
-| RAM | 2 GB | 4 GB (large codebases) |
-| Disk | ~100 MB (SDK + deps) | ~500 MB (with embeddings) |
-| OS | Windows, macOS, Linux | Any |
-
-No Docker, no database, no cloud account required for local use. Neo4j is optional for codebases above 5,000 nodes.
+**[Start free →](https://graqle.com)**
 
 ---
 
 ## Security & Privacy
 
-- **Local by default.** All scanning, graph building, and reasoning runs on your machine.
-- **No telemetry.** GraQle does not phone home or collect usage data.
-- **Your API keys.** LLM calls go directly from your machine to your chosen provider.
-- **Cloud is opt-in.** `graq cloud push` uploads graph structure only — never source code.
-- **Auditable.** Source code is fully readable. See [SECURITY.md](SECURITY.md) for our security model.
-
----
-
-## Patent Notice
-
-GraQle implements methods covered by European Patent Applications
-EP26162901.8 and EP26166054.2, owned by Quantamix Solutions B.V.
-
-Use of graqle is permitted under the license terms. Reimplementation
-of the patented methods outside this software requires a separate
-patent license. See [LICENSE](LICENSE) for details.
-
----
-
-## Contributing
-
-```bash
-git clone https://github.com/quantamixsol/graqle && cd graqle
-pip install -e ".[dev]" && pytest     # 1,700+ tests
-```
-
-We welcome contributions: bug fixes, new backend integrations, language scanner improvements, and documentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+- **Local by default.** All processing runs on your machine.
+- **No telemetry.** GraQle does not phone home.
+- **Your API keys.** LLM calls go directly to your provider.
+- **Cloud is opt-in.** Uploads graph structure only — never source code.
 
 ---
 
 ## FAQ
 
-**Why not just use Cursor / Claude Code / Copilot directly?**
-GraQle does not replace your AI tool — it makes it dramatically better. Your AI reads files one at a time and guesses at relationships. With GraQle, it queries a knowledge graph that maps your entire architecture. Same AI, 100x fewer tokens, answers grounded in actual dependency structure. Plugs in via MCP with zero workflow change.
+<details>
+<summary><b>Why not just use Cursor / Claude Code / Copilot directly?</b></summary>
 
-**Does my code leave my machine?**
-Never. All processing is local. LLM calls go directly to your chosen provider using your API keys. Cloud sync is opt-in and only uploads graph structure — never source code.
+GraQle doesn't replace your AI tool — it makes it 100x better. Your AI reads files one at a time and guesses at relationships. With GraQle, it queries a knowledge graph that maps your entire architecture. Same AI, 100x fewer tokens, answers grounded in actual dependency structure. Plugs in via MCP with zero workflow change.
 
-**How is this different from Sourcegraph or static analysis?**
-Static analysis tells you what code exists. GraQle tells you how it connects, what breaks when it changes, and what your team has learned about it. It is a reasoning layer, not a search engine. Every answer comes with a confidence score and evidence chain.
+</details>
 
-**What about large monorepos?**
-GraQle starts with JSON + NetworkX (zero infrastructure). At 5,000+ nodes, switch to Neo4j with one config line. Cross-project linking (`graq link merge`) works across repos. The graph scales — the interface stays the same.
+<details>
+<summary><b>How is this different from Sourcegraph or static analysis?</b></summary>
 
-**Can I use my own LLM?**
-Yes. 14 backends out of the box — including Ollama and llama.cpp for fully offline, air-gapped operation. Any OpenAI-compatible endpoint works via the Custom backend. Use your own API keys, your own models, your own infrastructure.
+Static analysis tells you what code exists. GraQle tells you how it connects, what breaks when it changes, and what your team has learned about it. Every answer comes with a confidence score and evidence chain. It's a reasoning layer, not a search engine.
 
-**How long does the initial scan take?**
-Under 30 seconds for most codebases. Large monorepos (10,000+ files) take 1-2 minutes. Incremental scans after the first are near-instant.
+</details>
 
-**Does GraQle work without an LLM?**
-Yes. Scanning, graph building, impact analysis, and the visual dashboard all work without any LLM. You only need a backend configured for `graq reason` and `graq run` queries.
+<details>
+<summary><b>Does my code leave my machine?</b></summary>
 
-**Is this production-ready?**
-1,700+ tests. 396 compiled modules. 14 backends. Used in production by the team that builds it. That said, the version is 0.x — the API is stable but we reserve the right to make breaking changes with major version bumps.
+Never. All processing is local. Cloud sync uploads graph structure only — never source code.
+
+</details>
+
+<details>
+<summary><b>Can I use my own LLM?</b></summary>
+
+Yes. 14 backends including Ollama for fully offline operation. Any OpenAI-compatible endpoint works.
+
+</details>
+
+<details>
+<summary><b>How long does scanning take?</b></summary>
+
+Under 30 seconds for most codebases. 10K+ file monorepos take 1-2 minutes.
+
+</details>
 
 ---
 
-## License & Innovation
+## Patent & License
 
-GraQle is free to use, integrate, and deploy. See [LICENSE](LICENSE) for full terms.
-
-The SDK implements methods covered by European Patent Applications EP26162901.8 (18 claims) and EP26166054.2 (15 claims), owned by Quantamix Solutions B.V. Use of the SDK is licensed — reimplementation of the patented methods outside this software requires a separate patent license.
-
-Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com) — Uithoorn, The Netherlands.
-
-### Citation
+European Patent Applications EP26162901.8 and EP26166054.2 — Quantamix Solutions B.V.
+Free to use under the [license terms](LICENSE). See [SECURITY.md](SECURITY.md).
 
 ```bibtex
 @article{kumar2026graqle,
-  title   = {GraQle: Governed Intelligence through Graph-of-Agents Reasoning
-             over Knowledge Graph Topologies with Semantic SHACL Validation},
+  title   = {GraQle: Governed Intelligence through Graph-of-Agents Reasoning},
   author  = {Kumar, Harish},
   year    = {2026},
   institution = {Quantamix Solutions B.V.},
-  note    = {European Patent Applications EP26162901.8 and EP26166054.2},
   url     = {https://github.com/quantamixsol/graqle}
 }
 ```
@@ -727,6 +408,8 @@ Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com) — Uithoorn
 pip install graqle && graq init
 ```
 
-**[graqle.com](https://graqle.com)**
+⭐ **If GraQle saved you time, [star this repo](https://github.com/quantamixsol/graqle)** — it helps other developers find it.
+
+Built by [Quantamix Solutions B.V.](https://quantamixsolutions.com) — Uithoorn, The Netherlands 🇳🇱
 
 </div>
