@@ -797,7 +797,12 @@ def _show_keyword_suggestions(graph, from_node: str, *, top_k: int) -> None:
 
 def _show_gds_analysis(graph, *, focus_nodes: list[str] | None, top_k: int) -> None:
     """Display GDS topology analysis (link prediction + communities)."""
-    from graqle.learning.gds_intelligence import GDSIntelligence
+    try:
+        from graqle.learning.gds_intelligence import GDSIntelligence
+    except ImportError:
+        console.print("  [yellow]GDS Intelligence not available in this installation.[/yellow]")
+        console.print("  [dim]This feature requires the Enterprise edition.[/dim]")
+        return
 
     neo4j_conn = getattr(graph, "_neo4j_connector", None)
     gds = GDSIntelligence(graph, neo4j_connector=neo4j_conn)
