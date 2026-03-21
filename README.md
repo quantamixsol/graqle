@@ -2,7 +2,7 @@
 
 <!-- HERO: The 5-second hook -->
 
-<img alt="GraQle — Your AI reads files. GraQle reads architecture." src="assets/hero-dark.svg" width="800">
+<img alt="GraQle — Your AI reads files. GraQle reads architecture." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark.png" width="800">
 
 # Your AI reads files. Gra**Q**le reads architecture.
 
