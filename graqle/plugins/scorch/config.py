@@ -16,8 +16,23 @@ class ViewportConfig(BaseModel):
 
 
 class BedrockConfig(BaseModel):
-    region: str = "us-east-1"
-    model_id: str = "us.anthropic.claude-sonnet-4-6-20250514-v1:0"
+    region: str = ""
+    model_id: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        """Resolve defaults from graqle.yaml / env if not explicitly set."""
+        if not self.region or not self.model_id:
+            try:
+                from graqle.plugins.phantom.config import _detect_region, _resolve_vision_model
+                if not self.region:
+                    self.region = _detect_region()
+                if not self.model_id:
+                    self.model_id = _resolve_vision_model(self.region, "sonnet")
+            except Exception:
+                if not self.region:
+                    self.region = "us-east-1"
+                if not self.model_id:
+                    self.model_id = "us.anthropic.claude-sonnet-4-6"
 
 
 class BrandRules(BaseModel):
