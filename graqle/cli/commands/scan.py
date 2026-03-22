@@ -72,7 +72,7 @@ SKIP_DIRS = frozenset({
     # Python
     "__pycache__", ".venv", "venv", "env", ".tox", ".mypy_cache",
     ".pytest_cache", ".ruff_cache", "egg-info", ".eggs",
-    "site-packages",
+    "site-packages", ".conda",
     # JavaScript / Node
     "node_modules", ".next", ".turbo", ".vercel",
     # Build outputs (all languages)
@@ -86,6 +86,25 @@ SKIP_DIRS = frozenset({
     # Misc build artifacts
     ".cargo", ".gradle", ".mvn",
 })
+
+# Suffixes that indicate a virtual-environment directory name (e.g. yugyog_env, my-venv)
+_VENV_SUFFIXES = ("_env", "-env", "_venv", "-venv")
+
+
+def _is_virtualenv(entry: Path) -> bool:
+    """Detect virtual environments by presence of pyvenv.cfg marker file.
+
+    This catches arbitrarily-named venvs (e.g. ``yugyog_env/``) that are
+    not listed in SKIP_DIRS.
+    """
+    if not entry.is_dir():
+        return False
+    # Fast path: name ends with a known venv suffix
+    name_lower = entry.name.lower()
+    if any(name_lower.endswith(s) for s in _VENV_SUFFIXES):
+        return True
+    # Definitive check: pyvenv.cfg is present in all standard venvs
+    return (entry / "pyvenv.cfg").is_file()
 
 # ---------------------------------------------------------------------------
 # Python Analyzer (AST-based)
@@ -809,7 +828,7 @@ class RepoScanner:
                     continue
 
             if entry.is_dir():
-                if entry.name in SKIP_DIRS:
+                if entry.name in SKIP_DIRS or _is_virtualenv(entry):
                     continue
                 # In follow-repos mode, detect nested repos and load their .gitignore
                 if self.follow_repos and (entry / ".git").is_dir():
@@ -2100,19 +2119,43 @@ def _scan_repo_impl(
     except Exception:
         pass  # Cloud sync is non-blocking
 
-    # Warn if embedding cache is stale or missing
+    # Auto-build embedding cache after scan (fixes: users who forget
+    # `graq rebuild --embeddings` fall back to slow per-query embedding).
     cache_path = Path(".graqle/chunk_embeddings.npz")
-    if cache_path.exists():
-        if cache_path.stat().st_mtime < out_path.stat().st_mtime:
+    cache_stale = (
+        cache_path.exists()
+        and cache_path.stat().st_mtime < out_path.stat().st_mtime
+    )
+    if not cache_path.exists() or cache_stale:
+        try:
+            from graqle.activation.chunk_scorer import ChunkScorer
+            from graqle.activation.embeddings import create_embedding_engine
+            from graqle.core.graph import Graqle
+
+            console.print("\n[cyan]Building embedding cache for fast queries...[/cyan]")
+            _cfg = None
+            if config_path and config_path.exists():
+                try:
+                    from graqle.config.settings import GraqleConfig
+                    _cfg = GraqleConfig.from_yaml(str(config_path))
+                except Exception:
+                    pass
+            engine = create_embedding_engine(_cfg)
+            graph_obj = Graqle.from_json(str(out_path))
+            scorer = ChunkScorer(embedding_engine=engine)
+            scorer.build_cache(graph_obj)
+            cache_size = cache_path.stat().st_size / 1024 if cache_path.exists() else 0
             console.print(
-                "\n[yellow]Embedding cache is stale — it was built before this scan.[/yellow]\n"
-                "[yellow]Run [bold]graq rebuild --embeddings[/bold] to update for fast activation.[/yellow]"
+                f"[green]Embedding cache built[/green] "
+                f"({cache_size:.0f} KB) — queries will be fast."
+            )
+        except Exception as exc:
+            console.print(
+                f"\n[yellow]Could not auto-build embedding cache: {exc}[/yellow]\n"
+                "[yellow]Run [bold]graq rebuild --embeddings[/bold] manually.[/yellow]"
             )
     else:
-        console.print(
-            "\n[dim]Tip: Run [bold]graq rebuild --embeddings[/bold] to build the embedding cache "
-            "for fast query activation.[/dim]"
-        )
+        console.print("\n[dim]Embedding cache is up to date.[/dim]")
 
     # Star nudge (show once per install, not on every scan)
     nudge_file = Path(".graqle/.star_nudge_shown")

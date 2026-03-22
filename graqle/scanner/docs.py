@@ -270,8 +270,13 @@ class DocumentScanner:
             # Skip hidden directories and common non-content dirs
             if any(part.startswith(".") for part in dp.relative_to(root).parts):
                 continue
-            if any(part in ("node_modules", "__pycache__", ".git", "venv", ".venv")
-                   for part in dp.relative_to(root).parts):
+            _skip_names = {"node_modules", "__pycache__", ".git", "venv", ".venv", "env", ".conda", "site-packages"}
+            _venv_suffixes = ("_env", "-env", "_venv", "-venv")
+            parts = dp.relative_to(root).parts
+            if any(p in _skip_names for p in parts):
+                continue
+            # Detect arbitrarily-named venvs (e.g. yugyog_env/) by name suffix or pyvenv.cfg marker
+            if any(p.lower().endswith(_venv_suffixes) for p in parts) or (dp / "pyvenv.cfg").is_file():
                 continue
 
             for fname in filenames:
