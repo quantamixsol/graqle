@@ -715,7 +715,7 @@ def _check_governance_gate() -> list[CheckResult]:
             results.append((PASS, "Gate: pre-commit hook", "graq verify runs before every commit"))
         else:
             results.append((WARN, "Gate: pre-commit hook",
-                          "not installed — run 'graq compile --hook' to enforce"))
+                          "not installed — run 'graq compile --hooks' to enforce"))
     except Exception:
         results.append((INFO, "Gate: pre-commit hook", "check skipped (not a git repo)"))
 
@@ -984,7 +984,7 @@ def doctor_command(
                 console.print("  graq compile  # generates scorecard + intelligence")
 
             elif "Gate: pre-commit hook" in label and "not installed" in detail.lower():
-                console.print("  graq compile --hook  # enforce quality gate before every commit")
+                console.print("  graq compile --hooks  # enforce quality gate before every commit")
 
             elif "Gate: CLAUDE.md" in label and "no intelligence" in detail.lower():
                 console.print("  graq compile --inject  # inject risk map into CLAUDE.md")
