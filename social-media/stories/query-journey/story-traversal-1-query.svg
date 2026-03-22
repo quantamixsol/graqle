@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="540" y2="1920">
+      <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#0a1225"/><stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="540" cy="750" r="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.04"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-lg"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="3" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/></filter>
+    <style>
+      @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+      @keyframes ripple{0%{r:40;opacity:.3}100%{r:120;opacity:0}}
+      @keyframes type-cursor{0%,100%{opacity:1}50%{opacity:0}}
+      .pulse{animation:pulse 2s ease-in-out infinite}
+      .p2{animation:pulse 2s ease-in-out .7s infinite}
+      .p3{animation:pulse 2s ease-in-out 1.4s infinite}
+    </style>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#aura)"/>
+
+  <!-- ═══ HEADER ═══ -->
+  <text x="540" y="90" fill="#06b6d4" font-family="system-ui,-apple-system,sans-serif" font-size="38" font-weight="800" text-anchor="middle" filter="url(#glow)">GraQle</text>
+  <text x="540" y="130" fill="#475569" font-family="system-ui,sans-serif" font-size="14" font-weight="500" text-anchor="middle" letter-spacing="4">STORY 1 OF 3</text>
+  <text x="540" y="185" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="30" font-weight="300" text-anchor="middle" letter-spacing="3">THE QUERY ENTERS</text>
+  <line x1="370" y1="205" x2="710" y2="205" stroke="#06b6d4" stroke-width="1" opacity="0.15"/>
+
+  <!-- ═══ THE QUERY (top terminal) ═══ -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="250" width="880" height="110" rx="16" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+    <rect x="100" y="250" width="880" height="34" rx="16" fill="#1e293b"/>
+    <rect x="100" y="270" width="880" height="14" fill="#1e293b"/>
+    <circle cx="128" cy="267" r="5.5" fill="#ef4444" opacity="0.7"/>
+    <circle cx="148" cy="267" r="5.5" fill="#f59e0b" opacity="0.7"/>
+    <circle cx="168" cy="267" r="5.5" fill="#10b981" opacity="0.7"/>
+    <text x="200" y="272" fill="#64748b" font-family="monospace" font-size="13">terminal</text>
+    <text x="130" y="318" fill="#94a3b8" font-family="monospace" font-size="17"><tspan fill="#06b6d4">$</tspan> graq run "what breaks if I change auth?"</text>
+    <rect x="785" y="308" width="12" height="20" fill="#06b6d4" opacity="0.8">
+      <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+
+  <!-- ═══ ARROW: Query enters the graph ═══ -->
+  <g>
+    <line x1="540" y1="380" x2="540" y2="480" stroke="#06b6d4" stroke-width="2" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" values="10;0" dur="0.8s" repeatCount="indefinite"/>
+    </line>
+    <polygon points="530,475 540,495 550,475" fill="#06b6d4" opacity="0.8">
+      <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+    </polygon>
+    <text x="570" y="435" fill="#06b6d4" font-family="monospace" font-size="12" font-weight="bold" opacity="0.6">query enters</text>
+  </g>
+
+  <!-- ═══ THE GRAPH ═══ -->
+
+  <!-- Edges (all dimmed — not yet activated) -->
+  <g opacity="0.12">
+    <line x1="540" y1="620" x2="340" y2="780" stroke="#334155" stroke-width="2"/>
+    <line x1="540" y1="620" x2="740" y2="730" stroke="#334155" stroke-width="2"/>
+    <line x1="540" y1="620" x2="400" y2="560" stroke="#334155" stroke-width="2"/>
+    <line x1="540" y1="620" x2="680" y2="560" stroke="#334155" stroke-width="2"/>
+    <line x1="340" y1="780" x2="230" y2="930" stroke="#334155" stroke-width="2"/>
+    <line x1="340" y1="780" x2="500" y2="900" stroke="#334155" stroke-width="2"/>
+    <line x1="740" y1="730" x2="850" y2="880" stroke="#334155" stroke-width="2"/>
+    <line x1="740" y1="730" x2="580" y2="900" stroke="#334155" stroke-width="2"/>
+    <line x1="400" y1="560" x2="680" y2="560" stroke="#334155" stroke-width="1.5"/>
+    <line x1="230" y1="930" x2="500" y2="900" stroke="#334155" stroke-width="1.5"/>
+    <line x1="500" y1="900" x2="580" y2="900" stroke="#334155" stroke-width="1.5"/>
+    <line x1="580" y1="900" x2="850" y2="880" stroke="#334155" stroke-width="1.5"/>
+  </g>
+
+  <!-- AUTH NODE — THE ENTRY POINT (glowing, activated) -->
+  <!-- Ripple effect -->
+  <circle cx="540" cy="620" r="40" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0">
+    <animate attributeName="r" values="40;120" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="540" cy="620" r="40" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0">
+    <animate attributeName="r" values="40;100" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.2;0" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Auth node (bright, pulsing) -->
+  <circle cx="540" cy="620" r="50" fill="#06b6d4" opacity="0.06"/>
+  <circle cx="540" cy="620" r="38" fill="#06b6d4" opacity="0.9" filter="url(#glow-lg)">
+    <animate attributeName="r" values="38;42;38" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="540" y="616" fill="#0f172a" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle">auth</text>
+  <text x="540" y="636" fill="#0f172a" font-family="monospace" font-size="11" text-anchor="middle">.py</text>
+
+  <!-- Dimmed neighbor nodes (not yet activated) -->
+  <g opacity="0.3">
+    <!-- routes -->
+    <circle cx="340" cy="780" r="28" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="340" y="784" fill="#64748b" font-family="monospace" font-size="13" text-anchor="middle">routes</text>
+
+    <!-- api -->
+    <circle cx="740" cy="730" r="26" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="740" y="734" fill="#64748b" font-family="monospace" font-size="13" text-anchor="middle">api</text>
+
+    <!-- models -->
+    <circle cx="400" cy="560" r="24" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="400" y="564" fill="#64748b" font-family="monospace" font-size="12" text-anchor="middle">models</text>
+
+    <!-- middleware -->
+    <circle cx="680" cy="560" r="24" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="680" y="564" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">middleware</text>
+
+    <!-- db -->
+    <circle cx="230" cy="930" r="22" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="230" y="934" fill="#64748b" font-family="monospace" font-size="12" text-anchor="middle">db</text>
+
+    <!-- config -->
+    <circle cx="500" cy="900" r="20" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="500" y="904" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">config</text>
+
+    <!-- utils -->
+    <circle cx="580" cy="900" r="20" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="580" y="904" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">utils</text>
+
+    <!-- tests -->
+    <circle cx="850" cy="880" r="22" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="850" y="884" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">tests</text>
+  </g>
+
+  <!-- ═══ ACTIVATION STATUS ═══ -->
+  <g filter="url(#shadow)">
+    <rect x="120" y="1040" width="840" height="120" rx="16" fill="#0f172a" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.2"/>
+    <text x="170" y="1080" fill="#06b6d4" font-family="system-ui,sans-serif" font-size="18" font-weight="700">Step 1: Activation</text>
+    <text x="170" y="1110" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="15">The query hits <tspan fill="#06b6d4" font-weight="bold">auth.py</tspan> first — it's the most</text>
+    <text x="170" y="1135" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="15">semantically relevant node (cosine sim: 0.94)</text>
+    <rect x="750" y="1065" width="170" height="40" rx="10" fill="#06b6d4" fill-opacity="0.08"/>
+    <text x="835" y="1080" fill="#06b6d4" font-family="monospace" font-size="11" text-anchor="middle">1 of 8 agents</text>
+    <text x="835" y="1098" fill="#06b6d4" font-family="monospace" font-size="13" text-anchor="middle" font-weight="bold">activated</text>
+  </g>
+
+  <!-- ═══ WHAT'S HAPPENING INSIDE (memory/embed/LLM mini) ═══ -->
+  <g>
+    <text x="540" y="1220" fill="#64748b" font-family="system-ui,sans-serif" font-size="12" text-anchor="middle" letter-spacing="3">INSIDE AUTH.PY RIGHT NOW</text>
+    <line x1="350" y1="1235" x2="730" y2="1235" stroke="#1e293b" stroke-width="1"/>
+
+    <!-- Memory -->
+    <rect x="120" y="1260" width="270" height="90" rx="12" fill="#0f172a" stroke="#f59e0b" stroke-width="0.8" stroke-opacity="0.25" filter="url(#shadow)"/>
+    <circle cx="148" cy="1288" r="8" fill="#f59e0b" opacity="0.8"/>
+    <text x="165" y="1293" fill="#f59e0b" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Memory</text>
+    <text x="145" y="1318" fill="#64748b" font-family="monospace" font-size="11">3 consumers found</text>
+    <text x="145" y="1338" fill="#64748b" font-family="monospace" font-size="11">11 transitive deps</text>
+
+    <!-- Embedding -->
+    <rect x="405" y="1260" width="270" height="90" rx="12" fill="#0f172a" stroke="#a855f7" stroke-width="0.8" stroke-opacity="0.25" filter="url(#shadow)"/>
+    <circle cx="433" cy="1288" r="8" fill="#a855f7" opacity="0.8"/>
+    <text x="450" y="1293" fill="#a855f7" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Embedding</text>
+    <text x="430" y="1318" fill="#64748b" font-family="monospace" font-size="11">cos_sim: 0.94</text>
+    <text x="430" y="1338" fill="#64748b" font-family="monospace" font-size="11">top chunk matched</text>
+
+    <!-- LLM -->
+    <rect x="690" y="1260" width="270" height="90" rx="12" fill="#0f172a" stroke="#06b6d4" stroke-width="0.8" stroke-opacity="0.25" filter="url(#shadow)"/>
+    <circle cx="718" cy="1288" r="8" fill="#06b6d4" opacity="0.8"/>
+    <text x="735" y="1293" fill="#06b6d4" font-family="system-ui,sans-serif" font-size="13" font-weight="600">LLM</text>
+    <text x="715" y="1318" fill="#64748b" font-family="monospace" font-size="11">reasoning...</text>
+    <text x="715" y="1338" fill="#06b6d4" font-family="monospace" font-size="11" class="pulse">62 tokens used</text>
+  </g>
+
+  <!-- ═══ BOTTOM: Preview of next ═══ -->
+  <line x1="100" y1="1730" x2="980" y2="1730" stroke="#1e293b" stroke-width="1"/>
+  <text x="540" y="1790" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="22" font-weight="600" text-anchor="middle">Auth activates. Now it talks to its neighbors.</text>
+  <text x="540" y="1830" fill="#64748b" font-family="system-ui,sans-serif" font-size="16" text-anchor="middle">Swipe for the message-passing phase &#8594;</text>
+
+  <!-- Progress dots -->
+  <g>
+    <circle cx="510" cy="1880" r="6" fill="#06b6d4" opacity="0.9"/>
+    <circle cx="535" cy="1880" r="6" fill="#334155"/>
+    <circle cx="560" cy="1880" r="6" fill="#334155"/>
+  </g>
+</svg>

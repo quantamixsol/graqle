@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="540" y2="1920">
+      <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#0a1225"/><stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="540" cy="700" r="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.04"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-lg"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="3" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/></filter>
+    <style>
+      @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+      @keyframes travel-1{0%{cx:540;cy:600}50%{cx:340;cy:750}100%{cx:540;cy:600}}
+      @keyframes travel-2{0%{cx:540;cy:600}50%{cx:740;cy:700}100%{cx:540;cy:600}}
+      @keyframes travel-3{0%{cx:340;cy:750}50%{cx:230;cy:900}100%{cx:340;cy:750}}
+      @keyframes travel-4{0%{cx:740;cy:700}50%{cx:580;cy:870}100%{cx:740;cy:700}}
+      .pulse{animation:pulse 2s ease-in-out infinite}
+      .p2{animation:pulse 2s ease-in-out .5s infinite}
+      .p3{animation:pulse 2s ease-in-out 1s infinite}
+      .msg-1{animation:travel-1 2.5s ease-in-out infinite}
+      .msg-2{animation:travel-2 3s ease-in-out infinite}
+      .msg-3{animation:travel-3 2.8s ease-in-out infinite}
+      .msg-4{animation:travel-4 3.2s ease-in-out infinite}
+    </style>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#aura)"/>
+
+  <!-- ═══ HEADER ═══ -->
+  <text x="540" y="90" fill="#06b6d4" font-family="system-ui,-apple-system,sans-serif" font-size="38" font-weight="800" text-anchor="middle" filter="url(#glow)">GraQle</text>
+  <text x="540" y="130" fill="#475569" font-family="system-ui,sans-serif" font-size="14" font-weight="500" text-anchor="middle" letter-spacing="4">STORY 2 OF 3</text>
+  <text x="540" y="185" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="28" font-weight="300" text-anchor="middle" letter-spacing="3">AGENTS TALK</text>
+  <line x1="370" y1="205" x2="710" y2="205" stroke="#a855f7" stroke-width="1" opacity="0.15"/>
+
+  <!-- ═══ THE GRAPH — MULTIPLE NODES ACTIVATED ═══ -->
+
+  <!-- ACTIVATED EDGES (glowing, colored by message direction) -->
+  <g>
+    <!-- auth → routes (bright) -->
+    <line x1="540" y1="600" x2="340" y2="750" stroke="#06b6d4" stroke-width="3" opacity="0.5" filter="url(#glow)">
+      <animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <!-- auth → api (bright) -->
+    <line x1="540" y1="600" x2="740" y2="700" stroke="#a855f7" stroke-width="3" opacity="0.5" filter="url(#glow)">
+      <animate attributeName="opacity" values="0.3;0.7;0.3" dur="2.5s" repeatCount="indefinite"/>
+    </line>
+    <!-- auth → middleware -->
+    <line x1="540" y1="600" x2="680" y2="540" stroke="#f59e0b" stroke-width="2.5" opacity="0.4" filter="url(#glow)">
+      <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2.2s" repeatCount="indefinite"/>
+    </line>
+    <!-- routes → db -->
+    <line x1="340" y1="750" x2="230" y2="900" stroke="#10b981" stroke-width="2" opacity="0.35">
+      <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2.8s" repeatCount="indefinite"/>
+    </line>
+    <!-- routes → config -->
+    <line x1="340" y1="750" x2="500" y2="870" stroke="#f43f5e" stroke-width="2" opacity="0.3">
+      <animate attributeName="opacity" values="0.15;0.45;0.15" dur="3s" repeatCount="indefinite"/>
+    </line>
+    <!-- api → utils -->
+    <line x1="740" y1="700" x2="580" y2="870" stroke="#38bdf8" stroke-width="2" opacity="0.3">
+      <animate attributeName="opacity" values="0.15;0.45;0.15" dur="2.6s" repeatCount="indefinite"/>
+    </line>
+    <!-- api → tests -->
+    <line x1="740" y1="700" x2="850" y2="850" stroke="#ec4899" stroke-width="2" opacity="0.3">
+      <animate attributeName="opacity" values="0.15;0.4;0.15" dur="3.2s" repeatCount="indefinite"/>
+    </line>
+    <!-- Dimmed edges -->
+    <line x1="540" y1="600" x2="400" y2="540" stroke="#334155" stroke-width="1.5" opacity="0.12"/>
+    <line x1="400" y1="540" x2="680" y2="540" stroke="#334155" stroke-width="1" opacity="0.08"/>
+    <line x1="230" y1="900" x2="500" y2="870" stroke="#334155" stroke-width="1" opacity="0.08"/>
+    <line x1="500" y1="870" x2="580" y2="870" stroke="#334155" stroke-width="1" opacity="0.08"/>
+  </g>
+
+  <!-- TRAVELING MESSAGE PARTICLES -->
+  <circle r="6" fill="#06b6d4" opacity="0.9" class="msg-1" filter="url(#glow)"/>
+  <circle r="5" fill="#a855f7" opacity="0.8" class="msg-2" filter="url(#glow)"/>
+  <circle r="4.5" fill="#10b981" opacity="0.7" class="msg-3"/>
+  <circle r="4.5" fill="#38bdf8" opacity="0.7" class="msg-4"/>
+
+  <!-- ACTIVATED NODES -->
+  <!-- auth (hub, brightest) -->
+  <circle cx="540" cy="600" r="42" fill="#06b6d4" opacity="0.06"/>
+  <circle cx="540" cy="600" r="32" fill="#06b6d4" opacity="0.9" filter="url(#glow)">
+    <animate attributeName="r" values="32;35;32" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="540" y="596" fill="#0f172a" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">auth</text>
+  <text x="540" y="614" fill="#0f172a" font-family="monospace" font-size="10" text-anchor="middle">.py</text>
+
+  <!-- routes (activated) -->
+  <circle cx="340" cy="750" r="30" fill="#f59e0b" opacity="0.85" filter="url(#glow)">
+    <animate attributeName="r" values="30;33;30" dur="2.3s" repeatCount="indefinite"/>
+  </circle>
+  <text x="340" y="754" fill="#0f172a" font-family="monospace" font-size="13" font-weight="bold" text-anchor="middle">routes</text>
+
+  <!-- api (activated) -->
+  <circle cx="740" cy="700" r="28" fill="#a855f7" opacity="0.85" filter="url(#glow)">
+    <animate attributeName="r" values="28;31;28" dur="2.6s" repeatCount="indefinite"/>
+  </circle>
+  <text x="740" y="704" fill="#0f172a" font-family="monospace" font-size="13" font-weight="bold" text-anchor="middle">api</text>
+
+  <!-- middleware (activated) -->
+  <circle cx="680" cy="540" r="26" fill="#f59e0b" opacity="0.8" filter="url(#glow)">
+    <animate attributeName="r" values="26;29;26" dur="2.1s" repeatCount="indefinite"/>
+  </circle>
+  <text x="680" y="544" fill="#0f172a" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle">mw</text>
+
+  <!-- Partially activated (2nd hop) -->
+  <circle cx="230" cy="900" r="22" fill="#10b981" opacity="0.6">
+    <animate attributeName="opacity" values="0.3;0.7;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <text x="230" y="904" fill="#0f172a" font-family="monospace" font-size="11" text-anchor="middle">db</text>
+
+  <circle cx="580" cy="870" r="20" fill="#38bdf8" opacity="0.5">
+    <animate attributeName="opacity" values="0.25;0.6;0.25" dur="2.8s" repeatCount="indefinite"/>
+  </circle>
+  <text x="580" y="874" fill="#0f172a" font-family="monospace" font-size="11" text-anchor="middle">utils</text>
+
+  <circle cx="500" cy="870" r="18" fill="#f43f5e" opacity="0.45">
+    <animate attributeName="opacity" values="0.2;0.55;0.2" dur="3.2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="500" y="874" fill="#0f172a" font-family="monospace" font-size="10" text-anchor="middle">cfg</text>
+
+  <circle cx="850" cy="850" r="20" fill="#ec4899" opacity="0.45">
+    <animate attributeName="opacity" values="0.2;0.55;0.2" dur="2.9s" repeatCount="indefinite"/>
+  </circle>
+  <text x="850" y="854" fill="#0f172a" font-family="monospace" font-size="10" text-anchor="middle">tests</text>
+
+  <!-- Dimmed (not reached yet) -->
+  <circle cx="400" cy="540" r="20" fill="#1e293b" stroke="#334155" stroke-width="1" opacity="0.3"/>
+  <text x="400" y="544" fill="#64748b" font-family="monospace" font-size="10" text-anchor="middle" opacity="0.5">models</text>
+
+  <!-- ═══ MESSAGE LOG (chat-style) ═══ -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="1000" width="920" height="380" rx="16" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+    <text x="130" y="1040" fill="#64748b" font-family="system-ui,sans-serif" font-size="12" letter-spacing="3">AGENT MESSAGE LOG</text>
+    <line x1="130" y1="1055" x2="950" y2="1055" stroke="#1e293b" stroke-width="1"/>
+
+    <!-- Message 1: auth → routes -->
+    <circle cx="130" cy="1090" r="10" fill="#06b6d4" opacity="0.8"/>
+    <text x="150" y="1095" fill="#06b6d4" font-family="monospace" font-size="14" font-weight="bold">auth</text>
+    <text x="200" y="1095" fill="#475569" font-family="system-ui,sans-serif" font-size="13">&#8594;</text>
+    <circle cx="225" cy="1090" r="10" fill="#f59e0b" opacity="0.8"/>
+    <text x="245" y="1095" fill="#f59e0b" font-family="monospace" font-size="14" font-weight="bold">routes</text>
+    <text x="340" y="1095" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">"I handle JWT validation. Do you consume my tokens?"</text>
+
+    <!-- Message 2: routes → auth -->
+    <circle cx="130" cy="1140" r="10" fill="#f59e0b" opacity="0.8"/>
+    <text x="150" y="1145" fill="#f59e0b" font-family="monospace" font-size="14" font-weight="bold">routes</text>
+    <text x="215" y="1145" fill="#475569" font-family="system-ui,sans-serif" font-size="13">&#8594;</text>
+    <circle cx="240" cy="1140" r="10" fill="#06b6d4" opacity="0.8"/>
+    <text x="260" y="1145" fill="#06b6d4" font-family="monospace" font-size="14" font-weight="bold">auth</text>
+    <text x="315" y="1145" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">"Yes — 3 endpoints require your @auth_required decorator"</text>
+
+    <!-- Message 3: auth → api -->
+    <circle cx="130" cy="1190" r="10" fill="#06b6d4" opacity="0.8"/>
+    <text x="150" y="1195" fill="#06b6d4" font-family="monospace" font-size="14" font-weight="bold">auth</text>
+    <text x="200" y="1195" fill="#475569" font-family="system-ui,sans-serif" font-size="13">&#8594;</text>
+    <circle cx="225" cy="1190" r="10" fill="#a855f7" opacity="0.8"/>
+    <text x="245" y="1195" fill="#a855f7" font-family="monospace" font-size="14" font-weight="bold">api</text>
+    <text x="290" y="1195" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">"Do you call verify_token() directly?"</text>
+
+    <!-- Message 4: api → auth -->
+    <circle cx="130" cy="1240" r="10" fill="#a855f7" opacity="0.8"/>
+    <text x="150" y="1245" fill="#a855f7" font-family="monospace" font-size="14" font-weight="bold">api</text>
+    <text x="185" y="1245" fill="#475569" font-family="system-ui,sans-serif" font-size="13">&#8594;</text>
+    <circle cx="210" cy="1240" r="10" fill="#06b6d4" opacity="0.8"/>
+    <text x="230" y="1245" fill="#06b6d4" font-family="monospace" font-size="14" font-weight="bold">auth</text>
+    <text x="285" y="1245" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">"Yes — and I also import AuthError for 401 handling"</text>
+
+    <!-- Message 5: middleware consensus -->
+    <circle cx="130" cy="1290" r="10" fill="#f59e0b" opacity="0.8"/>
+    <text x="150" y="1295" fill="#f59e0b" font-family="monospace" font-size="14" font-weight="bold">mw</text>
+    <text x="185" y="1295" fill="#475569" font-family="system-ui,sans-serif" font-size="13">&#8594;</text>
+    <text x="210" y="1295" fill="#64748b" font-family="system-ui,sans-serif" font-size="13">all</text>
+    <text x="245" y="1295" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">"I wrap auth for every request. Breaking auth breaks me."</text>
+
+    <!-- Round indicator -->
+    <rect x="130" y="1330" width="120" height="28" rx="14" fill="#a855f7" fill-opacity="0.08" stroke="#a855f7" stroke-width="0.8" stroke-opacity="0.3"/>
+    <text x="190" y="1349" fill="#a855f7" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle">Round 1 of 2</text>
+    <text x="280" y="1349" fill="#475569" font-family="system-ui,sans-serif" font-size="12">5 messages exchanged · 180 tokens</text>
+  </g>
+
+  <!-- ═══ ACTIVATION METER ═══ -->
+  <g>
+    <text x="540" y="1440" fill="#64748b" font-family="system-ui,sans-serif" font-size="12" text-anchor="middle" letter-spacing="3">AGENTS ACTIVATED</text>
+    <!-- Progress bar -->
+    <rect x="200" y="1460" width="680" height="8" rx="4" fill="#1e293b"/>
+    <rect x="200" y="1460" width="510" height="8" rx="4" fill="#06b6d4" opacity="0.8">
+      <animate attributeName="width" values="340;510;340" dur="3s" repeatCount="indefinite"/>
+    </rect>
+    <text x="540" y="1495" fill="#06b6d4" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">6 of 8 agents active</text>
+  </g>
+
+  <!-- ═══ BOTTOM ═══ -->
+  <line x1="100" y1="1730" x2="980" y2="1730" stroke="#1e293b" stroke-width="1"/>
+  <text x="540" y="1790" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="22" font-weight="600" text-anchor="middle">Nodes don't just answer. They negotiate.</text>
+  <text x="540" y="1830" fill="#64748b" font-family="system-ui,sans-serif" font-size="16" text-anchor="middle">Swipe for the consensus &#8594;</text>
+
+  <!-- Progress dots -->
+  <circle cx="510" cy="1880" r="6" fill="#334155"/>
+  <circle cx="535" cy="1880" r="6" fill="#a855f7" opacity="0.9"/>
+  <circle cx="560" cy="1880" r="6" fill="#334155"/>
+</svg>
