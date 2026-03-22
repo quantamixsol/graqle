@@ -4,6 +4,35 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.33.0 — Zero-Friction Install: Auto-Cache, Smart Venv Detection, Security Hardening (2026-03-22)
+
+**Addresses community feedback on first-run experience.** Eliminates the #1 pain point (slow queries without embedding cache) and prevents virtualenv pollution, API key leaks, and silent init failures.
+
+### Fixed
+
+| Issue | What Changed |
+|-------|-------------|
+| **Embedding cache not auto-built** (CRITICAL) | `graq scan repo .` now auto-builds `.graqle/chunk_embeddings.npz` after scanning. No more manual `graq rebuild --embeddings` step. Queries go from ~30s to <1s automatically. |
+| **Virtual environments scanned** | Scanner now auto-detects venvs by `pyvenv.cfg` marker file + name suffixes (`*_env`, `*-env`, `*_venv`, `*-venv`). Catches arbitrarily-named venvs like `yugyog_env/`. |
+| **API keys at risk of git commit** | `graq init` now auto-adds `graqle.yaml` and `.graqle/` to `.gitignore`. Prevents accidental plaintext API key leaks. |
+| **Silent init failure** | `graq init` now shows a yellow warning panel (not green success) when the graph has 0 nodes, with guidance on how to fix it. |
+| **Doc scanner venv pollution** | Document scanner (`graq scan docs`) now excludes `env/`, `.conda/`, `site-packages/`, and venvs detected by suffix/marker. |
+
+### Technical Details
+
+- **scan.py**: Added `_is_virtualenv()` function with `pyvenv.cfg` detection + `_VENV_SUFFIXES` matching. Added auto-build cache block with `try/except` fallback.
+- **docs.py**: Extended skip-names set and added suffix-based venv detection in `os.walk` loop.
+- **init.py**: Added `.gitignore` auto-update after `graqle.yaml` creation. Added conditional success/warning panel based on `node_total`.
+- **No API changes.** All fixes are in CLI commands — SDK API is untouched.
+
+### Impact
+
+- 168 tests pass (4 pre-existing patent-stub failures unchanged)
+- E2E validated: fresh repo with fake venvs, binary files, edge-case code → clean 18-node graph
+- Backward compatible — no breaking changes
+
+---
+
 ## v0.31.3 — SCORCH Extended Skills: 10 New Audit Modules (2026-03-20)
 
 **SCORCH v3 grows from 3 to 13 specialized audit skills.** Each skill is available as an MCP tool, CLI command, and Python SDK method.

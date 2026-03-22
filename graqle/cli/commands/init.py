@@ -2537,6 +2537,23 @@ def init_command(
     _write_graqle_yaml(root, yaml_content)
     console.print("  [green]+[/green] graqle.yaml")
 
+    # Auto-add graqle.yaml to .gitignore (prevents accidental API key leaks)
+    gitignore_path = root / ".gitignore"
+    _gitignore_entries = ["graqle.yaml", ".graqle/"]
+    try:
+        existing_gi = gitignore_path.read_text(encoding="utf-8") if gitignore_path.exists() else ""
+        missing = [e for e in _gitignore_entries if e not in existing_gi]
+        if missing:
+            with open(gitignore_path, "a", encoding="utf-8") as f:
+                if existing_gi and not existing_gi.endswith("\n"):
+                    f.write("\n")
+                f.write("# GraQle — config may contain API keys\n")
+                for entry in missing:
+                    f.write(f"{entry}\n")
+            console.print(f"  [green]+[/green] .gitignore (added {', '.join(missing)})")
+    except Exception:
+        console.print("  [yellow]![/yellow] Could not update .gitignore — add graqle.yaml manually")
+
     # graqle.json
     if graph_data is not None:
         _write_graqle_json(root, graph_data)
@@ -2719,10 +2736,30 @@ def init_command(
     else:
         plugin_lines.append(f"  [red]--[/red] API key [dim](set {BACKENDS[chosen_backend].get('api_key_env', 'API_KEY')})[/dim]")
 
+    # Choose header and border based on graph health
+    if node_total == 0:
+        _header = "[bold yellow]Project initialized — but graph is empty![/bold yellow]"
+        _border = "yellow"
+        _title = "Warning"
+        _graph_warning = (
+            "\n[yellow]The knowledge graph has 0 nodes. This means scanning found no code files.\n"
+            "Possible causes:\n"
+            "  - You ran init with --no-scan\n"
+            "  - The directory contains no .py / .js / .ts files\n"
+            "  - All files matched exclude patterns\n"
+            "Run [bold]graq scan repo .[/bold] to rebuild the graph.[/yellow]\n"
+        )
+    else:
+        _header = "[bold green]Project initialized![/bold green]"
+        _border = "green"
+        _title = "Done"
+        _graph_warning = ""
+
     console.print(
         Panel(
-            f"[bold green]Project initialized![/bold green]\n\n"
+            f"{_header}\n\n"
             + "\n".join(status_lines) + "\n"
+            f"{_graph_warning}"
             f"{readiness_section}\n"
             "[bold]Component Status:[/bold]\n"
             + "\n".join(plugin_lines) + "\n\n"
@@ -2737,8 +2774,8 @@ def init_command(
             "  [bold]graq cloud push[/bold]        — push graph to cloud dashboard\n"
             "  [bold]graq inspect --stats[/bold]   — graph statistics\n\n"
             f"[dim]Auto-grow: git post-commit hook keeps the knowledge graph in sync.[/dim]",
-            border_style="green",
-            title="Done",
+            border_style=_border,
+            title=_title,
         )
     )
 
