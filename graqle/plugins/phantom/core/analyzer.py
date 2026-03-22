@@ -32,14 +32,19 @@ class VisionAnalyzer:
         """Lazy-load Bedrock client."""
         if self._client is None:
             import boto3
-            region = self.config.bedrock.region if self.config else "us-east-1"
+            if self.config:
+                region = self.config.bedrock.region
+            else:
+                from graqle.plugins.phantom.config import _detect_region
+                region = _detect_region()
             self._client = boto3.client("bedrock-runtime", region_name=region)
         return self._client
 
     def _get_model_id(self, model: str = "sonnet") -> str:
         """Resolve model shortname to Bedrock model ID."""
         if not self.config:
-            return "us.anthropic.claude-sonnet-4-6-20250514-v1:0"
+            from graqle.plugins.phantom.config import _detect_region, _resolve_vision_model
+            return _resolve_vision_model(_detect_region(), model)
         if model == "opus":
             return self.config.bedrock.opus_model_id
         elif model == "haiku":

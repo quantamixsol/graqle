@@ -4,6 +4,41 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.33.1 — Fix: Hardcoded US Bedrock Model IDs Break Non-US Users (2026-03-22)
+
+**P1 Security/Config Fix.** Phantom Vision and SCORCH Visual audit were completely broken for any user in a non-US AWS region (eu-central-1, eu-west-1, ap-northeast-1, etc.) due to hardcoded `us.anthropic.*` model IDs.
+
+### Fixed
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| `ValidationException: The provided model identifier is invalid` on all Vision calls | `us.anthropic.claude-sonnet-4-6-20250514-v1:0` hardcoded in 4 files | Dynamic region resolution from `graqle.yaml` → `model.region` |
+| `us.anthropic.claude-opus-4-6-20250514-v1:0` invalid even in US | Versioned Opus 4.6 ID doesn't exist | Changed to `{prefix}.anthropic.claude-opus-4-6-v1` |
+| SCORCH default_config.json hardcoded to US | Template shipped with `us-east-1` | Empty defaults → auto-resolved at runtime |
+
+### How It Works Now
+
+Phantom and SCORCH configs auto-resolve Bedrock model IDs at runtime:
+1. Read `model.region` from `graqle.yaml` (same as reasoning engine)
+2. Fall back to `AWS_DEFAULT_REGION` or `AWS_REGION` env var
+3. Derive region prefix: `eu-*` → `eu.`, `us-*` → `us.`
+4. Build model ID: `{prefix}.anthropic.claude-sonnet-4-6`
+
+No hardcoded model IDs remain in the plugin configs.
+
+### Files Changed
+
+- `graqle/plugins/phantom/config.py` — Added `_detect_region()`, `_resolve_vision_model()`, auto-resolution in `BedrockConfig.model_post_init()`
+- `graqle/plugins/phantom/core/analyzer.py` — Removed hardcoded fallbacks, uses resolver
+- `graqle/plugins/scorch/config.py` — `BedrockConfig.model_post_init()` delegates to phantom resolver
+- `graqle/plugins/scorch/templates/default_config.json` — Empty defaults (resolved at runtime)
+
+### Lesson Learned
+
+> **NEVER hardcode region-prefixed Bedrock model IDs.** Always derive the prefix from the user's configured region. Hardcoded `us.` model IDs silently break ALL non-US users with a confusing `ValidationException` that appears to be an AWS issue, not a GraQle bug. This was recorded as a KG lesson (`lesson_20260322T210920`).
+
+---
+
 ## v0.33.0 — Zero-Friction Install: Auto-Cache, Smart Venv Detection, Security Hardening (2026-03-22)
 
 **Addresses community feedback on first-run experience.** Eliminates the #1 pain point (slow queries without embedding cache) and prevents virtualenv pollution, API key leaks, and silent init failures.
