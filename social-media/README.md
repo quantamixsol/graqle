@@ -24,6 +24,17 @@ social-media/
 │   ├── story-node-square.png         ← Square format (1080x1080)
 │   └── story-node-square.svg
 │
+├── reels/                            ← Instagram Reels / YouTube Shorts / TikTok
+│   ├── README.md                     ← Production guide, visual mapping, schedule
+│   ├── TELEPROMPTER-ALL.md           ← All 7 scripts back-to-back (copy into teleprompter)
+│   ├── reel-1-the-problem.md         ← "Your AI Is Guessing" (35s)
+│   ├── reel-2-memory-layer.md        ← "The Graph Already Knows" (40s)
+│   ├── reel-3-embedding-layer.md     ← "One Vector Call" (35s)
+│   ├── reel-4-agents-talk.md         ← "Nodes Don't Answer. They Negotiate." (45s)
+│   ├── reel-5-vs-rag.md              ← "This Isn't RAG" (40s)
+│   ├── reel-6-confidence.md          ← "92% Is Not Marketing" (40s)
+│   └── reel-7-full-picture.md        ← "The Whole Model in 45 Seconds" (50s)
+│
 ├── link-previews/                    ← Auto-shown when sharing links
 │   ├── og-image.png                  ← 1200x630 — LinkedIn, Facebook, Twitter, Slack, WhatsApp
 │   ├── github-social-preview.png     ← 1280x640 — GitHub repo card (upload via Settings)
