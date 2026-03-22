@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1080" y2="1080">
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="50%" stop-color="#0a1225"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="ring-glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#a855f7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.5"/>
+    </linearGradient>
+    <radialGradient id="particle-cyan">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="particle-purple">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="particle-amber">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="center-aura" cx="540" cy="480" r="350" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.06"/>
+      <stop offset="50%" stop-color="#a855f7" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow-soft">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-intense">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <style>
+      @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes spin-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+      @keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+      .outer { animation: spin-slow 25s linear infinite; transform-origin: 540px 480px; }
+      .mid { animation: spin-rev 18s linear infinite; transform-origin: 540px 480px; }
+      .inner { animation: spin-slow 12s linear infinite; transform-origin: 540px 480px; }
+      .p1 { animation: pulse 2s ease-in-out infinite; }
+      .p2 { animation: pulse 2s ease-in-out 0.6s infinite; }
+      .p3 { animation: pulse 2s ease-in-out 1.2s infinite; }
+    </style>
+  </defs>
+
+  <rect width="1080" height="1080" fill="url(#bg)"/>
+  <rect width="1080" height="1080" fill="url(#center-aura)"/>
+
+  <!-- Title -->
+  <text x="540" y="70" fill="#06b6d4" font-family="system-ui, -apple-system, sans-serif" font-size="38" font-weight="800" text-anchor="middle" letter-spacing="-1" filter="url(#glow-soft)">GraQle</text>
+  <text x="540" y="110" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="20" font-weight="300" text-anchor="middle" letter-spacing="6" opacity="0.8">INSIDE THE NODE</text>
+
+  <!-- ═══ THREE RINGS ═══ -->
+
+  <!-- OUTER: Memory (amber, r=300) -->
+  <g class="outer" filter="url(#glow-soft)">
+    <circle cx="540" cy="480" r="300" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="14 10" opacity="0.3"/>
+    <circle cx="840" cy="480" r="11" fill="url(#particle-amber)" class="p1"/>
+    <circle cx="540" cy="180" r="9" fill="url(#particle-amber)" class="p2"/>
+    <circle cx="240" cy="480" r="10" fill="url(#particle-amber)" class="p3"/>
+    <circle cx="540" cy="780" r="8" fill="url(#particle-amber)" class="p1"/>
+    <circle cx="752" cy="268" r="7" fill="url(#particle-amber)" class="p2"/>
+    <circle cx="328" cy="692" r="7" fill="url(#particle-amber)" class="p3"/>
+  </g>
+
+  <!-- MIDDLE: Embedding (purple, r=205) -->
+  <g class="mid" filter="url(#glow-soft)">
+    <circle cx="540" cy="480" r="205" fill="none" stroke="#a855f7" stroke-width="2" stroke-dasharray="10 7" opacity="0.35"/>
+    <circle cx="745" cy="480" r="9" fill="url(#particle-purple)" class="p2"/>
+    <circle cx="540" cy="275" r="8" fill="url(#particle-purple)" class="p1"/>
+    <circle cx="335" cy="480" r="9" fill="url(#particle-purple)" class="p3"/>
+    <circle cx="540" cy="685" r="7" fill="url(#particle-purple)" class="p2"/>
+    <circle cx="685" cy="335" r="6" fill="url(#particle-purple)" class="p1"/>
+  </g>
+
+  <!-- INNER: LLM (cyan, r=120) -->
+  <g class="inner" filter="url(#glow-intense)">
+    <circle cx="540" cy="480" r="120" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="8 5" opacity="0.5"/>
+    <circle cx="660" cy="480" r="8" fill="url(#particle-cyan)" class="p1"/>
+    <circle cx="540" cy="360" r="7" fill="url(#particle-cyan)" class="p3"/>
+    <circle cx="420" cy="480" r="8" fill="url(#particle-cyan)" class="p2"/>
+    <circle cx="540" cy="600" r="6" fill="url(#particle-cyan)" class="p1"/>
+  </g>
+
+  <!-- CORE -->
+  <circle cx="540" cy="480" r="85" fill="#06b6d4" opacity="0.04"/>
+  <circle cx="540" cy="480" r="65" fill="#06b6d4" opacity="0.06"/>
+  <circle cx="540" cy="480" r="52" fill="#0f172a" stroke="#06b6d4" stroke-width="3" filter="url(#glow-soft)">
+    <animate attributeName="r" values="52;56;52" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <text x="540" y="475" fill="#06b6d4" font-family="monospace" font-size="26" font-weight="bold" text-anchor="middle">auth</text>
+  <text x="540" y="502" fill="#94a3b8" font-family="monospace" font-size="14" text-anchor="middle">.py</text>
+
+  <!-- ═══ LABELS (left side, stacked) ═══ -->
+  <g>
+    <!-- Memory -->
+    <rect x="40" y="215" width="180" height="38" rx="19" fill="#f59e0b" fill-opacity="0.08" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.3"/>
+    <circle cx="68" cy="234" r="7" fill="#f59e0b" opacity="0.9"/>
+    <text x="85" y="240" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="14" font-weight="600">MEMORY</text>
+    <line x1="220" y1="234" x2="310" y2="330" stroke="#f59e0b" stroke-width="0.7" opacity="0.2" stroke-dasharray="4 3"/>
+
+    <!-- Embedding -->
+    <rect x="40" y="275" width="180" height="38" rx="19" fill="#a855f7" fill-opacity="0.08" stroke="#a855f7" stroke-width="1" stroke-opacity="0.3"/>
+    <circle cx="68" cy="294" r="7" fill="#a855f7" opacity="0.9"/>
+    <text x="85" y="300" fill="#a855f7" font-family="system-ui, sans-serif" font-size="14" font-weight="600">EMBEDDING</text>
+    <line x1="220" y1="294" x2="355" y2="400" stroke="#a855f7" stroke-width="0.7" opacity="0.2" stroke-dasharray="4 3"/>
+
+    <!-- LLM -->
+    <rect x="40" y="335" width="180" height="38" rx="19" fill="#06b6d4" fill-opacity="0.08" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.3"/>
+    <circle cx="68" cy="354" r="7" fill="#06b6d4" opacity="0.9"/>
+    <text x="85" y="360" fill="#06b6d4" font-family="system-ui, sans-serif" font-size="14" font-weight="600">LLM REASON</text>
+    <line x1="220" y1="354" x2="425" y2="450" stroke="#06b6d4" stroke-width="0.7" opacity="0.2" stroke-dasharray="4 3"/>
+  </g>
+
+  <!-- ═══ FLOATING DATA FRAGMENTS ═══ -->
+  <g opacity="0.5">
+    <rect x="810" y="260" width="190" height="50" rx="8" fill="#0f172a" stroke="#a855f7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <text x="825" y="282" fill="#a855f7" font-family="monospace" font-size="11" opacity="0.7">[0.82, -0.14, 0.67,</text>
+    <text x="825" y="300" fill="#a855f7" font-family="monospace" font-size="11" opacity="0.5"> 0.23, 0.91, ...]</text>
+  </g>
+  <g opacity="0.45">
+    <rect x="810" y="670" width="170" height="28" rx="7" fill="#0f172a" stroke="#f59e0b" stroke-width="0.5" stroke-opacity="0.3"/>
+    <text x="822" y="690" fill="#f59e0b" font-family="monospace" font-size="12" opacity="0.7">consumers: 3 mods</text>
+  </g>
+  <g opacity="0.4">
+    <rect x="60" y="660" width="155" height="28" rx="7" fill="#0f172a" stroke="#06b6d4" stroke-width="0.5" stroke-opacity="0.3"/>
+    <text x="72" y="680" fill="#06b6d4" font-family="monospace" font-size="12" opacity="0.7">confidence: 92%</text>
+  </g>
+
+  <!-- ═══ BOTTOM: The Three Steps ═══ -->
+  <line x1="100" y1="830" x2="980" y2="830" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- Step 1 -->
+  <circle cx="220" cy="890" r="22" fill="#f59e0b" fill-opacity="0.1" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.4"/>
+  <text x="220" y="896" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">1</text>
+  <text x="220" y="930" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Memory</text>
+  <text x="220" y="952" fill="#64748b" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">Graph traversal</text>
+  <text x="220" y="972" fill="#475569" font-family="monospace" font-size="12" text-anchor="middle">$0</text>
+
+  <!-- Arrow -->
+  <path d="M 310 890 L 370 890" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="368,884 380,890 368,896" fill="#334155"/>
+
+  <!-- Step 2 -->
+  <circle cx="460" cy="890" r="22" fill="#a855f7" fill-opacity="0.1" stroke="#a855f7" stroke-width="1.5" stroke-opacity="0.4"/>
+  <text x="460" y="896" fill="#a855f7" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">2</text>
+  <text x="460" y="930" fill="#a855f7" font-family="system-ui, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Embed</text>
+  <text x="460" y="952" fill="#64748b" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">1 vector call</text>
+  <text x="460" y="972" fill="#475569" font-family="monospace" font-size="12" text-anchor="middle">~$0.00001</text>
+
+  <!-- Arrow -->
+  <path d="M 550 890 L 610 890" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="608,884 620,890 608,896" fill="#334155"/>
+
+  <!-- Step 3 -->
+  <circle cx="700" cy="890" r="22" fill="#06b6d4" fill-opacity="0.1" stroke="#06b6d4" stroke-width="1.5" stroke-opacity="0.4"/>
+  <text x="700" y="896" fill="#06b6d4" font-family="system-ui, sans-serif" font-size="16" font-weight="800" text-anchor="middle">3</text>
+  <text x="700" y="930" fill="#06b6d4" font-family="system-ui, sans-serif" font-size="15" font-weight="700" text-anchor="middle">LLM</text>
+  <text x="700" y="952" fill="#64748b" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">500 tokens</text>
+  <text x="700" y="972" fill="#475569" font-family="monospace" font-size="12" text-anchor="middle">$0.0003</text>
+
+  <!-- Arrow to result -->
+  <path d="M 790 890 L 850 890" stroke="#10b981" stroke-width="1.5"/>
+  <polygon points="848,884 860,890 848,896" fill="#10b981"/>
+
+  <!-- Result -->
+  <text x="920" y="896" fill="#10b981" font-family="system-ui, sans-serif" font-size="18" font-weight="800" text-anchor="middle">92%</text>
+  <text x="920" y="920" fill="#10b981" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle" opacity="0.7">confidence</text>
+
+  <!-- Punchline -->
+  <text x="540" y="1030" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="18" font-weight="600" text-anchor="middle">Memory first. Embeddings second. LLM last.</text>
+  <text x="540" y="1060" fill="#64748b" font-family="system-ui, sans-serif" font-size="14" text-anchor="middle">That's why it's 100x cheaper.</text>
+</svg>

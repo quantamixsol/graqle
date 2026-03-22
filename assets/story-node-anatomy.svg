@@ -1,0 +1,285 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" fill="none">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="540" y2="1920">
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="30%" stop-color="#0a1225"/>
+      <stop offset="70%" stop-color="#0a0e1a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <!-- Node ring gradients -->
+    <linearGradient id="ring-outer" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="ring-memory" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="ring-embed" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="ring-llm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <!-- Glows -->
+    <filter id="glow-soft">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-intense">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-subtle">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow-deep">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#000" flood-opacity="0.6"/>
+    </filter>
+
+    <!-- Particle radial -->
+    <radialGradient id="particle-cyan">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="particle-purple">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="particle-amber">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Central aura -->
+    <radialGradient id="center-aura" cx="540" cy="680" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.05"/>
+      <stop offset="40%" stop-color="#a855f7" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Dashed ring animation -->
+    <style>
+      @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+      @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+      @keyframes float-up { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      .ring-outer { animation: spin-slow 30s linear infinite; transform-origin: 540px 680px; }
+      .ring-mid { animation: spin-reverse 20s linear infinite; transform-origin: 540px 680px; }
+      .ring-inner { animation: spin-slow 15s linear infinite; transform-origin: 540px 680px; }
+      .pulse { animation: pulse 2s ease-in-out infinite; }
+      .pulse-delay { animation: pulse 2s ease-in-out 0.7s infinite; }
+      .pulse-delay2 { animation: pulse 2s ease-in-out 1.4s infinite; }
+      .float { animation: float-up 3s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CANVAS                                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#center-aura)"/>
+
+  <!-- Ambient particles (depth) -->
+  <g opacity="0.15">
+    <circle cx="150" cy="300" r="2" fill="#06b6d4"><animate attributeName="opacity" values="0.1;0.4;0.1" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="900" cy="450" r="1.5" fill="#a855f7"><animate attributeName="opacity" values="0.05;0.3;0.05" dur="5s" repeatCount="indefinite"/></circle>
+    <circle cx="200" cy="1100" r="2" fill="#f59e0b"><animate attributeName="opacity" values="0.1;0.35;0.1" dur="3.5s" repeatCount="indefinite"/></circle>
+    <circle cx="880" cy="900" r="1.5" fill="#06b6d4"><animate attributeName="opacity" values="0.05;0.25;0.05" dur="6s" repeatCount="indefinite"/></circle>
+    <circle cx="100" cy="1500" r="2" fill="#a855f7"><animate attributeName="opacity" values="0.1;0.3;0.1" dur="4.5s" repeatCount="indefinite"/></circle>
+    <circle cx="950" cy="1600" r="1.5" fill="#06b6d4"><animate attributeName="opacity" values="0.05;0.2;0.05" dur="5.5s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TOP: Brand + Title                                      -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <text x="540" y="100" fill="#06b6d4" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="800" text-anchor="middle" letter-spacing="-1" filter="url(#glow-subtle)">GraQle</text>
+  <text x="540" y="155" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="28" font-weight="300" text-anchor="middle" letter-spacing="4" opacity="0.9">INSIDE THE NODE</text>
+  <line x1="380" y1="175" x2="700" y2="175" stroke="#06b6d4" stroke-width="1" opacity="0.2"/>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CENTER: The Giant Node — Three Concentric Rings         -->
+  <!--                                                         -->
+  <!-- Outer ring  = MEMORY CONTEXT (amber)                    -->
+  <!-- Middle ring = EMBEDDING CONTEXT (purple)                -->
+  <!-- Inner ring  = LLM REASONING (cyan)                      -->
+  <!-- Core        = The answer emerges                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- ─── OUTER RING: Memory Context (amber) ─── -->
+  <g class="ring-outer" filter="url(#glow-soft)">
+    <!-- Dashed orbit ring -->
+    <circle cx="540" cy="680" r="280" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="12 8" opacity="0.3"/>
+    <circle cx="540" cy="680" r="280" fill="none" stroke="#f59e0b" stroke-width="0.5" opacity="0.15"/>
+
+    <!-- Memory orbs on the ring -->
+    <circle cx="820" cy="680" r="10" fill="url(#particle-amber)" class="pulse"/>
+    <circle cx="540" cy="400" r="8" fill="url(#particle-amber)" class="pulse-delay"/>
+    <circle cx="260" cy="680" r="9" fill="url(#particle-amber)" class="pulse-delay2"/>
+    <circle cx="540" cy="960" r="7" fill="url(#particle-amber)" class="pulse"/>
+    <circle cx="738" cy="482" r="6" fill="url(#particle-amber)" class="pulse-delay"/>
+    <circle cx="342" cy="878" r="6" fill="url(#particle-amber)" class="pulse-delay2"/>
+  </g>
+
+  <!-- Outer ring label -->
+  <rect x="60" y="395" width="210" height="44" rx="22" fill="#f59e0b" fill-opacity="0.08" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow-deep)"/>
+  <circle cx="90" cy="417" r="8" fill="#f59e0b" opacity="0.9"/>
+  <text x="110" y="423" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="16" font-weight="600">MEMORY</text>
+
+  <!-- Memory data fragments floating -->
+  <g opacity="0.5" class="float">
+    <rect x="760" y="420" width="160" height="26" rx="6" fill="#0f172a" stroke="#f59e0b" stroke-width="0.5" stroke-opacity="0.4"/>
+    <text x="770" y="438" fill="#f59e0b" font-family="monospace" font-size="11" opacity="0.7">last_modified: 2d</text>
+  </g>
+  <g opacity="0.4">
+    <rect x="130" y="890" width="140" height="26" rx="6" fill="#0f172a" stroke="#f59e0b" stroke-width="0.5" stroke-opacity="0.4"/>
+    <text x="140" y="908" fill="#f59e0b" font-family="monospace" font-size="11" opacity="0.7">hit_count: 14</text>
+  </g>
+  <g opacity="0.45" class="float">
+    <rect x="780" y="860" width="170" height="26" rx="6" fill="#0f172a" stroke="#f59e0b" stroke-width="0.5" stroke-opacity="0.4"/>
+    <text x="790" y="878" fill="#f59e0b" font-family="monospace" font-size="11" opacity="0.7">consumers: 3 mods</text>
+  </g>
+
+  <!-- ─── MIDDLE RING: Embedding Context (purple) ─── -->
+  <g class="ring-mid" filter="url(#glow-soft)">
+    <circle cx="540" cy="680" r="190" fill="none" stroke="#a855f7" stroke-width="2" stroke-dasharray="8 6" opacity="0.35"/>
+
+    <!-- Embedding vector particles -->
+    <circle cx="730" cy="680" r="8" fill="url(#particle-purple)" class="pulse-delay"/>
+    <circle cx="540" cy="490" r="7" fill="url(#particle-purple)" class="pulse"/>
+    <circle cx="350" cy="680" r="8" fill="url(#particle-purple)" class="pulse-delay2"/>
+    <circle cx="540" cy="870" r="6" fill="url(#particle-purple)" class="pulse-delay"/>
+    <circle cx="674" cy="545" r="5" fill="url(#particle-purple)" class="pulse"/>
+  </g>
+
+  <!-- Embedding label -->
+  <rect x="60" y="460" width="210" height="44" rx="22" fill="#a855f7" fill-opacity="0.08" stroke="#a855f7" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow-deep)"/>
+  <circle cx="90" cy="482" r="8" fill="#a855f7" opacity="0.9"/>
+  <text x="110" y="488" fill="#a855f7" font-family="system-ui, sans-serif" font-size="16" font-weight="600">EMBEDDING</text>
+
+  <!-- Embedding vector visualization -->
+  <g opacity="0.35">
+    <rect x="810" y="580" width="180" height="56" rx="8" fill="#0f172a" stroke="#a855f7" stroke-width="0.5" stroke-opacity="0.4"/>
+    <text x="825" y="600" fill="#a855f7" font-family="monospace" font-size="10" opacity="0.6">[0.82, -0.14, 0.67,</text>
+    <text x="825" y="616" fill="#a855f7" font-family="monospace" font-size="10" opacity="0.5"> 0.23, 0.91, -0.45,</text>
+    <text x="825" y="632" fill="#a855f7" font-family="monospace" font-size="10" opacity="0.4"> 0.56, 0.38, ...]</text>
+  </g>
+
+  <!-- Cosine similarity score -->
+  <g opacity="0.4" class="float">
+    <rect x="70" y="720" width="155" height="30" rx="8" fill="#0f172a" stroke="#a855f7" stroke-width="0.5" stroke-opacity="0.4"/>
+    <text x="82" y="740" fill="#a855f7" font-family="monospace" font-size="12" opacity="0.7">cos_sim: 0.94</text>
+  </g>
+
+  <!-- ─── INNER RING: LLM Reasoning (cyan) ─── -->
+  <g class="ring-inner" filter="url(#glow-intense)">
+    <circle cx="540" cy="680" r="110" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="6 4" opacity="0.5"/>
+
+    <!-- Reasoning sparks -->
+    <circle cx="650" cy="680" r="7" fill="url(#particle-cyan)" class="pulse"/>
+    <circle cx="540" cy="570" r="6" fill="url(#particle-cyan)" class="pulse-delay2"/>
+    <circle cx="430" cy="680" r="7" fill="url(#particle-cyan)" class="pulse-delay"/>
+    <circle cx="540" cy="790" r="5" fill="url(#particle-cyan)" class="pulse"/>
+  </g>
+
+  <!-- LLM label -->
+  <rect x="60" y="525" width="210" height="44" rx="22" fill="#06b6d4" fill-opacity="0.08" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow-deep)"/>
+  <circle cx="90" cy="547" r="8" fill="#06b6d4" opacity="0.9"/>
+  <text x="110" y="553" fill="#06b6d4" font-family="system-ui, sans-serif" font-size="16" font-weight="600">LLM REASON</text>
+
+  <!-- ─── CORE: The Node Identity ─── -->
+
+  <!-- Deep glow behind core -->
+  <circle cx="540" cy="680" r="80" fill="#06b6d4" opacity="0.04"/>
+  <circle cx="540" cy="680" r="60" fill="#06b6d4" opacity="0.06"/>
+
+  <!-- Core circle -->
+  <circle cx="540" cy="680" r="50" fill="#0f172a" stroke="#06b6d4" stroke-width="3" opacity="0.95" filter="url(#glow-soft)">
+    <animate attributeName="r" values="50;54;50" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Node name -->
+  <text x="540" y="674" fill="#06b6d4" font-family="monospace" font-size="22" font-weight="bold" text-anchor="middle">auth</text>
+  <text x="540" y="698" fill="#94a3b8" font-family="monospace" font-size="12" text-anchor="middle">.py</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CONNECTING LINES from labels to rings (visual guide)    -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <line x1="270" y1="417" x2="340" y2="500" stroke="#f59e0b" stroke-width="0.8" opacity="0.2" stroke-dasharray="4 3"/>
+  <line x1="270" y1="482" x2="380" y2="580" stroke="#a855f7" stroke-width="0.8" opacity="0.2" stroke-dasharray="4 3"/>
+  <line x1="270" y1="547" x2="435" y2="640" stroke="#06b6d4" stroke-width="0.8" opacity="0.2" stroke-dasharray="4 3"/>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- BOTTOM SECTION: What each layer does                    -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Divider -->
+  <line x1="100" y1="1050" x2="980" y2="1050" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- MEMORY CONTEXT explanation -->
+  <g filter="url(#shadow-deep)">
+    <rect x="60" y="1090" width="960" height="170" rx="16" fill="#0f172a" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.2"/>
+  </g>
+  <circle cx="100" cy="1130" r="14" fill="#f59e0b" opacity="0.9"/>
+  <text x="100" y="1135" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800" text-anchor="middle">1</text>
+  <text x="130" y="1136" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="20" font-weight="700">Memory Context</text>
+  <text x="130" y="1165" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="15">What the graph already knows about this node.</text>
+  <text x="130" y="1190" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">Edges, consumers, last modified, past mistakes,</text>
+  <text x="130" y="1210" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">hit frequency, dependency depth.</text>
+  <!-- Mini stat -->
+  <rect x="700" y="1120" width="280" height="50" rx="12" fill="#f59e0b" fill-opacity="0.06"/>
+  <text x="840" y="1140" fill="#f59e0b" font-family="monospace" font-size="13" text-anchor="middle" font-weight="bold">Zero LLM cost</text>
+  <text x="840" y="1160" fill="#f59e0b" font-family="monospace" font-size="11" text-anchor="middle" opacity="0.6">Pure graph traversal</text>
+
+  <!-- EMBEDDING CONTEXT explanation -->
+  <g filter="url(#shadow-deep)">
+    <rect x="60" y="1290" width="960" height="170" rx="16" fill="#0f172a" stroke="#a855f7" stroke-width="1" stroke-opacity="0.2"/>
+  </g>
+  <circle cx="100" cy="1330" r="14" fill="#a855f7" opacity="0.9"/>
+  <text x="100" y="1335" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800" text-anchor="middle">2</text>
+  <text x="130" y="1336" fill="#a855f7" font-family="system-ui, sans-serif" font-size="20" font-weight="700">Embedding Context</text>
+  <text x="130" y="1365" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="15">Semantic similarity — which nodes are conceptually close?</text>
+  <text x="130" y="1390" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">Chunk embeddings (.npz cache), cosine similarity,</text>
+  <text x="130" y="1410" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">activation scoring, subgraph selection.</text>
+  <!-- Mini stat -->
+  <rect x="700" y="1320" width="280" height="50" rx="12" fill="#a855f7" fill-opacity="0.06"/>
+  <text x="840" y="1340" fill="#a855f7" font-family="monospace" font-size="13" text-anchor="middle" font-weight="bold">1 embed call</text>
+  <text x="840" y="1360" fill="#a855f7" font-family="monospace" font-size="11" text-anchor="middle" opacity="0.6">Query only, not chunks</text>
+
+  <!-- LLM REASONING explanation -->
+  <g filter="url(#shadow-deep)">
+    <rect x="60" y="1490" width="960" height="170" rx="16" fill="#0f172a" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.2"/>
+  </g>
+  <circle cx="100" cy="1530" r="14" fill="#06b6d4" opacity="0.9"/>
+  <text x="100" y="1535" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800" text-anchor="middle">3</text>
+  <text x="130" y="1536" fill="#06b6d4" font-family="system-ui, sans-serif" font-size="20" font-weight="700">LLM Reasoning</text>
+  <text x="130" y="1565" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="15">Each activated node becomes an agent. They exchange messages.</text>
+  <text x="130" y="1590" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">Graph-of-agents reasoning, multi-round consensus,</text>
+  <text x="130" y="1610" fill="#64748b" font-family="system-ui, sans-serif" font-size="14">confidence scoring, governed responses.</text>
+  <!-- Mini stat -->
+  <rect x="700" y="1520" width="280" height="50" rx="12" fill="#06b6d4" fill-opacity="0.06"/>
+  <text x="840" y="1540" fill="#06b6d4" font-family="monospace" font-size="13" text-anchor="middle" font-weight="bold">500 tokens</text>
+  <text x="840" y="1560" fill="#06b6d4" font-family="monospace" font-size="11" text-anchor="middle" opacity="0.6">Not 50,000</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FOOTER: Key insight                                     -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <line x1="100" y1="1710" x2="980" y2="1710" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- The punchline -->
+  <text x="540" y="1770" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="22" font-weight="600" text-anchor="middle">Memory first. Embeddings second. LLM last.</text>
+  <text x="540" y="1810" fill="#64748b" font-family="system-ui, sans-serif" font-size="17" text-anchor="middle">That's why it's 100x cheaper.</text>
+
+  <!-- CTA -->
+  <rect x="390" y="1850" width="300" height="44" rx="22" fill="#06b6d4" fill-opacity="0.12" stroke="#06b6d4" stroke-width="1.5" stroke-opacity="0.4"/>
+  <text x="540" y="1878" fill="#06b6d4" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">pip install graqle</text>
+</svg>
