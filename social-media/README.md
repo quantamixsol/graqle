@@ -11,6 +11,19 @@ social-media/
 ├── README.md                         ← You are here
 ├── PUNCHLINES.md                     ← Copy-paste captions & hooks
 │
+├── posts/
+│   ├── knowledge-series/             ← 7-part educational series (Memory → Embedding → LLM)
+│   │   ├── README.md                 ← Series index, posting schedule, visual mapping
+│   │   ├── 01-why-memory-first.md
+│   │   ├── 02-what-graph-memory-knows.md
+│   │   ├── 03-embedding-layer.md
+│   │   ├── 04-llm-reasoning-last.md
+│   │   ├── 05-vs-rag.md
+│   │   ├── 06-confidence-scoring.md
+│   │   └── 07-full-picture.md
+│   ├── story-node-square.png         ← Square format (1080x1080)
+│   └── story-node-square.svg
+│
 ├── link-previews/                    ← Auto-shown when sharing links
 │   ├── og-image.png                  ← 1200x630 — LinkedIn, Facebook, Twitter, Slack, WhatsApp
 │   ├── github-social-preview.png     ← 1280x640 — GitHub repo card (upload via Settings)
