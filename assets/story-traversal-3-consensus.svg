@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="540" y2="1920">
+      <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#0a1225"/><stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="540" cy="650" r="450" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.05"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-lg"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="3" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/></filter>
+    <style>
+      @keyframes converge{0%{r:200;opacity:.15}100%{r:60;opacity:0}}
+      @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+      @keyframes glow-ring{0%,100%{stroke-opacity:.3}50%{stroke-opacity:.7}}
+      .pulse{animation:pulse 2s ease-in-out infinite}
+    </style>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#aura)"/>
+
+  <!-- ═══ HEADER ═══ -->
+  <text x="540" y="90" fill="#06b6d4" font-family="system-ui,-apple-system,sans-serif" font-size="38" font-weight="800" text-anchor="middle" filter="url(#glow)">GraQle</text>
+  <text x="540" y="130" fill="#475569" font-family="system-ui,sans-serif" font-size="14" font-weight="500" text-anchor="middle" letter-spacing="4">STORY 3 OF 3</text>
+  <text x="540" y="185" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="28" font-weight="300" text-anchor="middle" letter-spacing="3">CONSENSUS</text>
+  <line x1="370" y1="205" x2="710" y2="205" stroke="#10b981" stroke-width="1" opacity="0.15"/>
+
+  <!-- ═══ THE GRAPH — ALL NODES AGREED ═══ -->
+
+  <!-- Convergence ripple (green, pulling inward) -->
+  <circle cx="540" cy="620" r="200" fill="none" stroke="#10b981" stroke-width="1.5" opacity="0">
+    <animate attributeName="r" values="250;60" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.15;0" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="540" cy="620" r="200" fill="none" stroke="#10b981" stroke-width="1" opacity="0">
+    <animate attributeName="r" values="200;60" dur="3s" begin="1s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.1;0" dur="3s" begin="1s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ALL EDGES — now green-tinted (consensus achieved) -->
+  <g>
+    <line x1="540" y1="600" x2="340" y2="750" stroke="#10b981" stroke-width="2.5" opacity="0.4"/>
+    <line x1="540" y1="600" x2="740" y2="700" stroke="#10b981" stroke-width="2.5" opacity="0.4"/>
+    <line x1="540" y1="600" x2="680" y2="540" stroke="#10b981" stroke-width="2" opacity="0.35"/>
+    <line x1="540" y1="600" x2="400" y2="540" stroke="#10b981" stroke-width="2" opacity="0.3"/>
+    <line x1="340" y1="750" x2="230" y2="900" stroke="#10b981" stroke-width="2" opacity="0.3"/>
+    <line x1="340" y1="750" x2="500" y2="870" stroke="#10b981" stroke-width="1.5" opacity="0.25"/>
+    <line x1="740" y1="700" x2="850" y2="850" stroke="#10b981" stroke-width="1.5" opacity="0.25"/>
+    <line x1="740" y1="700" x2="580" y2="870" stroke="#10b981" stroke-width="1.5" opacity="0.25"/>
+    <line x1="400" y1="540" x2="680" y2="540" stroke="#10b981" stroke-width="1.5" opacity="0.2"/>
+    <line x1="230" y1="900" x2="500" y2="870" stroke="#10b981" stroke-width="1" opacity="0.2"/>
+    <line x1="500" y1="870" x2="580" y2="870" stroke="#10b981" stroke-width="1" opacity="0.2"/>
+    <line x1="580" y1="870" x2="850" y2="850" stroke="#10b981" stroke-width="1" opacity="0.2"/>
+  </g>
+
+  <!-- ALL NODES — unified green glow, all agreed -->
+  <g>
+    <!-- auth -->
+    <circle cx="540" cy="600" r="36" fill="#10b981" opacity="0.85" filter="url(#glow)"/>
+    <text x="540" y="596" fill="#0f172a" font-family="monospace" font-size="14" font-weight="bold" text-anchor="middle">auth</text>
+    <text x="540" y="612" fill="#0f172a" font-family="monospace" font-size="9" text-anchor="middle">AGREE</text>
+
+    <!-- routes -->
+    <circle cx="340" cy="750" r="30" fill="#10b981" opacity="0.8" filter="url(#glow)"/>
+    <text x="340" y="746" fill="#0f172a" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle">routes</text>
+    <text x="340" y="762" fill="#0f172a" font-family="monospace" font-size="9" text-anchor="middle">AGREE</text>
+
+    <!-- api -->
+    <circle cx="740" cy="700" r="28" fill="#10b981" opacity="0.8" filter="url(#glow)"/>
+    <text x="740" y="696" fill="#0f172a" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle">api</text>
+    <text x="740" y="712" fill="#0f172a" font-family="monospace" font-size="9" text-anchor="middle">AGREE</text>
+
+    <!-- middleware -->
+    <circle cx="680" cy="540" r="24" fill="#10b981" opacity="0.75"/>
+    <text x="680" y="540" fill="#0f172a" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">mw</text>
+    <text x="680" y="554" fill="#0f172a" font-family="monospace" font-size="8" text-anchor="middle">AGREE</text>
+
+    <!-- models -->
+    <circle cx="400" cy="540" r="22" fill="#10b981" opacity="0.65"/>
+    <text x="400" y="540" fill="#0f172a" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">mod</text>
+    <text x="400" y="554" fill="#0f172a" font-family="monospace" font-size="8" text-anchor="middle">AGREE</text>
+
+    <!-- db -->
+    <circle cx="230" cy="900" r="22" fill="#10b981" opacity="0.6"/>
+    <text x="230" y="900" fill="#0f172a" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">db</text>
+    <text x="230" y="914" fill="#0f172a" font-family="monospace" font-size="8" text-anchor="middle">AGREE</text>
+
+    <!-- config -->
+    <circle cx="500" cy="870" r="18" fill="#10b981" opacity="0.55"/>
+    <text x="500" y="872" fill="#0f172a" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle">cfg</text>
+
+    <!-- utils -->
+    <circle cx="580" cy="870" r="18" fill="#10b981" opacity="0.55"/>
+    <text x="580" y="872" fill="#0f172a" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle">util</text>
+
+    <!-- tests (only partial agree) -->
+    <circle cx="850" cy="850" r="20" fill="#f59e0b" opacity="0.6"/>
+    <text x="850" y="850" fill="#0f172a" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle">test</text>
+    <text x="850" y="864" fill="#0f172a" font-family="monospace" font-size="7" text-anchor="middle">PARTIAL</text>
+  </g>
+
+  <!-- ═══ CONFIDENCE METER (big, dramatic) ═══ -->
+  <g>
+    <text x="540" y="1020" fill="#64748b" font-family="system-ui,sans-serif" font-size="12" text-anchor="middle" letter-spacing="3">CONSENSUS REACHED</text>
+
+    <!-- Big confidence number -->
+    <text x="540" y="1120" fill="#10b981" font-family="system-ui,-apple-system,sans-serif" font-size="120" font-weight="800" text-anchor="middle" filter="url(#glow-lg)">92%</text>
+    <text x="540" y="1160" fill="#10b981" font-family="system-ui,sans-serif" font-size="20" text-anchor="middle" opacity="0.7">confidence</text>
+
+    <!-- Scoring axes -->
+    <g>
+      <rect x="160" y="1200" width="760" height="1" fill="#1e293b"/>
+
+      <!-- 5 axes as mini bars -->
+      <text x="200" y="1240" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">Relevance</text>
+      <rect x="340" y="1228" width="400" height="10" rx="5" fill="#1e293b"/>
+      <rect x="340" y="1228" width="380" height="10" rx="5" fill="#10b981" opacity="0.7"/>
+      <text x="760" y="1240" fill="#10b981" font-family="monospace" font-size="12" font-weight="bold">95%</text>
+
+      <text x="200" y="1275" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">Completeness</text>
+      <rect x="340" y="1263" width="400" height="10" rx="5" fill="#1e293b"/>
+      <rect x="340" y="1263" width="360" height="10" rx="5" fill="#06b6d4" opacity="0.7"/>
+      <text x="760" y="1275" fill="#06b6d4" font-family="monospace" font-size="12" font-weight="bold">90%</text>
+
+      <text x="200" y="1310" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">Evidence</text>
+      <rect x="340" y="1298" width="400" height="10" rx="5" fill="#1e293b"/>
+      <rect x="340" y="1298" width="372" height="10" rx="5" fill="#a855f7" opacity="0.7"/>
+      <text x="760" y="1310" fill="#a855f7" font-family="monospace" font-size="12" font-weight="bold">93%</text>
+
+      <text x="200" y="1345" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">Consensus</text>
+      <rect x="340" y="1333" width="400" height="10" rx="5" fill="#1e293b"/>
+      <rect x="340" y="1333" width="348" height="10" rx="5" fill="#f59e0b" opacity="0.7"/>
+      <text x="760" y="1345" fill="#f59e0b" font-family="monospace" font-size="12" font-weight="bold">87%</text>
+
+      <text x="200" y="1380" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13">Governance</text>
+      <rect x="340" y="1368" width="400" height="10" rx="5" fill="#1e293b"/>
+      <rect x="340" y="1368" width="388" height="10" rx="5" fill="#38bdf8" opacity="0.7"/>
+      <text x="760" y="1380" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold">97%</text>
+    </g>
+  </g>
+
+  <!-- ═══ FINAL ANSWER (terminal) ═══ -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="1430" width="880" height="180" rx="14" fill="#0f172a" stroke="#10b981" stroke-width="1" stroke-opacity="0.3"/>
+    <rect x="100" y="1430" width="880" height="32" rx="14" fill="#1e293b"/>
+    <rect x="100" y="1448" width="880" height="14" fill="#1e293b"/>
+    <circle cx="126" cy="1446" r="5" fill="#ef4444" opacity="0.7"/>
+    <circle cx="144" cy="1446" r="5" fill="#f59e0b" opacity="0.7"/>
+    <circle cx="162" cy="1446" r="5" fill="#10b981" opacity="0.7"/>
+
+    <text x="130" y="1490" fill="#10b981" font-family="monospace" font-size="16" font-weight="bold">&#10003; Answer (8 agents, 2 rounds, 92% confidence):</text>
+    <text x="130" y="1520" fill="#e2e8f0" font-family="monospace" font-size="14">Changing auth.py will break:</text>
+    <text x="130" y="1545" fill="#e2e8f0" font-family="monospace" font-size="14">  &#8594; routes.py (3 endpoints), api.py (2 imports),</text>
+    <text x="130" y="1570" fill="#e2e8f0" font-family="monospace" font-size="14">  &#8594; middleware.py (request wrapper)</text>
+    <text x="130" y="1597" fill="#f59e0b" font-family="monospace" font-size="14" font-weight="bold">  Total impact: 11 modules · Cost: $0.0003 · Time: 5.2s</text>
+  </g>
+
+  <!-- ═══ FOOTER ═══ -->
+  <line x1="100" y1="1690" x2="980" y2="1690" stroke="#1e293b" stroke-width="1"/>
+
+  <text x="540" y="1750" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="22" font-weight="600" text-anchor="middle">8 agents. 500 tokens. 92% confidence.</text>
+  <text x="540" y="1790" fill="#64748b" font-family="system-ui,sans-serif" font-size="17" text-anchor="middle">Your AI was guessing. Now it knows.</text>
+
+  <!-- CTA -->
+  <rect x="350" y="1830" width="380" height="48" rx="24" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-width="1.5" stroke-opacity="0.4"/>
+  <text x="540" y="1860" fill="#10b981" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle">pip install graqle</text>
+
+  <!-- Progress dots -->
+  <circle cx="510" cy="1905" r="6" fill="#334155"/>
+  <circle cx="535" cy="1905" r="6" fill="#334155"/>
+  <circle cx="560" cy="1905" r="6" fill="#10b981" opacity="0.9"/>
+</svg>
