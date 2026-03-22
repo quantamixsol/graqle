@@ -8,8 +8,8 @@
   ],
   "output_dir": "./scorch-output",
   "bedrock": {
-    "region": "us-east-1",
-    "model_id": "us.anthropic.claude-sonnet-4-6-20250514-v1:0"
+    "region": "",
+    "model_id": ""
   },
   "brand_rules": {
     "min_body_font_px": 16,
