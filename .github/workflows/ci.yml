@@ -216,7 +216,7 @@ jobs:
       - name: Sign with Sigstore
         run: |
           python -m sigstore sign dist/*.whl dist/*.tar.gz \
-            --bundle-path dist/
+            --output-directory dist/
 
       - name: Generate CycloneDX SBOM
         run: |

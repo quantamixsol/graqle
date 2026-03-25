@@ -27,4 +27,4 @@ jobs:
       - name: Verify publication
         run: |
           sleep 5
-          curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=com.graqle/graqle" | python3 -m json.tool
+          curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.quantamixsol/graqle" | python3 -m json.tool
