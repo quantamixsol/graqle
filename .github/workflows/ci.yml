@@ -215,31 +215,31 @@ jobs:
       # the OIDC certificate — consumers can verify with: graq trustctl verify
       - name: Sign with Sigstore
         run: |
+          mkdir -p dist/sigstore-bundles
           python -m sigstore sign dist/*.whl dist/*.tar.gz \
-            --output-directory dist/
+            --output-directory dist/sigstore-bundles/
 
       - name: Generate CycloneDX SBOM
         run: |
           pip install -e "."
           python -m cyclonedx_py environment \
             --output-format JSON \
-            --output-file dist/graqle-sbom.json
+            --output-file dist/sigstore-bundles/graqle-sbom.json
 
       - name: Upload Sigstore bundles + SBOM to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Extract tag name (strip 'refs/tags/' prefix)
           TAG="${GITHUB_REF#refs/tags/}"
-          # Wait briefly for the release to exist (created by the tag push)
           sleep 5
-          gh release upload "${TAG}" dist/*.sigstore.json dist/graqle-sbom.json \
+          gh release upload "${TAG}" dist/sigstore-bundles/*.sigstore.json dist/sigstore-bundles/graqle-sbom.json \
             --clobber || echo "Release assets upload failed — release may not exist yet"
 
       - name: Publish to PyPI via Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true   # Idempotent: don't fail if version already uploaded
+          packages-dir: dist/   # Only .whl and .tar.gz — sigstore bundles are in dist/sigstore-bundles/
         # No 'password' field — uses OIDC Trusted Publishing.
         # To enable: pypi.org → graqle project → Publishing → Add Trusted Publisher
         # (GitHub, org: quantamixsol, repo: graqle, workflow: ci.yml)
