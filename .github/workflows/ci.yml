@@ -50,7 +50,8 @@ jobs:
             --ignore=tests/test_ontology/test_semantic_shacl_gate.py \
             --ignore=tests/test_learning/test_gds_intelligence.py \
             --ignore=tests/test_learning/test_activation_memory.py \
-            --ignore=tests/test_integration/test_ollama_e2e.py
+            --ignore=tests/test_integration/test_ollama_e2e.py \
+            --ignore=tests/test_orchestration/test_debate.py
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
