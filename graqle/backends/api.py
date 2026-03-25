@@ -234,9 +234,11 @@ class BedrockBackend(BaseBackend):
         model: str = "anthropic.claude-sonnet-4-6-v1:0",
         region: str | None = None,
         max_retries: int = MAX_RETRIES,
+        profile_name: str | None = None,
     ) -> None:
         self._model = model
         self._region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
+        self._profile_name = profile_name
         self._client = None
         self._max_retries = max_retries
         self._inference_profile_attempted = False  # Track if we've tried profile fallback
@@ -278,8 +280,12 @@ class BedrockBackend(BaseBackend):
                     connect_timeout=10,
                     retries={"max_attempts": 3, "mode": "adaptive"},
                 )
-                self._client = boto3.client(
-                    "bedrock-runtime", region_name=self._region,
+                session = boto3.Session(
+                    profile_name=self._profile_name,
+                    region_name=self._region,
+                )
+                self._client = session.client(
+                    "bedrock-runtime",
                     config=boto_config,
                 )
             except ImportError:

@@ -696,3 +696,48 @@ def test_predict_cli_help_shows_flags():
         "--fail-below-threshold must appear in graq predict --help output"
     )
     assert "confidence-threshold" in result.output
+
+
+# ── v0.35.2: RoutingRule region+profile fix ──
+
+def test_routing_rule_preserves_region_and_profile():
+    """RoutingRule.from_dict must retain region and profile fields (FB-006)."""
+    from graqle.routing import RoutingRule
+    rule = RoutingRule.from_dict({
+        "task": "predict",
+        "provider": "bedrock",
+        "model": "eu.anthropic.claude-opus-4-6-v1",
+        "region": "eu-north-1",
+        "profile": "cbs-dpt",
+    })
+    assert rule.region == "eu-north-1"
+    assert rule.profile == "cbs-dpt"
+    d = rule.to_dict()
+    assert d["region"] == "eu-north-1"
+    assert d["profile"] == "cbs-dpt"
+
+
+def test_routing_rule_config_preserves_region_and_profile():
+    """RoutingRuleConfig (YAML parser) must retain region and profile fields."""
+    from graqle.config.settings import RoutingRuleConfig
+    cfg = RoutingRuleConfig(
+        task="predict",
+        provider="bedrock",
+        model="eu.anthropic.claude-opus-4-6-v1",
+        region="eu-north-1",
+        profile="cbs-dpt",
+    )
+    assert cfg.region == "eu-north-1"
+    assert cfg.profile == "cbs-dpt"
+
+
+def test_bedrock_backend_accepts_profile_name():
+    """BedrockBackend.__init__ must accept profile_name without error (FB-006)."""
+    from graqle.backends.api import BedrockBackend
+    backend = BedrockBackend(
+        model="eu.anthropic.claude-sonnet-4-6",
+        region="eu-north-1",
+        profile_name="cbs-dpt",
+    )
+    assert backend._profile_name == "cbs-dpt"
+    assert backend._region == "eu-north-1"

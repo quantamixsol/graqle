@@ -162,6 +162,8 @@ class RoutingRuleConfig(BaseModel):
     provider: str
     model: str | None = None
     reason: str = ""
+    region: str | None = None
+    profile: str | None = None
 
 
 class RoutingConfig(BaseModel):

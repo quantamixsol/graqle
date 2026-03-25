@@ -995,7 +995,9 @@ class Graqle:
             if routing_cfg.rules:
                 config_dict["rules"] = [
                     {"task": r.task, "provider": r.provider,
-                     "model": r.model, "reason": r.reason}
+                     "model": r.model, "reason": r.reason,
+                     "region": getattr(r, "region", None),
+                     "profile": getattr(r, "profile", None)}
                     for r in routing_cfg.rules
                 ]
             self._task_router = TaskRouter.from_config(config_dict or None)

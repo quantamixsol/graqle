@@ -127,6 +127,8 @@ class RoutingRule:
     provider: str
     model: str | None = None
     reason: str = ""
+    region: str | None = None
+    profile: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"task": self.task, "provider": self.provider}
@@ -134,6 +136,10 @@ class RoutingRule:
             d["model"] = self.model
         if self.reason:
             d["reason"] = self.reason
+        if self.region:
+            d["region"] = self.region
+        if self.profile:
+            d["profile"] = self.profile
         return d
 
     @classmethod
@@ -143,6 +149,8 @@ class RoutingRule:
             provider=data["provider"],
             model=data.get("model"),
             reason=data.get("reason", ""),
+            region=data.get("region"),
+            profile=data.get("profile"),
         )
 
 
@@ -194,19 +202,64 @@ class TaskRouter:
                 )
             return None
 
-        return self._create_backend(rule.provider, rule.model)
+        return self._create_backend(
+            rule.provider, rule.model,
+            region=rule.region, profile=rule.profile,
+        )
 
-    def _create_backend(self, provider: str, model: str | None) -> Any | None:
+    def _create_backend(
+        self,
+        provider: str,
+        model: str | None,
+        region: str | None = None,
+        profile: str | None = None,
+    ) -> Any | None:
         """Create a backend from provider name."""
         try:
             if provider == "gemini":
                 from graqle.backends.gemini import GeminiBackend
                 return GeminiBackend(model=model or "gemini-2.0-flash")
 
-            if provider in ("anthropic", "openai", "bedrock", "ollama"):
-                # These are handled by _auto_create_backend in graph.py
-                # Return None to let the graph handle it
+            if provider == "bedrock":
+                from graqle.backends.api import BedrockBackend
+                import os
+                resolved_region = (
+                    region
+                    or os.environ.get("AWS_DEFAULT_REGION")
+                    or os.environ.get("AWS_REGION")
+                    or "eu-central-1"
+                )
+                kwargs: dict[str, Any] = {
+                    "model": model or "eu.anthropic.claude-sonnet-4-6",
+                    "region": resolved_region,
+                }
+                if profile:
+                    kwargs["profile_name"] = profile
+                return BedrockBackend(**kwargs)
+
+            if provider == "anthropic":
+                import os
+                from graqle.backends.api import AnthropicBackend
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                if api_key:
+                    return AnthropicBackend(
+                        model=model or "claude-sonnet-4-6", api_key=api_key
+                    )
+                return None  # fall through to _auto_create_backend
+
+            if provider == "openai":
+                import os
+                from graqle.backends.api import OpenAIBackend
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if api_key:
+                    return OpenAIBackend(
+                        model=model or "gpt-4o", api_key=api_key
+                    )
                 return None
+
+            if provider == "ollama":
+                from graqle.backends.api import OllamaBackend
+                return OllamaBackend(model=model or "llama3")
 
             from graqle.backends.providers import PROVIDER_PRESETS
             if provider in PROVIDER_PRESETS:
