@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      id-token: write
+      id-token: write   # required for PyPI Trusted Publishing (OIDC) — no token needed
 
     steps:
       - uses: actions/checkout@v4
@@ -89,10 +89,37 @@ jobs:
       - name: Install build tools
         run: python -m pip install --upgrade pip build
 
-      - name: Build package
+      - name: Build reproducible package
+        env:
+          SOURCE_DATE_EPOCH: "1704067200"
         run: python -m build
 
-      - name: Publish to PyPI
+      # Supply-chain safety: block publish if wheel contains .pth files.
+      # .pth files auto-execute at Python startup without any import —
+      # this is the exact mechanism used in the LiteLLM supply-chain attack.
+      - name: Audit wheel for .pth files (LiteLLM-class attack prevention)
+        run: |
+          python - <<'PYEOF'
+          import zipfile, sys, pathlib
+          wheels = list(pathlib.Path("dist").glob("*.whl"))
+          if not wheels:
+              print("ERROR: no wheel found in dist/", file=sys.stderr)
+              sys.exit(1)
+          failed = False
+          for whl in wheels:
+              with zipfile.ZipFile(whl) as z:
+                  pth_files = [n for n in z.namelist() if n.endswith(".pth")]
+                  if pth_files:
+                      print(f"FAIL: .pth files found in {whl.name}: {pth_files}", file=sys.stderr)
+                      failed = True
+                  else:
+                      print(f"PASS: {whl.name} — no .pth files")
+          if failed:
+              sys.exit(1)
+          PYEOF
+
+      - name: Publish to PyPI via Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # No 'password' field — uses OIDC Trusted Publishing.
+        # To enable: pypi.org → graqle project → Publishing → Add Trusted Publisher
+        # (GitHub, org: quantamixsol, repo: graqle, workflow: ci.yml)

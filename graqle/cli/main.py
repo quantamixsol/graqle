@@ -1873,6 +1873,123 @@ def reason(
                       f"Mode: [{mode_color}]{result.reasoning_mode}[/{mode_color}][/dim]")
 
 
+@app.command()
+def predict(
+    query: str = typer.Argument(..., help="The prediction query"),
+    config: str = typer.Option("graqle.yaml", "--config", "-c", help="Config file path"),
+    graph_path: str = typer.Option(None, "--graph", "-g", help="Path to JSON graph file"),
+    backend_name: str = typer.Option(None, "--backend", "-b", help="Backend: anthropic, bedrock, openai, ollama"),
+    model: str = typer.Option(None, "--model", "-m", help="Model name"),
+    region: str = typer.Option(None, "--region", help="AWS region for Bedrock"),
+    confidence_threshold: float = typer.Option(0.80, "--confidence-threshold", help="Min confidence to pass (0.0-1.0)"),
+    fold_back: bool = typer.Option(True, "--fold-back/--no-fold-back", help="Write prediction to graph if confidence >= threshold (default: True). Use --no-fold-back for dry-run."),
+    fail_below_threshold: bool = typer.Option(False, "--fail-below-threshold", help="Exit code 1 if answer_confidence < threshold (for CI gate use)"),
+    max_rounds: int = typer.Option(3, "--max-rounds", "-r", help="Max message-passing rounds"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json"),
+) -> None:
+    """Run governed prediction with confidence-gated graph write-back.
+
+    \b
+    Reasons over the graph and — if answer_confidence >= threshold — writes
+    the prediction as a new subgraph for future queries to activate directly.
+    Use --no-fold-back for a safe dry-run that reasons but never writes.
+
+    \b
+    CI gate usage (fail PR if confidence < 0.80):
+        graq predict "$(git diff HEAD~1 --stat)" --no-fold-back --fail-below-threshold
+
+    \b
+    Examples:
+        graq predict "what breaks if I change auth middleware?"
+        graq predict "query" --no-fold-back                    # dry-run, never writes
+        graq predict "query" --confidence-threshold 0.85       # stricter gate
+    """
+    import asyncio
+    import json as _json
+    from pathlib import Path
+
+    from graqle.config.settings import GraqleConfig
+    from graqle.core.graph import Graqle
+
+    # Load config
+    if Path(config).exists():
+        cfg = GraqleConfig.from_yaml(config)
+    else:
+        cfg = GraqleConfig.default()
+
+    # Load graph
+    if graph_path and Path(graph_path).exists():
+        graph = Graqle.from_json(graph_path, config=cfg)
+    else:
+        graph = _load_graph(cfg)
+        if graph is None:
+            console.print("[red]No graph found. Provide --graph path/to/graph.json[/red]")
+            raise typer.Exit(1)
+
+    # Resolve backend
+    if backend_name:
+        cfg.model.backend = backend_name
+    if model:
+        cfg.model.model = model
+    if region:
+        cfg.model.region = region
+    backend = _create_backend_from_config(cfg, verbose=False)
+    graph.set_default_backend(backend)
+
+    console.print(f"{BRAND_NAME} predict | graph: {len(graph.nodes)} nodes | fold_back: {fold_back}")
+    console.print(f"Query: [green]{query}[/green]")
+
+    # Run prediction via MCP server's graq_predict handler
+    # This keeps identical logic to the MCP tool — no code duplication.
+    # _handle_predict expects a dict of args (same as MCP tool call protocol).
+    try:
+        from graqle.plugins.mcp_server import MCPServer
+        server = MCPServer.__new__(MCPServer)
+        server._graph = graph
+        server._config = cfg
+        server._graph_file = graph_path or getattr(cfg, "_graph_file", None)
+        server._embedder = None  # will be created on demand inside _handle_predict
+
+        mcp_result = asyncio.run(
+            server._handle_predict({
+                "query": query,
+                "fold_back": fold_back,
+                "confidence_threshold": confidence_threshold,
+                "max_rounds": max_rounds,
+            })
+        )
+        # MCPToolResult.content is a JSON string
+        import json as _json2
+        result = _json2.loads(mcp_result.content) if hasattr(mcp_result, "content") else {}
+    except Exception as exc:
+        console.print(f"[red]Predict failed: {exc}[/red]")
+        raise typer.Exit(2)
+
+    answer_confidence = result.get("answer_confidence", 0.0)
+    activation_confidence = result.get("activation_confidence", 0.0)
+    prediction_status = result.get("prediction", {}).get("status", "UNKNOWN")
+
+    if output_format == "json":
+        console.print(_json.dumps(result, indent=2))
+    else:
+        from rich.markup import escape as rich_escape
+        console.print(f"\n[bold green]Answer:[/bold green] {rich_escape(str(result.get('answer', '')))[:1000]}")
+        status_color = "green" if prediction_status.startswith("WRITTEN") else "yellow"
+        console.print(
+            f"[dim]answer_confidence: {answer_confidence:.3f} | "
+            f"activation_confidence: {activation_confidence:.3f} | "
+            f"threshold: {confidence_threshold} | "
+            f"prediction: [{status_color}]{prediction_status}[/{status_color}][/dim]"
+        )
+
+    if fail_below_threshold and answer_confidence < confidence_threshold:
+        console.print(
+            f"[red]GATE FAILED:[/red] answer_confidence {answer_confidence:.3f} "
+            f"< threshold {confidence_threshold}"
+        )
+        raise typer.Exit(1)
+
+
 def _load_graph(cfg):
     """Load graph from config or auto-discover. Returns GraQle or None."""
     from pathlib import Path

@@ -92,6 +92,12 @@ TASK_RECOMMENDATIONS: dict[str, dict[str, Any]] = {
         "suggested_providers": ["gemini", "anthropic", "together"],
         "suggested_reason": "Document tasks need long context windows — Gemini and Claude excel here.",
     },
+    "predict": {
+        "description": "Governed prediction with confidence-gated graph write-back",
+        "recommended_traits": ["smart", "thorough"],
+        "suggested_providers": ["anthropic", "openai", "deepseek"],
+        "suggested_reason": "Predictions require strong reasoning to meet confidence threshold before writing to graph.",
+    },
 }
 
 # Map MCP tool names to task types

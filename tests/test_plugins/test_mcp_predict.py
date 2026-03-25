@@ -576,3 +576,79 @@ async def test_predict_reuses_existing_node_by_label():
         assert data["prediction"]["nodes_added"] == 1
         # Total nodes = before + 1 (just anchor)
         assert len(graph.nodes) == node_count_before + 1
+
+
+# ---------------------------------------------------------------------------
+# AGREEMENT_THRESHOLD boundary tests — added v0.35.0
+# graq_predict gate (2026-03-25, 81% confidence) flagged zero boundary tests
+# as a ship-blocking gap when raising threshold from 0.12 → 0.15.
+# ---------------------------------------------------------------------------
+
+def _make_msg(source_node_id: str, content: str):
+    """Build a minimal message object matching what _compute_answer_confidence reads."""
+    return type("Msg", (), {"source_node_id": source_node_id, "content": content, "round": 1})()
+
+
+def test_compute_answer_confidence_above_threshold():
+    """Texts with >15% Jaccard token overlap count as agreed pairs → higher confidence."""
+    srv = _make_server(_build_mock_graph())
+
+    result = MockReasonResult(
+        answer="The authentication service validates tokens and manages sessions.",
+        confidence=0.75,
+        active_nodes=["node-a", "node-b"],
+    )
+    # message_trace is a list of message objects with source_node_id + content
+    # Use identical content to guarantee Jaccard = 1.0 (100% overlap) → agreement_ratio = 1.0
+    result.message_trace = [
+        _make_msg("node-a", "authentication service validates tokens manages sessions"),
+        _make_msg("node-b", "authentication service validates tokens manages sessions"),
+    ]
+
+    conf = srv._compute_answer_confidence(result)
+    # agreement_ratio=1.0, raw=0.75 → blended = 0.70*1.0 + 0.30*min(1.0, 0.75*2.5) = 0.70 + 0.30 = 1.0
+    assert conf > 0.5, f"Expected >0.5 for identical texts, got {conf}"
+
+
+def test_compute_answer_confidence_below_threshold():
+    """Texts with zero shared tokens produce 0 agreement pairs → low confidence."""
+    srv = _make_server(_build_mock_graph())
+
+    result = MockReasonResult(
+        answer="Divergent answers from nodes.",
+        confidence=0.3,
+        active_nodes=["node-a", "node-b"],
+    )
+    # Completely disjoint vocabularies → Jaccard = 0/N = 0 < 0.15 → pairs_agreed = 0
+    result.message_trace = [
+        _make_msg("node-a", "authentication lambda jwt validation cold start"),
+        _make_msg("node-b", "dynamo throughput provisioned iops partition key"),
+    ]
+
+    conf = srv._compute_answer_confidence(result)
+    # agreement_ratio=0, raw=0.3 → blended = 0 + 0.30*min(1.0, 0.3*2.5) = 0.30*0.75 = 0.225
+    assert conf < 0.5, f"Expected <0.5 for zero-overlap texts, got {conf}"
+    assert conf >= 0.0
+
+
+def test_compute_answer_confidence_returns_float_in_range():
+    """_compute_answer_confidence must always return a float in [0.0, 1.0]."""
+    srv = _make_server(_build_mock_graph())
+    result = MockReasonResult(answer="Test.", confidence=0.5, active_nodes=["node-a"])
+    result.message_trace = [_make_msg("node-a", "test content here")]
+
+    conf = srv._compute_answer_confidence(result)
+    assert isinstance(conf, float)
+    assert 0.0 <= conf <= 1.0
+
+
+def test_compute_answer_confidence_empty_trace():
+    """Empty message_trace should not raise — falls back to rescaled activation confidence."""
+    srv = _make_server(_build_mock_graph())
+    result = MockReasonResult(answer="Test.", confidence=0.6, active_nodes=[])
+    result.message_trace = []  # empty list — triggers fallback
+
+    conf = srv._compute_answer_confidence(result)
+    # Fallback: min(1.0, 0.6 * 2.0 + 0.20) = min(1.0, 1.40) = 1.0
+    assert isinstance(conf, float)
+    assert 0.0 <= conf <= 1.0
