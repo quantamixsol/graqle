@@ -90,12 +90,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install from built wheel (clean venv)
+        shell: bash   # PowerShell does not glob-expand dist/*.whl — use bash on all OS
+        env:
+          PYTHONIOENCODING: utf-8   # Prevent CP1252 encoding errors on Windows
         run: |
           python -m pip install --upgrade pip build
           python -m build
           pip install dist/*.whl
 
       - name: Smoke test CLI
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           graq --version
           graq --help
