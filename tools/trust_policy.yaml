@@ -1,0 +1,46 @@
+# Graqle Trust Policy
+# ---------------------------------------------------------------------------
+# This file defines the minimum supply-chain verification requirements for
+# Graqle releases. Pass it to `graq trustctl verify --policy trust_policy.yaml`
+# in your CI pipeline to enforce these standards before installing Graqle.
+#
+# Enterprise teams: copy this file into your repo and tighten as needed.
+# ---------------------------------------------------------------------------
+
+# Sigstore signature verification
+sigstore:
+  require: true
+  # The OIDC identity that must appear in the signing certificate.
+  # This is the GitHub Actions workflow that produced the release — any
+  # bundle signed by a different identity (e.g. a compromised maintainer key)
+  # will fail verification.
+  certificate_identity_regex: >-
+    https://github.com/quantamixsol/graqle/.github/workflows/ci\.yml
+    @refs/tags/v.*
+  certificate_oidc_issuer: https://token.actions.githubusercontent.com
+
+# CycloneDX SBOM checks
+sbom:
+  require: true
+  format: CycloneDX
+  # Minimum number of components expected in the SBOM.
+  # A suspiciously small SBOM may indicate a tampered or incomplete build.
+  minimum_components: 5
+
+# pip-audit CVE scanning
+pip_audit:
+  require: true
+  # Severities that block the CI gate. CRITICAL is always blocked.
+  # Remove HIGH from this list only with a documented, time-bounded exception
+  # in your org's SECURITY.md.
+  block_on_severity:
+    - CRITICAL
+    - HIGH
+
+# .pth file guard (LiteLLM-class supply-chain attack prevention)
+pth_guard:
+  require: true
+  # The Graqle wheel must contain ZERO .pth files.
+  # .pth files execute arbitrary Python code at interpreter startup with no
+  # user action — this is the exact vector used in the 2024 LiteLLM attack.
+  max_pth_files: 0

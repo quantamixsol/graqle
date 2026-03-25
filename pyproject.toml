@@ -110,6 +110,11 @@ all = [
 all-gpu = [
     "graqle[all,gpu]",
 ]
+security = [
+    "sigstore>=2.0",
+    "cyclonedx-bom>=4.0",
+    "pip-audit>=2.6",
+]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",

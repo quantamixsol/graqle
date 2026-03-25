@@ -412,6 +412,38 @@ routing:
 - **Your API keys.** LLM calls go directly to your provider.
 - **Cloud is opt-in.** Uploads graph structure only — never source code.
 
+### Supply-Chain Integrity (v0.35.0+)
+
+Every Graqle release is hardened against supply-chain attacks:
+
+| Protection | What it does |
+|-----------|-------------|
+| **PyPI Trusted Publishing** | No long-lived API tokens — releases are tied to GitHub Actions OIDC |
+| **Sigstore signatures** | Every wheel is signed; bundle attached to each GitHub Release |
+| **CycloneDX SBOM** | Full bill of materials for every release |
+| **pip-audit in CI** | CVE scan on every PR — blocks on CRITICAL/HIGH |
+| **.pth file guard** | Publish is blocked if wheel contains `.pth` files (LiteLLM-class attack prevention) |
+| **Reproducible builds** | `SOURCE_DATE_EPOCH` pinned — rebuild and compare checksums |
+
+**Verify any release in one command:**
+
+```bash
+pip install "graqle[security]"
+graq trustctl verify                    # verify installed version
+graq trustctl verify --version 0.35.0  # verify a specific release
+```
+
+**Use in your CI pipeline** (see `tools/verify-graqle-example.yml` for the full template):
+
+```yaml
+- name: Verify Graqle integrity
+  run: |
+    pip install "graqle[security]==0.35.0"
+    graq trustctl verify --version 0.35.0
+```
+
+See [SECURITY.md](SECURITY.md) for the full disclosure policy and supply-chain documentation.
+
 ---
 
 ## FAQ

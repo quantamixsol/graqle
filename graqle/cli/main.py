@@ -40,6 +40,7 @@ from graqle.cli.commands.setup_guide import setup_guide_command
 from graqle.cli.commands.sync import sync_app as sync_sub_app
 from graqle.cli.commands.team import team_app as team_sub_app
 from graqle.cli.commands.upgrade import upgrade_command
+from graqle.cli.commands.trustctl import trustctl_app
 
 # Universal Unicode fix — MUST be first import (before Rich, before typer)
 # This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
@@ -98,6 +99,7 @@ app.add_typer(team_sub_app, name="team")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(scorch_app, name="scorch")
 app.add_typer(phantom_app, name="phantom")
+app.add_typer(trustctl_app, name="trustctl")
 app.add_typer(compile_command, name="compile")
 app.add_typer(verify_command, name="verify")
 

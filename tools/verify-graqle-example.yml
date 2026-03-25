@@ -1,0 +1,66 @@
+# verify-graqle-example.yml
+# ---------------------------------------------------------------------------
+# Consumer CI template: verify Graqle supply-chain integrity before installing
+# in production.
+#
+# Copy this file into your repository's .github/workflows/ folder and adapt
+# the GRAQLE_VERSION and policy-path to your needs.
+#
+# What it does:
+#   1. Installs graqle[security] (adds sigstore, cyclonedx-bom, pip-audit)
+#   2. Downloads the Sigstore bundle from the GitHub Release
+#   3. Runs `graq trustctl verify` — passes only if all checks pass
+#   4. Blocks workflow if any CVE or signature anomaly is detected
+# ---------------------------------------------------------------------------
+
+name: Verify Graqle integrity
+
+on:
+  workflow_dispatch:
+    inputs:
+      graqle_version:
+        description: Graqle version to verify (e.g. 0.35.0)
+        required: true
+        default: "0.35.0"
+  schedule:
+    # Re-verify weekly to catch newly published CVEs
+    - cron: "0 6 * * 1"
+
+jobs:
+  verify-graqle:
+    name: graq trustctl verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Graqle with security extras
+        run: |
+          pip install "graqle[security]==${{ github.event.inputs.graqle_version || '0.35.0' }}"
+
+      - name: Download Graqle wheel for Sigstore verification
+        run: |
+          pip download \
+            "graqle==${{ github.event.inputs.graqle_version || '0.35.0' }}" \
+            --no-deps \
+            --dest /tmp/graqle-wheel
+
+      - name: Run graq trustctl verify
+        run: |
+          graq trustctl verify \
+            --version "${{ github.event.inputs.graqle_version || '0.35.0' }}" \
+            --wheel /tmp/graqle-wheel/graqle-*.whl
+        # The command exits non-zero if any check fails — CI will block automatically.
+
+      # Optional: enforce your org's custom policy
+      # - name: Verify against org trust policy
+      #   run: |
+      #     graq trustctl verify \
+      #       --version "${{ github.event.inputs.graqle_version || '0.35.0' }}" \
+      #       --wheel /tmp/graqle-wheel/graqle-*.whl \
+      #       --policy .github/graqle-trust-policy.yaml

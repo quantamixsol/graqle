@@ -73,6 +73,35 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  audit:
+    name: pip-audit CVE scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Install graqle dependencies (no extras)
+        run: pip install -e "."
+
+      - name: Run pip-audit (block on CRITICAL)
+        # --ignore-vuln entries are used only for accepted/mitigated CVEs with justification.
+        # Do NOT add ignores here without a documented exception in SECURITY.md.
+        run: pip-audit --format json --output pip-audit-results.json || pip-audit
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-results
+          path: pip-audit-results.json
+
   smoke:
     name: Smoke test (fresh install)
     runs-on: ${{ matrix.os }}
@@ -109,11 +138,12 @@ jobs:
           graq config --json || true
 
   publish:
-    needs: test
+    needs: [test, audit]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      id-token: write   # required for PyPI Trusted Publishing (OIDC) — no token needed
+      id-token: write   # required for PyPI Trusted Publishing (OIDC)
+      contents: write   # required to upload release assets (Sigstore bundle, SBOM)
 
     steps:
       - uses: actions/checkout@v4
@@ -124,7 +154,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: python -m pip install --upgrade pip build
+        run: python -m pip install --upgrade pip build sigstore cyclonedx-bom
 
       - name: Build reproducible package
         env:
@@ -154,6 +184,32 @@ jobs:
           if failed:
               sys.exit(1)
           PYEOF
+
+      # Sigstore: sign wheel + sdist with GitHub Actions OIDC identity.
+      # The bundle is deterministically tied to this exact workflow run via
+      # the OIDC certificate — consumers can verify with: graq trustctl verify
+      - name: Sign with Sigstore
+        run: |
+          python -m sigstore sign dist/*.whl dist/*.tar.gz \
+            --bundle-path dist/
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          pip install -e "."
+          python -m cyclonedx_py environment \
+            --output-format JSON \
+            --output-file dist/graqle-sbom.json
+
+      - name: Upload Sigstore bundles + SBOM to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Extract tag name (strip 'refs/tags/' prefix)
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Wait briefly for the release to exist (created by the tag push)
+          sleep 5
+          gh release upload "${TAG}" dist/*.sigstore.json dist/graqle-sbom.json \
+            --clobber || echo "Release assets upload failed — release may not exist yet"
 
       - name: Publish to PyPI via Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1

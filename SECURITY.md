@@ -2,25 +2,97 @@
 
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| 0.29.x  | Yes       |
-| 0.28.x  | Security fixes only |
-| < 0.28  | No        |
+| Version | Supported          |
+| ------- | ------------------ |
+| 0.35.x  | ✅ Active          |
+| 0.34.x  | ✅ Security fixes  |
+| < 0.34  | ❌ No security fixes |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in GraQle, please report it responsibly.
+**Do not file a public GitHub issue for security vulnerabilities.**
 
-**Email:** security@quantamixsolutions.com
+Report vulnerabilities via email: **security@quantamixsolutions.com**
 
-Please include:
+Include:
 - Description of the vulnerability
 - Steps to reproduce
+- Affected versions
 - Potential impact
-- Suggested fix (if any)
 
-We will acknowledge receipt within 48 hours and provide an initial assessment within 5 business days.
+We will acknowledge receipt within **48 hours** and provide a timeline for a fix within **7 days**.
+
+---
+
+## Supply-Chain Security
+
+Graqle takes supply-chain security seriously. Every release from v0.35.0 onwards includes the following hardening measures.
+
+### 1. PyPI Trusted Publishing (OIDC)
+
+Graqle is published to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — a keyless, token-free mechanism that ties every release directly to a specific GitHub Actions workflow run via OIDC.
+
+- **No long-lived API tokens** exist in the publishing pipeline.
+- The publishing workflow is `ci.yml` in the `quantamixsol/graqle` repository.
+- Any release not signed by this workflow was **not produced by the official pipeline**.
+
+### 2. Sigstore Signatures
+
+Every wheel and source tarball is signed with [Sigstore](https://sigstore.dev) using the GitHub Actions OIDC identity:
+
+```
+https://github.com/quantamixsol/graqle/.github/workflows/ci.yml@refs/tags/v<version>
+```
+
+Bundles (`.sigstore.json`) are attached to each [GitHub Release](https://github.com/quantamixsol/graqle/releases).
+
+**Verify a release:**
+```bash
+pip install "graqle[security]"
+graq trustctl verify --version 0.35.0
+```
+
+Or in CI using the consumer template in `tools/verify-graqle-example.yml`.
+
+### 3. CycloneDX SBOM
+
+A Software Bill of Materials (`graqle-sbom.json`) is generated for every release and attached to the GitHub Release. It lists every Python package in the build environment.
+
+Download: `gh release download v<version> --pattern graqle-sbom.json`
+
+### 4. pip-audit CVE Scanning
+
+Every CI run (including pull requests) runs `pip-audit` against Graqle's dependency tree. Releases are blocked if any **CRITICAL** or **HIGH** CVE is found in core dependencies.
+
+### 5. .pth File Guard (LiteLLM-class Attack Prevention)
+
+The publish pipeline rejects any wheel containing `.pth` files. `.pth` files execute arbitrary Python code at interpreter startup — this is the exact mechanism used in the [2024 LiteLLM supply-chain attack](https://socket.dev/blog/litellm-supply-chain-attack).
+
+Graqle's wheels will never contain `.pth` files. If you ever see one, treat the release as compromised.
+
+### 6. Reproducible Builds
+
+Wheels are built with `SOURCE_DATE_EPOCH` set to a fixed value, producing deterministically reproducible artifacts. You can rebuild from the tagged source and compare checksums.
+
+---
+
+## Accepted CVE Exceptions
+
+This section documents any known CVEs that have been evaluated and accepted (with justification and expiry). All exceptions require sign-off from the maintainers.
+
+| CVE | Package | Severity | Justification | Expiry |
+|-----|---------|----------|---------------|--------|
+| *(none)* | — | — | — | — |
+
+---
+
+## Dependency Policy
+
+- Core runtime dependencies are pinned to `>=` minimum versions (not upper-bounded) to allow security updates via `pip install --upgrade`.
+- Optional extras (`[security]`, `[api]`, `[gpu]`) follow the same policy.
+- `pip-audit` runs on every PR and scheduled weekly in CI.
+
+---
 
 ## Security Model
 
