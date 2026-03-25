@@ -119,6 +119,7 @@ dev = [
     "mypy>=1.0",
     "ruff>=0.1",
     "coverage>=7.0",
+    "httpx>=0.25",
 ]
 
 [project.scripts]
