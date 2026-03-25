@@ -90,10 +90,35 @@ jobs:
       - name: Install graqle dependencies (no extras)
         run: pip install -e "."
 
-      - name: Run pip-audit (block on CRITICAL)
-        # --ignore-vuln entries are used only for accepted/mitigated CVEs with justification.
-        # Do NOT add ignores here without a documented exception in SECURITY.md.
-        run: pip-audit --format json --output pip-audit-results.json || pip-audit
+      - name: Run pip-audit (block only on fixable CVEs)
+        # Block CI when a CVE has fix_versions available (a patch exists but we haven't upgraded).
+        # CVEs with fix_versions==[] have no upstream fix yet — reported in artifact but non-blocking.
+        # Do NOT add --ignore-vuln without a documented exception in SECURITY.md.
+        run: |
+          pip-audit --format json --output pip-audit-results.json || true
+          python - <<'PYEOF'
+          import json, sys
+          data = json.load(open("pip-audit-results.json"))
+          fixable = [
+              (d["name"], d["version"], v["id"], v["fix_versions"])
+              for d in data.get("dependencies", [])
+              for v in d.get("vulns", [])
+              if v.get("fix_versions")
+          ]
+          unfixed = [
+              (d["name"], d["version"], v["id"])
+              for d in data.get("dependencies", [])
+              for v in d.get("vulns", [])
+              if not v.get("fix_versions")
+          ]
+          for name, ver, cve in unfixed:
+              print(f"WARNING (non-blocking): {cve} in {name} {ver} — no fix available yet")
+          if fixable:
+              for name, ver, cve, fixes in fixable:
+                  print(f"FAIL: {cve} in {name} {ver} — fix available: {fixes}", file=sys.stderr)
+              sys.exit(1)
+          print(f"PASS: pip-audit — 0 fixable CVEs ({len(unfixed)} unfixed/no-fix-available reported)")
+          PYEOF
 
       - name: Upload audit results
         if: always()

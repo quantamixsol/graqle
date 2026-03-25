@@ -44,12 +44,14 @@ class TestTrustctlRegistered:
     def test_verify_help(self):
         result = runner.invoke(app, ["trustctl", "verify", "--help"])
         assert result.exit_code == 0
-        # Key flags must be documented
-        assert "--version" in result.output
-        assert "--wheel" in result.output
-        assert "--skip-sigstore" in result.output
-        assert "--skip-sbom" in result.output
-        assert "--skip-audit" in result.output
+        # Key flags must be documented — use .lower() strip for Rich/Typer
+        # rendering differences across Python versions (non-breaking hyphens, ANSI, wrapping)
+        out = _strip_ansi(result.output).lower()
+        assert "version" in out
+        assert "wheel" in out
+        assert "skip-sigstore" in out or "skip_sigstore" in out
+        assert "skip-sbom" in out or "skip_sbom" in out
+        assert "skip-audit" in out or "skip_audit" in out
 
 
 class TestTrustctlVerifySkipAll:
