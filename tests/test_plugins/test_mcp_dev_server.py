@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 37 graq_* tools + 35 kogni_* aliases (includes 13 SCORCH + 8 Phantom) = 72
-        assert len(TOOL_DEFINITIONS) == 72
+        # 38 graq_* tools + 36 kogni_* aliases (includes 13 SCORCH + 8 Phantom + graq_predict) = 74
+        assert len(TOOL_DEFINITIONS) == 74
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -135,6 +135,7 @@ class TestToolDefinitions:
             "graq_impact",
             "graq_safety_check",
             "graq_learn",
+            "graq_predict",
             "graq_reload",
             "graq_audit",
             "graq_runtime",
@@ -174,6 +175,7 @@ class TestToolDefinitions:
             "kogni_impact",
             "kogni_safety_check",
             "kogni_learn",
+            "kogni_predict",
             "kogni_runtime",
             "kogni_route",
             "kogni_lifecycle",
@@ -231,7 +233,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 72  # 37 graq_* + 35 kogni_* aliases (includes 13 SCORCH + 8 Phantom)
+        assert len(tools) == 74  # 38 graq_* + 36 kogni_* aliases (includes 13 SCORCH + 8 Phantom + graq_predict)
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,10 @@ class EmbeddingEngine:
         self._model = None
         self._use_simple = False
 
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
     @staticmethod
     def _load_configured_model() -> str:
         """Read embedding model from graqle.yaml config, with fallback.
@@ -171,6 +175,10 @@ class TitanV2Engine:
         self._client = None
         self._cache: dict[str, np.ndarray] = {}
 
+    @property
+    def model_name(self) -> str:
+        return self._model_id
+
     def _load(self) -> None:
         if self._client is not None:
             return
@@ -258,6 +266,10 @@ class SimpleEmbeddingEngine:
 
     def __init__(self, dim: int = 128) -> None:
         self._dim = dim
+
+    @property
+    def model_name(self) -> str:
+        return f"simple-hash-{self._dim}d"
 
     def embed(self, text: str) -> np.ndarray:
         return EmbeddingEngine._simple_embed(text, dim=self._dim)

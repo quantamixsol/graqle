@@ -355,6 +355,34 @@ class Graqle:
         # older NetworkX defaults to "links").  Always pass edges= explicitly.
         if "edges" in data and "links" not in data:
             data["links"] = data.pop("edges")
+
+        # P2: validate embedding provenance if stored (graphs built with v0.34.0+)
+        _meta = (data.get("graph") or {}).get("_meta")
+        if _meta:
+            _stored_model = _meta.get("embedding_model", "unknown")
+            _stored_dim = _meta.get("embedding_dim", 0)
+            if _stored_dim > 0:
+                try:
+                    from graqle.activation.embeddings import create_embedding_engine
+                    from graqle.core.exceptions import EmbeddingDimensionMismatchError
+                    _cfg = config if isinstance(config, object) else None
+                    _engine = create_embedding_engine(_cfg)
+                    _active_model = getattr(_engine, "model_name", "unknown")
+                    _active_dim = (
+                        getattr(_engine, "_dim", None)
+                        or getattr(_engine, "_dimension", None)
+                        or (getattr(getattr(_cfg, "embeddings", None), "dimension", 0) or 384)
+                    )
+                    if int(_active_dim) != int(_stored_dim):
+                        raise EmbeddingDimensionMismatchError(
+                            stored_model=_stored_model,
+                            stored_dim=_stored_dim,
+                            active_model=_active_model,
+                            active_dim=int(_active_dim),
+                        )
+                except (ImportError, AttributeError):
+                    pass  # Cannot validate — proceed without check
+
         G = nx.node_link_graph(data, edges="links")
         return cls.from_networkx(G, config=config)
 
@@ -1777,6 +1805,18 @@ class Graqle:
             new_ids_with_desc, engine
         )
 
+        # P4: dimension guard — catch mixed-dim graphs that predate v0.34.0 _meta
+        all_embeddings = [e for e in candidate_embeddings + new_embeddings if e is not None]
+        if all_embeddings:
+            dims = {e.shape[0] for e in all_embeddings}
+            if len(dims) > 1:
+                from graqle.core.exceptions import EmbeddingDimensionMismatchError
+                raise EmbeddingDimensionMismatchError(
+                    stored_model="unknown", stored_dim=min(dims),
+                    active_model=getattr(engine, "model_name", "unknown"),
+                    active_dim=max(dims),
+                )
+
         edges_added = 0
         for i, new_id in enumerate(new_ids_with_desc):
             new_emb = new_embeddings[i]
@@ -1876,8 +1916,9 @@ class Graqle:
                 results.append(None)
                 continue
 
-            # Content-hash for cache invalidation
-            content_hash = hashlib.md5(desc.encode()).hexdigest()
+            # P0: include model name in cache key so changing models invalidates stale vectors
+            _engine_model = getattr(engine, "model_name", "unknown")
+            content_hash = f"{_engine_model}:{hashlib.md5(desc.encode()).hexdigest()}"
             cached = node.properties.get("_embedding_cache")
 
             if cached and isinstance(cached, dict) and cached.get("hash") == content_hash:
@@ -1945,6 +1986,25 @@ class Graqle:
         from pathlib import Path as _Path
 
         G = self.to_networkx()
+
+        # P1: write embedding provenance into graph metadata so from_json can validate
+        try:
+            from graqle.activation.embeddings import create_embedding_engine
+            _emb_engine = create_embedding_engine(self.config)
+            _model = getattr(_emb_engine, "model_name", "unknown")
+            _dim_attr = getattr(_emb_engine, "_dim", None) or getattr(_emb_engine, "_dimension", None)
+            if _dim_attr is None:
+                # EmbeddingEngine: actual dim from config or default 384
+                _cfg_dim = getattr(getattr(self.config, "embeddings", None), "dimension", 0)
+                _dim_attr = _cfg_dim if _cfg_dim and _cfg_dim > 0 else 384
+            G.graph["_meta"] = {
+                "embedding_model": _model,
+                "embedding_dim": int(_dim_attr),
+                "graqle_version": getattr(__import__("graqle"), "__version__", "unknown"),
+            }
+        except Exception:
+            pass  # Never block a save due to metadata failure
+
         data = nx.node_link_data(G, edges="links")
 
         # Validate before saving (DF-005: prevent MagicMock/corruption writes)

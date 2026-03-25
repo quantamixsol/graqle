@@ -98,12 +98,12 @@ def server(mock_graph):
 # ---------------------------------------------------------------------------
 
 def test_tool_definitions(server: MCPServer):
-    """Verify 4 tools returned with correct schema."""
+    """Verify 5 tools returned with correct schema (4 original + graq_predict)."""
     tools = server.tools
-    assert len(tools) == 4
+    assert len(tools) == 5
 
     names = {t["name"] for t in tools}
-    assert names == {"graq_context", "graq_reason", "graq_inspect", "graq_search"}
+    assert names == {"graq_context", "graq_reason", "graq_inspect", "graq_search", "graq_predict"}
 
     for tool in tools:
         assert "description" in tool
@@ -325,3 +325,51 @@ def test_tool_result_to_dict():
     err = MCPToolResult("boom", is_error=True)
     d = err.to_dict()
     assert d["isError"] is True
+
+
+# ---------------------------------------------------------------------------
+# _ensure_graph regression test (Group 5 gate — v0.34.0)
+# Guards that the _ensure_graph fix (JSONGraphConnector → Graqle.from_json)
+# does not break graq_context, graq_reason, graq_inspect, graq_search.
+# ---------------------------------------------------------------------------
+
+def test_ensure_graph_loads_graqle_instance(tmp_path):
+    """_ensure_graph must produce a Graqle instance via Graqle.from_json.
+    All four existing tools depend on this — if the loader changes type they all break."""
+    import json
+    from graqle.core.graph import Graqle
+
+    # Write a minimal valid graqle.json to a temp path
+    minimal = {"directed": False, "multigraph": False, "graph": {}, "nodes": [], "links": []}
+    graph_file = tmp_path / "graqle.json"
+    graph_file.write_text(json.dumps(minimal))
+
+    srv = MCPServer(config=MCPConfig(graph_path=str(graph_file)))
+    srv._ensure_graph()
+    assert isinstance(srv._graph, Graqle), (
+        "_ensure_graph must return a Graqle instance (not raw NX or connector). "
+        "graq_context/reason/inspect/search all depend on this."
+    )
+
+
+@pytest.mark.asyncio
+async def test_ensure_graph_existing_tools_unaffected_after_predict_added(server: MCPServer):
+    """graq_context, graq_reason, graq_inspect all still work after graq_predict was added.
+    Regression guard: _ensure_graph change must not alter shared tool behaviour."""
+    import json
+
+    # graq_inspect
+    r = await server.handle_tool_call("graq_inspect", {})
+    assert not r.is_error
+    data = json.loads(r.content)
+    assert "nodes" in data
+    assert data["nodes"] == 3
+
+    # graq_context
+    r = await server.handle_tool_call("graq_context", {"entity": "Auth Lambda"})
+    assert not r.is_error
+    assert "Auth Lambda" in r.content
+
+    # graq_search
+    r = await server.handle_tool_call("graq_search", {"query": "auth"})
+    assert not r.is_error

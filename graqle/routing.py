@@ -102,12 +102,14 @@ MCP_TOOL_TO_TASK: dict[str, str] = {
     "graq_impact": "impact",
     "graq_lessons": "lessons",
     "graq_learn": "learn",
+    "graq_predict": "predict",
     "kogni_context": "context",
     "kogni_reason": "reason",
     "kogni_preflight": "preflight",
     "kogni_impact": "impact",
     "kogni_lessons": "lessons",
     "kogni_learn": "learn",
+    "kogni_predict": "predict",
 }
 
 

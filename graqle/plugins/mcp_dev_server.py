@@ -373,6 +373,47 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_predict",
+        "description": (
+            "Run governed reasoning over the knowledge graph and — if confidence "
+            "is sufficient — write the compound prediction as a new subgraph into "
+            "the graph permanently. Future similar queries activate the predicted "
+            "subgraph directly without re-reasoning. "
+            "Use for compound pattern detection, sub-threshold signal analysis, "
+            "and latent failure chain discovery."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The reasoning query",
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "default": 3,
+                    "description": "Maximum message-passing rounds (passed to graq_reason)",
+                },
+                "fold_back": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "If false: reasons but does NOT write to graph (dry-run)",
+                },
+                "confidence_threshold": {
+                    "type": "number",
+                    "default": 0.45,
+                    "description": "Minimum answer_confidence to trigger write-back (0.0-1.0)",
+                },
+                "similarity_threshold": {
+                    "type": "number",
+                    "default": 0.15,
+                    "description": "Max cosine distance to existing nodes to detect duplicates",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "graq_reload",
         "description": (
             "Force-reload the knowledge graph from disk. "
@@ -1338,7 +1379,7 @@ class KogniDevServer:
 
             elif backend_name == "bedrock":
                 from graqle.backends.api import BedrockBackend
-                region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
+                region = getattr(cfg.model, "region", None) or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "eu-central-1"
                 graph.set_default_backend(BedrockBackend(model=model_name, region=region))
                 logger.info("Backend: Bedrock (%s in %s)", model_name, region)
                 return
@@ -1496,6 +1537,7 @@ class KogniDevServer:
             "graq_impact": self._handle_impact,
             "graq_safety_check": self._handle_safety_check,
             "graq_learn": self._handle_learn,
+            "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
             "graq_runtime": self._handle_runtime,
@@ -1536,6 +1578,7 @@ class KogniDevServer:
             "kogni_impact": self._handle_impact,
             "kogni_safety_check": self._handle_safety_check,
             "kogni_learn": self._handle_learn,
+            "kogni_predict": self._handle_predict,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
             "kogni_lifecycle": self._handle_lifecycle,
@@ -2117,7 +2160,25 @@ class KogniDevServer:
             "reasoning": reasoning_result,
         })
 
-    # ── 7. graq_learn (PRO) ──────────────────────────────────────────
+    # ── 7. graq_predict (PRO) ────────────────────────────────────────
+
+    async def _handle_predict(self, args: dict[str, Any]) -> str:
+        """Delegate to MCPServer._handle_predict (Layer A fold-back logic lives there)."""
+        from graqle.plugins.mcp_server import MCPServer, MCPConfig
+        if self._graph is None:
+            self._load_graph()  # make sure dev server graph is loaded first
+        cfg = MCPConfig(graph_path="graqle.json")
+        proxy = MCPServer(cfg)
+        proxy._graph = self._graph        # inject already-loaded graph — skips _ensure_graph
+        proxy._embedder = getattr(self, "_embedder", None)
+        result = await proxy._handle_predict(args)
+        # MCPToolResult.content is already a JSON string — return it directly
+        content = getattr(result, "content", None)
+        if content and isinstance(content, str) and content.strip():
+            return content
+        return json.dumps({"error": "graq_predict returned empty result"})
+
+    # ── 8. graq_learn (PRO) ──────────────────────────────────────────
 
     async def _handle_learn(self, args: dict[str, Any]) -> str:
         mode = args.get("mode", "outcome")

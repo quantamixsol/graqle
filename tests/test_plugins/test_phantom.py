@@ -594,18 +594,18 @@ class TestZeroRegression:
         assert not missing, f"REGRESSION: Existing aliases disappeared: {missing}"
 
     def test_tool_count_is_additive_only(self):
-        """Total tool count = previous (56) + new Phantom (16) = 72."""
+        """Total tool count = previous (72) + graq_predict + kogni_predict = 74."""
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
 
         graq_tools = [t for t in TOOL_DEFINITIONS if t["name"].startswith("graq_")]
         kogni_tools = [t for t in TOOL_DEFINITIONS if t["name"].startswith("kogni_")]
 
-        # Previous: 29 graq + 27 kogni = 56
-        # Added: 8 phantom graq + 8 phantom kogni = 16
-        # Total: 37 graq + 35 kogni = 72
-        assert len(graq_tools) == 37, f"Expected 37 graq_* tools, got {len(graq_tools)}"
-        assert len(kogni_tools) == 35, f"Expected 35 kogni_* tools, got {len(kogni_tools)}"
-        assert len(TOOL_DEFINITIONS) == 72, f"Expected 72 total tools, got {len(TOOL_DEFINITIONS)}"
+        # Previous: 37 graq + 35 kogni = 72
+        # Added: graq_predict + kogni_predict = 2
+        # Total: 38 graq + 36 kogni = 74
+        assert len(graq_tools) == 38, f"Expected 38 graq_* tools, got {len(graq_tools)}"
+        assert len(kogni_tools) == 36, f"Expected 36 kogni_* tools, got {len(kogni_tools)}"
+        assert len(TOOL_DEFINITIONS) == 74, f"Expected 74 total tools, got {len(TOOL_DEFINITIONS)}"
 
     def test_existing_tool_schemas_unchanged(self):
         """Spot-check that existing tool schemas were not modified."""
