@@ -1,0 +1,77 @@
+name: graq_predict deployment gate
+
+# Runs on every PR to master.
+# Reasons over the changed files using graq_predict and fails the PR
+# if answer_confidence < 0.80 on any flagged diff group.
+#
+# Per research team feedback (2026-03-25): this automates the manual gate
+# that caught 4 infrastructure bugs before v0.34.0 shipped.
+#
+# IMPORTANT: graq_reason flagged (85% confidence) that this gate will
+# produce false failures on sparse graphs or repos with < ~50 nodes.
+# The --no-fold-back flag is used so CI never writes to the graph.
+# Disable this workflow for repos where the graph is not built in CI.
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  graq-gate:
+    name: graq_predict deployment gate
+    runs-on: ubuntu-latest
+    # Only run if a graqle.json graph exists in the repo
+    # (prevents false failures on first-time setups)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need HEAD~1 for diff
+
+      - name: Check for graph file
+        id: check-graph
+        run: |
+          if [ -f "graqle.json" ]; then
+            echo "graph_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "graph_exists=false" >> "$GITHUB_OUTPUT"
+            echo "No graqle.json found — skipping graq_predict gate"
+          fi
+
+      - name: Set up Python
+        if: steps.check-graph.outputs.graph_exists == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install graqle
+        if: steps.check-graph.outputs.graph_exists == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build diff summary for graq_predict
+        if: steps.check-graph.outputs.graph_exists == 'true'
+        id: diff
+        run: |
+          DIFF=$(git diff HEAD~1 --stat | head -30)
+          echo "diff_stat<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DIFF" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run graq_predict gate (dry-run, no write)
+        if: steps.check-graph.outputs.graph_exists == 'true'
+        run: |
+          graq predict \
+            "What is the risk of these changes: ${{ steps.diff.outputs.diff_stat }}" \
+            --no-fold-back \
+            --confidence-threshold 0.80 \
+            --fail-below-threshold \
+            --format json | tee gate-report.json
+
+      - name: Upload gate report
+        if: always() && steps.check-graph.outputs.graph_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graq-gate-report
+          path: gate-report.json

@@ -28,7 +28,8 @@ class TestTaskRecommendations:
             assert not missing, f"Task '{task}' missing keys: {missing}"
 
     def test_known_task_types_exist(self):
-        expected = {"context", "reason", "preflight", "impact", "lessons", "learn", "code", "docs"}
+        # "predict" added in v0.35.0 — graq_predict/kogni_predict MCP tools
+        expected = {"context", "reason", "preflight", "impact", "lessons", "learn", "code", "docs", "predict"}
         assert expected == set(TASK_RECOMMENDATIONS.keys())
 
     def test_all_have_suggested_providers(self):
@@ -41,10 +42,14 @@ class TestMCPToolToTask:
         assert MCP_TOOL_TO_TASK["graq_reason"] == "reason"
         assert MCP_TOOL_TO_TASK["graq_context"] == "context"
         assert MCP_TOOL_TO_TASK["graq_preflight"] == "preflight"
+        # graq_predict added in v0.35.0
+        assert MCP_TOOL_TO_TASK["graq_predict"] == "predict"
 
     def test_kogni_tools_mapped(self):
         assert MCP_TOOL_TO_TASK["kogni_reason"] == "reason"
         assert MCP_TOOL_TO_TASK["kogni_learn"] == "learn"
+        # kogni_predict added in v0.35.0
+        assert MCP_TOOL_TO_TASK["kogni_predict"] == "predict"
 
 
 class TestRoutingRule:
@@ -134,7 +139,7 @@ class TestTaskRouter:
     def test_recommend_all(self):
         router = TaskRouter()
         recs = router.recommend_all()
-        assert len(recs) == 8  # all task types
+        assert len(recs) == 9  # 8 original + "predict" added in v0.35.0
 
     def test_recommend_shows_available_providers(self):
         router = TaskRouter()

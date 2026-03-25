@@ -638,7 +638,7 @@ class MCPServer:
 
         pairs_total = 0
         pairs_agreed = 0
-        AGREEMENT_THRESHOLD = 0.12  # 12% token overlap = rough agreement
+        AGREEMENT_THRESHOLD = 0.15  # 15% token overlap = rough agreement (raised from 0.12 in v0.35.0 — 0.12 over-counted boilerplate text as agreement)
 
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
