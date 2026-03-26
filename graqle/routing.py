@@ -130,6 +130,24 @@ class RoutingRule:
     region: str | None = None
     profile: str | None = None
 
+    def __post_init__(self) -> None:
+        """FB-006: Bedrock rules must specify region and profile.
+
+        Fails at rule creation time so misconfiguration is caught before any
+        API call is made — not silently mid-request.
+        """
+        if self.provider == "bedrock":
+            if not self.region:
+                raise ValueError(
+                    f"Bedrock routing rule for task '{self.task}' requires 'region'. "
+                    "Set the AWS region (e.g. 'eu-central-1')."
+                )
+            if not self.profile:
+                raise ValueError(
+                    f"Bedrock routing rule for task '{self.task}' requires 'profile'. "
+                    "Set the AWS profile name (e.g. 'default')."
+                )
+
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"task": self.task, "provider": self.provider}
         if self.model:

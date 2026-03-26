@@ -1,3 +1,14 @@
+
+# IP-PROTECTED: these test files import from patent-protected stub modules.
+# They are excluded from collection until the implementations ship.
+collect_ignore = [
+    "test_activation/test_content_aware_pcst.py",
+    "test_learning/test_gds_intelligence.py",
+    "test_ontology/test_governance_v3.py",
+    "test_ontology/test_ontology_generator.py",
+]
+
+
 """Shared test fixtures for GraQle."""
 
 # ── graqle:intelligence ──

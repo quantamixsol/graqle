@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 logger = logging.getLogger("graqle.config")
 
@@ -164,6 +164,27 @@ class RoutingRuleConfig(BaseModel):
     reason: str = ""
     region: str | None = None
     profile: str | None = None
+
+    @model_validator(mode="after")
+    def require_bedrock_fields(self) -> "RoutingRuleConfig":
+        """Bedrock routing rules must specify region and profile.
+
+        FB-006: without these fields, Bedrock routing silently routes to the
+        wrong AWS account with no error. Fail at config load time, not at
+        runtime when it's too late to catch.
+        """
+        if self.provider == "bedrock":
+            if not self.region:
+                raise ValueError(
+                    f"Bedrock routing rule for task '{self.task}' requires 'region'. "
+                    "Set the AWS region (e.g. 'eu-central-1')."
+                )
+            if not self.profile:
+                raise ValueError(
+                    f"Bedrock routing rule for task '{self.task}' requires 'profile'. "
+                    "Set the AWS profile name (e.g. 'default')."
+                )
+        return self
 
 
 class RoutingConfig(BaseModel):
