@@ -29,6 +29,8 @@ pip install graqle && graq scan repo . && graq run "what's the riskiest file to 
 
 <!-- mcp-name: io.github.quantamixsol/graqle -->
 
+mcp-name: io.github.quantamixsol/graqle
+
 </div>
 
 ---
