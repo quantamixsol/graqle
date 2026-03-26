@@ -31,6 +31,8 @@ routing:
     - task: reason
       provider: bedrock
       model: eu.anthropic.claude-opus-4-6-v1
+      region: eu-north-1
+      profile: cbs-dpt
       reason: "Deep graph reasoning — Opus 4.6 on account REDACTED_ACCOUNT_ID (cbs-dpt) for cost tracking"
     - task: predict
       provider: bedrock

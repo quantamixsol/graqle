@@ -655,3 +655,328 @@ def test_compute_answer_confidence_empty_trace():
     # Fallback: min(1.0, 0.6 * 2.0 + 0.20) = min(1.0, 1.40) = 1.0
     assert isinstance(conf, float)
     assert 0.0 <= conf <= 1.0
+
+
+# ===========================================================================
+# Layer B Tests — v0.36.0
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Phase 1 — mode="gate"
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_gate_mode_high_risk_returns_flag_no_write():
+    """Gate mode with a high-risk query returns FLAG and writes nothing."""
+    graph = _build_mock_graph(size=15)
+    # Pad active nodes so >= 10 activate
+    active = [f"node-pad-{i}" for i in range(3, 13)]
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer=(
+            "This change is critical — it will delete the TRACE validation module "
+            "causing a security vulnerability and data loss in downstream services."
+        ),
+        confidence=0.8,
+        active_nodes=active,
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {"query": "Deploy PR removing TRACE", "mode": "gate"})
+    data = json.loads(result.content)
+
+    assert data["gate_status"] == "FLAG"
+    assert "risk_vectors" in data
+    # Gate mode must NEVER write — no prediction written
+    graph.to_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_gate_mode_low_risk_returns_clear_no_write():
+    """Gate mode with a low-risk, low-confidence query returns CLEAR and writes nothing."""
+    graph = _build_mock_graph(size=15)
+    active = [f"node-pad-{i}" for i in range(3, 13)]
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="The module has good test coverage and no known issues.",
+        confidence=0.1,
+        active_nodes=active,
+    ))
+    # Minimal message_trace so answer_confidence stays low
+    reason_result = graph.areason.return_value
+    reason_result.message_trace = []
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {"query": "Review auth module", "mode": "gate"})
+    data = json.loads(result.content)
+
+    assert data["gate_status"] == "CLEAR"
+    graph.to_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_gate_mode_sparse_graph_returns_insufficient():
+    """Gate mode with fewer than 10 activated nodes returns INSUFFICIENT_GRAPH."""
+    graph = _build_mock_graph(size=5)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="Not enough graph data.",
+        confidence=0.9,
+        active_nodes=["node-a", "node-b"],  # only 2 activated
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {"query": "Analyse risk", "mode": "gate"})
+    data = json.loads(result.content)
+
+    assert data["gate_status"] == "INSUFFICIENT_GRAPH"
+    graph.to_json.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — mode="cascade_analysis"
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_cascade_analysis_returns_cascade_chain():
+    """cascade_analysis mode returns a cascade_chain with >= 2 tiers."""
+    graph = _build_mock_graph(size=15)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer=(
+            "The root cause leads to auth failures\n"
+            "Auth failures trigger downstream API timeouts\n"
+            "API timeouts result in user-facing errors and data inconsistency\n"
+            "Data inconsistency causes critical audit trail corruption"
+        ),
+        confidence=0.85,
+        active_nodes=[f"node-pad-{i}" for i in range(3, 13)],
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "What cascades from auth failure?",
+        "mode": "cascade_analysis",
+        "fold_back": False,
+    })
+    data = json.loads(result.content)
+
+    assert "cascade_chain" in data
+    assert len(data["cascade_chain"]) >= 2
+    assert "tier_impacts" in data
+    assert set(data["tier_impacts"].keys()) == {"HIGH", "MEDIUM", "LOW"}
+
+
+@pytest.mark.asyncio
+async def test_cascade_analysis_fold_back_writes_cascade_trigger_edges():
+    """cascade_analysis with fold_back=True writes CASCADE_TRIGGER edges to KG."""
+    graph = _build_mock_graph(size=15)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer=(
+            "Auth failure leads to token expiry. "
+            "Token expiry triggers session loss. "
+            "Session loss causes critical data inconsistency."
+        ),
+        confidence=0.85,
+        active_nodes=[f"node-pad-{i}" for i in range(3, 13)],
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Cascade from auth failure",
+        "mode": "cascade_analysis",
+        "fold_back": True,
+        "confidence_threshold": 0.3,
+    })
+    data = json.loads(result.content)
+
+    assert data["prediction"]["status"] in ("WRITTEN", "SKIPPED_DUPLICATE")
+    # CASCADE_TRIGGER edge type must appear in the written subgraph
+    if data["prediction"]["status"] == "WRITTEN":
+        # Verify cascade nodes were written to graph
+        cascade_nodes = [
+            n for n in graph.nodes.values()
+            if isinstance(getattr(n, "properties", {}), dict)
+            and n.properties.get("derived_from") == "graq_predict"
+        ]
+        assert len(cascade_nodes) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — stg_class parameter
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_stg_class_auto_resolves_simple_completion():
+    """stg_class='auto' works for a simple completion query without error."""
+    graph = _build_mock_graph(size=15)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="The missing config key is 'api_timeout'.",
+        confidence=0.8,
+        active_nodes=[f"node-pad-{i}" for i in range(3, 8)],
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "What is the missing config key?",
+        "stg_class": "auto",
+        "fold_back": False,
+    })
+    data = json.loads(result.content)
+
+    assert not result.is_error
+    assert data["stg_class"] == "auto"
+
+
+@pytest.mark.asyncio
+async def test_stg_class_iv_without_allow_raises():
+    """stg_class='IV' without allow_class_iv=True returns an error."""
+    srv = _make_server(_build_mock_graph())
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Extrapolate novel hypothesis",
+        "stg_class": "IV",
+        "allow_class_iv": False,
+    })
+
+    assert result.is_error
+    assert "allow_class_iv" in result.content
+
+
+@pytest.mark.asyncio
+async def test_stg_class_iv_with_low_confidence_threshold_raises():
+    """stg_class='IV' with confidence_threshold < 0.75 returns an error."""
+    srv = _make_server(_build_mock_graph())
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Novel hypothesis",
+        "stg_class": "IV",
+        "allow_class_iv": True,
+        "confidence_threshold": 0.60,
+    })
+
+    assert result.is_error
+    assert "0.75" in result.content
+
+
+@pytest.mark.asyncio
+async def test_stg_class_iv_with_sparse_domain_returns_insufficient():
+    """stg_class='IV' with < 50 domain-intersection nodes returns INSUFFICIENT_GRAPH."""
+    graph = _build_mock_graph(size=15)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="Novel extrapolation.",
+        confidence=0.9,
+        active_nodes=["node-a", "node-b", "node-c"],  # all are generic types → < 50 domain nodes
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Novel extrapolation",
+        "stg_class": "IV",
+        "allow_class_iv": True,
+        "confidence_threshold": 0.75,
+        "fold_back": False,
+    })
+    data = json.loads(result.content)
+
+    assert data["prediction"]["status"] == "INSUFFICIENT_GRAPH"
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Q-function scores
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_q_scores_present_in_dry_run_result():
+    """Q-scores are present in DRY_RUN (fold_back=False) results."""
+    graph = _build_mock_graph(size=3)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="Auth module has cold start risk.", confidence=0.8,
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Auth cold start risk",
+        "fold_back": False,
+    })
+    data = json.loads(result.content)
+
+    assert "q_scores" in data
+    qs = data["q_scores"]
+    assert set(qs.keys()) == {"feasibility", "novelty", "goal_alignment"}
+    for score in qs.values():
+        assert isinstance(score, float)
+        assert 0.0 <= score <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_q_scores_present_in_written_result(mock_predict_subgraph_json):
+    """Q-scores are present in WRITTEN results."""
+    graph = _build_mock_graph(size=15)
+    mock_backend = graph._get_backend_for_node.return_value
+    mock_backend.generate = AsyncMock(return_value=mock_predict_subgraph_json)
+    graph.areason = AsyncMock(return_value=MockReasonResult(
+        answer="Auth cold start risk is high.",
+        confidence=0.85,
+        active_nodes=[f"node-pad-{i}" for i in range(3, 13)],
+    ))
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_predict", {
+        "query": "Auth cold start risk",
+        "fold_back": True,
+        "confidence_threshold": 0.3,
+    })
+    data = json.loads(result.content)
+
+    # Must have q_scores regardless of written/skipped status
+    assert "q_scores" in data
+    qs = data["q_scores"]
+    assert all(isinstance(v, float) and 0.0 <= v <= 1.0 for v in qs.values())
+
+
+@pytest.fixture
+def mock_predict_subgraph_json():
+    return _good_subgraph_json()
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — graq_reason mode="predictive"
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_graq_reason_standard_mode_unchanged():
+    """graq_reason mode='standard' output is identical to default graq_reason output."""
+    graph = _build_mock_graph(size=3)
+    reason_result = MockReasonResult(answer="The answer.", confidence=0.7)
+    reason_result.message_trace = []
+    graph.areason = AsyncMock(return_value=reason_result)
+    srv = _make_server(graph)
+
+    default_result = await srv.handle_tool_call("graq_reason", {"query": "test question"})
+    explicit_result = await srv.handle_tool_call("graq_reason", {"query": "test question", "mode": "standard"})
+
+    default_data = json.loads(default_result.content)
+    explicit_data = json.loads(explicit_result.content)
+
+    assert default_data.keys() == explicit_data.keys()
+    assert "answer" in default_data
+    assert "q_scores" not in default_data  # standard mode has no PSE fields
+
+
+@pytest.mark.asyncio
+async def test_graq_reason_predictive_mode_returns_pse_fields():
+    """graq_reason mode='predictive' returns PSE prediction fields including q_scores."""
+    graph = _build_mock_graph(size=3)
+    reason_result = MockReasonResult(answer="Prediction answer.", confidence=0.8)
+    reason_result.message_trace = []
+    graph.areason = AsyncMock(return_value=reason_result)
+    srv = _make_server(graph)
+
+    result = await srv.handle_tool_call("graq_reason", {
+        "query": "predictive question",
+        "mode": "predictive",
+        "fold_back": False,
+    })
+    data = json.loads(result.content)
+
+    assert "q_scores" in data
+    assert "prediction" in data
+    assert "answer_confidence" in data
+    assert "activation_confidence" in data

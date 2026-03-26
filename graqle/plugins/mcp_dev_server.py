@@ -163,7 +163,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "Run multiple reasoning queries in parallel over the knowledge graph. "
             "Each query gets its own graph-of-agents reasoning session, running "
             "concurrently with semaphore-controlled parallelism. "
-            "Use for analyzing multiple questions at once (e.g., batch code review)."
+            "Use for analyzing multiple questions at once (e.g., batch code review).\n\n"
+            "Set mode='predictive' to run each query through the full PSE prediction "
+            "pipeline. fold_back applies to the entire batch (all-or-nothing)."
         ),
         "inputSchema": {
             "type": "object",
@@ -172,6 +174,25 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "List of questions to reason about in parallel",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["standard", "predictive"],
+                    "default": "standard",
+                    "description": (
+                        "'standard' (default) uses standard reasoning. "
+                        "'predictive' runs each query through the PSE pipeline independently."
+                    ),
+                },
+                "fold_back": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "In predictive mode: write predictions that pass the gate. Applies to entire batch.",
+                },
+                "confidence_threshold": {
+                    "type": "number",
+                    "default": 0.65,
+                    "description": "In predictive mode: minimum answer_confidence to write a prediction (0.0-1.0).",
                 },
                 "max_rounds": {
                     "type": "integer",
@@ -1825,17 +1846,63 @@ class KogniDevServer:
     # ── 3b. graq_reason_batch (PRO) ──────────────────────────────────
 
     async def _handle_reason_batch(self, args: dict[str, Any]) -> str:
-        """Handle batch reasoning — multiple questions in parallel."""
+        """Handle batch reasoning — multiple questions in parallel.
+
+        mode="standard" (default): standard reasoning for each question.
+        mode="predictive": runs each query through the PSE pipeline independently.
+                           fold_back applies to the entire batch (all-or-nothing).
+        """
+        import asyncio as _asyncio
         import time as _time
 
         questions = args.get("questions", [])
+        mode = args.get("mode", "standard")
         max_rounds = min(max(args.get("max_rounds", 2), 1), 5)
         max_concurrent = min(max(args.get("max_concurrent", 5), 1), 10)
+        fold_back = args.get("fold_back", True)
+        confidence_threshold = args.get("confidence_threshold", 0.65)
 
         if not questions or not isinstance(questions, list):
             return json.dumps({"error": "Parameter 'questions' (list of strings) is required."})
 
         t0 = _time.monotonic()
+
+        if mode == "predictive":
+            # Run each question through predict pipeline independently
+            semaphore = _asyncio.Semaphore(max_concurrent)
+
+            async def _run_predict(question: str) -> dict[str, Any]:
+                async with semaphore:
+                    predict_args = {
+                        "query": question,
+                        "mode": "compound",
+                        "max_rounds": max_rounds,
+                        "fold_back": fold_back,
+                        "confidence_threshold": confidence_threshold,
+                    }
+                    raw = await self._handle_predict(predict_args)
+                    try:
+                        return json.loads(raw) if isinstance(raw, str) else raw
+                    except Exception:
+                        return {"question": question, "error": "parse failed"}
+
+            batch_results = await _asyncio.gather(*[_run_predict(q) for q in questions])
+            total_ms = (_time.monotonic() - t0) * 1000
+
+            return json.dumps({
+                "batch_size": len(questions),
+                "mode": "predictive",
+                "total_latency_ms": round(total_ms, 1),
+                "total_cost_usd": round(
+                    sum(r.get("cost_usd", 0) for r in batch_results), 6
+                ),
+                "results": [
+                    {**r, "question": q}
+                    for q, r in zip(questions, batch_results)
+                ],
+            })
+
+        # Standard mode — existing behaviour unchanged
         graph = self._require_graph()
         results = await graph.areason_batch(
             questions, max_rounds=max_rounds, max_concurrent=max_concurrent,
@@ -1844,6 +1911,7 @@ class KogniDevServer:
 
         return json.dumps({
             "batch_size": len(questions),
+            "mode": "standard",
             "total_latency_ms": round(total_ms, 1),
             "total_cost_usd": round(sum(r.cost_usd for r in results), 6),
             "avg_confidence": round(

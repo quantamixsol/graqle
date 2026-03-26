@@ -180,11 +180,17 @@ class TestTaskRouter:
         assert "gemini" in backend.name
 
     def test_get_backend_native_provider_returns_none(self):
-        """Anthropic/OpenAI/Bedrock/Ollama rules return None (handled by graph)."""
+        """Anthropic returns None when no ANTHROPIC_API_KEY is set."""
+        import os
         router = TaskRouter()
         router.add_rule(RoutingRule(task="reason", provider="anthropic"))
-        backend = router.get_backend_for_task("reason")
-        assert backend is None
+        env_backup = os.environ.pop("ANTHROPIC_API_KEY", None)
+        try:
+            backend = router.get_backend_for_task("reason")
+            assert backend is None
+        finally:
+            if env_backup is not None:
+                os.environ["ANTHROPIC_API_KEY"] = env_backup
 
 
 class TestRoutingConfig:
@@ -227,3 +233,63 @@ class TestRoutingConfig:
         assert config.routing.default_provider == "deepseek"
         assert len(config.routing.rules) == 1
         assert config.routing.rules[0].provider == "groq"
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — Bedrock routing validation (FB-006)
+# ---------------------------------------------------------------------------
+
+class TestBedrockRoutingValidation:
+    """FB-006: Bedrock routing rules must specify region and profile.
+
+    Without these fields, routing silently sends requests to the wrong AWS
+    account with no error. Validation must fail at config load time.
+    """
+
+    def test_bedrock_rule_without_region_raises(self):
+        """RoutingRule with provider=bedrock and no region raises ValueError."""
+        import pytest
+        with pytest.raises(ValueError, match="region"):
+            RoutingRule(task="predict", provider="bedrock", profile="default")
+
+    def test_bedrock_rule_without_profile_raises(self):
+        """RoutingRule with provider=bedrock and no profile raises ValueError."""
+        import pytest
+        with pytest.raises(ValueError, match="profile"):
+            RoutingRule(task="predict", provider="bedrock", region="eu-central-1")
+
+    def test_bedrock_rule_with_both_fields_succeeds(self):
+        """RoutingRule with provider=bedrock, region, and profile is valid."""
+        rule = RoutingRule(
+            task="predict",
+            provider="bedrock",
+            region="eu-central-1",
+            profile="default",
+        )
+        assert rule.region == "eu-central-1"
+        assert rule.profile == "default"
+
+    def test_non_bedrock_rule_without_region_succeeds(self):
+        """Non-Bedrock rules don't require region or profile."""
+        rule = RoutingRule(task="reason", provider="anthropic", model="claude-sonnet-4-6")
+        assert rule.region is None
+        assert rule.profile is None
+
+    def test_bedrock_routing_rule_config_without_region_raises(self):
+        """RoutingRuleConfig (Pydantic) with provider=bedrock and no region raises."""
+        import pytest
+        from pydantic import ValidationError
+        from graqle.config.settings import RoutingRuleConfig
+        with pytest.raises(ValidationError):
+            RoutingRuleConfig(task="predict", provider="bedrock", profile="default")
+
+    def test_bedrock_routing_rule_config_with_both_fields_succeeds(self):
+        """RoutingRuleConfig with all required Bedrock fields is valid."""
+        from graqle.config.settings import RoutingRuleConfig
+        rule = RoutingRuleConfig(
+            task="predict",
+            provider="bedrock",
+            region="eu-central-1",
+            profile="default",
+        )
+        assert rule.region == "eu-central-1"
