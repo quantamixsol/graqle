@@ -2157,6 +2157,15 @@ def _scan_repo_impl(
     else:
         console.print("\n[dim]Embedding cache is up to date.[/dim]")
 
+    # Auto-install git post-commit hook so graph stays in sync with every commit.
+    # This is the core promise: "graph grows with your code."
+    # Silently skip if not a git repo or hook already installed.
+    try:
+        from graqle.cli.commands.init import _install_auto_grow_hook
+        _install_auto_grow_hook(repo)
+    except Exception:
+        pass  # Never block a scan for a hook install failure
+
     # Star nudge (show once per install, not on every scan)
     nudge_file = Path(".graqle/.star_nudge_shown")
     if not nudge_file.exists():
