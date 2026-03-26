@@ -63,12 +63,16 @@ async def test_areason_batch_concurrency(ready_graph):
 
 
 def test_imports_phase3():
-    """Phase 3 modules import cleanly."""
+    """Phase 3 modules import cleanly.
+
+    Note: graqle.orchestration.debate (DebateProtocol) is an IP-protected stub
+    covered by EP26166054.2 and is skipped until the implementation ships.
+    All other Phase 3 modules are verified here.
+    """
     from graqle.backends.registry import BackendRegistry
     from graqle.optimization.message_compressor import MessageCompressor
     from graqle.optimization.token_optimizer import TokenOptimizer
     from graqle.orchestration.async_protocol import AsyncMessageProtocol
-    from graqle.orchestration.debate import DebateProtocol
     from graqle.orchestration.explanation import ExplanationTrace
     from graqle.orchestration.hierarchical import HierarchicalAggregation
     from graqle.orchestration.streaming import StreamingOrchestrator
@@ -77,7 +81,6 @@ def test_imports_phase3():
     assert AsyncMessageProtocol is not None
     assert StreamingOrchestrator is not None
     assert ExplanationTrace is not None
-    assert DebateProtocol is not None
     assert HierarchicalAggregation is not None
     assert TokenOptimizer is not None
     assert MessageCompressor is not None
