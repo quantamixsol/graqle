@@ -181,16 +181,13 @@ class TestTaskRouter:
 
     def test_get_backend_native_provider_returns_none(self):
         """Anthropic returns None when no ANTHROPIC_API_KEY is set."""
-        import os
         router = TaskRouter()
         router.add_rule(RoutingRule(task="reason", provider="anthropic"))
-        env_backup = os.environ.pop("ANTHROPIC_API_KEY", None)
-        try:
+        # Use patch.dict to reliably remove the key for this test
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
             backend = router.get_backend_for_task("reason")
-            assert backend is None
-        finally:
-            if env_backup is not None:
-                os.environ["ANTHROPIC_API_KEY"] = env_backup
+        assert backend is None
 
 
 class TestRoutingConfig:
