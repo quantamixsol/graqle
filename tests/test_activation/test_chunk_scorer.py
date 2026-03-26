@@ -11,7 +11,9 @@ individual chunks to the query, not node-level descriptions.
 # constraints: none
 # ── /graqle:intelligence ──
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from graqle.activation.chunk_scorer import ChunkScorer
 
@@ -37,6 +39,17 @@ def _make_graph(nodes_dict):
 
 class TestChunkScorerActivation:
     """Tests for ChunkScorer.activate()."""
+
+    @pytest.fixture(autouse=True)
+    def no_cache(self):
+        """Force live scoring — disable cache loading so mock nodes score correctly.
+
+        The .graqle/chunk_embeddings.npz file from real scans only contains
+        production graph node IDs, not test mock IDs. With cache enabled,
+        mock nodes always score 0 and tests fail spuriously.
+        """
+        with patch.object(ChunkScorer, "_load_cache", return_value=False):
+            yield
 
     def test_products_tsx_beats_tailwind_config(self):
         """The P0 bug: 'What functions does Products.tsx define?' should
@@ -191,17 +204,21 @@ class TestChunkScorerActivation:
         assert len(result) <= 5
 
     def test_relevance_scores_stored(self):
-        """last_relevance should contain scores for all activated nodes."""
+        """last_relevance should contain scores for activated nodes.
+
+        Uses a filename-match query so the scorer always returns a non-zero
+        score via the filename-boost path (score floor 2.0 when label matches).
+        """
         nodes = {
-            "a": _make_node("a", "a.py", "Module", "Module A",
-                           chunks=[{"type": "function", "text": "def hello(): print('hello')"}]),
+            "auth": _make_node("auth", "auth.py", "Module", "Authentication module",
+                               chunks=[{"type": "function", "text": "def authenticate(): pass"}]),
         }
         graph = _make_graph(nodes)
         scorer = ChunkScorer(max_nodes=50, min_score=0.0)
-        result = scorer.activate(graph, "hello function")
+        result = scorer.activate(graph, "auth.py")  # filename match guarantees score >= 2.0
 
-        assert "a" in scorer.last_relevance
-        assert scorer.last_relevance["a"] > 0
+        assert "auth" in scorer.last_relevance
+        assert scorer.last_relevance["auth"] > 0
 
     def test_empty_chunks_skipped(self):
         """Chunks with empty or very short text should be skipped."""

@@ -555,3 +555,114 @@ class TestMcpVersion:
 
         assert _version == pkg_version
         assert _version != "0.0.0", "_version fell back to default; import is broken"
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — graq_reason_batch predictive mode
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MockBatchReasonResult:
+    answer: str
+    confidence: float
+    node_count: int = 5
+    cost_usd: float = 0.01
+    reasoning_mode: str = "full"
+    active_nodes: list = field(default_factory=lambda: ["node-a", "node-b"])
+    message_trace: list = field(default_factory=list)
+    rounds_completed: int = 2
+
+
+class TestReasonBatchPredictiveMode:
+    """Phase 7: graq_reason_batch mode='predictive'."""
+
+    def _make_server(self) -> KogniDevServer:
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._graph = None
+        srv._embedder = None
+        srv._graph_path = "graqle.json"
+        return srv
+
+    @pytest.mark.asyncio
+    async def test_batch_predictive_returns_independent_results(self):
+        """Batch of 3 queries in predictive mode returns 3 independent results."""
+        srv = self._make_server()
+
+        # Patch _handle_predict to return distinct results per query
+        call_count = 0
+
+        async def _fake_predict(args: dict) -> str:
+            nonlocal call_count
+            call_count += 1
+            return json.dumps({
+                "answer": f"Answer for: {args['query']}",
+                "answer_confidence": 0.8,
+                "activation_confidence": 0.5,
+                "q_scores": {"feasibility": 0.7, "novelty": 0.5, "goal_alignment": 0.6},
+                "stg_class": "auto",
+                "embedding_model": "test",
+                "rounds": 2,
+                "nodes_used": 5,
+                "cost_usd": 0.01,
+                "active_nodes": [],
+                "prediction": {"status": "DRY_RUN", "nodes_added": 0, "edges_added": 0,
+                               "anchor_node_id": None, "content_hash": None, "subgraph": None},
+            })
+
+        srv._handle_predict = _fake_predict
+
+        result = await srv._handle_reason_batch({
+            "questions": ["Q1", "Q2", "Q3"],
+            "mode": "predictive",
+            "fold_back": False,
+        })
+        data = json.loads(result)
+
+        assert data["batch_size"] == 3
+        assert data["mode"] == "predictive"
+        assert len(data["results"]) == 3
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_batch_predictive_fold_back_skips_low_confidence(self):
+        """fold_back=True with mixed confidence: only WRITTEN + SKIPPED results, none crash."""
+        srv = self._make_server()
+
+        statuses = ["WRITTEN", "SKIPPED_LOW_CONFIDENCE", "WRITTEN"]
+        idx = 0
+
+        async def _fake_predict(args: dict) -> str:
+            nonlocal idx
+            status = statuses[idx % len(statuses)]
+            idx += 1
+            nodes_added = 2 if status == "WRITTEN" else 0
+            return json.dumps({
+                "answer": "answer",
+                "answer_confidence": 0.8 if status == "WRITTEN" else 0.2,
+                "activation_confidence": 0.5,
+                "q_scores": {"feasibility": 0.7, "novelty": 0.5, "goal_alignment": 0.6},
+                "stg_class": "auto",
+                "embedding_model": "test",
+                "rounds": 2,
+                "nodes_used": 5,
+                "cost_usd": 0.01,
+                "active_nodes": [],
+                "prediction": {"status": status, "nodes_added": nodes_added,
+                               "edges_added": nodes_added, "anchor_node_id": "x" if nodes_added else None,
+                               "content_hash": None, "subgraph": None},
+            })
+
+        srv._handle_predict = _fake_predict
+
+        result = await srv._handle_reason_batch({
+            "questions": ["Q1", "Q2", "Q3"],
+            "mode": "predictive",
+            "fold_back": True,
+            "confidence_threshold": 0.65,
+        })
+        data = json.loads(result)
+
+        assert len(data["results"]) == 3
+        statuses_returned = [r.get("prediction", {}).get("status") for r in data["results"]]
+        assert "WRITTEN" in statuses_returned
+        assert "SKIPPED_LOW_CONFIDENCE" in statuses_returned

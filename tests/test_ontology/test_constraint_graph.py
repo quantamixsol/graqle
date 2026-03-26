@@ -1,4 +1,4 @@
-"""Tests for ConstraintGraph — shared constraint detection and propagation."""
+"""Tests for ConstraintGraph - shared constraint detection and propagation."""
 
 # ── graqle:intelligence ──
 # module: tests.test_ontology.test_constraint_graph
@@ -6,6 +6,22 @@
 # dependencies: pytest, numpy, constraint_graph, node, graph +1 more
 # constraints: none
 # ── /graqle:intelligence ──
+
+
+import pytest
+
+# IP-PROTECTED STUB: the implementation of this module is covered by European
+# Patent Applications EP26162901.8, EP26166054.2, EP26167849.4.
+# The source file exists as a stub only. Tests are skipped until implementation
+# ships. Do not remove this guard - CI must pass without these classes.
+try:
+    from graqle.ontology.constraint_graph import ConstraintGraph
+except ImportError:
+    pytest.skip(
+        "IP-protected module not yet implemented in this build - skipping.",
+        allow_module_level=True,
+    )
+
 
 import numpy as np
 

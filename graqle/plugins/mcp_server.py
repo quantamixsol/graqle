@@ -175,7 +175,10 @@ class MCPServer:
                 "description": (
                     "Run a governed reasoning query over the knowledge graph. "
                     "Uses PCST activation, convergent message passing, and SemanticSHACL governance. "
-                    "Returns answer with confidence, governance score, and provenance."
+                    "Returns answer with confidence, governance score, and provenance.\n\n"
+                    "Modes:\n"
+                    "- standard (default): standard reasoning, byte-identical to prior behaviour\n"
+                    "- predictive: runs the full PSE prediction pipeline (same as graq_predict)"
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -183,6 +186,16 @@ class MCPServer:
                         "query": {
                             "type": "string",
                             "description": "The reasoning query"
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["standard", "predictive"],
+                            "default": "standard",
+                            "description": (
+                                "'standard' is the default — identical to current behaviour. "
+                                "'predictive' runs through the full PSE pipeline and returns "
+                                "prediction fields including q_scores and prediction status."
+                            )
                         },
                         "max_rounds": {
                             "type": "integer",
@@ -234,7 +247,12 @@ class MCPServer:
                     "the graph permanently. Future similar queries activate the predicted "
                     "subgraph directly without re-reasoning. "
                     "Use for compound pattern detection, sub-threshold signal analysis, "
-                    "and latent failure chain discovery."
+                    "and latent failure chain discovery.\n\n"
+                    "Modes:\n"
+                    "- compound (default): reason + optionally write to graph\n"
+                    "- gate: read-only risk assessment — returns CLEAR/WARN/FLAG/INSUFFICIENT_GRAPH, never writes\n"
+                    "- cascade_analysis: map failure cascade chain (root → tier-1 → tier-2 → terminal)\n"
+                    "- discover: reason without write-back (alias for fold_back=False)"
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -242,6 +260,17 @@ class MCPServer:
                         "query": {
                             "type": "string",
                             "description": "The reasoning query"
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["compound", "gate", "cascade_analysis", "discover"],
+                            "default": "compound",
+                            "description": (
+                                "Operation mode. 'compound' reasons and optionally writes. "
+                                "'gate' is read-only risk assessment (never writes). "
+                                "'cascade_analysis' maps failure cascade chains. "
+                                "'discover' reasons without write-back."
+                            )
                         },
                         "max_rounds": {
                             "type": "integer",
@@ -251,12 +280,32 @@ class MCPServer:
                         "fold_back": {
                             "type": "boolean",
                             "default": True,
-                            "description": "If false: reasons but does NOT write to graph (dry-run)"
+                            "description": "If false: reasons but does NOT write to graph (dry-run). Ignored in gate mode."
                         },
                         "confidence_threshold": {
                             "type": "number",
-                            "default": 0.45,
-                            "description": "Minimum answer_confidence to trigger write-back (0.0-1.0). Uses cross-node agreement score, not raw activation confidence."
+                            "default": 0.65,
+                            "description": "Minimum answer_confidence to trigger write-back (0.0-1.0). Used in compound mode only."
+                        },
+                        "gate_threshold": {
+                            "type": "number",
+                            "default": 0.60,
+                            "description": "Minimum answer_confidence to return WARN/FLAG in gate mode (0.0-1.0). Used in gate mode only."
+                        },
+                        "stg_class": {
+                            "type": "string",
+                            "enum": ["auto", "I", "II", "III", "IV"],
+                            "default": "auto",
+                            "description": (
+                                "Prediction class. 'auto' escalates I→II→III until closure. "
+                                "I=Completion, II=Extension, III=Composition, IV=Extrapolation. "
+                                "Class IV requires allow_class_iv=True."
+                            )
+                        },
+                        "allow_class_iv": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Explicit opt-in required for Class IV (Extrapolation) predictions. confidence_threshold must be >= 0.75."
                         },
                         "similarity_threshold": {
                             "type": "number",
@@ -377,13 +426,25 @@ class MCPServer:
             return MCPToolResult("\n".join(parts))
 
     async def _handle_reason(self, args: dict) -> MCPToolResult:
-        """Run governed reasoning query."""
+        """Run governed reasoning query.
+
+        mode="standard" (default): byte-identical to prior behaviour.
+        mode="predictive": delegates to _handle_predict — returns PSE fields.
+        """
         self._ensure_graph()
         query = args.get("query", "")
+        mode = args.get("mode", "standard")
         max_rounds = args.get("max_rounds", 3)
 
         if not query:
             return MCPToolResult("Query is required", is_error=True)
+
+        if mode == "predictive":
+            # Delegate to predict pipeline — passes through all predict args
+            predict_args = {k: v for k, v in args.items() if k != "mode"}
+            predict_args.setdefault("query", query)
+            predict_args.setdefault("max_rounds", max_rounds)
+            return await self._handle_predict(predict_args)
 
         result = await self._graph.areason(
             query, max_rounds=max_rounds, task_type="reason",
@@ -540,18 +601,62 @@ class MCPServer:
     # ------------------------------------------------------------------
 
     async def _handle_predict(self, args: dict) -> MCPToolResult:
-        """Run graq_reason then optionally write predicted subgraph to graph."""
+        """Run graq_reason then optionally write predicted subgraph to graph.
+
+        Modes:
+        - compound (default): reason + optional write-back
+        - gate: read-only risk assessment, never writes
+        - cascade_analysis: map failure cascade chain, optionally write
+        - discover: reason without write-back (fold_back=False shorthand)
+        """
         self._ensure_graph()
         self._ensure_embedder()
 
         query = args.get("query", "")
+        mode = args.get("mode", "compound")
         max_rounds = args.get("max_rounds", 3)
         fold_back = args.get("fold_back", True)
-        confidence_threshold = args.get("confidence_threshold", 0.45)
+        confidence_threshold = args.get("confidence_threshold", 0.65)
+        gate_threshold = args.get("gate_threshold", 0.60)
+        stg_class = args.get("stg_class", "auto")
+        allow_class_iv = args.get("allow_class_iv", False)
         similarity_threshold = args.get("similarity_threshold", 0.15)
 
         if not query:
             return MCPToolResult("Query is required", is_error=True)
+
+        # === stg_class guardrails ===
+        if stg_class == "IV":
+            if not allow_class_iv:
+                return MCPToolResult(
+                    "Class IV predictions require allow_class_iv=True (explicit opt-in).",
+                    is_error=True,
+                )
+            if confidence_threshold < 0.75:
+                return MCPToolResult(
+                    "Class IV predictions require confidence_threshold >= 0.75.",
+                    is_error=True,
+                )
+
+        # === Dispatch by mode ===
+        if mode == "gate":
+            return await self._handle_gate_mode(
+                query=query,
+                max_rounds=max_rounds,
+                gate_threshold=gate_threshold,
+            )
+
+        if mode == "cascade_analysis":
+            return await self._handle_cascade_mode(
+                query=query,
+                max_rounds=max_rounds,
+                fold_back=fold_back,
+                confidence_threshold=confidence_threshold,
+                similarity_threshold=similarity_threshold,
+            )
+
+        if mode == "discover":
+            fold_back = False  # discover is always dry-run
 
         # === STEP 1: Run graq_reason UNMODIFIED ===
         reason_result = await self._graph.areason(
@@ -563,11 +668,42 @@ class MCPServer:
         # answer_confidence measures answer quality, not activation relevance.
         answer_confidence = self._compute_answer_confidence(reason_result)
 
-        # === STEP 3: Build base output (always returned, even if no write-back) ===
-        output: dict[str, Any] = {
+        # === STEP 3: Compute Q-scores (opaque quality dimensions) ===
+        q_scores = self._compute_q_scores(reason_result, answer_confidence)
+
+        # === STEP 4: Validate stg_class IV domain-intersection check ===
+        if stg_class == "IV":
+            domain_nodes = self._count_domain_intersection_nodes(reason_result)
+            if domain_nodes < 50:
+                output: dict[str, Any] = {
+                    "answer": reason_result.answer,
+                    "activation_confidence": reason_result.confidence,
+                    "answer_confidence": answer_confidence,
+                    "q_scores": q_scores,
+                    "stg_class": stg_class,
+                    "embedding_model": self._get_active_embedding_model(),
+                    "rounds": reason_result.rounds_completed,
+                    "nodes_used": reason_result.node_count,
+                    "cost_usd": round(reason_result.cost_usd, 4),
+                    "active_nodes": reason_result.active_nodes[:10],
+                    "prediction": {
+                        "status": "INSUFFICIENT_GRAPH",
+                        "nodes_added": 0,
+                        "edges_added": 0,
+                        "anchor_node_id": None,
+                        "content_hash": None,
+                        "subgraph": None,
+                    },
+                }
+                return MCPToolResult(json.dumps(output, indent=2))
+
+        # === STEP 5: Build base output (always returned, even if no write-back) ===
+        output = {
             "answer": reason_result.answer,
             "activation_confidence": reason_result.confidence,   # raw, preserved unchanged
             "answer_confidence": answer_confidence,               # calibrated, gates fold-back
+            "q_scores": q_scores,
+            "stg_class": stg_class,
             "embedding_model": self._get_active_embedding_model(),  # FB-003: detect model changes
             "rounds": reason_result.rounds_completed,
             "nodes_used": reason_result.node_count,
@@ -583,17 +719,17 @@ class MCPServer:
             },
         }
 
-        # === STEP 4: Confidence gate — uses answer_confidence, NOT activation_confidence ===
+        # === STEP 6: Confidence gate — uses answer_confidence, NOT activation_confidence ===
         if answer_confidence < confidence_threshold:
             output["prediction"]["status"] = "SKIPPED_LOW_CONFIDENCE"
             return MCPToolResult(json.dumps(output, indent=2))
 
-        # === STEP 5: Dry-run gate — skip LLM generation if not writing back ===
+        # === STEP 7: Dry-run gate — skip LLM generation if not writing back ===
         if not fold_back:
             output["prediction"]["status"] = "DRY_RUN"
             return MCPToolResult(json.dumps(output, indent=2))
 
-        # === STEP 6: Generate predicted subgraph from reasoning output ===
+        # === STEP 8: Generate predicted subgraph from reasoning output ===
         try:
             predicted_subgraph = await self._generate_predicted_subgraph(
                 query=query,
@@ -604,7 +740,7 @@ class MCPServer:
             output["prediction"]["status"] = "SKIPPED_GENERATION_ERROR"
             return MCPToolResult(json.dumps(output, indent=2))
 
-        # === STEP 7: Content hash — deduplication ===
+        # === STEP 9: Content hash — deduplication ===
         content_hash = _compute_content_hash(predicted_subgraph)
         output["prediction"]["content_hash"] = content_hash
 
@@ -615,7 +751,7 @@ class MCPServer:
 
         output["prediction"]["subgraph"] = predicted_subgraph
 
-        # === STEP 8: Write subgraph to graph (atomic) ===
+        # === STEP 10: Write subgraph to graph (atomic) ===
         try:
             anchor_id, nodes_added, edges_added = self._write_subgraph(
                 predicted_subgraph, content_hash
@@ -629,6 +765,291 @@ class MCPServer:
             output["prediction"]["status"] = "WRITE_FAILED"
 
         return MCPToolResult(json.dumps(output, indent=2))
+
+    async def _handle_gate_mode(
+        self,
+        query: str,
+        max_rounds: int,
+        gate_threshold: float,
+    ) -> MCPToolResult:
+        """Gate mode: read-only risk assessment. Never writes to graph.
+
+        Returns gate_status in {CLEAR, WARN, FLAG, INSUFFICIENT_GRAPH}
+        and a list of risk_vectors (plain text descriptions).
+
+        Gate status logic:
+        - INSUFFICIENT_GRAPH: fewer than 10 nodes activated
+        - CLEAR: answer_confidence below gate_threshold
+        - WARN: answer_confidence >= gate_threshold, non-critical risk signals
+        - FLAG: answer_confidence >= gate_threshold, critical risk signals
+        """
+        reason_result = await self._graph.areason(
+            query, max_rounds=max_rounds, task_type="predict",
+        )
+        answer_confidence = self._compute_answer_confidence(reason_result)
+        nodes_activated = len(reason_result.active_nodes)
+
+        if nodes_activated < 10:
+            gate_status = "INSUFFICIENT_GRAPH"
+            risk_vectors: list[str] = []
+        elif answer_confidence < gate_threshold:
+            gate_status = "CLEAR"
+            risk_vectors = []
+        else:
+            # Extract risk signals from answer text
+            risk_vectors = self._extract_risk_vectors(reason_result.answer)
+            critical_keywords = {
+                "critical", "breaking", "remove", "delete", "drop", "fail",
+                "security", "vulnerability", "breach", "corrupt", "data loss",
+            }
+            answer_lower = reason_result.answer.lower()
+            has_critical = any(kw in answer_lower for kw in critical_keywords)
+            gate_status = "FLAG" if has_critical else "WARN"
+
+        output = {
+            "gate_status": gate_status,
+            "answer_confidence": answer_confidence,
+            "nodes_activated": nodes_activated,
+            "risk_vectors": risk_vectors,
+            "answer": reason_result.answer,
+            "rounds": reason_result.rounds_completed,
+            "cost_usd": round(reason_result.cost_usd, 4),
+            "mode": "gate",
+        }
+        return MCPToolResult(json.dumps(output, indent=2))
+
+    async def _handle_cascade_mode(
+        self,
+        query: str,
+        max_rounds: int,
+        fold_back: bool,
+        confidence_threshold: float,
+        similarity_threshold: float,
+    ) -> MCPToolResult:
+        """Cascade analysis mode: map failure cascade chains.
+
+        Maps: root cause → tier-1 impacts → tier-2 impacts → terminal effects.
+        When fold_back=True and confidence is sufficient, writes the cascade
+        graph to the KG using CASCADE_TRIGGER edge type.
+        """
+        reason_result = await self._graph.areason(
+            query, max_rounds=max_rounds, task_type="predict",
+        )
+        answer_confidence = self._compute_answer_confidence(reason_result)
+        q_scores = self._compute_q_scores(reason_result, answer_confidence)
+
+        # Build cascade chain from reasoning output
+        cascade_chain = self._extract_cascade_chain(reason_result.answer)
+        tier_impacts: dict[str, int] = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        for item in cascade_chain:
+            sev = item.get("severity", "LOW")
+            if sev in tier_impacts:
+                tier_impacts[sev] += 1
+
+        output: dict[str, Any] = {
+            "answer": reason_result.answer,
+            "activation_confidence": reason_result.confidence,
+            "answer_confidence": answer_confidence,
+            "q_scores": q_scores,
+            "mode": "cascade_analysis",
+            "cascade_chain": cascade_chain,
+            "tier_impacts": tier_impacts,
+            "regulation_refs": self._extract_regulation_refs(reason_result.answer),
+            "embedding_model": self._get_active_embedding_model(),
+            "rounds": reason_result.rounds_completed,
+            "nodes_used": reason_result.node_count,
+            "cost_usd": round(reason_result.cost_usd, 4),
+            "prediction": {
+                "status": "DRY_RUN",
+                "nodes_added": 0,
+                "edges_added": 0,
+                "anchor_node_id": None,
+                "content_hash": None,
+            },
+        }
+
+        if not fold_back or answer_confidence < confidence_threshold:
+            if answer_confidence < confidence_threshold:
+                output["prediction"]["status"] = "SKIPPED_LOW_CONFIDENCE"
+            return MCPToolResult(json.dumps(output, indent=2))
+
+        # Write cascade subgraph with CASCADE_TRIGGER edges
+        try:
+            cascade_subgraph = self._build_cascade_subgraph(query, cascade_chain, reason_result)
+            content_hash = _compute_content_hash(cascade_subgraph)
+            if not self._subgraph_is_duplicate(content_hash, cascade_subgraph, similarity_threshold):
+                anchor_id, nodes_added, edges_added = self._write_subgraph(
+                    cascade_subgraph, content_hash
+                )
+                output["prediction"]["status"] = "WRITTEN"
+                output["prediction"]["anchor_node_id"] = anchor_id
+                output["prediction"]["nodes_added"] = nodes_added
+                output["prediction"]["edges_added"] = edges_added
+                output["prediction"]["content_hash"] = content_hash
+            else:
+                output["prediction"]["status"] = "SKIPPED_DUPLICATE"
+        except Exception as e:
+            logger.error(f"graq_predict cascade: write-back failed: {e}")
+            output["prediction"]["status"] = "WRITE_FAILED"
+
+        return MCPToolResult(json.dumps(output, indent=2))
+
+    def _compute_q_scores(self, reason_result: Any, answer_confidence: float) -> dict[str, float]:
+        """Compute Q-function quality dimensions for a prediction.
+
+        Returns three opaque scores in [0.0, 1.0]:
+        - feasibility: structural admissibility of the prediction
+        - novelty: distance from existing graph structure
+        - goal_alignment: consistency with domain ontology
+
+        These are independent quality dimensions. Callers can filter by
+        dimension. Higher is better on all three. Scores are opaque —
+        do not document or expose how they are computed internally.
+        """
+        # Feasibility: derived from activation breadth and answer confidence
+        activation = getattr(reason_result, "confidence", 0.0)
+        node_count = getattr(reason_result, "node_count", 0)
+        feasibility = round(min(1.0, (answer_confidence * 0.6) + (min(node_count, 20) / 20 * 0.4)), 3)
+
+        # Novelty: inverse of semantic overlap with activated nodes
+        # (more active nodes from existing graph = lower novelty)
+        novelty = round(max(0.0, 1.0 - (min(node_count, 50) / 50 * 0.5) - (activation * 0.2)), 3)
+
+        # Goal alignment: blended from answer confidence and activation quality
+        goal_alignment = round(min(1.0, answer_confidence * 0.7 + activation * 0.3), 3)
+
+        return {
+            "feasibility": feasibility,
+            "novelty": novelty,
+            "goal_alignment": goal_alignment,
+        }
+
+    def _count_domain_intersection_nodes(self, reason_result: Any) -> int:
+        """Count nodes in the domain intersection for Class IV validation.
+
+        Class IV requires >= 50 nodes in the domain intersection of the
+        active subgraph. This checks the activated partition, not the
+        full graph size.
+        """
+        active_nodes = getattr(reason_result, "active_nodes", [])
+        # Count activated nodes that have meaningful entity types (not padding)
+        domain_nodes = 0
+        for nid in active_nodes:
+            node = self._graph.nodes.get(nid)
+            if node and node.entity_type not in ("Entity", "pse_predict"):
+                domain_nodes += 1
+        return domain_nodes
+
+    def _extract_risk_vectors(self, answer: str) -> list[str]:
+        """Extract risk signal sentences from a reasoning answer."""
+        risk_keywords = {
+            "risk", "fail", "break", "error", "crash", "timeout", "security",
+            "vulnerability", "corrupt", "loss", "missing", "deprecated",
+        }
+        sentences = [s.strip() for s in answer.replace("\n", ". ").split(". ") if s.strip()]
+        vectors = []
+        for sentence in sentences:
+            if any(kw in sentence.lower() for kw in risk_keywords):
+                vectors.append(sentence[:200])
+            if len(vectors) >= 5:
+                break
+        return vectors
+
+    def _extract_cascade_chain(self, answer: str) -> list[dict]:
+        """Extract a tiered cascade chain from a reasoning answer.
+
+        Returns a list of cascade items with tier, label, impact, and severity.
+        This is a heuristic extraction — the LLM answer is the source of truth.
+        """
+        lines = [l.strip() for l in answer.split("\n") if l.strip()]
+        chain = []
+        tier = 1
+        severity_map = {"critical": "HIGH", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"}
+
+        for line in lines[:20]:  # cap at 20 lines
+            lower = line.lower()
+            # Detect severity hint
+            severity = "MEDIUM"
+            for kw, sev in severity_map.items():
+                if kw in lower:
+                    severity = sev
+                    break
+
+            # Lines that look like cause/effect statements
+            if any(marker in lower for marker in [
+                "cause", "lead", "result", "trigger", "affect", "impact",
+                "→", "->", "because", "therefore", "thus",
+            ]):
+                chain.append({
+                    "tier": min(tier, 3),
+                    "label": line[:120],
+                    "impact": f"Downstream effect at tier {tier}",
+                    "severity": severity,
+                })
+                tier += 1
+                if tier > 3:
+                    tier = 3
+
+        return chain
+
+    def _extract_regulation_refs(self, answer: str) -> list[str]:
+        """Extract EU AI Act or other regulation references from answer."""
+        import re
+        refs = []
+        # EU AI Act articles
+        for m in re.finditer(r"(?:EU AI Act |Article |Art\. ?)\s*(\d+)", answer, re.IGNORECASE):
+            refs.append(f"EU AI Act Article {m.group(1)}")
+        # GDPR references
+        for m in re.finditer(r"GDPR\s+(?:Article\s+)?(\d+)", answer, re.IGNORECASE):
+            refs.append(f"GDPR Article {m.group(1)}")
+        return list(dict.fromkeys(refs))[:10]  # deduplicate, cap at 10
+
+    def _build_cascade_subgraph(
+        self,
+        query: str,
+        cascade_chain: list[dict],
+        reason_result: Any,
+    ) -> dict:
+        """Build a cascade subgraph dict suitable for _write_subgraph.
+
+        Uses CASCADE_TRIGGER edge type for cascade relationships.
+        """
+        anchor_label = f"cascade: {query[:60]}"
+        supporting = []
+        edges = []
+
+        prev_label = anchor_label
+        for item in cascade_chain[:4]:  # max 4 tiers
+            label = item.get("label", "")[:80]
+            if not label:
+                continue
+            supporting.append({
+                "label": label,
+                "type": "pse_predict",
+                "description": item.get("impact", ""),
+                "relationship_to_anchor": "CASCADE_TRIGGER",
+            })
+            edges.append({
+                "from_label": prev_label,
+                "to_label": label,
+                "relationship": "CASCADE_TRIGGER",
+                "weight": 0.8 if item.get("severity") == "HIGH" else 0.6,
+            })
+            prev_label = label
+
+        return {
+            "anchor_label": anchor_label,
+            "anchor_type": "pse_predict",
+            "anchor_description": f"Failure cascade analysis for: {query[:100]}",
+            "anchor_properties": {
+                "source_query": query[:100],
+                "derived_from": "graq_predict",
+                "confidence": getattr(reason_result, "confidence", 0.0),
+                "cascade_tiers": len(cascade_chain),
+            },
+            "supporting_nodes": supporting,
+            "causal_edges": edges,
+        }
 
     def _compute_answer_confidence(self, reason_result: Any) -> float:
         """Compute answer-quality confidence from cross-node agreement.
