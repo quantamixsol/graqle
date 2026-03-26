@@ -4,6 +4,17 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.35.4 — 2026-03-26
+
+### Fixed
+- **Auto-grow hook now installed on `graq scan repo`** — previously the post-commit git hook
+  that keeps the KG in sync with every commit was only installed by `graq init`. Public users
+  who ran `graq scan repo .` directly never got the hook, causing their graph to go stale after
+  commits. The hook is now silently installed at the end of every `graq scan repo` run.
+  (`graqle/cli/commands/scan.py`)
+
+---
+
 ## v0.35.1 — graq_predict v1.4 Hotfix + PSE Sprint (2026-03-26)
 
 **Unblocks `fold_back=True`.** Two blocking bugs in `graq_predict` meant the core write-back mechanism never worked in v0.34.0. Both are now fixed. Four additional improvements ship in the same release.
