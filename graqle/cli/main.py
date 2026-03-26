@@ -646,7 +646,10 @@ def serve(
         )
         raise typer.Exit(1)
 
-    # Set env var so create_app can pick it up
+    # Forward config path and CWD to uvicorn factory subprocess via env vars
+    import pathlib
+    os.environ["GRAQLE_CONFIG_PATH"] = str(pathlib.Path(config).resolve())
+    os.environ["GRAQLE_SERVE_CWD"] = str(pathlib.Path.cwd())
     if read_only:
         os.environ["GRAQLE_READ_ONLY"] = "1"
 

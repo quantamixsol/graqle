@@ -364,7 +364,8 @@ class Graqle:
 
         # P2: validate embedding provenance if stored (graphs built with v0.34.0+)
         # skip_validation=True bypasses this check — ONLY for graq rebuild --re-embed.
-        _meta = (data.get("graph") or {}).get("_meta")
+        _graph_val = data.get("graph")
+        _meta = (_graph_val if isinstance(_graph_val, dict) else {}).get("_meta")
         if _meta and not skip_validation:
             _stored_model = _meta.get("embedding_model", "unknown")
             _stored_dim = _meta.get("embedding_dim", 0)
