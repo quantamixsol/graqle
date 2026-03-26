@@ -103,6 +103,13 @@ def create_app(
     Returns:
         FastAPI application instance
     """
+    # When launched via uvicorn factory, pick up config path + CWD forwarded by CLI
+    env_config = os.environ.get("GRAQLE_CONFIG_PATH")
+    env_cwd = os.environ.get("GRAQLE_SERVE_CWD")
+    if env_cwd:
+        os.chdir(env_cwd)
+    if env_config:
+        config_path = env_config
     try:
         from fastapi import FastAPI, HTTPException
         from fastapi.middleware.cors import CORSMiddleware
@@ -147,7 +154,6 @@ def create_app(
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     # CORS middleware — skip on Lambda where Function URL handles CORS (ADR-056)
-    import os
     if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
         app.add_middleware(
             CORSMiddleware,
