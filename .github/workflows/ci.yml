@@ -235,11 +235,16 @@ jobs:
           gh release upload "${TAG}" dist/sigstore-bundles/*.sigstore.json dist/sigstore-bundles/graqle-sbom.json \
             --clobber || echo "Release assets upload failed — release may not exist yet"
 
+      # Move sigstore bundles out of dist/ so pypa/gh-action-pypi-publish only
+      # sees .whl and .tar.gz files — it fails on unknown distribution formats.
+      - name: Isolate dist artifacts for PyPI upload
+        run: mv dist/sigstore-bundles /tmp/sigstore-bundles
+
       - name: Publish to PyPI via Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true   # Idempotent: don't fail if version already uploaded
-          packages-dir: dist/   # Only .whl and .tar.gz — sigstore bundles are in dist/sigstore-bundles/
+          packages-dir: dist/   # Only .whl and .tar.gz after sigstore-bundles moved out
         # No 'password' field — uses OIDC Trusted Publishing.
         # To enable: pypi.org → graqle project → Publishing → Add Trusted Publisher
         # (GitHub, org: quantamixsol, repo: graqle, workflow: ci.yml)
