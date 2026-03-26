@@ -7,12 +7,12 @@
     "url": "https://github.com/quantamixsol/graqle",
     "source": "github"
   },
-  "version": "0.36.2",
+  "version": "0.36.3",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "graqle",
-      "version": "0.36.2",
+      "version": "0.36.3",
       "transport": {
         "type": "stdio"
       }
