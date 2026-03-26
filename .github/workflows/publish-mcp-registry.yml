@@ -24,8 +24,21 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Update server.json version from tag
+        run: |
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          VERSION="${TAG#v}"
+          python3 -c "
+          import json, pathlib
+          s = json.loads(pathlib.Path('server.json').read_text())
+          s['version'] = '${VERSION}'
+          s['packages'][0]['version'] = '${VERSION}'
+          pathlib.Path('server.json').write_text(json.dumps(s, indent=2) + '\n')
+          print(f'Updated server.json to version {VERSION}')
+          "
+
       - name: Wait for PyPI to index the new version
-        run: sleep 30
+        run: sleep 60
 
       - name: Install mcp-publisher
         run: |
