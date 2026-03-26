@@ -1,17 +1,31 @@
 name: Publish to MCP Registry
 
+# Run AFTER CI completes (and publishes to PyPI) — the MCP registry
+# validates ownership by checking that 'mcp-name: ...' appears in the
+# PyPI README. Running on tag push races the PyPI publish and always fails.
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 jobs:
   publish:
+    # Only run when CI succeeded AND it was triggered by a version tag push
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Wait for PyPI to index the new version
+        run: sleep 30
 
       - name: Install mcp-publisher
         run: |
