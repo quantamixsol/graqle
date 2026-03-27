@@ -30,10 +30,16 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
+import sys
+import threading
+from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -59,15 +65,13 @@ _TS_BLOCK_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"70.*30.*blend|_compute_answer_confidence.*formula", re.IGNORECASE),
 ]
 
-# Common secret patterns (separate from TS — these are general credential leakage)
-_SECRET_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"password\s*=\s*['\"][^'\"]{4,}", re.IGNORECASE),
-    re.compile(r"api_key\s*=\s*['\"][^'\"]{8,}", re.IGNORECASE),
-    re.compile(r"secret\s*=\s*['\"][^'\"]{8,}", re.IGNORECASE),
-    re.compile(r"aws_secret_access_key\s*=\s*['\"][^'\"]{8,}", re.IGNORECASE),
-    re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),  # OpenAI key pattern
-    re.compile(r"ANTHROPIC_API_KEY\s*=\s*['\"][^'\"]{8,}", re.IGNORECASE),
-]
+# Layer 2: 200+ secret patterns — imported from secret_patterns module
+# (pure stdlib leaf module — zero graqle.* imports, safe circular-import)
+from graqle.core.secret_patterns import check_secrets_full as _check_secrets_full
+
+# Backward-compat re-export for any code that imports _SECRET_PATTERNS directly
+# (e.g., mcp_dev_server._redact uses its own SENSITIVE_KEYS — not this list)
+_SECRET_PATTERNS: list = []  # Deprecated — use check_secrets_full instead
 
 
 def _check_ts_leakage(content: str) -> tuple[bool, str]:
@@ -84,12 +88,15 @@ def _check_ts_leakage(content: str) -> tuple[bool, str]:
 
 
 def _check_secret_exposure(content: str) -> tuple[bool, list[str]]:
-    """Check for credential/secret exposure in diff content."""
-    found = []
-    for pattern in _SECRET_PATTERNS:
-        if pattern.search(content):
-            found.append(pattern.pattern[:30])
-    return bool(found), found
+    """Check for credential/secret exposure in diff content.
+
+    Layer 2A (regex 200+ patterns) + Layer 2B (AST structural detection).
+    Layer 2B triggered automatically when regex score > 0.3.
+    """
+    found, matches = _check_secrets_full(content, use_ast=True)
+    if not found:
+        return False, []
+    return True, [f"{m.group}:{m.pattern_name}" for m in matches[:10]]
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +220,70 @@ class GovernanceBypassNode:
 
 
 # ---------------------------------------------------------------------------
+# Audit Log (append-only JSONL — Layer 4)
+# ---------------------------------------------------------------------------
+
+class GovernanceAuditLog:
+    """Append-only JSONL audit log for all governance gate decisions.
+
+    Compliance: SOC2 CC7.2 (audit trail), ISO27001 A.12.4.1 (event logging),
+    ISO27001 A.12.4.2 (protection of log information — append-only, no rewrites).
+
+    One JSONL entry is written per gate check — T1, T2, T3, and TS-BLOCK all logged.
+    The file is opened in append mode on every write to allow safe external rotation.
+
+    Path resolution:
+      1. Explicit ``path`` argument to constructor
+      2. ``GRAQLE_AUDIT_LOG_PATH`` environment variable
+      3. Default: ``governance_audit.log`` (relative to CWD at construction time)
+
+    Thread safety: a per-instance Lock protects append calls.
+    I/O failure: silently no-ops with a stderr warning — never raises.
+    """
+
+    _DEFAULT_PATH = "governance_audit.log"
+    _ENV_VAR = "GRAQLE_AUDIT_LOG_PATH"
+
+    def __init__(self, path: Optional[str | Path] = None) -> None:
+        if path is not None:
+            self._path = Path(path).resolve()
+        else:
+            env_path = os.environ.get(self._ENV_VAR, "").strip()
+            self._path = Path(env_path).resolve() if env_path else Path(self._DEFAULT_PATH).resolve()
+        self._lock = threading.Lock()
+
+    def append(
+        self,
+        gate_result: "GateResult",
+        *,
+        actor: str = "",
+        approved_by: str = "",
+        file_path: str = "",
+    ) -> None:
+        """Append one JSONL entry. Opens in append mode — never truncates. Never raises."""
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "tier": gate_result.tier,
+            "blocked": gate_result.blocked,
+            "actor": actor,
+            "approved_by": approved_by,
+            "file_path": file_path or gate_result.file_path,
+            "gate_score": round(gate_result.gate_score, 4),
+            "reason": gate_result.reason,
+        }
+        line = json.dumps(entry, separators=(",", ":")) + "\n"
+        with self._lock:
+            try:
+                with open(self._path, "a", encoding="utf-8") as fh:
+                    fh.write(line)
+            except Exception as exc:
+                print(
+                    f"[graqle.governance] audit log write failed: {exc}",
+                    file=sys.stderr,
+                )
+
+
+# ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
 
@@ -220,10 +291,175 @@ class GovernanceMiddleware:
     """3-tier governance gate for graq_edit and graq_generate.
 
     Instantiate once per server, call check() before every write operation.
+
+    The cumulative_radius_cap is enforced across calls within the rolling
+    cumulative_window_hours window. Each actor's impact_radius contributions
+    are tracked in-memory. Exceeding the cap forces T3 (explicit approval required)
+    regardless of the individual change's risk_level — preventing actors from
+    splitting large changes into smaller ones to avoid T3 approval.
     """
 
-    def __init__(self, config: GovernanceConfig | None = None) -> None:
+    # Class-level lock: shared across all instances in the same process.
+    # This ensures thread-safe atomic check-and-record for cumulative radius.
+    _cumulative_lock: threading.Lock = threading.Lock()
+    # Class-level state: persisted to disk on every write.
+    # key: actor, value: list of [iso-timestamp, radius] pairs
+    _cumulative: dict[str, list[list]] = defaultdict(list)
+    _state_loaded: bool = False
+
+    _STATE_FILE = Path(".graqle") / "gov_cumulative.json"
+
+    def __init__(
+        self,
+        config: Optional[GovernanceConfig] = None,
+        *,
+        audit_log: Optional[GovernanceAuditLog] = None,
+        learn_callback: Optional[Callable[[dict[str, Any]], None]] = None,
+        policy: Optional[Any] = None,  # GovernancePolicyConfig | None
+    ) -> None:
         self.config = config or GovernanceConfig()
+        self._audit_log = audit_log if audit_log is not None else GovernanceAuditLog()
+        self._learn_callback = learn_callback
+        # Lazy policy load — governance_policy.py is a sibling module (pure stdlib)
+        if policy is not None:
+            self._policy = policy
+        else:
+            try:
+                from graqle.core.governance_policy import GovernancePolicyConfig
+                self._policy: Any = GovernancePolicyConfig.load()
+            except Exception:
+                self._policy = None
+        self._ensure_state_loaded()
+
+    @classmethod
+    def _ensure_state_loaded(cls) -> None:
+        """Load persisted cumulative state from disk on first call (once per process)."""
+        with cls._cumulative_lock:
+            if cls._state_loaded:
+                return
+            try:
+                if cls._STATE_FILE.exists():
+                    raw = json.loads(cls._STATE_FILE.read_text(encoding="utf-8"))
+                    for actor, entries in raw.items():
+                        cls._cumulative[actor] = entries
+            except Exception:
+                pass  # Corrupt state file — start fresh, never block on I/O error
+            cls._state_loaded = True
+
+    @classmethod
+    def _persist_state(cls) -> None:
+        """Persist cumulative state to disk. Called inside the lock."""
+        try:
+            cls._STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            tmp = cls._STATE_FILE.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps({k: v for k, v in cls._cumulative.items()}, indent=2),
+                encoding="utf-8",
+            )
+            tmp.replace(cls._STATE_FILE)
+        except Exception:
+            pass  # I/O failure must never block governance checks
+
+    def _get_cumulative_radius_locked(self, actor: str) -> int:
+        """Return total impact_radius for actor in the rolling window.
+
+        MUST be called while holding _cumulative_lock.
+        Prunes expired entries in place.
+        """
+        if not actor:
+            return 0
+        now = datetime.now(timezone.utc)
+        window = timedelta(hours=self.config.cumulative_window_hours)
+        GovernanceMiddleware._cumulative[actor] = [
+            entry for entry in GovernanceMiddleware._cumulative[actor]
+            if (now - datetime.fromisoformat(entry[0])) < window
+        ]
+        return sum(entry[1] for entry in GovernanceMiddleware._cumulative[actor])
+
+    def _atomic_check_and_record(
+        self, actor: str, impact_radius: int
+    ) -> tuple[bool, int]:
+        """Atomically check cumulative cap and record if not exceeded.
+
+        Returns (anti_gaming_triggered: bool, cumulative_total: int).
+        Thread-safe: uses class-level lock to prevent TOCTOU race.
+        """
+        if not actor:
+            return False, impact_radius
+
+        with GovernanceMiddleware._cumulative_lock:
+            current = self._get_cumulative_radius_locked(actor)
+            total = current + impact_radius
+            triggered = total > self.config.cumulative_radius_cap
+            if not triggered:
+                # Record immediately inside lock — atomic check+write
+                GovernanceMiddleware._cumulative[actor].append(
+                    [datetime.now(timezone.utc).isoformat(), impact_radius]
+                )
+                GovernanceMiddleware._persist_state()
+            return triggered, total
+
+    def _record_cumulative(self, actor: str, impact_radius: int) -> None:
+        """Record a gate-passed change (non-gaming path — already checked).
+
+        For T1/T2/T3-approved passes where anti-gaming was NOT triggered
+        but we still need to record for future window checks.
+        No-op for anonymous actors.
+        """
+        if not actor:
+            return
+        with GovernanceMiddleware._cumulative_lock:
+            GovernanceMiddleware._cumulative[actor].append(
+                [datetime.now(timezone.utc).isoformat(), impact_radius]
+            )
+            GovernanceMiddleware._persist_state()
+
+    def _emit_audit(
+        self,
+        result: "GateResult",
+        *,
+        actor: str,
+        approved_by: str,
+        file_path: str,
+    ) -> None:
+        """Write to audit log and fire learn_callback for T3 outcomes."""
+        self._audit_log.append(
+            result, actor=actor, approved_by=approved_by, file_path=file_path
+        )
+        # learn_callback: T3 only (approval or rejection)
+        if result.tier == "T3" and self._learn_callback is not None:
+            try:
+                self._learn_callback({
+                    "actor": actor,
+                    "tier": result.tier,
+                    "blocked": result.blocked,
+                    "file_path": file_path,
+                    "reason": result.reason,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "gate_score": result.gate_score,
+                    "approved_by": approved_by,
+                })
+            except Exception:
+                pass  # KG write failure must never break governance checks
+
+    def _apply_dry_run(self, result: "GateResult") -> "GateResult":
+        """If dry_run policy is active, convert blocked=True to a warning (except TS-BLOCK).
+
+        TS-BLOCK is ALWAYS blocking even in dry_run mode — it is unconditional.
+        dry_run converts T1/T2/T3 blocks to warnings only.
+        """
+        if (
+            self._policy is not None
+            and self._policy.dry_run
+            and result.blocked
+            and result.tier != "TS-BLOCK"
+        ):
+            result.blocked = False
+            result.warnings = list(result.warnings) + [
+                f"[DRY_RUN] This change would have been blocked "
+                f"(tier={result.tier}). dry_run=true in governance_policy.yaml."
+            ]
+        return result
 
     def check(
         self,
@@ -258,10 +494,11 @@ class GovernanceMiddleware:
         combined = (diff + "\n" + content).strip()
 
         # ── TS-BLOCK: unconditional, no threshold, no bypass ──────────────
+        # TS-BLOCK is NOT subject to dry_run — always hard-blocks.
         if cfg.ts_hard_block:
             ts_blocked, ts_reason = _check_ts_leakage(combined)
             if ts_blocked:
-                return GateResult(
+                _r = GateResult(
                     tier="TS-BLOCK",
                     blocked=True,
                     requires_approval=False,
@@ -272,6 +509,8 @@ class GovernanceMiddleware:
                     file_path=file_path,
                     threshold_at_time=0.0,
                 )
+                self._emit_audit(_r, actor=actor, approved_by=approved_by, file_path=file_path)
+                return _r  # TS-BLOCK: dry_run does NOT apply
 
         # Secret exposure check (separate from TS — advisory at T2, block at T3)
         secret_found, secret_matches = _check_secret_exposure(combined)
@@ -298,14 +537,53 @@ class GovernanceMiddleware:
         risk_upper = risk_level.upper()
         auto_pass_risk_int = cfg.risk_to_int(cfg.auto_pass_max_risk)
 
+        # ── Anti-gaming: cumulative radius cap (atomic check — no TOCTOU) ──
+        # Prevents splitting a large change into small ones to avoid T3.
+        # Example: cumulative_radius_cap=10, window=24h.
+        # If actor already has radius=8 in the window, a new radius=4 change
+        # forces T3 (8+4=12 > 10) even though individually it would be T1/T2.
+        # Uses class-level lock — thread-safe atomic read-check-write.
+        anti_gaming_triggered, cumulative_total = self._atomic_check_and_record(
+            actor, impact_radius
+        ) if actor else (False, impact_radius)
+        if anti_gaming_triggered:
+            warnings.append(
+                f"Anti-gaming: cumulative impact_radius {cumulative_total} "
+                f"exceeds cap {cfg.cumulative_radius_cap} in {cfg.cumulative_window_hours}h window. "
+                f"T3 required regardless of individual change size."
+            )
+            # Force T3 tier by elevating impact_radius for gate_score
+            impact_radius = cumulative_total  # use cumulative for score calculation
+            gate_score = max(gate_score, cfg.block_threshold + 0.01)
+
+        # ── Policy tier override (per-glob min_tier rules — Layer 4) ─────
+        # Policy can ELEVATE tier but never downgrade it.
+        # TS-BLOCK is preserved unconditionally (already returned above).
+        _policy_rule = None
+        _policy_approved_by: str = ""
+        if self._policy is not None and file_path:
+            _policy_rule = self._policy.get_rule_for_file(file_path)
+            if _policy_rule:
+                # Check if actor is pre-approved by policy whitelist for T3
+                if self._policy.is_actor_approved(file_path, actor or approved_by):
+                    if not approved_by:
+                        _policy_approved_by = f"policy:{_policy_rule.glob}"
+                        justification = justification or _policy_rule.justification
+
         # ── T1: Auto-pass ─────────────────────────────────────────────────
         # Secret exposure ALWAYS overrides T1 — never auto-pass if secrets found
+        # Anti-gaming ALWAYS overrides T1 — never auto-pass if cumulative cap exceeded
+        # Policy min_tier=T2/T3 overrides T1 auto-pass
+        _policy_min_tier = _policy_rule.min_tier if _policy_rule else "T1"
+        _t1_policy_ok = _policy_min_tier == "T1"
         if (
             not secret_found
+            and not anti_gaming_triggered
             and cfg.risk_to_int(risk_upper) <= auto_pass_risk_int
             and impact_radius <= cfg.auto_pass_max_radius
+            and _t1_policy_ok
         ):
-            return GateResult(
+            _r = GateResult(
                 tier="T1",
                 blocked=False,
                 requires_approval=False,
@@ -318,6 +596,8 @@ class GovernanceMiddleware:
                 file_path=file_path,
                 threshold_at_time=cfg.review_threshold,
             )
+            self._emit_audit(_r, actor=actor, approved_by=approved_by, file_path=file_path)
+            return self._apply_dry_run(_r)
 
         # ── T3: Explicit approval required ───────────────────────────────
         is_t3 = (
@@ -325,9 +605,16 @@ class GovernanceMiddleware:
             or impact_radius > 8
             or gate_score >= cfg.block_threshold
         )
+        # Policy min_tier elevation: force T3 if policy says so
+        if _policy_rule and _policy_rule.min_tier == "T3" and not is_t3:
+            is_t3 = True
+
+        # Resolve effective approved_by: explicit > policy whitelist
+        _effective_approved_by = approved_by or _policy_approved_by
+
         if is_t3:
-            if not approved_by:
-                return GateResult(
+            if not _effective_approved_by:
+                _r = GateResult(
                     tier="T3",
                     blocked=True,
                     requires_approval=True,
@@ -344,13 +631,39 @@ class GovernanceMiddleware:
                     file_path=file_path,
                     threshold_at_time=cfg.block_threshold,
                 )
-            # T3 with approval — proceed with bypass recorded
-            return GateResult(
+                self._emit_audit(_r, actor=actor, approved_by=approved_by, file_path=file_path)
+                return self._apply_dry_run(_r)
+
+            # T3 with approval — validate RBAC (skip if policy-whitelist approved)
+            _skip_rbac = _effective_approved_by.startswith("policy:")
+            if not _skip_rbac:
+                try:
+                    from graqle.core.rbac import check_approval as _rbac_check
+                    _rbac_ok, _rbac_reason = _rbac_check(_effective_approved_by, tier="T3")
+                    if not _rbac_ok:
+                        _r = GateResult(
+                            tier="T3",
+                            blocked=True,
+                            requires_approval=True,
+                            gate_score=gate_score,
+                            reason=f"T3: RBAC rejected — {_rbac_reason}",
+                            warnings=warnings,
+                            risk_level=risk_level,
+                            impact_radius=impact_radius,
+                            file_path=file_path,
+                            threshold_at_time=cfg.block_threshold,
+                        )
+                        self._emit_audit(_r, actor=actor, approved_by=_effective_approved_by, file_path=file_path)
+                        return self._apply_dry_run(_r)
+                except ImportError:
+                    pass  # RBAC module optional — allow approval without role check
+
+            _r = GateResult(
                 tier="T3",
                 blocked=False,
                 requires_approval=True,
                 gate_score=gate_score,
-                reason=f"T3: Approved by '{approved_by}'. Bypass will be recorded.",
+                reason=f"T3: Approved by '{_effective_approved_by}'. Bypass will be recorded.",
                 warnings=warnings,
                 bypass_allowed=True,
                 risk_level=risk_level,
@@ -358,11 +671,22 @@ class GovernanceMiddleware:
                 file_path=file_path,
                 threshold_at_time=cfg.block_threshold,
             )
+            self._emit_audit(_r, actor=actor, approved_by=_effective_approved_by, file_path=file_path)
+            return self._apply_dry_run(_r)
 
         # ── T2: Threshold-gated ───────────────────────────────────────────
         if gate_score >= cfg.review_threshold:
-            # Above review threshold but below block threshold — warn but allow
-            return GateResult(
+            # T2: validate RBAC — CI pipelines (T1-only role) should not bypass T2
+            t2_rbac_warnings = list(warnings)
+            try:
+                from graqle.core.rbac import check_approval as _rbac_check
+                if actor:
+                    _t2_ok, _t2_reason = _rbac_check(actor, tier="T2")
+                    if not _t2_ok:
+                        t2_rbac_warnings.append(f"RBAC advisory: {_t2_reason}")
+            except ImportError:
+                pass
+            _r = GateResult(
                 tier="T2",
                 blocked=False,
                 requires_approval=False,
@@ -372,28 +696,42 @@ class GovernanceMiddleware:
                     f"Proceeding with bypass recorded. "
                     f"risk_level={risk_level}, impact_radius={impact_radius}."
                 ),
-                warnings=warnings,
+                warnings=t2_rbac_warnings,
                 bypass_allowed=True,
                 risk_level=risk_level,
                 impact_radius=impact_radius,
                 file_path=file_path,
                 threshold_at_time=cfg.review_threshold,
             )
+            self._emit_audit(_r, actor=actor, approved_by=approved_by, file_path=file_path)
+            return self._apply_dry_run(_r)
 
         # T2 below threshold — pass with advisory
-        return GateResult(
+        # RBAC advisory: CI pipeline actors cannot approve T2
+        t2_below_warnings = list(warnings)
+        try:
+            from graqle.core.rbac import check_approval as _rbac_check
+            if actor:
+                _t2_ok, _t2_reason = _rbac_check(actor, tier="T2")
+                if not _t2_ok:
+                    t2_below_warnings.append(f"RBAC advisory: {_t2_reason}")
+        except ImportError:
+            pass
+        _r = GateResult(
             tier="T2",
             blocked=False,
             requires_approval=False,
             gate_score=gate_score,
             reason=f"T2: Gate score {gate_score:.2f} below threshold {cfg.review_threshold:.2f}. Passing.",
-            warnings=warnings,
+            warnings=t2_below_warnings,
             bypass_allowed=True,
             risk_level=risk_level,
             impact_radius=impact_radius,
             file_path=file_path,
             threshold_at_time=cfg.review_threshold,
         )
+        self._emit_audit(_r, actor=actor, approved_by=approved_by, file_path=file_path)
+        return self._apply_dry_run(_r)
 
     def build_bypass_node(
         self,
@@ -421,3 +759,17 @@ class GovernanceMiddleware:
             justification=justification,
             action=action,
         )
+
+
+# ---------------------------------------------------------------------------
+# Layer 4 public surface — re-export for backward compat
+# GovernancePolicyConfig, PolicyRule, InlineActor importable from this module.
+# ---------------------------------------------------------------------------
+try:
+    from graqle.core.governance_policy import (  # noqa: E402
+        GovernancePolicyConfig,
+        InlineActor,
+        PolicyRule,
+    )
+except ImportError:
+    pass  # governance_policy.py not yet available — safe to ignore

@@ -22,6 +22,20 @@ import networkx as nx
 import pytest
 
 from graqle.backends.mock import MockBackend
+
+
+@pytest.fixture(autouse=True)
+def _reset_rbac_validator():
+    """Reset the module-level RBAC default validator between tests.
+
+    The RBACValidator singleton caches registered actors. Without this reset,
+    test-ordering bugs appear when one test registers actors and does not fully
+    clean up, causing a subsequent test's setup_method to see stale state.
+    """
+    import graqle.core.rbac as _rbac
+    _rbac._default_validator = None
+    yield
+    _rbac._default_validator = None
 from graqle.core.graph import Graqle
 from graqle.core.message import Message
 from graqle.core.types import ReasoningType

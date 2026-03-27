@@ -86,7 +86,7 @@ def server():
 
 class TestToolDefinitionsV015:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 112  # v0.38.0 Phase 7: 56 graq_* + 56 kogni_* = 112
+        assert len(TOOL_DEFINITIONS) == 114  # v0.38.0 Phase 7: 57 graq_* + 57 kogni_* = 114
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

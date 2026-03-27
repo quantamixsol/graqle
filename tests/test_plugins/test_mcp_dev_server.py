@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # v0.38.0 Phase 7: +graq_profile + kogni_profile = 112 total
-        assert len(TOOL_DEFINITIONS) == 112
+        # v0.38.0 Phase 7: +graq_gov_gate + kogni_gov_gate = 114 total
+        assert len(TOOL_DEFINITIONS) == 114
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -188,6 +188,8 @@ class TestToolDefinitions:
             "graq_plan",
             # Phase 7: performance profiling
             "graq_profile",
+            # Phase 10: governance gate MCP tool
+            "graq_gov_gate",
         }
         expected_kogni = {
             "kogni_context",
@@ -250,8 +252,10 @@ class TestToolDefinitions:
             "kogni_plan",
             # Phase 7: performance profiling
             "kogni_profile",
+            # Phase 10: governance gate MCP tool
+            "kogni_gov_gate",
         }
-        # 56 graq_* + 56 kogni_* = 112 total (v0.38.0 Phase 7)
+        # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -281,7 +285,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 112  # 56 graq_* + 56 kogni_* aliases (v0.38.0 Phase 7)
+        assert len(tools) == 114  # 57 graq_* + 57 kogni_* aliases (v0.38.0 Phase 10)
 
 
 # ---------------------------------------------------------------------------

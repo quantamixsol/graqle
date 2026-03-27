@@ -58,6 +58,7 @@ class DedupOptions:
     reject_below: float = 0.70
     source_priority: list[str] = field(default_factory=lambda: [
         "code", "api_spec", "json_config", "user_knowledge", "document",
+        "audit",  # GOVERNANCE_BYPASS, TOOL_EXECUTION — lowest priority, never win merge
     ])
 
 
@@ -223,4 +224,8 @@ class DedupOrchestrator:
             return "user_knowledge"
         if etype in ("DOCUMENT", "SECTION"):
             return "document"
+        # Audit nodes (GOVERNANCE_BYPASS, TOOL_EXECUTION) are runtime-generated
+        # and must never win merge conflicts over real code/document nodes.
+        if etype in ("GOVERNANCE_BYPASS", "TOOL_EXECUTION"):
+            return "audit"
         return "code"  # default to highest priority

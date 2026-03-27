@@ -184,6 +184,20 @@ class TestBuildBypassNodeUniqueness:
 class TestGraqGateCLI:
     """graq gate command — structure, exit codes, output modes."""
 
+    def setup_method(self) -> None:
+        import json
+        import os
+        import graqle.core.rbac as _rbac_mod
+        actors = [{"actor_id": "lead-engineer", "role": "lead"}]
+        os.environ["GRAQLE_RBAC_ACTORS_JSON"] = json.dumps(actors)
+        _rbac_mod._default_validator = None
+
+    def teardown_method(self) -> None:
+        import os
+        import graqle.core.rbac as _rbac_mod
+        os.environ.pop("GRAQLE_RBAC_ACTORS_JSON", None)
+        _rbac_mod._default_validator = None
+
     def test_gate_command_importable(self) -> None:
         from graqle.cli.main import gate_command
         assert callable(gate_command)

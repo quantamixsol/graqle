@@ -505,6 +505,62 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_gov_gate",
+        "description": (
+            "Governance gate — run the 3-tier GovernanceMiddleware check on a diff or file. "
+            "Returns tier (TS-BLOCK/T1/T2/T3), blocked (bool), gate_score (0.0-1.0), "
+            "and reason. Exit code 1 equivalent when blocked=true. "
+            "Used by WorkflowOrchestrator GATE stage and CI enforcement. "
+            "TS-BLOCK is unconditional — no bypass, no approval overrides it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "File being changed (required for context).",
+                },
+                "diff": {
+                    "type": "string",
+                    "description": "Unified diff content to check for TS patterns and secrets.",
+                    "default": "",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Full file content (alternative to diff).",
+                    "default": "",
+                },
+                "risk_level": {
+                    "type": "string",
+                    "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                    "default": "LOW",
+                    "description": "Risk level from preflight check.",
+                },
+                "impact_radius": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Number of downstream consumers (from graq_preflight).",
+                },
+                "approved_by": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Approver identity (required for T3 changes).",
+                },
+                "justification": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Reason for change (recorded in audit trail).",
+                },
+                "actor": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Identity of the requesting actor.",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
         "name": "graq_drace",
         "description": (
             "DRACE governance scoring — query AI reasoning audit trails "
@@ -1763,6 +1819,8 @@ _WRITE_TOOLS = frozenset({
     "graq_workflow", "kogni_workflow",
     # Phase 5: graq_test executes subprocesses — blocked in read-only mode
     "graq_test", "kogni_test",
+    # Phase 10: graq_gov_gate writes GOVERNANCE_BYPASS KG nodes — blocked in read-only mode
+    "graq_gov_gate", "kogni_gov_gate",
 })
 
 
@@ -2089,6 +2147,7 @@ class KogniDevServer:
             "graq_route": self._handle_route,
             "graq_lifecycle": self._handle_lifecycle,
             "graq_gate": self._handle_gate,
+            "graq_gov_gate": self._handle_gov_gate,
             "graq_drace": self._handle_drace,
             # SCORCH plugin
             "graq_scorch_audit": self._handle_scorch_audit,
@@ -2133,6 +2192,7 @@ class KogniDevServer:
             "kogni_route": self._handle_route,
             "kogni_lifecycle": self._handle_lifecycle,
             "kogni_gate": self._handle_gate,
+            "kogni_gov_gate": self._handle_gov_gate,
             "kogni_drace": self._handle_drace,
             # Phantom kogni aliases
             "kogni_phantom_browse": self._handle_phantom_browse,
@@ -3467,6 +3527,78 @@ class KogniDevServer:
 
         return json.dumps(result)
 
+    async def _handle_gov_gate(self, args: dict[str, Any]) -> str:
+        """Governance gate — run GovernanceMiddleware 3-tier check on a diff/file.
+
+        This is the MCP-tool wrapper for GovernanceMiddleware.check(), used by:
+        - WorkflowOrchestrator GATE stage
+        - Direct MCP calls for pre-change governance validation
+        - CI pipelines that cannot use the CLI
+
+        Returns GateResult.to_dict() + 'blocked' field.
+        Returns error GOVERNANCE_GATE if blocked=True (exit-code-1 equivalent).
+        Writes GOVERNANCE_BYPASS KG node for every T2/T3 that passes.
+        """
+        from graqle.core.governance import GovernanceConfig, GovernanceMiddleware
+
+        file_path = args.get("file_path", "")
+        diff = args.get("diff", "")
+        content = args.get("content", "")
+        risk_level = str(args.get("risk_level", "LOW")).upper()
+        impact_radius = int(args.get("impact_radius", 0))
+        approved_by = str(args.get("approved_by", ""))
+        justification = str(args.get("justification", ""))
+        actor = str(args.get("actor", ""))
+
+        if not file_path and not diff and not content:
+            return json.dumps({"error": "Parameter 'file_path' is required."})
+
+        cfg = GovernanceConfig()
+        middleware = GovernanceMiddleware(cfg)
+        gate = middleware.check(
+            diff=diff,
+            content=content,
+            file_path=file_path,
+            risk_level=risk_level,
+            impact_radius=impact_radius,
+            approved_by=approved_by,
+            justification=justification,
+            action="gov_gate",
+            actor=actor,
+        )
+
+        result = gate.to_dict()
+
+        if gate.blocked:
+            result["error"] = "GOVERNANCE_GATE"
+            return json.dumps(result)
+
+        # Write GOVERNANCE_BYPASS KG node for T2/T3 that pass
+        if gate.tier in ("T2", "T3"):
+            try:
+                from graqle.core.node import CogniNode
+                bypass = middleware.build_bypass_node(
+                    gate,
+                    approved_by=approved_by,
+                    justification=justification,
+                    action="gov_gate",
+                    actor=actor,
+                )
+                bypass_node = CogniNode(
+                    id=bypass.bypass_id,
+                    label=f"governance_bypass:{gate.tier}:{file_path}",
+                    entity_type="GOVERNANCE_BYPASS",
+                    properties=bypass.to_node_metadata(),
+                )
+                _g = self._load_graph()
+                if _g is not None:
+                    _g.add_node(bypass_node)
+                    self._save_graph(_g)
+            except Exception:
+                pass  # Audit write MUST NEVER fail the primary operation
+
+        return json.dumps(result)
+
     async def _handle_drace(self, args: dict[str, Any]) -> str:
         """DRACE governance scoring — query audit trail and session scores.
 
@@ -3919,6 +4051,30 @@ class KogniDevServer:
                     "requires_approval": _gate.requires_approval,
                     "gate_score": _gate.gate_score,
                 })
+            # Write GOVERNANCE_BYPASS KG node for every T2/T3 that passes
+            # T1 auto-pass is logged only (no bypass node — not a bypass)
+            if _gate.tier in ("T2", "T3"):
+                try:
+                    from graqle.core.node import CogniNode
+                    _bypass = _gov.build_bypass_node(
+                        _gate,
+                        approved_by=str(args.get("approved_by", "")),
+                        justification=str(args.get("justification", "")),
+                        action="edit",
+                        actor=str(args.get("actor", "")),
+                    )
+                    _bypass_node = CogniNode(
+                        id=_bypass.bypass_id,
+                        label=f"governance_bypass:{_gate.tier}:{file_path}",
+                        entity_type="GOVERNANCE_BYPASS",
+                        properties=_bypass.to_node_metadata(),
+                    )
+                    _graph_for_audit = self._load_graph()
+                    if _graph_for_audit is not None:
+                        _graph_for_audit.add_node(_bypass_node)
+                        self._save_graph(_graph_for_audit)
+                except Exception:
+                    pass  # Audit write MUST NEVER fail the primary operation
         except ImportError:
             pass  # governance module optional in stripped builds
 
@@ -4062,6 +4218,29 @@ class KogniDevServer:
                     "requires_approval": _gate.requires_approval,
                     "gate_score": _gate.gate_score,
                 })
+            # Write GOVERNANCE_BYPASS KG node for every T2/T3 that passes
+            if _gate.tier in ("T2", "T3"):
+                try:
+                    from graqle.core.node import CogniNode
+                    _bypass = _gov.build_bypass_node(
+                        _gate,
+                        approved_by=str(args.get("approved_by", "")),
+                        justification=str(args.get("justification", "")),
+                        action="generate",
+                        actor=str(args.get("actor", "")),
+                    )
+                    _bypass_node = CogniNode(
+                        id=_bypass.bypass_id,
+                        label=f"governance_bypass:{_gate.tier}:{file_path}",
+                        entity_type="GOVERNANCE_BYPASS",
+                        properties=_bypass.to_node_metadata(),
+                    )
+                    _graph_for_audit = self._load_graph()
+                    if _graph_for_audit is not None:
+                        _graph_for_audit.add_node(_bypass_node)
+                        self._save_graph(_graph_for_audit)
+                except Exception:
+                    pass  # Audit write MUST NEVER fail the primary operation
         except ImportError:
             pass  # governance module optional in stripped builds
 
