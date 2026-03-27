@@ -111,7 +111,7 @@ def create_app(
     if env_config:
         config_path = env_config
     try:
-        from fastapi import FastAPI, HTTPException
+        from fastapi import FastAPI, HTTPException, Request
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import StreamingResponse
     except ImportError as exc:
@@ -279,9 +279,29 @@ def create_app(
         else:
             logger.warning("No graph loaded")
 
+    async def _resolve_graph(request: Any = None) -> Any:
+        """Return the correct graph for this request.
+
+        If x-project-name + x-user-email headers are present (cloud Studio requests),
+        load the per-project graph from S3. Otherwise fall back to the default graph
+        loaded at startup (local mode or single-project Lambda deployments).
+        """
+        if request is not None:
+            project = request.headers.get("x-project-name", "")
+            email = request.headers.get("x-user-email", "")
+            if project and email:
+                try:
+                    from graqle.studio.routes.api import _load_project_graph
+                    project_graph = await _load_project_graph(request, project)
+                    if project_graph is not None:
+                        return project_graph
+                except Exception as exc:
+                    logger.warning("Per-project graph load failed for %s/%s: %s", email, project, exc)
+        return state.get("graph")
+
     @app.get("/health", response_model=HealthResponse)
-    async def health() -> HealthResponse:
-        graph = state.get("graph")
+    async def health(request: Request) -> HealthResponse:
+        graph = await _resolve_graph(request)
         if graph is not None:
             ctx = graph.project_context()
             return HealthResponse(
@@ -306,10 +326,10 @@ def create_app(
         )
 
     @app.get("/project-context")
-    async def project_context() -> Any:
+    async def project_context(request: Request) -> Any:
         """Return full project identity for the Studio TopBar and Dashboard card."""
         from fastapi.responses import JSONResponse
-        graph = state.get("graph")
+        graph = await _resolve_graph(request)
         if graph is not None:
             ctx = graph.project_context()
         else:
@@ -325,8 +345,8 @@ def create_app(
         return JSONResponse(content=ctx)
 
     @app.post("/reason", response_model=ReasonResponse)
-    async def reason(request: ReasonRequest) -> Any:
-        graph = state.get("graph")
+    async def reason(request: ReasonRequest, http_request: Request) -> Any:
+        graph = await _resolve_graph(http_request)
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")
 
@@ -373,8 +393,8 @@ def create_app(
         )
 
     @app.post("/reason/batch")
-    async def reason_batch(request: BatchReasonRequest) -> list:
-        graph = state.get("graph")
+    async def reason_batch(request: BatchReasonRequest, http_request: Request) -> list:
+        graph = await _resolve_graph(http_request)
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")
 
@@ -417,8 +437,8 @@ def create_app(
         ]
 
     @app.get("/graph/stats", response_model=GraphInfoResponse)
-    async def graph_stats() -> GraphInfoResponse:
-        graph = state.get("graph")
+    async def graph_stats(request: Request) -> GraphInfoResponse:
+        graph = await _resolve_graph(request)
         if graph is None:
             raise HTTPException(status_code=503, detail="No graph loaded")
 
