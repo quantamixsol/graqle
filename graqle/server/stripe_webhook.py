@@ -47,6 +47,9 @@ logger = logging.getLogger("graqle.server.stripe_webhook")
 
 # Tier mapping from Stripe Price/Product metadata
 STRIPE_TIER_MAP = {
+    "pro": "pro",
+    "pro_monthly": "pro",
+    "pro_annual": "pro",
     "team": "team",
     "team_monthly": "team",
     "team_annual": "team",
@@ -203,9 +206,22 @@ def handle_webhook_event(event_type: str, data: dict[str, Any]) -> dict[str, Any
         }
 
     elif event_type == "customer.subscription.deleted":
-        # Subscription cancelled — log for manual review
-        logger.info(f"Subscription cancelled: {data.get('object', {}).get('id')}")
-        return {"status": "ok", "action": "subscription_cancelled_logged"}
+        # Subscription cancelled — store a downgrade lead entry
+        sub = data.get("object", {})
+        sub_id = sub.get("id", "unknown")
+        customer_id = sub.get("customer", "")
+        logger.info(f"Subscription cancelled: {sub_id}, customer: {customer_id}")
+        try:
+            _store_lead({
+                "email": sub.get("customer_email", ""),
+                "tier": "cancelled",
+                "holder": "",
+                "stripe_session_id": sub_id,
+                "stripe_customer_id": customer_id,
+            })
+        except Exception as e:
+            logger.warning(f"Lead storage on cancel failed (non-fatal): {e}")
+        return {"status": "ok", "action": "subscription_cancelled", "subscription_id": sub_id}
 
     else:
         return {"status": "ignored", "event_type": event_type}

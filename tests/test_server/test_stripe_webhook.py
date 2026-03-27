@@ -175,7 +175,7 @@ class TestWebhookEventHandler:
             "object": {"id": "sub_test"}
         })
         assert result["status"] == "ok"
-        assert result["action"] == "subscription_cancelled_logged"
+        assert result["action"] == "subscription_cancelled"
 
 
 class TestLambdaHandler:

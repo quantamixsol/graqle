@@ -340,8 +340,11 @@ async def nodes_badge(request: Request):
 @router.get("/share/config")
 async def share_config(request: Request):
     """Get markdown snippets for embedding badges in READMEs."""
-    base_url = str(request.base_url).rstrip("/")
-    prefix = f"{base_url}/studio/api/control"
+    import os
+    # Use public API URL for shareable badge links — localhost:8077 is only reachable by the local user.
+    # GRAQLE_PUBLIC_URL can be set to override (e.g. in local dev to expose via ngrok).
+    public_url = os.environ.get("GRAQLE_PUBLIC_URL", "https://api.graqle.com").rstrip("/")
+    prefix = f"{public_url}/studio/api/control"
 
     return {
         "badges": {
