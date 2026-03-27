@@ -1,19 +1,11 @@
 {
-  "total_queries": 1610,
+  "total_queries": 1708,
   "records": {
     "n1": {
-      "activations": 1024,
+      "activations": 1087,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "relationship",
-        "concepts?",
         "relationship",
         "concepts?",
         "query",
@@ -25,22 +17,22 @@
         "query",
         "query",
         "relationship",
-        "concepts?"
+        "concepts?",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query"
       ]
     },
     "n2": {
-      "activations": 1024,
+      "activations": 1087,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "relationship",
-        "concepts?",
         "relationship",
         "concepts?",
         "query",
@@ -52,22 +44,22 @@
         "query",
         "query",
         "relationship",
-        "concepts?"
+        "concepts?",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query"
       ]
     },
     "n3": {
-      "activations": 1024,
+      "activations": 1087,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "relationship",
-        "concepts?",
         "relationship",
         "concepts?",
         "query",
@@ -79,22 +71,22 @@
         "query",
         "query",
         "relationship",
-        "concepts?"
+        "concepts?",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query"
       ]
     },
     "n4": {
-      "activations": 1024,
+      "activations": 1087,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "relationship",
-        "concepts?",
         "relationship",
         "concepts?",
         "query",
@@ -106,22 +98,22 @@
         "query",
         "query",
         "relationship",
-        "concepts?"
+        "concepts?",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query"
       ]
     },
     "n5": {
-      "activations": 1024,
+      "activations": 1087,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "query",
-        "relationship",
-        "concepts?",
         "relationship",
         "concepts?",
         "query",
@@ -133,11 +125,19 @@
         "query",
         "query",
         "relationship",
-        "concepts?"
+        "concepts?",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query",
+        "query"
       ]
     },
     "gdpr": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -164,7 +164,7 @@
       ]
     },
     "ai_act": {
-      "activations": 451,
+      "activations": 479,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -191,7 +191,7 @@
       ]
     },
     "art22": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -218,7 +218,7 @@
       ]
     },
     "art6": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -245,7 +245,7 @@
       ]
     },
     "consent": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -272,7 +272,7 @@
       ]
     },
     "transparency": {
-      "activations": 451,
+      "activations": 479,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -299,7 +299,7 @@
       ]
     },
     "hub": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -326,7 +326,7 @@
       ]
     },
     "leaf1": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -353,7 +353,7 @@
       ]
     },
     "leaf2": {
-      "activations": 112,
+      "activations": 119,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [
@@ -380,7 +380,7 @@
       ]
     },
     "high_risk": {
-      "activations": 226,
+      "activations": 240,
       "useful_activations": 0,
       "avg_confidence": 0.0,
       "query_patterns": [

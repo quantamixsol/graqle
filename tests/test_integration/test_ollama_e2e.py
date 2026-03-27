@@ -23,9 +23,14 @@ from graqle.core.graph import Graqle
 
 
 def _ollama_available() -> bool:
-    """Check if Ollama is running and has qwen2.5:0.5b."""
+    """Check if Ollama is running and has qwen2.5:0.5b.
+
+    Uses a short timeout (0.5s) to fail fast when Ollama is not running.
+    Result is cached at module level — called once per pytest session, not
+    once per test (which was burning 5s × N tests on connection timeouts).
+    """
     try:
-        resp = httpx.get("http://localhost:11434/api/tags", timeout=5)
+        resp = httpx.get("http://localhost:11434/api/tags", timeout=0.5)
         if resp.status_code != 200:
             return False
         models = [m["name"] for m in resp.json().get("models", [])]
@@ -34,8 +39,12 @@ def _ollama_available() -> bool:
         return False
 
 
+# Evaluated ONCE at import time (module load), not per-test.
+# Short timeout (0.5s) means fast failure when Ollama is not running.
+_OLLAMA_AVAILABLE: bool = _ollama_available()
+
 skip_no_ollama = pytest.mark.skipif(
-    not _ollama_available(),
+    not _OLLAMA_AVAILABLE,
     reason="Ollama not running or qwen2.5:0.5b not available",
 )
 

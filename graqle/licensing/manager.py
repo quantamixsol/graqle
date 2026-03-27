@@ -289,7 +289,7 @@ class LicenseManager:
         raise LicenseError(
             f"Feature '{feature}' requires GraQle {tier_label}. "
             f"Current tier: {self.current_tier.value.title()}. "
-            f"Upgrade at https://graqle.dev/pricing"
+            f"Upgrade at https://graqle.com/pricing"
         )
 
     # -- key generation (internal) -------------------------------------------

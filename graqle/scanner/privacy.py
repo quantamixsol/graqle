@@ -109,6 +109,9 @@ class RedactionEngine:
     # ------------------------------------------------------------------
 
     DEFAULT_PATTERNS: dict[str, str] = {
+        "graqle_api_key": (
+            r"\bgrq_[A-Za-z0-9]{32,}\b"
+        ),
         "api_key": (
             r'(?i)["\']?(?:api[_-]?key|apikey)["\']?\s*[:=]\s*["\']?(\S{8,})["\']?'
         ),

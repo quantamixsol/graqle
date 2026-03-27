@@ -57,7 +57,7 @@ def _check_plan_gate(feature: str = "cloud_sync") -> bool:
         f"  * Cross-repo architecture views\n"
         f"  * 50,000 node limit (vs {result.current_plan} limit)\n\n"
         f"  [bold]Upgrade:[/bold] graq billing\n"
-        f"  [bold]Purchase:[/bold] https://graqle.dev/pricing",
+        f"  [bold]Purchase:[/bold] https://graqle.com/pricing",
         border_style="cyan",
         title="Upgrade to Team",
     ))

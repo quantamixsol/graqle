@@ -399,7 +399,7 @@ class TestHasFeature:
 
     def test_check_feature_error_includes_upgrade_url(self):
         mgr = _make_manager_safe()
-        with pytest.raises(LicenseError, match="graqle.dev/pricing"):
+        with pytest.raises(LicenseError, match="graqle.com/pricing"):
             mgr.check_feature("private_deployment")
 
 
