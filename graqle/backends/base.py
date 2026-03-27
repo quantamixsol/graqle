@@ -45,5 +45,32 @@ class BaseBackend(ABC):
         """Cost in USD per 1,000 tokens."""
         ...
 
+    async def agenerate_stream(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.3,
+        stop: list[str] | None = None,
+    ):
+        """Stream generated text as an AsyncIterator[str].
+
+        Default implementation: yields the full result as a single chunk.
+        Backward-compatible for all existing backends — they get streaming
+        for free without any changes.
+
+        Override in backends that support native streaming (Anthropic, etc.)
+        to yield token-by-token chunks for lower time-to-first-token.
+
+        v0.38.0: Added for graq_generate streaming support (Phase 3).
+        """
+        result = await self.generate(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stop=stop,
+        )
+        yield result
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r})"

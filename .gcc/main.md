@@ -4,28 +4,29 @@
 Dev Intelligence Layer — Graph + Quality Gate for development.
 The Q in Graqle = Quality Gate that every code change passes through.
 
-## Current Version: v0.26.0
+## Current Version: v0.37.0 (next: v0.38.0)
 
-## Strategic Shift: ADR-105
-Transform from passive MCP tool (70-80% bypass) to 3-layer intelligence system (1-2% bypass):
-- **Layer B**: Embedded intelligence in source files (0% bypass)
-- **Layer A**: Deep reasoning via graq_gate MCP tool (<500ms)
-- **Layer C**: Enforcement via git hooks + CI (0% bypass at commit)
+## Strategic Direction: Governed AI Coding Assistant
+Transform graqle from read-only reasoning into a governed AI coding assistant.
+Branch: feature-coding-assistant | Target: v0.38.0
 
-## Active Work
-- [ ] **Phase 1**: Streaming Intelligence Pipeline + 60-second first value (v0.27)
-- [ ] Phase 2: Intelligence Layer injection (v0.27 continued)
-- [ ] Phase 3: Quality Gate enforcement (v0.28)
-- [ ] Phase 4: Transparency Layer — TAMR+ patterns (v0.28)
-- [ ] Phase 5: Dev Governance Protocol specification (v0.29)
+## Active Work — feature-coding-assistant (Phases 1–9 DONE, Phase 10 pending)
+- [x] Phase 1: graq_generate MCP tool (68 tests)
+- [x] Phase 2: graq_edit + atomic file writer (90 tests)
+- [x] Phase 3: Backend streaming (agenerate_stream on all 14 backends)
+- [x] Phase 3.5: File system + git tool layer (98→108 tools)
+- [x] Phase 4: Compound workflow tools + coding ontology ~90% (112 tools)
+- [x] Phase 5: graq_plan Plan-as-Graph primitive
+- [x] Phase 6: graq_profile + PERFORMANCE_PROFILING skill
+- [x] Phase 7: GovernanceMiddleware 3-tier gate (TS-BLOCK/T1/T2/T3)
+- [x] Phase 8: GOVERNANCE_BYPASS + TOOL_EXECUTION KG nodes; graq gate CLI (SARIF v2.1)
+- [x] Phase 9: WorkflowOrchestrator 7-stage state machine; GovernancePolicyConfig; governance-gate.yml CI
+- [ ] **Phase 10**: tree-sitter AST, policy-as-code DSL, 200+ secret patterns, RBAC, adversarial tests
+- [ ] v0.38.0 release tag + PyPI publish
 
-## Completed (v0.24-v0.26)
+## Completed (v0.24-v0.37)
 - [x] JS/TS full coverage (JSAnalyzer rewrite)
-- [x] Chunk inheritance 3-tier fallback (_inherit_chunks)
-- [x] Property-based activation fallback
-- [x] graq link infer (cross-project edge inference)
-- [x] max_nodes scaling for multi-repo graphs
 - [x] 14 backend providers
-- [x] 22 MCP tools
-- [x] ADR-103 (Content-Aware PCST), ADR-104 (Query Reformulator)
-- [x] ADR-105 (Streaming Intelligence & Quality Gate) — ACCEPTED
+- [x] 112 MCP tools (graq_* + kogni_* aliases)
+- [x] ADR-105 (Streaming Intelligence), ADR-106 (Gate+Rerank), ADR-107 (Staleness)
+- [x] ADR-111–120 (coding assistant phases 1–8)

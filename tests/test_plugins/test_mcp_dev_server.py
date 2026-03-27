@@ -120,8 +120,8 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # 38 graq_* tools + 36 kogni_* aliases (includes 13 SCORCH + 8 Phantom + graq_predict) = 74
-        assert len(TOOL_DEFINITIONS) == 74
+        # v0.38.0 Phase 7: +graq_gov_gate + kogni_gov_gate = 114 total
+        assert len(TOOL_DEFINITIONS) == 114
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -164,6 +164,32 @@ class TestToolDefinitions:
             "graq_phantom_flow",
             "graq_phantom_discover",
             "graq_phantom_session",
+            "graq_generate",    # v0.38.0
+            "graq_edit",        # v0.38.0
+            # Phase 3.5: file system + git tools
+            "graq_read",
+            "graq_write",
+            "graq_grep",
+            "graq_glob",
+            "graq_bash",
+            "graq_git_status",
+            "graq_git_diff",
+            "graq_git_log",
+            "graq_git_commit",
+            "graq_git_branch",
+            # Phase 4: compound workflow tools
+            "graq_review",
+            "graq_debug",
+            "graq_scaffold",
+            "graq_workflow",
+            # Phase 5: test execution
+            "graq_test",
+            # Phase 6: agent planning
+            "graq_plan",
+            # Phase 7: performance profiling
+            "graq_profile",
+            # Phase 10: governance gate MCP tool
+            "graq_gov_gate",
         }
         expected_kogni = {
             "kogni_context",
@@ -202,8 +228,34 @@ class TestToolDefinitions:
             "kogni_phantom_flow",
             "kogni_phantom_discover",
             "kogni_phantom_session",
+            "kogni_generate",    # v0.38.0
+            "kogni_edit",        # v0.38.0
+            # Phase 3.5: file system + git tools
+            "kogni_read",
+            "kogni_write",
+            "kogni_grep",
+            "kogni_glob",
+            "kogni_bash",
+            "kogni_git_status",
+            "kogni_git_diff",
+            "kogni_git_log",
+            "kogni_git_commit",
+            "kogni_git_branch",
+            # Phase 4: compound workflow tools
+            "kogni_review",
+            "kogni_debug",
+            "kogni_scaffold",
+            "kogni_workflow",
+            # Phase 5: test execution
+            "kogni_test",
+            # Phase 6: agent planning
+            "kogni_plan",
+            # Phase 7: performance profiling
+            "kogni_profile",
+            # Phase 10: governance gate MCP tool
+            "kogni_gov_gate",
         }
-        # 37 graq_* + 35 kogni_* = 72 total
+        # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -233,7 +285,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 74  # 38 graq_* + 36 kogni_* aliases (includes 13 SCORCH + 8 Phantom + graq_predict)
+        assert len(tools) == 114  # 57 graq_* + 57 kogni_* aliases (v0.38.0 Phase 10)
 
 
 # ---------------------------------------------------------------------------

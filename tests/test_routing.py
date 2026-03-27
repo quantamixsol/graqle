@@ -28,8 +28,13 @@ class TestTaskRecommendations:
             assert not missing, f"Task '{task}' missing keys: {missing}"
 
     def test_known_task_types_exist(self):
-        # "predict" added in v0.35.0 — graq_predict/kogni_predict MCP tools
-        expected = {"context", "reason", "preflight", "impact", "lessons", "learn", "code", "docs", "predict"}
+        # v0.38.0 Phase 7: +profile = 20 total
+        expected = {
+            "context", "reason", "preflight", "impact", "lessons", "learn",
+            "code", "docs", "predict",
+            "generate", "edit", "read", "write", "grep", "glob", "bash", "git",
+            "test", "plan", "profile",
+        }
         assert expected == set(TASK_RECOMMENDATIONS.keys())
 
     def test_all_have_suggested_providers(self):
@@ -139,7 +144,7 @@ class TestTaskRouter:
     def test_recommend_all(self):
         router = TaskRouter()
         recs = router.recommend_all()
-        assert len(recs) == 9  # 8 original + "predict" added in v0.35.0
+        assert len(recs) == 20  # v0.38.0 Phase 7: 19 + profile = 20
 
     def test_recommend_shows_available_providers(self):
         router = TaskRouter()

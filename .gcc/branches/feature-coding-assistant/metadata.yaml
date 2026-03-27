@@ -1,0 +1,103 @@
+branch: feature-coding-assistant
+parent: main
+status: WORKING
+created: "2026-03-26T00:00:00Z"
+last_updated: "2026-03-27T13:24:05Z"
+locked_by: null
+environment:
+  runtime: python-3.10
+  framework: graqle-0.38.0
+  region: n/a
+file_tree:
+  - path: graqle/core/generation.py
+    status: CREATED
+    purpose: GenerationRequest, CodeGenerationResult, DiffPatch types
+  - path: graqle/ontology/domains/coding.py
+    status: MODIFIED
+    purpose: "Coding domain — 14 skills, 15 entities, 17 relationships, 12 output gates (Phase 7: +PERFORMANCE_PROFILING, +validate_profile_output)"
+  - path: graqle/core/file_writer.py
+    status: CREATED
+    purpose: Atomic diff apply + rollback
+  - path: graqle/backends/base.py
+    status: MODIFIED
+    purpose: agenerate_stream() non-abstract default
+  - path: graqle/backends/api.py
+    status: MODIFIED
+    purpose: AnthropicBackend native token streaming
+  - path: graqle/backends/mock.py
+    status: MODIFIED
+    purpose: MockBackend word-by-word streaming
+  - path: graqle/core/plan.py
+    status: CREATED
+    purpose: PlanStep, GovernanceCheckpoint, ExecutionPlan dataclasses (zero blast radius)
+  - path: graqle/core/governance.py
+    status: CREATED
+    purpose: "GovernanceMiddleware — 3-tier gate (TS-BLOCK/T1/T2/T3), GovernanceConfig, GateResult, GovernanceBypassNode"
+  - path: graqle/core/profiler.py
+    status: CREATED
+    purpose: "Profiler, NodeProfilingTrace, StepRecord, ProfileSummary — per-step latency/token/confidence + CodeMetric KG node writer"
+  - path: graqle/plugins/mcp_dev_server.py
+    status: MODIFIED
+    purpose: "112 tools total — governance wired; GOVERNANCE_BYPASS + TOOL_EXECUTION KG audit nodes; WorkflowOrchestrator for governed_* workflows"
+  - path: graqle/routing.py
+    status: MODIFIED
+    purpose: "MCP_TOOL_TO_TASK + TASK_RECOMMENDATIONS for all tools (20 task types)"
+  - path: tests/test_generation/
+    status: CREATED
+    purpose: "529 tests across types/generate/edit/file_writer/streaming/phase35/phase4/plan/governance/profiler"
+  - path: tests/test_backends/test_streaming.py
+    status: CREATED
+    purpose: 6 streaming tests
+  - path: .gsm/decisions/ADR-111-generation-types-new-module.md
+    status: CREATED
+    purpose: generation.py blast radius rationale
+  - path: .gsm/decisions/ADR-112-graq-generate-phase1.md
+    status: CREATED
+    purpose: graph.areason() routing rationale
+  - path: .gsm/decisions/ADR-113-agenerate-stream-default-impl.md
+    status: CREATED
+    purpose: Non-abstract streaming default
+  - path: .gsm/decisions/ADR-114-graq-generate-stream-param.md
+    status: CREATED
+    purpose: stream=True design
+  - path: .gsm/decisions/ADR-115-phase35-file-system-tools.md
+    status: CREATED
+    purpose: File system + git tool layer design + safety rules
+  - path: .gsm/decisions/ADR-116-coding-ontology-completeness.md
+    status: CREATED
+    purpose: Ontology completeness roadmap (25% → 100%)
+  - path: .gsm/decisions/ADR-117-compound-workflow-tools-and-graq-test.md
+    status: CREATED
+    purpose: Compound workflow tools + graq_test keystone rationale
+  - path: .gsm/decisions/ADR-118-graq-plan-plan-as-graph.md
+    status: CREATED
+    purpose: graq_plan Plan-as-Graph design rationale
+  - path: .gsm/decisions/ADR-119-governance-enforcement.md
+    status: CREATED
+    purpose: 3-tier governance gate model design + threshold calibration rationale
+  - path: graqle/cli/main.py
+    status: MODIFIED
+    purpose: "gate_command — binary exit 0/1, --json, --sarif SARIF v2.1, --fail/--no-fail"
+  - path: graqle/core/workflow_orchestrator.py
+    status: CREATED
+    purpose: "WorkflowOrchestrator — 7-stage state machine (PLAN→PREFLIGHT→GATE→CODE→VALIDATE→TEST→LEARN)"
+  - path: graqle/config/settings.py
+    status: MODIFIED
+    purpose: "GovernancePolicyConfig Pydantic model + GraqleConfig.governance field (default_factory)"
+  - path: .github/workflows/governance-gate.yml
+    status: CREATED
+    purpose: "CI governance gate on PRs — graq gate all changed .py files, SARIF upload to Code Scanning"
+  - path: tests/test_generation/test_phase8_wiring.py
+    status: CREATED
+    purpose: "20 tests — Phase 8 wiring (GOVERNANCE_BYPASS, TOOL_EXECUTION, gate CLI)"
+  - path: tests/test_generation/test_phase9_orchestrator.py
+    status: CREATED
+    purpose: "27 tests — Phase 9 (GovernancePolicyConfig, WorkflowOrchestrator, gate CLI, governance-gate.yml)"
+  - path: .gsm/decisions/ADR-120-phase8-wiring-gaps.md
+    status: CREATED
+    purpose: "Phase 8 wiring gap analysis rationale"
+open_questions:
+  - Threshold calibration frequency — weekly vs per-incident (needs first real data)
+  - graq_profile sub-phase hooks (ANCHOR/ACTIVATE/GENERATE/VALIDATE/COMMIT latency breakdown)
+  - v0.38.0 release: graq generate + graq edit CLI commands + git tag
+  - Phase 10: tree-sitter AST, policy-as-code DSL, 200+ secret patterns, RBAC, adversarial tests

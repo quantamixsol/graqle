@@ -232,6 +232,37 @@ class NamedModelConfig(BaseModel):
     api_key: str | None = None
 
 
+class GovernancePolicyConfig(BaseModel):
+    """Governance policy thresholds — stored in graqle.yaml under 'governance:'.
+
+    All thresholds are tunable without code changes. Changes take effect on
+    the next GovernanceMiddleware instantiation (i.e. next MCP server restart).
+
+    Example YAML::
+
+        governance:
+          ts_hard_block: true
+          review_threshold: 0.70
+          block_threshold: 0.90
+          auto_pass_max_radius: 2
+          cumulative_radius_cap: 10
+          audit_tool_calls: true
+          workflow_enforce_gate: true
+    """
+
+    ts_hard_block: bool = True
+    review_threshold: float = 0.70          # T2 gate threshold
+    block_threshold: float = 0.90           # T3 block threshold
+    auto_pass_max_radius: int = 2           # T1 max impact_radius for auto-pass
+    auto_pass_max_risk: str = "LOW"         # T1 max risk level for auto-pass
+    cumulative_radius_cap: int = 10         # Anti-gaming: max radius per actor per 24h
+    cumulative_window_hours: int = 24       # Anti-gaming window
+    audit_tool_calls: bool = True           # Write TOOL_EXECUTION KG nodes
+    workflow_enforce_gate: bool = True      # Enforce governance gate in WorkflowOrchestrator
+    workflow_require_preflight: bool = True # Require preflight in governed workflows
+    workflow_require_learn: bool = True     # Require graq_learn at end of governed workflows
+
+
 class RedactionConfig(BaseModel):
     """Privacy redaction configuration for document scanning."""
 
@@ -366,6 +397,7 @@ class GraqleConfig(BaseModel):
     source_mode: str = "auto"    # "local", "cloud", "hybrid", "auto" (auto = detect at runtime)
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)
     node_models: dict[str, str] = Field(default_factory=dict)
+    governance: GovernancePolicyConfig = Field(default_factory=GovernancePolicyConfig)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> GraqleConfig:
