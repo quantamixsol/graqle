@@ -78,6 +78,10 @@ class MetricsEngine:
         # Try to load existing data
         self.load()
 
+        # S3 context — set by app.py _resolve_graph() on Lambda to target per-project key
+        self._s3_email: str | None = None
+        self._s3_project: str | None = None
+
     # ------------------------------------------------------------------
     # Recording methods
     # ------------------------------------------------------------------
@@ -339,7 +343,8 @@ class MetricsEngine:
     # ------------------------------------------------------------------
 
     def save(self) -> None:
-        """Persist all metrics to disk as JSON."""
+        """Persist all metrics to disk as JSON, and to S3 when running on Lambda."""
+        import os as _os
         data: dict[str, Any] = {
             "init_timestamp": self.init_timestamp,
             "context_loads": self.context_loads,
@@ -355,13 +360,29 @@ class MetricsEngine:
             "graph_stats_current": self.graph_stats_current,
             "caller_stats": getattr(self, "caller_stats", {}),
         }
+        payload = json.dumps(data, indent=2, ensure_ascii=False)
         try:
-            self._metrics_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            self._metrics_path.write_text(payload, encoding="utf-8")
         except OSError:
             logger.warning("Failed to persist metrics to %s", self._metrics_path)
+
+        # On Lambda: also write to S3 so metrics survive cold starts.
+        # Key: graphs/{email_hash}/{project}/metrics.json — same prefix as the KG.
+        if _os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+            email = getattr(self, "_s3_email", None)
+            project = getattr(self, "_s3_project", None)
+            if email and project:
+                try:
+                    import hashlib as _hashlib
+                    import boto3 as _boto3
+                    bucket = _os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
+                    email_hash = _hashlib.sha256(email.lower().encode()).hexdigest()
+                    s3_key = f"graphs/{email_hash}/{project}/metrics.json"
+                    s3 = _boto3.client("s3", region_name=_os.environ.get("AWS_REGION", "eu-central-1"))
+                    s3.put_object(Bucket=bucket, Key=s3_key, Body=payload.encode("utf-8"), ContentType="application/json")
+                    logger.debug("Metrics saved to S3: %s/%s", bucket, s3_key)
+                except Exception as exc:
+                    logger.warning("Failed to save metrics to S3: %s", exc)
 
     def load(self) -> None:
         """Load metrics from disk, merging into current state."""
@@ -387,6 +408,36 @@ class MetricsEngine:
         self.graph_stats = data.get("graph_stats", {})
         self.graph_stats_current = data.get("graph_stats_current", {})
         self.caller_stats: dict[str, dict[str, Any]] = data.get("caller_stats", {})
+
+    def load_from_s3(self, email: str, project: str) -> None:
+        """Load metrics from S3 (Lambda only). Call once per cold start after user context is known."""
+        import os as _os
+        if not _os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+            return
+        try:
+            import hashlib as _hashlib
+            import boto3 as _boto3
+            bucket = _os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
+            email_hash = _hashlib.sha256(email.lower().encode()).hexdigest()
+            s3_key = f"graphs/{email_hash}/{project}/metrics.json"
+            s3 = _boto3.client("s3", region_name=_os.environ.get("AWS_REGION", "eu-central-1"))
+            obj = s3.get_object(Bucket=bucket, Key=s3_key)
+            raw = obj["Body"].read().decode("utf-8")
+            # Merge S3 data only if it has more queries (S3 is the durable store)
+            s3_data = json.loads(raw)
+            if s3_data.get("queries", 0) >= self.queries:
+                self.context_loads = s3_data.get("context_loads", self.context_loads)
+                self.queries = s3_data.get("queries", self.queries)
+                self.tokens_saved = s3_data.get("tokens_saved", self.tokens_saved)
+                self.mistakes_prevented = s3_data.get("mistakes_prevented", self.mistakes_prevented)
+                self.lessons_applied = s3_data.get("lessons_applied", self.lessons_applied)
+                self.safety_checks = s3_data.get("safety_checks", self.safety_checks)
+                self.safety_blocks = s3_data.get("safety_blocks", self.safety_blocks)
+                self.sessions = s3_data.get("sessions", self.sessions)
+                self.node_access = s3_data.get("node_access", self.node_access)
+                logger.debug("Metrics loaded from S3: %s/%s (%d queries)", bucket, s3_key, self.queries)
+        except Exception as exc:
+            logger.debug("No S3 metrics found for %s/%s: %s", email, project, exc)
 
     def reset(self) -> None:
         """Reset all metrics to zero and persist."""
