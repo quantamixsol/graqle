@@ -294,6 +294,16 @@ def create_app(
                     from graqle.studio.routes.api import _load_project_graph
                     project_graph = await _load_project_graph(request, project)
                     if project_graph is not None:
+                        # P1: Tag the metrics engine with email+project so Lambda
+                        # writes per-project metrics.json to S3 (survives cold starts).
+                        metrics = state.get("metrics")
+                        if metrics is not None:
+                            prev_email = getattr(metrics, "_s3_email", None)
+                            metrics._s3_email = email
+                            metrics._s3_project = project
+                            # Load from S3 on first request for this user+project (cold start recovery)
+                            if prev_email != email:
+                                metrics.load_from_s3(email, project)
                         return project_graph
                 except Exception as exc:
                     logger.warning("Per-project graph load failed for %s/%s: %s", email, project, exc)
