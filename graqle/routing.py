@@ -98,6 +98,76 @@ TASK_RECOMMENDATIONS: dict[str, dict[str, Any]] = {
         "suggested_providers": ["anthropic", "openai", "deepseek"],
         "suggested_reason": "Predictions require strong reasoning to meet confidence threshold before writing to graph.",
     },
+    # v0.38.0: coding assistant task types
+    "generate": {
+        "description": "Governed code generation — unified diff via graph context",
+        "recommended_traits": ["code-aware", "smart"],
+        "suggested_providers": ["anthropic", "deepseek", "openai"],
+        "suggested_reason": "Code generation requires strong reasoning + code understanding — use best available model.",
+    },
+    "edit": {
+        "description": "Apply a code diff to a file with safety checks",
+        "recommended_traits": ["code-aware", "reliable"],
+        "suggested_providers": ["anthropic", "deepseek", "openai"],
+        "suggested_reason": "Edit operations mutate files — reliability and code awareness are critical.",
+    },
+    "read": {
+        "description": "Read file contents with optional line range",
+        "recommended_traits": ["fast", "cheap"],
+        "suggested_providers": ["groq", "gemini", "deepseek"],
+        "suggested_reason": "File reads are deterministic I/O — any model can handle them.",
+    },
+    "write": {
+        "description": "Atomically write or overwrite a file",
+        "recommended_traits": ["reliable"],
+        "suggested_providers": ["anthropic", "deepseek"],
+        "suggested_reason": "File writes are destructive — prefer reliable models for content generation.",
+    },
+    "grep": {
+        "description": "Search file contents by regex pattern across the codebase",
+        "recommended_traits": ["fast", "cheap"],
+        "suggested_providers": ["groq", "gemini", "deepseek"],
+        "suggested_reason": "Grep is deterministic pattern matching — no LLM needed, any model works for wrapping.",
+    },
+    "glob": {
+        "description": "Find files by glob pattern",
+        "recommended_traits": ["fast", "cheap"],
+        "suggested_providers": ["groq", "gemini", "deepseek"],
+        "suggested_reason": "Glob is deterministic filesystem traversal — fast and cheap.",
+    },
+    "bash": {
+        "description": "Execute a governed shell command with allowlist and timeout",
+        "recommended_traits": ["reliable", "safe"],
+        "suggested_providers": ["anthropic", "deepseek"],
+        "suggested_reason": "Shell execution is high-risk — use reliable models for command construction.",
+    },
+    "git": {
+        "description": "Git workflow operations (status, diff, log, commit, branch)",
+        "recommended_traits": ["reliable", "code-aware"],
+        "suggested_providers": ["anthropic", "deepseek", "openai"],
+        "suggested_reason": "Git operations affect version history — use reliable, code-aware models.",
+    },
+    # v0.38.0 Phase 5
+    "test": {
+        "description": "Test execution, result parsing, and coverage metrics collection",
+        "recommended_traits": ["fast", "reliable"],
+        "suggested_providers": ["groq", "deepseek", "anthropic"],
+        "suggested_reason": "Test execution is deterministic subprocess I/O — fast models work for orchestration.",
+    },
+    # v0.38.0 Phase 6
+    "plan": {
+        "description": "Goal decomposition into governance-gated DAG execution plans with impact analysis",
+        "recommended_traits": ["reasoning", "code-aware", "reliable"],
+        "suggested_providers": ["anthropic", "openai", "deepseek"],
+        "suggested_reason": "Planning requires deep graph reasoning and dependency understanding — use strong reasoning models.",
+    },
+    # v0.38.0 Phase 7
+    "profile": {
+        "description": "Reasoning performance profiling: per-step latency, token cost, confidence measurement",
+        "recommended_traits": ["fast", "reliable"],
+        "suggested_providers": ["groq", "anthropic", "deepseek"],
+        "suggested_reason": "Profiling runs the reasoning pipeline — fast models reduce profiling overhead.",
+    },
 }
 
 # Map MCP tool names to task types
@@ -109,6 +179,27 @@ MCP_TOOL_TO_TASK: dict[str, str] = {
     "graq_lessons": "lessons",
     "graq_learn": "learn",
     "graq_predict": "predict",
+    # v0.38.0: coding assistant tools
+    "graq_generate": "generate",
+    "graq_edit": "edit",
+    "graq_read": "read",
+    "graq_write": "write",
+    "graq_grep": "grep",
+    "graq_glob": "glob",
+    "graq_bash": "bash",
+    "graq_git_status": "git",
+    "graq_git_diff": "git",
+    "graq_git_log": "git",
+    "graq_git_commit": "git",
+    "graq_git_branch": "git",
+    # v0.38.0 Phase 4: compound workflow tools
+    "graq_review": "code",
+    "graq_debug": "code",
+    "graq_scaffold": "generate",
+    "graq_workflow": "code",
+    # v0.38.0 Phase 5: test execution
+    "graq_test": "test",
+    # kogni_* aliases
     "kogni_context": "context",
     "kogni_reason": "reason",
     "kogni_preflight": "preflight",
@@ -116,6 +207,31 @@ MCP_TOOL_TO_TASK: dict[str, str] = {
     "kogni_lessons": "lessons",
     "kogni_learn": "learn",
     "kogni_predict": "predict",
+    "kogni_generate": "generate",
+    "kogni_edit": "edit",
+    "kogni_read": "read",
+    "kogni_write": "write",
+    "kogni_grep": "grep",
+    "kogni_glob": "glob",
+    "kogni_bash": "bash",
+    "kogni_git_status": "git",
+    "kogni_git_diff": "git",
+    "kogni_git_log": "git",
+    "kogni_git_commit": "git",
+    "kogni_git_branch": "git",
+    # Phase 4: compound workflow aliases
+    "kogni_review": "code",
+    "kogni_debug": "code",
+    "kogni_scaffold": "generate",
+    "kogni_workflow": "code",
+    # Phase 5: test execution alias
+    "kogni_test": "test",
+    # Phase 6: agent planning
+    "graq_plan": "plan",
+    "kogni_plan": "plan",
+    # Phase 7: performance profiling
+    "graq_profile": "profile",
+    "kogni_profile": "profile",
 }
 
 

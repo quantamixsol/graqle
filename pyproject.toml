@@ -118,6 +118,7 @@ security = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+    "pytest-xdist>=3.0",
     "pytest-mock>=3.10",
     "pytest-env>=1.0",
     "pytest-cov>=4.0",
@@ -168,3 +169,15 @@ warn_return_any = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Parallel execution: safe tests run with -n auto; serial-marked tests excluded
+# Usage:
+#   Fast (parallel, no CLI/subprocess): pytest -n auto -m "not serial"
+#   Full suite serial:                  pytest tests/
+#   Full suite parallel (experimental): pytest -n auto
+markers = [
+    "serial: mark test to run serially (not safe for parallel execution)",
+    "slow_subprocess: mark test as spawning subprocesses (inherently slow)",
+]
+# xdist: keep each file's tests on a single worker to prevent chdir() conflicts
+# Use: pytest -n auto -m "not serial"  for fast parallel run
+addopts = "--dist=loadfile"

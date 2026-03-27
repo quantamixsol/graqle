@@ -40,6 +40,8 @@ _BUILTIN_DOMAINS: dict[str, str] = {
     "graqle.ontology.domains.financial": "register_financial_domain",
     "graqle.ontology.domains.legal": "register_legal_domain",
     "graqle.ontology.domains.data_analytics": "register_data_analytics_domain",
+    # v0.38.0: governed code generation domain
+    "graqle.ontology.domains.coding": "register_coding_domain",
 }
 
 
@@ -102,6 +104,8 @@ def collect_all_skills(
         "graqle.ontology.domains.financial": "FINANCIAL_SKILLS",
         "graqle.ontology.domains.legal": "LEGAL_SKILLS",
         "graqle.ontology.domains.data_analytics": "DATA_ANALYTICS_SKILLS",
+        # v0.38.0
+        "graqle.ontology.domains.coding": "CODING_SKILLS",
     }
 
     for module_path, dict_name in skill_dict_names.items():
