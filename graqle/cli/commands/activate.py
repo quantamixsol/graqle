@@ -34,7 +34,7 @@ def activate_command(
     """Activate a GraQle Team or Enterprise license.
 
     License keys are delivered via email after purchase at
-    https://graqle.dev/pricing. The key is verified offline
+    https://graqle.com/pricing. The key is verified offline
     using HMAC-SHA256 — no network calls needed.
 
     \b
@@ -57,7 +57,7 @@ def activate_command(
                 "  1. Copy the full key from your confirmation email\n"
                 "  2. No extra spaces or line breaks\n"
                 "  3. Key format: payload.signature (two parts separated by a dot)\n\n"
-                "[dim]Need help? Email support@graqle.dev[/dim]",
+                "[dim]Need help? Email support@graqle.com[/dim]",
                 border_style="red",
                 title="Activation Failed",
             )
@@ -72,7 +72,7 @@ def activate_command(
                 f"  Tier:    {license_obj.tier.value.title()}\n"
                 f"  Holder:  {license_obj.holder}\n"
                 f"  Expired: {license_obj.expires_at}\n\n"
-                "[dim]Renew at https://graqle.dev/pricing[/dim]",
+                "[dim]Renew at https://graqle.com/pricing[/dim]",
                 border_style="yellow",
                 title="Expired",
             )

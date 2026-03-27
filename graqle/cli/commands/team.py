@@ -58,7 +58,7 @@ def _check_team_gate() -> bool:
         f"  * Cross-repo architecture views\n"
         f"  * Persistent graph — survives laptop wipes\n\n"
         f"  [bold]Upgrade:[/bold] graq billing\n"
-        f"  [bold]Purchase:[/bold] https://graqle.dev/pricing",
+        f"  [bold]Purchase:[/bold] https://graqle.com/pricing",
         border_style="cyan",
         title="Upgrade to Team",
     ))

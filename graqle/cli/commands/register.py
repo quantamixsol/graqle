@@ -127,3 +127,23 @@ def register_command(
             title="Welcome",
         )
     )
+
+    if not non_interactive:
+        from graqle.cloud.credentials import load_credentials
+        creds = load_credentials()
+        if not creds.is_authenticated:
+            console.print()
+            console.print(
+                Panel(
+                    "[bold]Next: Connect to GraQle Cloud (optional)[/bold]\n\n"
+                    "  1. Get your API key at:\n"
+                    "     [bold cyan]https://graqle.com/dashboard/account[/bold cyan]\n\n"
+                    "  2. Run:\n"
+                    "     [bold cyan]graq login --api-key grq_your_key_here[/bold cyan]\n\n"
+                    "  [dim]Or set env var: export GRAQLE_API_KEY=grq_your_key[/dim]\n\n"
+                    "  Cloud enables: graph backup, team sync, Studio access.\n"
+                    "  Local features (CLI, MCP) work without it.",
+                    border_style="dim",
+                    title="[dim]Cloud setup (optional)[/dim]",
+                )
+            )

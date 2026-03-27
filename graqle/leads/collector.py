@@ -9,7 +9,7 @@ Privacy guarantees:
 - Anonymous telemetry is opt-in only (set during graq init or graq register)
 - Registration email is opt-in only
 - All data stored in ~/.graqle/profile.json (user-inspectable)
-- Sync endpoint is configurable (default: https://api.graqle.dev/leads)
+- Sync endpoint is configurable (default: https://api.graqle.com/leads)
 """
 
 # ── graqle:intelligence ──
@@ -41,8 +41,8 @@ PROFILE_DIR = Path.home() / ".graqle"
 PROFILE_PATH = PROFILE_DIR / "profile.json"
 EVENTS_PATH = PROFILE_DIR / "events.jsonl"
 
-DEFAULT_LEAD_ENDPOINT = "https://api.graqle.dev/leads"
-DEFAULT_EVENTS_ENDPOINT = "https://api.graqle.dev/events"
+DEFAULT_LEAD_ENDPOINT = "https://api.graqle.com/leads"
+DEFAULT_EVENTS_ENDPOINT = "https://api.graqle.com/events"
 
 # Milestones that trigger a soft upsell nudge
 USAGE_MILESTONES = [50, 100, 250, 500, 1000]

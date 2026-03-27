@@ -160,9 +160,9 @@ def billing_command(
                 "[bold]Ready to share your knowledge graph with your team?[/bold]\n\n"
                 "  Team plan: [bold cyan]$29/dev/month[/bold cyan]\n"
                 "  Includes shared KG sync, team analytics, and multi-dev coordination.\n\n"
-                "  [bold]Purchase:[/bold] https://graqle.dev/pricing\n"
+                "  [bold]Purchase:[/bold] https://graqle.com/pricing\n"
                 "  [bold]Activate:[/bold] graq activate <license-key>\n\n"
-                "[dim]Enterprise: Contact sales@graqle.dev[/dim]",
+                "[dim]Enterprise: Contact sales@graqle.com[/dim]",
                 border_style="cyan",
                 title="Upgrade",
             )
@@ -171,7 +171,7 @@ def billing_command(
         console.print(
             Panel(
                 "[bold]Need private deployment or compliance features?[/bold]\n\n"
-                "  Contact: [bold]sales@graqle.dev[/bold]\n\n"
+                "  Contact: [bold]sales@graqle.com[/bold]\n\n"
                 "[dim]Your Team license is active and all Team features are unlocked.[/dim]",
                 border_style="blue",
                 title="Enterprise",
