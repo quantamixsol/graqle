@@ -232,6 +232,9 @@ MCP_TOOL_TO_TASK: dict[str, str] = {
     # Phase 7: performance profiling
     "graq_profile": "profile",
     "kogni_profile": "profile",
+    # Phase 10: governance gate (writes GOVERNANCE_BYPASS KG nodes)
+    "graq_gov_gate": "gate",
+    "kogni_gov_gate": "gate",
 }
 
 

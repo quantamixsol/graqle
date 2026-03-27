@@ -144,6 +144,7 @@ class WorkflowResult:
             "plan_id": self.plan.plan_id,
             "goal": self.plan.goal,
             "workflow_type": self.plan.workflow_type,
+            "dry_run": self.plan.dry_run,
             "final_status": self.final_status.value,
             "halted_at": self.halted_at.value if self.halted_at else None,
             "rollback_triggered": self.rollback_triggered,
@@ -374,8 +375,9 @@ class WorkflowOrchestrator:
             }
 
         if stage == WorkflowStage.GATE:
-            # Run the MCP gate tool (wraps GovernanceMiddleware)
-            return "graq_gate", {
+            # graq_gov_gate wraps GovernanceMiddleware.check() — distinct from
+            # graq_gate which is the IntelligenceGate (module context tool).
+            return "graq_gov_gate", {
                 **base,
                 "file_path": plan.files[0] if plan.files else "",
                 "risk_level": "LOW",    # Will be overridden by preflight output in future

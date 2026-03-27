@@ -144,7 +144,24 @@ class TestSecretPatterns:
 
 class TestGovernanceTierLogic:
     def setup_method(self) -> None:
+        import json
+        import os
+        import graqle.core.rbac as _rbac_mod
+        # Register test actors as leads so T3 approval tests pass with RBAC
+        actors = [
+            {"actor_id": "alice", "role": "lead"},
+            {"actor_id": "bob", "role": "lead"},
+            {"actor_id": "cto@graqle.com", "role": "lead"},
+        ]
+        os.environ["GRAQLE_RBAC_ACTORS_JSON"] = json.dumps(actors)
+        _rbac_mod._default_validator = None  # reset so env var is picked up
         self.mw = GovernanceMiddleware()
+
+    def teardown_method(self) -> None:
+        import os
+        import graqle.core.rbac as _rbac_mod
+        os.environ.pop("GRAQLE_RBAC_ACTORS_JSON", None)
+        _rbac_mod._default_validator = None
 
     def test_ts_block_takes_precedence(self) -> None:
         # TS-BLOCK must trigger even when risk=LOW and radius=0

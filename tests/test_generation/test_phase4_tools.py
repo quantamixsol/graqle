@@ -167,7 +167,7 @@ class TestCodingOntologyPhase4:
 class TestPhase4ToolDefinitions:
     def test_total_tool_count(self):
         """v0.38.0 Phase 7: 56 graq_* + 56 kogni_* = 112."""
-        assert len(TOOL_DEFINITIONS) == 112
+        assert len(TOOL_DEFINITIONS) == 114
 
     def test_compound_tools_defined(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -438,7 +438,9 @@ class TestGraqWorkflow:
                 "dry_run": True,
             }))
             assert result.get("dry_run") is True, f"Workflow '{wf}' dry_run not True"
-            assert len(result.get("steps", [])) > 0, f"Workflow '{wf}' has no steps"
+            # Legacy workflows return "steps"; orchestrator workflows return "stages"
+            plan_items = result.get("steps") or result.get("stages") or []
+            assert len(plan_items) > 0, f"Workflow '{wf}' has no steps/stages"
 
 
 # ---------------------------------------------------------------------------

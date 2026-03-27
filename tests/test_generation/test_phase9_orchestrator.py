@@ -184,7 +184,7 @@ class TestWorkflowOrchestratorExecute:
         responses = {
             "graq_plan": {"plan_id": "p1", "steps": []},
             "graq_preflight": {"risk_level": "LOW", "impact_radius": 1},
-            "graq_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
+            "graq_gov_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
             "graq_generate": {"patches": [], "status": "ok"},
             "graq_review": {"issues": [], "status": "ok"},
             "graq_test": {"passed": 42, "failed": 0, "status": "ok"},
@@ -206,7 +206,8 @@ class TestWorkflowOrchestratorExecute:
         responses = {
             "graq_plan": {"plan_id": "p1", "steps": []},
             "graq_preflight": {"risk_level": "LOW", "impact_radius": 1},
-            "graq_gate": {
+            # Phase 10: GATE stage now calls graq_gov_gate (not graq_gate)
+            "graq_gov_gate": {
                 "error": "GOVERNANCE_GATE",
                 "tier": "TS-BLOCK",
                 "blocked": True,
@@ -231,7 +232,7 @@ class TestWorkflowOrchestratorExecute:
         responses = {
             "graq_plan": {"plan_id": "p1", "steps": []},
             "graq_preflight": {"risk_level": "LOW", "impact_radius": 1},
-            "graq_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
+            "graq_gov_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
             "graq_generate": {"patches": [], "status": "ok"},
             "graq_review": {"issues": [], "status": "ok"},
             "graq_test": {"passed": 10, "failed": 3, "status": "failed"},
@@ -251,7 +252,7 @@ class TestWorkflowOrchestratorExecute:
         responses = {
             "graq_plan": {"plan_id": "p1", "steps": []},
             "graq_preflight": {"risk_level": "LOW", "impact_radius": 1},
-            "graq_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
+            "graq_gov_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
             "graq_generate": {"patches": [], "status": "ok"},
             "graq_review": {"issues": [], "status": "ok"},
             # TEST and LEARN are skipped
@@ -295,7 +296,7 @@ class TestWorkflowOrchestratorExecute:
         responses = {
             "graq_plan": {"plan_id": "p1"},
             "graq_preflight": {"risk_level": "LOW"},
-            "graq_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
+            "graq_gov_gate": {"tier": "T1", "blocked": False, "gate_score": 0.1},
             "graq_generate": {"status": "ok"},
             "graq_review": {"issues": []},
             "graq_test": {"passed": 1, "failed": 0},
