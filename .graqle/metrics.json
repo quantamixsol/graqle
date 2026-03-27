@@ -1,8 +1,8 @@
 {
   "init_timestamp": "2026-03-12T00:27:27.998606+00:00",
-  "context_loads": 10202,
-  "queries": 2151,
-  "tokens_saved": 60719827,
+  "context_loads": 10334,
+  "queries": 2181,
+  "tokens_saved": 60983197,
   "mistakes_prevented": 0,
   "lessons_applied": 1,
   "safety_checks": 0,
@@ -210,64 +210,64 @@
       "last_accessed": "2026-03-12T00:27:28.035225+00:00"
     },
     "n1": {
-      "count": 1368,
-      "last_accessed": "2026-03-18T20:51:30.968797+00:00"
+      "count": 1387,
+      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
     },
     "n2": {
-      "count": 1368,
-      "last_accessed": "2026-03-18T20:51:30.968797+00:00"
+      "count": 1387,
+      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
     },
     "n3": {
-      "count": 1368,
-      "last_accessed": "2026-03-18T20:51:30.968797+00:00"
+      "count": 1387,
+      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
     },
     "n4": {
-      "count": 1368,
-      "last_accessed": "2026-03-18T20:51:30.968797+00:00"
+      "count": 1387,
+      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
     },
     "n5": {
-      "count": 1368,
-      "last_accessed": "2026-03-18T20:51:30.968797+00:00"
+      "count": 1387,
+      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
     },
     "gdpr": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:06.785954+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:11.866573+00:00"
     },
     "ai_act": {
-      "count": 603,
-      "last_accessed": "2026-03-18T20:43:15.466763+00:00"
+      "count": 612,
+      "last_accessed": "2026-03-27T12:55:54.862452+00:00"
     },
     "art22": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:06.785954+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
     },
     "art6": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:06.785954+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
     },
     "consent": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:06.785954+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
     },
     "transparency": {
-      "count": 603,
-      "last_accessed": "2026-03-18T20:43:15.468764+00:00"
+      "count": 612,
+      "last_accessed": "2026-03-27T12:55:54.864464+00:00"
     },
     "hub": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:09.026002+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:14.402493+00:00"
     },
     "leaf1": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:09.036520+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:14.403497+00:00"
     },
     "leaf2": {
-      "count": 150,
-      "last_accessed": "2026-03-18T20:42:09.037533+00:00"
+      "count": 152,
+      "last_accessed": "2026-03-27T12:53:14.404500+00:00"
     },
     "high_risk": {
-      "count": 302,
-      "last_accessed": "2026-03-18T20:43:15.467764+00:00"
+      "count": 307,
+      "last_accessed": "2026-03-27T12:55:54.862452+00:00"
     },
     "graqle/core/graph.py": {
       "count": 15,
@@ -662,39 +662,19 @@
     "captured_at": "2026-03-12T00:27:28.036295+00:00"
   },
   "graph_stats_current": {
-    "nodes": 9770,
-    "edges": 16106,
+    "nodes": 3,
+    "edges": 3,
     "node_types": {
-      "Directory": 79,
-      "Config": 15,
-      "CIPipeline": 4,
-      "DockerService": 4,
-      "PythonModule": 231,
-      "Function": 3106,
-      "Class": 732,
-      "EnvVar": 46,
-      "DatabaseModel": 82,
-      "APIEndpoint": 74,
-      "JavaScriptModule": 6,
-      "TestFile": 166,
-      "Dependency": 34,
-      "Entity": 5190,
-      "KNOWLEDGE": 1
+      "Regulation": 1,
+      "Category": 1,
+      "Requirement": 1
     },
     "edge_types": {
-      "CONTAINS": 480,
-      "CONFIGURES": 8,
-      "DEFINES": 3838,
-      "IMPORTS": 630,
-      "CALLS": 10672,
-      "USES_ENVVAR": 121,
-      "MODELS": 82,
-      "ROUTES_TO": 102,
-      "DEPENDS_ON": 34,
-      "TESTS": 134,
-      "RELATED_TO": 5
+      "DEFINES": 1,
+      "REQUIRES": 1,
+      "SUBJECT_TO": 1
     },
-    "captured_at": "2026-03-18T21:01:44.655967+00:00"
+    "captured_at": "2026-03-27T12:55:54.866467+00:00"
   },
   "caller_stats": {
     "dogfood-visual-planning": {

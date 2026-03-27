@@ -4734,12 +4734,37 @@ class KogniDevServer:
             return json.dumps({"error": str(exc), "tool": "graq_scaffold"})
 
     async def _handle_workflow(self, args: dict[str, Any]) -> str:
-        """Orchestrate multi-step coding workflows."""
+        """Orchestrate multi-step coding workflows (Phase 9: governed state machine)."""
         workflow = args.get("workflow", "").strip()
         goal = args.get("goal", "").strip()
         context = args.get("context", {})
         dry_run = bool(args.get("dry_run", True))
         max_steps = int(args.get("max_steps", 10))
+
+        # Phase 9: governed workflow types route through WorkflowOrchestrator
+        _governed_types = {"governed_edit", "governed_generate", "governed_refactor"}
+        if workflow in _governed_types and goal:
+            try:
+                from graqle.core.workflow_orchestrator import WorkflowOrchestrator
+                _policy = getattr(self._config, "governance", None) if self._config else None
+
+                orch = WorkflowOrchestrator(policy=_policy)
+                plan = orch.build_plan(
+                    goal,
+                    files=context.get("files") or args.get("files") or [],
+                    workflow_type=workflow,
+                    actor=str(args.get("actor", "")),
+                    approved_by=str(args.get("approved_by", "")),
+                    justification=str(args.get("justification", "")),
+                    skip_stages=args.get("skip_stages") or [],
+                    dry_run=dry_run,
+                )
+                result = await orch.execute(plan, self.handle_tool)
+                r = result.to_dict()
+                r["tool"] = "graq_workflow"
+                return json.dumps(r)
+            except ImportError:
+                pass  # orchestrator module optional — fall through to legacy path
 
         if not workflow:
             return json.dumps({"error": "Parameter 'workflow' is required."})

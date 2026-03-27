@@ -1349,6 +1349,115 @@ def preflight_command(
             console.print("  [green]No issues found. Proceed with caution.[/green]")
 
 
+@app.command("gate")
+def gate_command(
+    file_path: str = typer.Argument(..., help="File path being changed"),
+    diff: str = typer.Option("", "--diff", "-d", help="Unified diff content to check"),
+    content: str = typer.Option("", "--content", help="Full file content to check"),
+    risk_level: str = typer.Option("LOW", "--risk", "-r", help="Risk level: LOW | MEDIUM | HIGH | CRITICAL"),
+    impact_radius: int = typer.Option(0, "--impact-radius", "-i", help="Number of downstream consumers"),
+    approved_by: str = typer.Option("", "--approved-by", help="Explicit approver (required for T3)"),
+    justification: str = typer.Option("", "--justification", "-j", help="Reason for the change"),
+    actor: str = typer.Option("", "--actor", help="Who is requesting this change"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    fail_on_block: bool = typer.Option(True, "--fail/--no-fail", help="Exit code 1 if gate blocks (default: True)"),
+    sarif: bool = typer.Option(False, "--sarif", help="Output SARIF v2.1 format for GitHub Advanced Security"),
+) -> None:
+    """Run the governance gate on a diff or file content.
+
+    Returns exit code 0 if the change passes, exit code 1 if blocked.
+    Use in CI/CD to enforce governance before merging AI-generated code.
+
+    \b
+    Examples:
+        graq gate src/auth.py --diff "$(git diff HEAD src/auth.py)"
+        graq gate src/api.py --risk HIGH --impact-radius 12 --approved-by "lead-dev"
+        graq gate src/core.py --content "$(cat src/core.py)" --json
+        graq gate src/mod.py --sarif > results.sarif  # GitHub Advanced Security
+    """
+    import json as _json
+
+    from graqle.core.governance import GovernanceConfig, GovernanceMiddleware
+
+    cfg = GovernanceConfig()
+    middleware = GovernanceMiddleware(cfg)
+    gate = middleware.check(
+        diff=diff,
+        content=content,
+        file_path=file_path,
+        risk_level=risk_level.upper(),
+        impact_radius=impact_radius,
+        approved_by=approved_by,
+        justification=justification,
+        action="cli_gate",
+        actor=actor,
+    )
+
+    if sarif:
+        sarif_level = "error" if gate.blocked else ("warning" if gate.tier in ("T2", "T3") else "note")
+        sarif_output = {
+            "version": "2.1.0",
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "runs": [{
+                "tool": {
+                    "driver": {
+                        "name": "graq-gate",
+                        "version": "0.38.0",
+                        "rules": [{
+                            "id": f"GRAQ-GATE-{gate.tier}",
+                            "name": f"GovernanceGate{gate.tier}",
+                            "shortDescription": {"text": f"Governance gate tier {gate.tier}"},
+                            "helpUri": "https://graqle.com/docs/governance",
+                        }],
+                    }
+                },
+                "results": [{
+                    "ruleId": f"GRAQ-GATE-{gate.tier}",
+                    "level": sarif_level,
+                    "message": {"text": gate.reason},
+                    "locations": [{"physicalLocation": {"artifactLocation": {"uri": file_path}}}],
+                    "properties": {
+                        "gate_score": gate.gate_score,
+                        "tier": gate.tier,
+                        "blocked": gate.blocked,
+                        "requires_approval": gate.requires_approval,
+                    },
+                }],
+            }],
+        }
+        console.print(_json.dumps(sarif_output, indent=2))
+        if gate.blocked and fail_on_block:
+            raise typer.Exit(code=1)
+        return
+
+    if json_output:
+        console.print(_json.dumps(gate.to_dict(), indent=2))
+        if gate.blocked and fail_on_block:
+            raise typer.Exit(code=1)
+        return
+
+    tier_colors = {"TS-BLOCK": "red", "T3": "red", "T2": "yellow", "T1": "green"}
+    tier_color = tier_colors.get(gate.tier, "white")
+
+    if gate.blocked:
+        console.print(f"\n  [bold red]BLOCKED[/bold red] [{tier_color}]{gate.tier}[/{tier_color}] gate_score={gate.gate_score:.2f}")
+        console.print(f"  {gate.reason}")
+        for w in gate.warnings:
+            console.print(f"  [yellow]⚠[/yellow] {w}")
+        if gate.requires_approval:
+            console.print("\n  [bold]To proceed:[/bold] re-run with --approved-by <approver> --justification <reason>")
+    else:
+        console.print(f"\n  [bold green]PASS[/bold green] [{tier_color}]{gate.tier}[/{tier_color}] gate_score={gate.gate_score:.2f}")
+        console.print(f"  {gate.reason}")
+        for w in gate.warnings:
+            console.print(f"  [yellow]⚠[/yellow] {w}")
+        if gate.bypass_allowed:
+            console.print("  [dim]Bypass recorded in audit trail.[/dim]")
+
+    if gate.blocked and fail_on_block:
+        raise typer.Exit(code=1)
+
+
 @app.command("safety-check")
 def safety_check_command(
     component: str = typer.Argument(..., help="Component or file to safety-check"),

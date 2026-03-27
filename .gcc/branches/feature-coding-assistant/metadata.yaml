@@ -2,7 +2,7 @@ branch: feature-coding-assistant
 parent: main
 status: WORKING
 created: "2026-03-26T00:00:00Z"
-last_updated: "2026-03-27T05:00:00Z"
+last_updated: "2026-03-27T13:24:05Z"
 locked_by: null
 environment:
   runtime: python-3.10
@@ -38,7 +38,7 @@ file_tree:
     purpose: "Profiler, NodeProfilingTrace, StepRecord, ProfileSummary — per-step latency/token/confidence + CodeMetric KG node writer"
   - path: graqle/plugins/mcp_dev_server.py
     status: MODIFIED
-    purpose: "112 tools total — governance wired into _handle_edit/_handle_generate; +graq_profile/kogni_profile (Phase 7)"
+    purpose: "112 tools total — governance wired; GOVERNANCE_BYPASS + TOOL_EXECUTION KG audit nodes; WorkflowOrchestrator for governed_* workflows"
   - path: graqle/routing.py
     status: MODIFIED
     purpose: "MCP_TOOL_TO_TASK + TASK_RECOMMENDATIONS for all tools (20 task types)"
@@ -75,10 +75,29 @@ file_tree:
   - path: .gsm/decisions/ADR-119-governance-enforcement.md
     status: CREATED
     purpose: 3-tier governance gate model design + threshold calibration rationale
+  - path: graqle/cli/main.py
+    status: MODIFIED
+    purpose: "gate_command — binary exit 0/1, --json, --sarif SARIF v2.1, --fail/--no-fail"
+  - path: graqle/core/workflow_orchestrator.py
+    status: CREATED
+    purpose: "WorkflowOrchestrator — 7-stage state machine (PLAN→PREFLIGHT→GATE→CODE→VALIDATE→TEST→LEARN)"
+  - path: graqle/config/settings.py
+    status: MODIFIED
+    purpose: "GovernancePolicyConfig Pydantic model + GraqleConfig.governance field (default_factory)"
+  - path: .github/workflows/governance-gate.yml
+    status: CREATED
+    purpose: "CI governance gate on PRs — graq gate all changed .py files, SARIF upload to Code Scanning"
+  - path: tests/test_generation/test_phase8_wiring.py
+    status: CREATED
+    purpose: "20 tests — Phase 8 wiring (GOVERNANCE_BYPASS, TOOL_EXECUTION, gate CLI)"
+  - path: tests/test_generation/test_phase9_orchestrator.py
+    status: CREATED
+    purpose: "27 tests — Phase 9 (GovernancePolicyConfig, WorkflowOrchestrator, gate CLI, governance-gate.yml)"
+  - path: .gsm/decisions/ADR-120-phase8-wiring-gaps.md
+    status: CREATED
+    purpose: "Phase 8 wiring gap analysis rationale"
 open_questions:
-  - WorkflowOrchestrator design (DAG/saga) — graq_workflow upgrade to real DAG engine
-  - GOVERNANCE_BYPASS KG write in handlers (GovernanceMiddleware builds node; handler must write it)
   - Threshold calibration frequency — weekly vs per-incident (needs first real data)
-  - TOOL_EXECUTION audit trail nodes in KG (every tool invocation → KG node)
   - graq_profile sub-phase hooks (ANCHOR/ACTIVATE/GENERATE/VALIDATE/COMMIT latency breakdown)
   - v0.38.0 release: graq generate + graq edit CLI commands + git tag
+  - Phase 10: tree-sitter AST, policy-as-code DSL, 200+ secret patterns, RBAC, adversarial tests

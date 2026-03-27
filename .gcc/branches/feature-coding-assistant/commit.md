@@ -253,3 +253,52 @@
 - [ ] graq generate + graq edit CLI commands
 - [ ] v0.38.0 release tag
 **Blockers:** None
+
+---
+
+### COMMIT 8 — 2026-03-27T12:00:00Z
+**Milestone:** Phase 8 complete — GOVERNANCE_BYPASS + TOOL_EXECUTION KG audit nodes, graq gate CLI command (binary exit 0/1, --json, --sarif SARIF v2.1), WorkflowOrchestrator wired in mcp_dev_server. 20 Phase 8 tests pass.
+**State:** WORKING
+**Files Changed:**
+- MODIFIED: `graqle/plugins/mcp_dev_server.py` — GOVERNANCE_BYPASS KG write in _handle_edit/_handle_generate; TOOL_EXECUTION audit node in handle_tool finally block; _handle_workflow wires WorkflowOrchestrator for governed_* types
+- MODIFIED: `graqle/cli/main.py` — gate_command added: binary exit 0/1, --diff, --risk, --impact-radius, --approved-by, --justification, --actor, --json, --fail/--no-fail, --sarif (SARIF v2.1)
+- CREATED: `tests/test_generation/test_phase8_wiring.py` — 20 tests (GovernanceBypassNodeStructure, BuildBypassNodeUniqueness, GraqGateCLI, ToolExecutionAuditNode, GateCLIRegistration)
+- CREATED: `.gsm/decisions/ADR-120-phase8-wiring-gaps.md` — Phase 8 wiring gap analysis rationale
+**Key Decisions:**
+- GOVERNANCE_BYPASS write uses try/except pass — audit trail MUST NEVER fail the primary operation
+- TOOL_EXECUTION node written in finally block with pre-computed _t0 start time — captures latency even on exception
+- gate_command exits 1 on blocked (TS-BLOCK or T3 without approved_by) — binary exit for CI pipeline use
+- --sarif emits SARIF v2.1 format compatible with GitHub Advanced Security Code Scanning
+- gate_command initially lost between sessions (context compaction) — re-inserted in Phase 9 session
+**Next:**
+- [x] Phase 9: WorkflowOrchestrator state machine
+- [x] Phase 9: GovernancePolicyConfig in settings.py
+- [x] Phase 9: governance-gate.yml GitHub Actions workflow
+**Blockers:** None
+
+---
+
+### COMMIT 9 — 2026-03-27T13:24:05Z
+**Milestone:** Phase 9 complete — WorkflowOrchestrator (PLAN→PREFLIGHT→GATE→CODE→VALIDATE→TEST→LEARN), GovernancePolicyConfig in GraqleConfig, governance-gate.yml GitHub Actions. 48 Phase 8+9 tests passing.
+**State:** WORKING
+**Files Changed:**
+- CREATED: `graqle/core/workflow_orchestrator.py` — WorkflowOrchestrator, WorkflowStage, StageStatus, StageResult, WorkflowPlan, WorkflowResult, _STAGE_ORDER; 7-stage enforced state machine; policy-aware (workflow_enforce_gate, workflow_require_preflight, workflow_require_learn); halts on BLOCKED
+- MODIFIED: `graqle/config/settings.py` — GovernancePolicyConfig Pydantic model (ts_hard_block, review_threshold, block_threshold, auto_pass_max_radius, audit_tool_calls, workflow enforcement flags); GraqleConfig.governance field with default_factory
+- CREATED: `.github/workflows/governance-gate.yml` — GitHub Actions: graq gate on all changed .py files per PR; SARIF merge + upload to Code Scanning; security-events: write permission; gate summary in GITHUB_STEP_SUMMARY
+- CREATED: `tests/test_generation/test_phase9_orchestrator.py` — 27 tests: TestGovernancePolicyConfig (7), TestWorkflowOrchestratorTypes (6), TestWorkflowOrchestratorExecute (6 asyncio), TestGraqGateCLIPhase9 (4), TestGovernanceGateWorkflow (4)
+- MODIFIED: `tests/test_generation/test_phase9_orchestrator.py` — Unicode encoding fix: Path.read_text(encoding="utf-8") for Windows cp1252 YAML read
+**Key Decisions:**
+- Named `workflow_orchestrator.py` not `orchestrator.py` — graq_reason (88% confidence, 20+ agents) flagged collision with graqle/orchestration/orchestrator.py
+- GovernancePolicyConfig uses default_factory — backward compatible; existing graqle.yaml files without governance: key still work
+- WorkflowOrchestrator.execute() halts at first BLOCKED stage — downstream stages never run after gate block
+- rollback_triggered=True set on TEST stage failure in WorkflowResult
+- Unicode fix: Windows CI uses cp1252 by default; tests reading UTF-8 YAML must specify encoding="utf-8" explicitly
+**Next:**
+- [ ] Phase 10: tree-sitter AST parsing (Python + JS/TS)
+- [ ] Phase 10: policy-as-code YAML DSL
+- [ ] Phase 10: secret detection expansion (5 → 200+ patterns)
+- [ ] Phase 10: multi-tenant RBAC
+- [ ] Phase 10: adversarial test suite (500+ cases)
+- [ ] Push updated feature branch to GitHub
+- [ ] v0.38.0 release tag after Phase 10
+**Blockers:** None

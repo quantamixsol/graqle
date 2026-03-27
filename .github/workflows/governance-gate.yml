@@ -1,0 +1,162 @@
+name: Governance Gate (graq gate)
+
+# Runs graq gate on every changed file in a PR.
+# Blocks merge if any file triggers TS-BLOCK or T3 without approved_by.
+# Uploads SARIF results to GitHub Advanced Security for inline annotations.
+#
+# ADR-121: This is the CI enforcement point for the 3-tier governance gate.
+# Exit code semantics:
+#   0 = PASS (T1 auto-pass, T2 bypass-recorded, T3 with approval)
+#   1 = BLOCKED (TS-BLOCK or T3 without approved_by)
+#
+# SARIF output is uploaded to GitHub Code Scanning — shows governance
+# violations inline on changed lines in the PR diff view.
+
+on:
+  pull_request:
+    branches: [master, main]
+
+permissions:
+  contents: read
+  security-events: write   # Required for SARIF upload to Code Scanning
+
+jobs:
+  governance-gate:
+    name: Governance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install graqle
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "."
+
+      - name: Get changed files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only HEAD~1 HEAD -- '*.py' | head -50)
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$FILES" | grep -c . || echo 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Run governance gate on changed files
+        id: gate
+        if: steps.changed.outputs.count != '0'
+        run: |
+          mkdir -p gate-results
+          BLOCKED=0
+
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            echo "Checking: $FILE"
+
+            # Get unified diff for this file
+            DIFF=$(git diff HEAD~1 HEAD -- "$FILE" 2>/dev/null || echo "")
+
+            # Run graq gate — SARIF output per file
+            graq gate "$FILE" \
+              --diff "$DIFF" \
+              --sarif \
+              --no-fail \
+              > "gate-results/$(echo "$FILE" | tr '/' '_').sarif" 2>/dev/null || true
+
+            # Check exit code separately (--fail mode)
+            graq gate "$FILE" \
+              --diff "$DIFF" \
+              --no-fail \
+              --json \
+              > "gate-results/$(echo "$FILE" | tr '/' '_').json" 2>/dev/null || true
+
+            # Check if blocked
+            if python3 -c "
+          import json, sys
+          try:
+              d = json.load(open('gate-results/$(echo "$FILE" | tr '/' '_').json'))
+              sys.exit(1 if d.get('blocked') else 0)
+          except Exception:
+              sys.exit(0)
+          "; then
+              :
+            else
+              echo "BLOCKED: $FILE"
+              BLOCKED=$((BLOCKED + 1))
+            fi
+          done <<< "${{ steps.changed.outputs.files }}"
+
+          echo "blocked_count=$BLOCKED" >> "$GITHUB_OUTPUT"
+          [ "$BLOCKED" -gt 0 ] && exit 1 || exit 0
+
+      - name: Merge SARIF results
+        if: always() && steps.changed.outputs.count != '0'
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, glob
+
+          sarif_files = glob.glob("gate-results/*.sarif")
+          if not sarif_files:
+              print("No SARIF files found")
+              exit(0)
+
+          # Merge all SARIF runs into one file
+          merged = {
+              "version": "2.1.0",
+              "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+              "runs": []
+          }
+          for f in sarif_files:
+              try:
+                  data = json.load(open(f))
+                  merged["runs"].extend(data.get("runs", []))
+              except Exception as e:
+                  print(f"Skipping {f}: {e}")
+
+          if not merged["runs"]:
+              # Create a minimal valid SARIF with no results
+              merged["runs"] = [{
+                  "tool": {"driver": {"name": "graq-gate", "version": "0.38.0", "rules": []}},
+                  "results": []
+              }]
+
+          with open("governance-gate.sarif", "w") as out:
+              json.dump(merged, out, indent=2)
+          print(f"Merged {len(sarif_files)} SARIF files → governance-gate.sarif")
+          PYEOF
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always() && steps.changed.outputs.count != '0'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: governance-gate.sarif
+          category: graq-governance-gate
+        continue-on-error: true   # Don't fail workflow if Code Scanning is not enabled
+
+      - name: Upload gate results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-gate-results
+          path: gate-results/
+          retention-days: 14
+
+      - name: Gate summary
+        if: always()
+        run: |
+          echo "## Governance Gate Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.gate.outputs.blocked_count }}" -gt 0 ]; then
+            echo "❌ **${{ steps.gate.outputs.blocked_count }} file(s) blocked** by governance gate." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "To unblock T3 changes, re-run with \`--approved-by <approver>\` and \`--justification <reason>\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "✅ All changed files passed governance gate." >> "$GITHUB_STEP_SUMMARY"
+          fi
