@@ -58,6 +58,25 @@ graqle.json
 .graqle-doc-manifest.json
 *.json.lock
 
+# Local backup snapshots (never commit)
+graqle_backup_*.json
+
+# Next.js build artifacts
+.next/
+
+# Claude Code session data
+.claude/
+
+# SCORCH output
+scorch-output/
+
+# Chunk embeddings (large, regeneratable)
+.graqle/chunk_embeddings.npz
+.graqle/activation_memory.json
+.graqle/metrics.json
+.graqle/.star_nudge_shown
+.graqle/edit-backup/
+
 # Benchmark data (large files)
 graqle/benchmarks/data/
 benchmarks/data/

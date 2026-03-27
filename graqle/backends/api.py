@@ -134,6 +134,42 @@ class AnthropicBackend(BaseBackend):
         }
         return costs.get(self._model, 0.003)
 
+    async def agenerate_stream(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.3,
+        stop: list[str] | None = None,
+    ):
+        """Stream token chunks using Anthropic's native streaming API.
+
+        Uses client.messages.stream() context manager to yield text_delta
+        chunks as they arrive. Reduces time-to-first-token for graq_generate.
+
+        v0.38.0: Phase 3 streaming implementation.
+        """
+        try:
+            client = self._get_client()
+            async with client.messages.stream(
+                model=self._model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=[{"role": "user", "content": prompt}],
+                stop_sequences=stop or [],
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield text
+        except Exception:
+            # Streaming failed — fall back to single-chunk (non-streaming) result
+            result = await self.generate(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stop=stop,
+            )
+            yield result
+
 
 class OpenAIBackend(BaseBackend):
     """OpenAI GPT API backend with retry + validation."""

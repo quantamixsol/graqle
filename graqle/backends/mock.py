@@ -121,6 +121,32 @@ class MockBackend(BaseBackend):
             f"Confidence: {conf:.0%}"
         )
 
+    async def agenerate_stream(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.3,
+        stop: list[str] | None = None,
+    ):
+        """Stream mock response word-by-word for streaming tests.
+
+        Yields each word + space as a separate chunk — ensures tests can
+        verify that multiple chunks are produced without a real API key.
+
+        v0.38.0: Phase 3 streaming implementation.
+        """
+        full_response = await self.generate(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stop=stop,
+        )
+        words = full_response.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield chunk
+
     @property
     def name(self) -> str:
         return "mock"

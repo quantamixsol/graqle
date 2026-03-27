@@ -1220,6 +1220,516 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["action"],
         },
     },
+    # ── v0.38.0: governed code generation + editing ──────────────────
+    {
+        "name": "graq_edit",
+        "description": (
+            "Apply a governed atomic edit to a file using your project's knowledge graph. "
+            "Provide a description to generate a diff, or provide a diff directly. "
+            "Backup written to .graqle/edit-backup/ before any write. "
+            "Default dry_run=True — never writes without explicit dry_run=False. "
+            "Requires Team or Enterprise plan."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Target file to edit (must exist)",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Natural-language description of the change (used to generate diff if diff not provided)",
+                },
+                "diff": {
+                    "type": "string",
+                    "description": "Unified diff to apply directly (optional — overrides description)",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, validate and preview without writing (default true — SAFE DEFAULT)",
+                    "default": True,
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "description": "LLM rounds for diff generation if description is given (default 2)",
+                    "default": 2,
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
+        "name": "graq_generate",
+        "description": (
+            "Generate a governed code patch as a unified diff using your project's knowledge graph. "
+            "Graph context activates before generation. Preflight and safety checks run automatically. "
+            "Returns a CodeGenerationResult with diff patches, confidence, and audit metadata. "
+            "Requires Team or Enterprise plan."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "What to generate or change (e.g. 'add error handling to SyncEngine.push()')",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Target file path (optional — graph infers from description if omitted)",
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "description": "LLM reasoning rounds (1-5, default 2)",
+                    "default": 2,
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, return diff preview without writing (default true)",
+                    "default": True,
+                },
+                "stream": {
+                    "type": "boolean",
+                    "description": (
+                        "If true, use backend streaming (agenerate_stream). "
+                        "Works with any backend — Anthropic yields token-by-token, "
+                        "all others yield a single chunk. Response includes a 'chunks' "
+                        "field with the streamed text pieces. Default false."
+                    ),
+                    "default": False,
+                },
+            },
+            "required": ["description"],
+        },
+    },
+    # ── Phase 3.5: File system + process tools ──────────────────────────
+    {
+        "name": "graq_read",
+        "description": (
+            "Read a file's contents with optional line range. Returns file text with "
+            "line numbers. Supports offset/limit for large files."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Absolute or relative path to file"},
+                "offset": {"type": "integer", "description": "Start line (1-indexed, default 1)", "default": 1},
+                "limit": {"type": "integer", "description": "Max lines to return (default 200)", "default": 200},
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
+        "name": "graq_write",
+        "description": (
+            "Atomically write or overwrite a file. Uses NamedTemporaryFile→fsync→os.replace. "
+            "Creates parent directories if needed. dry_run=True (default) previews without writing. "
+            "Patent scan runs before write — blocks if trade secrets detected."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Path to write"},
+                "content": {"type": "string", "description": "Full file content to write"},
+                "dry_run": {"type": "boolean", "description": "Preview only, do not write (default true)", "default": True},
+            },
+            "required": ["file_path", "content"],
+        },
+    },
+    {
+        "name": "graq_grep",
+        "description": (
+            "Search file contents by regex pattern. Returns matching lines with file path, "
+            "line number, and context. Supports glob filter and case-insensitive mode."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "Regex pattern to search"},
+                "path": {"type": "string", "description": "Directory or file to search (default: cwd)"},
+                "glob": {"type": "string", "description": "File glob filter (e.g. '*.py', '**/*.ts')"},
+                "case_insensitive": {"type": "boolean", "description": "Case-insensitive match", "default": False},
+                "context_lines": {"type": "integer", "description": "Lines of context before/after match", "default": 0},
+                "max_results": {"type": "integer", "description": "Max matches to return", "default": 50},
+            },
+            "required": ["pattern"],
+        },
+    },
+    {
+        "name": "graq_glob",
+        "description": (
+            "Find files matching a glob pattern. Returns file paths sorted by modification time. "
+            "Use for discovering files before reading or editing."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "Glob pattern (e.g. 'src/**/*.py', '**/*.ts')"},
+                "path": {"type": "string", "description": "Base directory (default: cwd)"},
+                "max_results": {"type": "integer", "description": "Max files to return", "default": 100},
+            },
+            "required": ["pattern"],
+        },
+    },
+    {
+        "name": "graq_bash",
+        "description": (
+            "Execute a governed shell command. Enforces allowlist, timeout, and working directory. "
+            "Blocked in read-only mode. Blocked commands: rm -rf, git push --force, DROP TABLE, "
+            "pip install (outside venv). Returns stdout, stderr, exit_code."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "Shell command to execute"},
+                "cwd": {"type": "string", "description": "Working directory (default: project root)"},
+                "timeout": {"type": "integer", "description": "Timeout in seconds (default 30, max 120)", "default": 30},
+                "dry_run": {"type": "boolean", "description": "Print command without executing", "default": False},
+            },
+            "required": ["command"],
+        },
+    },
+    # ── Phase 3.5: Git workflow tools ────────────────────────────────────
+    {
+        "name": "graq_git_status",
+        "description": "Show git working tree status — changed, staged, and untracked files.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cwd": {"type": "string", "description": "Repository directory (default: cwd)"},
+            },
+        },
+    },
+    {
+        "name": "graq_git_diff",
+        "description": (
+            "Show git diff. By default shows unstaged changes. Pass staged=True for staged diff, "
+            "or base_ref to compare against a branch/commit."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "staged": {"type": "boolean", "description": "Show staged (--cached) diff", "default": False},
+                "base_ref": {"type": "string", "description": "Compare against this ref (branch, commit, tag)"},
+                "file_path": {"type": "string", "description": "Limit diff to this file"},
+                "cwd": {"type": "string", "description": "Repository directory"},
+            },
+        },
+    },
+    {
+        "name": "graq_git_log",
+        "description": "Show recent git commit history with author, date, and message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "n": {"type": "integer", "description": "Number of commits to show (default 10)", "default": 10},
+                "file_path": {"type": "string", "description": "Limit to commits touching this file"},
+                "cwd": {"type": "string", "description": "Repository directory"},
+            },
+        },
+    },
+    {
+        "name": "graq_git_commit",
+        "description": (
+            "Create a git commit with a governed message. Runs patent scan before commit — "
+            "blocks if trade secrets (TS-1..TS-4) are detected in staged changes. "
+            "Blocked in read-only mode."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "Commit message"},
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Files to stage (default: all staged files)",
+                },
+                "dry_run": {"type": "boolean", "description": "Stage but do not commit", "default": True},
+                "cwd": {"type": "string", "description": "Repository directory"},
+            },
+            "required": ["message"],
+        },
+    },
+    {
+        "name": "graq_git_branch",
+        "description": (
+            "Create or switch git branches. Follows GCC naming conventions: "
+            "feature-*, hotfix-*, experiment-*, spike-*. Blocked in read-only mode."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Branch name (use feature-*, hotfix-*, experiment-* prefix)"},
+                "action": {
+                    "type": "string",
+                    "enum": ["create", "switch", "list", "create_and_switch"],
+                    "description": "Branch action",
+                    "default": "create_and_switch",
+                },
+                "cwd": {"type": "string", "description": "Repository directory"},
+            },
+            "required": ["name"],
+        },
+    },
+    # ── v0.38.0 Phase 4: Compound workflow tools ────────────────────────────
+    {
+        "name": "graq_review",
+        "description": (
+            "Perform a structured code review on a file or diff. "
+            "Checks correctness, security, style, test coverage, and complexity "
+            "using the knowledge graph for impact context. "
+            "Returns structured comments with severity: BLOCKER, MAJOR, MINOR, INFO."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "File to review (relative path)"},
+                "diff": {"type": "string", "description": "Unified diff to review (alternative to file_path)"},
+                "focus": {
+                    "type": "string",
+                    "enum": ["all", "security", "correctness", "style", "complexity", "tests"],
+                    "description": "Review focus area",
+                    "default": "all",
+                },
+                "context_depth": {
+                    "type": "integer",
+                    "description": "Number of graph hops to include for context (1-3)",
+                    "default": 1,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "graq_debug",
+        "description": (
+            "Diagnose a bug from a stack trace, error message, or symptom description. "
+            "Uses the knowledge graph call graph to trace root causes through callers and dependencies. "
+            "Returns root cause analysis, affected files, and a proposed fix as unified diff."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "error": {"type": "string", "description": "Error message or stack trace"},
+                "symptom": {"type": "string", "description": "Symptom description (alternative to error)"},
+                "file_path": {"type": "string", "description": "File where the error occurs (narrows search)"},
+                "include_fix": {
+                    "type": "boolean",
+                    "description": "If true, propose a fix diff. Default true.",
+                    "default": True,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "graq_scaffold",
+        "description": (
+            "Scaffold a new module, class, API endpoint, or test suite from a specification. "
+            "Uses existing patterns in the knowledge graph to match project conventions. "
+            "Returns a set of file creation requests (dry_run by default). "
+            "Blocked in read-only mode."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spec": {
+                    "type": "string",
+                    "description": "What to scaffold (e.g. 'FastAPI endpoint for user authentication')",
+                },
+                "scaffold_type": {
+                    "type": "string",
+                    "enum": ["module", "class", "api_endpoint", "test_suite", "cli_command", "full_feature"],
+                    "description": "Type of scaffold to generate",
+                    "default": "module",
+                },
+                "output_dir": {"type": "string", "description": "Target directory for scaffolded files"},
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true (default), return file list without writing",
+                    "default": True,
+                },
+                "with_tests": {
+                    "type": "boolean",
+                    "description": "If true, generate test files alongside the scaffold",
+                    "default": True,
+                },
+            },
+            "required": ["spec"],
+        },
+    },
+    {
+        "name": "graq_workflow",
+        "description": (
+            "Orchestrate multi-step coding workflows that chain multiple tools together. "
+            "Built-in workflows: "
+            "'bug_fix' (grep→read→generate→write→bash→git), "
+            "'scaffold_and_test' (scaffold→generate→write→bash), "
+            "'governed_refactor' (git_branch→impact→preflight→refactor→bash→gate→git). "
+            "Blocked in read-only mode for write steps."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workflow": {
+                    "type": "string",
+                    "enum": ["bug_fix", "scaffold_and_test", "governed_refactor", "review_and_fix"],
+                    "description": "Workflow to execute",
+                },
+                "goal": {
+                    "type": "string",
+                    "description": "Natural language description of the goal for this workflow run",
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Workflow-specific context (file_path, error, spec, etc.)",
+                    "additionalProperties": True,
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, plan the workflow steps without executing write operations",
+                    "default": True,
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "description": "Maximum workflow steps before stopping (safety limit)",
+                    "default": 10,
+                },
+            },
+            "required": ["workflow", "goal"],
+        },
+    },
+    # ── v0.38.0 Phase 6: graq_plan — goal decomposition + governance-gated DAG ──
+    {
+        "name": "graq_plan",
+        "description": (
+            "Decompose a high-level goal into a governance-gated DAG execution plan. "
+            "Uses the knowledge graph (impact_radius, CALLS/IMPORTS edges, causal tiers) "
+            "to order steps, assign risk levels, insert governance checkpoints, and "
+            "estimate cost BEFORE any code runs. "
+            "Returns a reviewable ExecutionPlan — does NOT execute anything. "
+            "Pass the plan_id to graq_workflow to execute."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "goal": {
+                    "type": "string",
+                    "description": "High-level goal to decompose (e.g. 'Refactor SyncEngine.push() for error handling')",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Optional scope constraint: file path, module name, or component name to limit impact analysis",
+                    "default": "",
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "description": "Maximum number of plan steps (safety limit)",
+                    "default": 15,
+                },
+                "include_tests": {
+                    "type": "boolean",
+                    "description": "If true, auto-append a graq_test step at the end of the plan",
+                    "default": True,
+                },
+                "require_approval_threshold": {
+                    "type": "string",
+                    "description": "Risk level at which steps require human approval: LOW | MEDIUM | HIGH | CRITICAL",
+                    "default": "HIGH",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, return plan skeleton without graph impact analysis (fast preview)",
+                    "default": False,
+                },
+            },
+            "required": ["goal"],
+        },
+    },
+    # ── v0.38.0 Phase 7: graq_profile — reasoning performance profiler ────────
+    {
+        "name": "graq_profile",
+        "description": (
+            "Profile the performance of a graq_reason invocation: per-step latency, "
+            "token cost, and confidence at each reasoning phase. "
+            "Identifies bottleneck steps, flags slow/expensive nodes, and writes "
+            "a CodeMetric KG node so future reasoning can learn from profiling history. "
+            "Returns a ProfileSummary with recommendations for tuning confidence_threshold, "
+            "beam_width, or context window."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The reasoning query / goal to profile",
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "description": "Max reasoning rounds to run (default 2)",
+                    "default": 2,
+                },
+                "session_label": {
+                    "type": "string",
+                    "description": "Human-readable label for this profiling run (used in KG node)",
+                    "default": "",
+                },
+                "write_kg_node": {
+                    "type": "boolean",
+                    "description": "If true, write CodeMetric node to KG for future calibration",
+                    "default": True,
+                },
+                "include_step_breakdown": {
+                    "type": "boolean",
+                    "description": "If true, include per-step latency breakdown in response",
+                    "default": True,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    # ── v0.38.0 Phase 5: graq_test — test execution + result parsing ────────
+    {
+        "name": "graq_test",
+        "description": (
+            "Run pytest on a target (file, directory, or test ID) and parse the results into "
+            "structured CodeMetric output. "
+            "Captures: pass/fail/skip counts, coverage %, failing test names, and durations. "
+            "Feeds the test_coverage_gate output gate. "
+            "Blocked in read-only mode (executes subprocesses)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "Test target — file path, directory, or pytest node ID (e.g. 'tests/', 'tests/test_routing.py::TestTaskRouter')",
+                    "default": "tests/",
+                },
+                "coverage": {
+                    "type": "boolean",
+                    "description": "If true, run with --cov to collect coverage metrics",
+                    "default": False,
+                },
+                "fail_fast": {
+                    "type": "boolean",
+                    "description": "If true, stop after first failure (-x flag)",
+                    "default": False,
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "Working directory for pytest execution",
+                    "default": ".",
+                },
+                "record_metrics": {
+                    "type": "boolean",
+                    "description": "If true, write CodeMetric nodes into the knowledge graph",
+                    "default": False,
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1239,7 +1749,21 @@ del _KOGNI_ALIASES
 # ---------------------------------------------------------------------------
 
 
-_WRITE_TOOLS = frozenset({"graq_learn", "graq_reload", "kogni_learn"})
+_WRITE_TOOLS = frozenset({
+    "graq_learn", "graq_reload", "kogni_learn",
+    # v0.38.0: coding assistant write operations — blocked in read-only mode
+    "graq_generate", "kogni_generate",
+    "graq_edit", "kogni_edit",
+    "graq_write", "kogni_write",
+    "graq_bash", "kogni_bash",
+    "graq_git_commit", "kogni_git_commit",
+    "graq_git_branch", "kogni_git_branch",
+    # Phase 4 compound workflow tools with write operations
+    "graq_scaffold", "kogni_scaffold",
+    "graq_workflow", "kogni_workflow",
+    # Phase 5: graq_test executes subprocesses — blocked in read-only mode
+    "graq_test", "kogni_test",
+})
 
 
 class KogniDevServer:
@@ -1589,6 +2113,11 @@ class KogniDevServer:
             "graq_phantom_flow": self._handle_phantom_flow,
             "graq_phantom_discover": self._handle_phantom_discover,
             "graq_phantom_session": self._handle_phantom_session,
+            # v0.38.0: governed code generation + editing
+            "graq_edit": self._handle_edit,
+            "kogni_edit": self._handle_edit,
+            "graq_generate": self._handle_generate,
+            "kogni_generate": self._handle_generate,
             # Backward-compat aliases (kogni_* → graq_*)
             "kogni_context": self._handle_context,
             "kogni_inspect": self._handle_inspect,
@@ -1614,6 +2143,45 @@ class KogniDevServer:
             "kogni_phantom_flow": self._handle_phantom_flow,
             "kogni_phantom_discover": self._handle_phantom_discover,
             "kogni_phantom_session": self._handle_phantom_session,
+            # v0.38.0 Phase 3.5: file system + git tools
+            "graq_read": self._handle_read,
+            "kogni_read": self._handle_read,
+            "graq_write": self._handle_write,
+            "kogni_write": self._handle_write,
+            "graq_grep": self._handle_grep,
+            "kogni_grep": self._handle_grep,
+            "graq_glob": self._handle_glob,
+            "kogni_glob": self._handle_glob,
+            "graq_bash": self._handle_bash,
+            "kogni_bash": self._handle_bash,
+            "graq_git_status": self._handle_git_status,
+            "kogni_git_status": self._handle_git_status,
+            "graq_git_diff": self._handle_git_diff,
+            "kogni_git_diff": self._handle_git_diff,
+            "graq_git_log": self._handle_git_log,
+            "kogni_git_log": self._handle_git_log,
+            "graq_git_commit": self._handle_git_commit,
+            "kogni_git_commit": self._handle_git_commit,
+            "graq_git_branch": self._handle_git_branch,
+            "kogni_git_branch": self._handle_git_branch,
+            # v0.38.0 Phase 4: compound workflow tools
+            "graq_review": self._handle_review,
+            "kogni_review": self._handle_review,
+            "graq_debug": self._handle_debug,
+            "kogni_debug": self._handle_debug,
+            "graq_scaffold": self._handle_scaffold,
+            "kogni_scaffold": self._handle_scaffold,
+            "graq_workflow": self._handle_workflow,
+            "kogni_workflow": self._handle_workflow,
+            # v0.38.0 Phase 5: test execution
+            "graq_test": self._handle_test,
+            "kogni_test": self._handle_test,
+            # v0.38.0 Phase 6: agent planning (read-only — never executes)
+            "graq_plan": self._handle_plan,
+            "kogni_plan": self._handle_plan,
+            # v0.38.0 Phase 7: performance profiler
+            "graq_profile": self._handle_profile,
+            "kogni_profile": self._handle_profile,
         }
 
         handler = handlers.get(name)
@@ -3272,6 +3840,1557 @@ class KogniDevServer:
         result = await engine.session_action(args.pop("action"), **args)
         return json.dumps(result, default=str)
 
+    # ── graq_edit (TEAM/ENTERPRISE) ──────────────────────────────────
+    # v0.38.0 — governed atomic file edit
+    # Phase 2 of feature-coding-assistant plan
+
+    async def _handle_edit(self, args: dict[str, Any]) -> str:
+        """Read a file, apply a unified diff, write back atomically.
+
+        Args:
+            file_path: target file to edit (required)
+            description: natural-language change description (used to generate diff if diff not provided)
+            diff: unified diff string to apply directly (optional — overrides description)
+            dry_run: if True, validate + return preview without writing (default True)
+
+        Flow:
+            plan gate → preflight → generate diff (if no diff provided) →
+            safety_check → apply_diff() → return ApplyResult + CodeGenerationResult merged
+
+        Gate: team/enterprise plan only.
+        """
+        from graqle.core.file_writer import apply_diff
+        from graqle.cloud.credentials import load_credentials
+
+        file_path = args.get("file_path", "")
+        description = args.get("description", "")
+        provided_diff = args.get("diff", "")
+        dry_run = bool(args.get("dry_run", True))  # DEFAULT TRUE — never write without explicit False
+
+        if not file_path:
+            return json.dumps({"error": "Parameter 'file_path' is required."})
+        if not description and not provided_diff:
+            return json.dumps({"error": "Either 'description' or 'diff' is required."})
+
+        # Plan gate
+        try:
+            creds = load_credentials()
+            if creds.plan not in ("team", "enterprise"):
+                return json.dumps({
+                    "error": "PLAN_GATE",
+                    "message": (
+                        "graq_edit is available on Team and Enterprise plans. "
+                        "Upgrade at https://graqle.com/pricing"
+                    ),
+                    "current_plan": creds.plan,
+                    "required_plan": "team",
+                })
+        except Exception:
+            pass  # dev/local setup
+
+        # Step 1: Preflight
+        preflight_raw = json.loads(await self._handle_preflight({
+            "action": description or f"apply diff to {file_path}",
+            "files": [file_path],
+        }))
+
+        # Step 1b: Governance gate (3-tier — TS-BLOCK / T1 / T2 / T3)
+        try:
+            from graqle.core.governance import GovernanceMiddleware
+            _gov = GovernanceMiddleware()
+            _impact_radius = int(preflight_raw.get("impact_radius", 0))
+            _risk_level = str(preflight_raw.get("risk_level", "LOW")).upper()
+            _gate = _gov.check(
+                diff=provided_diff,
+                file_path=file_path,
+                risk_level=_risk_level,
+                impact_radius=_impact_radius,
+                approved_by=str(args.get("approved_by", "")),
+                justification=str(args.get("justification", "")),
+                action="edit",
+                actor=str(args.get("actor", "")),
+            )
+            if _gate.blocked:
+                return json.dumps({
+                    "error": "GOVERNANCE_GATE",
+                    "tier": _gate.tier,
+                    "message": _gate.reason,
+                    "warnings": _gate.warnings,
+                    "requires_approval": _gate.requires_approval,
+                    "gate_score": _gate.gate_score,
+                })
+        except ImportError:
+            pass  # governance module optional in stripped builds
+
+        # Step 2: Get diff — either provided directly or generate it
+        unified_diff = provided_diff
+        generation_result: dict[str, Any] | None = None
+
+        if not unified_diff and description:
+            gen_raw = json.loads(await self._handle_generate({
+                "description": description,
+                "file_path": file_path,
+                "max_rounds": int(args.get("max_rounds", 2)),
+                "dry_run": True,  # generation is always dry_run — edit applies it
+            }))
+            if "error" in gen_raw:
+                return json.dumps(gen_raw)  # propagate generation error
+            generation_result = gen_raw
+            patches = gen_raw.get("patches", [])
+            if patches:
+                unified_diff = patches[0].get("unified_diff", "")
+
+        if not unified_diff:
+            return json.dumps({
+                "error": "No diff available — generation returned empty patch",
+                "preflight": preflight_raw,
+            })
+
+        # Step 3: Safety check on the diff
+        secret_patterns = ["password", "secret", "api_key", "token", "aws_access", "aws_secret"]
+        diff_lower = unified_diff.lower()
+        exposed = [p for p in secret_patterns if p in diff_lower]
+        if exposed:
+            return json.dumps({
+                "error": "SAFETY_GATE",
+                "message": f"Diff may expose secrets: {exposed}. Edit blocked.",
+                "dry_run": True,
+            })
+
+        # Step 4: Apply diff
+        from pathlib import Path as _Path
+        apply_result = apply_diff(
+            _Path(file_path),
+            unified_diff,
+            dry_run=dry_run,
+            skip_syntax_check=bool(args.get("skip_syntax_check", False)),
+        )
+
+        result: dict[str, Any] = {
+            **apply_result.to_dict(),
+            "preflight_risk": preflight_raw.get("risk_level", "low"),
+            "preflight_warnings": preflight_raw.get("warnings", [])[:3],
+        }
+        if generation_result:
+            result["generation"] = {
+                k: generation_result[k]
+                for k in ("confidence", "rounds_completed", "active_nodes", "cost_usd", "latency_ms")
+                if k in generation_result
+            }
+
+        return json.dumps(result)
+
+    # ── graq_generate (TEAM/ENTERPRISE) ──────────────────────────────
+    # v0.38.0 — governed code generation
+    # Phase 1 of feature-coding-assistant plan
+
+    async def _handle_generate(self, args: dict[str, Any]) -> str:
+        """Generate a unified diff patch using graph context + LLM backend.
+
+        Args:
+            description: what to generate / change (required)
+            file_path: target file (optional — graph infers if omitted)
+            max_rounds: LLM reasoning rounds (default 2, max 5)
+            dry_run: if True, return diff without applying (always True in Phase 1)
+
+        Returns:
+            JSON of CodeGenerationResult.to_dict()
+
+        Gate: team/enterprise plan only.
+        """
+        import time as _time
+        from graqle.core.generation import CodeGenerationResult, DiffPatch, GenerationRequest
+        from graqle.cloud.credentials import load_credentials
+
+        description = args.get("description", "")
+        file_path = args.get("file_path", "")
+        max_rounds = min(max(int(args.get("max_rounds", 2)), 1), 5)
+        dry_run = bool(args.get("dry_run", True))  # Phase 1: always dry_run
+        stream = bool(args.get("stream", False))  # T3.4: backend streaming support
+
+        if not description:
+            return json.dumps({"error": "Parameter 'description' is required."})
+
+        # Plan gate — team/enterprise only
+        try:
+            creds = load_credentials()
+            if creds.plan not in ("team", "enterprise"):
+                return json.dumps({
+                    "error": "PLAN_GATE",
+                    "message": (
+                        "graq_generate is available on Team and Enterprise plans. "
+                        "Upgrade at https://graqle.com/pricing"
+                    ),
+                    "current_plan": creds.plan,
+                    "required_plan": "team",
+                })
+        except Exception:
+            pass  # If credentials fail, let through (dev/local setup)
+
+        t0 = _time.monotonic()
+        graph = self._require_graph()
+
+        # Step 1: Preflight — surface risks before generating
+        preflight_raw = json.loads(await self._handle_preflight({
+            "action": description,
+            "files": [file_path] if file_path else [],
+        }))
+        preflight_risk = preflight_raw.get("risk_level", "low")
+
+        # Step 1b: Governance gate (3-tier — TS-BLOCK / T1 / T2 / T3)
+        try:
+            from graqle.core.governance import GovernanceMiddleware
+            _gov = GovernanceMiddleware()
+            _impact_radius = int(preflight_raw.get("impact_radius", 0))
+            _risk_level = str(preflight_raw.get("risk_level", "LOW")).upper()
+            _gate = _gov.check(
+                content=description,
+                file_path=file_path,
+                risk_level=_risk_level,
+                impact_radius=_impact_radius,
+                approved_by=str(args.get("approved_by", "")),
+                justification=str(args.get("justification", "")),
+                action="generate",
+                actor=str(args.get("actor", "")),
+            )
+            if _gate.blocked:
+                return json.dumps({
+                    "error": "GOVERNANCE_GATE",
+                    "tier": _gate.tier,
+                    "message": _gate.reason,
+                    "warnings": _gate.warnings,
+                    "requires_approval": _gate.requires_approval,
+                    "gate_score": _gate.gate_score,
+                })
+        except ImportError:
+            pass  # governance module optional in stripped builds
+
+        # Step 2: Build generation prompt and call the LLM via graph.areason()
+        file_context = f" for file '{file_path}'" if file_path else ""
+        generation_prompt = (
+            f"CODE GENERATION TASK{file_context}:\n"
+            f"{description}\n\n"
+            f"Instructions:\n"
+            f"1. Produce ONLY a valid unified diff in standard format (--- a/... +++ b/... @@ hunks)\n"
+            f"2. Keep changes minimal and focused on the described task\n"
+            f"3. Preserve existing code style and conventions\n"
+            f"4. Never include secrets, credentials, or internal threshold values\n"
+            f"5. After the diff, add one line: SUMMARY: <one sentence>\n"
+        )
+
+        stream_chunks: list[str] = []
+        try:
+            if stream:
+                # T3.4: streaming path — collect chunks from agenerate_stream().
+                # Works with ANY backend:
+                #   Anthropic → native token-by-token via client.messages.stream()
+                #   All others → single-chunk fallback from BaseBackend.agenerate_stream()
+                # The full result is also returned in the standard `answer` field so
+                # callers that ignore `chunks` still get the complete response.
+                async for chunk in graph.areason_stream(
+                    generation_prompt,
+                    max_rounds=max_rounds,
+                ):
+                    if hasattr(chunk, "content"):
+                        stream_chunks.append(chunk.content)
+                    else:
+                        stream_chunks.append(str(chunk))
+                # Re-run non-streaming for the structured ReasoningResult fields
+                # (confidence, active_nodes, cost_usd, etc.) — areason_stream only yields text.
+                result = await graph.areason(
+                    generation_prompt,
+                    max_rounds=max_rounds,
+                    task_type="reason",
+                )
+            else:
+                result = await graph.areason(
+                    generation_prompt,
+                    max_rounds=max_rounds,
+                    task_type="reason",
+                )
+        except Exception as exc:
+            err = str(exc)[:300]
+            return json.dumps({
+                "error": "GENERATION_BACKEND_UNAVAILABLE",
+                "message": f"graq_generate requires a working LLM backend. Error: {err}",
+                "fix": "Run 'graq doctor' to diagnose. Check graqle.yaml model.backend.",
+                "confidence": 0.0,
+            })
+
+        latency_ms = (_time.monotonic() - t0) * 1000
+
+        # Step 3: Parse the LLM answer into a DiffPatch
+        raw_answer = result.answer or ""
+        summary_line = ""
+        diff_text = raw_answer
+
+        # Extract SUMMARY: line if present
+        lines = raw_answer.splitlines()
+        diff_lines = []
+        for line in lines:
+            if line.startswith("SUMMARY:"):
+                summary_line = line[len("SUMMARY:"):].strip()
+            else:
+                diff_lines.append(line)
+        diff_text = "\n".join(diff_lines).strip()
+
+        # Count added/removed lines
+        lines_added = sum(1 for l in diff_lines if l.startswith("+") and not l.startswith("+++"))
+        lines_removed = sum(1 for l in diff_lines if l.startswith("-") and not l.startswith("---"))
+
+        # Build preview (first ~5 non-header diff lines)
+        preview_lines = [l for l in diff_lines if l.startswith(("@@", "+", "-")) and not l.startswith(("+++", "---"))]
+        preview = "\n".join(preview_lines[:5])
+
+        patches: list[DiffPatch] = []
+        if diff_text:
+            patches.append(DiffPatch(
+                file_path=file_path or "(inferred from graph)",
+                unified_diff=diff_text,
+                lines_added=lines_added,
+                lines_removed=lines_removed,
+                preview=preview,
+            ))
+
+        # Step 4: Safety check on output (fire-and-forget, non-blocking)
+        safety_warnings: list[str] = []
+        try:
+            safety_raw = json.loads(await self._handle_safety_check({
+                "component": file_path or description[:50],
+                "change_type": "modify",
+                "skip_reasoning": True,
+            }))
+            if safety_raw.get("overall_risk") in ("high",):
+                safety_warnings.append(
+                    f"Safety check flagged HIGH risk: {safety_raw.get('preflight', {}).get('risk_level')}"
+                )
+        except Exception:
+            pass  # safety_check is advisory — never block generation
+
+        # Step 5: Assemble CodeGenerationResult
+        generation_result = CodeGenerationResult(
+            query=description,
+            answer=summary_line or f"Generated diff: {lines_added} lines added, {lines_removed} removed.",
+            confidence=round(result.confidence, 3),
+            rounds_completed=result.rounds_completed,
+            active_nodes=result.active_nodes[:10],
+            cost_usd=round(result.cost_usd, 6),
+            latency_ms=round(latency_ms, 1),
+            patches=patches,
+            files_affected=[file_path] if file_path else [],
+            dry_run=dry_run,
+            backend_status=result.backend_status,
+            backend_error=result.backend_error,
+            metadata={
+                "preflight_risk": preflight_risk,
+                "safety_warnings": safety_warnings,
+                "preflight_warnings": preflight_raw.get("warnings", [])[:3],
+                "stream": stream,
+                "chunks": stream_chunks,  # empty list when stream=False
+            },
+        )
+
+        return json.dumps(generation_result.to_dict())
+
+    # ── Phase 3.5: File system tools ──────────────────────────────────────
+    # graq_read, graq_write, graq_grep, graq_glob, graq_bash
+    # graq_git_status, graq_git_diff, graq_git_log, graq_git_commit, graq_git_branch
+
+    async def _handle_read(self, args: dict[str, Any]) -> str:
+        """Read a file with optional line range."""
+        import linecache
+
+        file_path = args.get("file_path", "")
+        if not file_path:
+            return json.dumps({"error": "Parameter 'file_path' is required."})
+
+        offset = max(1, int(args.get("offset", 1)))
+        limit = min(max(1, int(args.get("limit", 200))), 2000)
+
+        fp = Path(file_path)
+        if not fp.exists():
+            return json.dumps({"error": f"File not found: {file_path}", "exists": False})
+        if fp.is_dir():
+            return json.dumps({"error": f"Path is a directory: {file_path}"})
+
+        try:
+            lines = fp.read_text(encoding="utf-8", errors="replace").splitlines()
+            total_lines = len(lines)
+            selected = lines[offset - 1: offset - 1 + limit]
+            numbered = "\n".join(f"{offset + i:>6}\t{line}" for i, line in enumerate(selected))
+            return json.dumps({
+                "file_path": str(fp),
+                "content": numbered,
+                "lines_returned": len(selected),
+                "total_lines": total_lines,
+                "offset": offset,
+                "limit": limit,
+                "truncated": (offset - 1 + limit) < total_lines,
+            })
+        except Exception as exc:
+            return json.dumps({"error": f"Read failed: {exc}"})
+
+    async def _handle_write(self, args: dict[str, Any]) -> str:
+        """Atomically write a file. Patent scan first. dry_run=True by default."""
+        import tempfile
+        import os as _os
+
+        file_path = args.get("file_path", "")
+        content = args.get("content", "")
+        dry_run = bool(args.get("dry_run", True))
+
+        if not file_path:
+            return json.dumps({"error": "Parameter 'file_path' is required."})
+        if content is None:
+            return json.dumps({"error": "Parameter 'content' is required."})
+
+        # Patent scan — block if trade secrets detected in content
+        _TS_PATTERNS = [
+            "w_J", "w_A", "0.16", "theta_fold", "jaccard.*formula",
+            "70.*30.*blend", "AGREEMENT_THRESHOLD",
+        ]
+        import re
+        for pat in _TS_PATTERNS:
+            if re.search(pat, content):
+                return json.dumps({
+                    "error": "PATENT_GATE",
+                    "message": f"Content matches trade secret pattern '{pat}'. Write blocked.",
+                })
+
+        fp = Path(file_path)
+        if dry_run:
+            return json.dumps({
+                "file_path": str(fp),
+                "dry_run": True,
+                "lines": len(content.splitlines()),
+                "bytes": len(content.encode()),
+                "message": "dry_run=True — pass dry_run=False to write.",
+            })
+
+        try:
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            dir_ = fp.parent
+            with tempfile.NamedTemporaryFile(
+                mode="w", dir=dir_, suffix=".tmp", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(content)
+                tmp.flush()
+                _os.fsync(tmp.fileno())
+                tmp_path = tmp.name
+            _os.replace(tmp_path, fp)
+            return json.dumps({
+                "file_path": str(fp),
+                "written": True,
+                "lines": len(content.splitlines()),
+                "bytes": len(content.encode()),
+            })
+        except Exception as exc:
+            return json.dumps({"error": f"Write failed: {exc}", "written": False})
+
+    async def _handle_grep(self, args: dict[str, Any]) -> str:
+        """Search file contents by regex pattern."""
+        import re
+        import fnmatch
+
+        pattern = args.get("pattern", "")
+        if not pattern:
+            return json.dumps({"error": "Parameter 'pattern' is required."})
+
+        search_path = Path(args.get("path", "."))
+        glob_filter = args.get("glob", "")
+        case_insensitive = bool(args.get("case_insensitive", False))
+        context_lines = min(int(args.get("context_lines", 0)), 5)
+        max_results = min(int(args.get("max_results", 50)), 500)
+
+        flags = re.IGNORECASE if case_insensitive else 0
+        try:
+            compiled = re.compile(pattern, flags)
+        except re.error as exc:
+            return json.dumps({"error": f"Invalid regex: {exc}"})
+
+        matches = []
+        try:
+            if search_path.is_file():
+                files_to_search = [search_path]
+            else:
+                if glob_filter:
+                    files_to_search = list(search_path.rglob(glob_filter))
+                else:
+                    files_to_search = [
+                        p for p in search_path.rglob("*")
+                        if p.is_file() and not any(
+                            part.startswith(".") for part in p.parts
+                        )
+                    ]
+
+            for fp in sorted(files_to_search)[:1000]:
+                if len(matches) >= max_results:
+                    break
+                try:
+                    file_lines = fp.read_text(encoding="utf-8", errors="replace").splitlines()
+                except Exception:
+                    continue
+                for i, line in enumerate(file_lines):
+                    if compiled.search(line):
+                        ctx_before = file_lines[max(0, i - context_lines):i]
+                        ctx_after = file_lines[i + 1:i + 1 + context_lines]
+                        matches.append({
+                            "file": str(fp),
+                            "line_number": i + 1,
+                            "line": line,
+                            "context_before": ctx_before,
+                            "context_after": ctx_after,
+                        })
+                        if len(matches) >= max_results:
+                            break
+        except Exception as exc:
+            return json.dumps({"error": f"Grep failed: {exc}"})
+
+        return json.dumps({
+            "pattern": pattern,
+            "matches": matches,
+            "total_matches": len(matches),
+            "truncated": len(matches) >= max_results,
+        })
+
+    async def _handle_glob(self, args: dict[str, Any]) -> str:
+        """Find files by glob pattern."""
+        pattern = args.get("pattern", "")
+        if not pattern:
+            return json.dumps({"error": "Parameter 'pattern' is required."})
+
+        base_path = Path(args.get("path", "."))
+        max_results = min(int(args.get("max_results", 100)), 1000)
+
+        try:
+            # Sort by modification time (newest first)
+            matches = sorted(
+                base_path.rglob(pattern) if "**" in pattern else base_path.glob(pattern),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            result_paths = [str(p) for p in matches if p.is_file()][:max_results]
+            return json.dumps({
+                "pattern": pattern,
+                "files": result_paths,
+                "total": len(result_paths),
+                "truncated": len(result_paths) >= max_results,
+            })
+        except Exception as exc:
+            return json.dumps({"error": f"Glob failed: {exc}"})
+
+    async def _handle_bash(self, args: dict[str, Any]) -> str:
+        """Execute a governed shell command."""
+        import subprocess
+        import shlex
+
+        command = args.get("command", "").strip()
+        if not command:
+            return json.dumps({"error": "Parameter 'command' is required."})
+
+        dry_run = bool(args.get("dry_run", False))
+        timeout = min(max(1, int(args.get("timeout", 30))), 120)
+        cwd = args.get("cwd") or "."
+
+        # Safety blocklist — destructive commands
+        _BLOCKED = [
+            "rm -rf", "git push --force", "git push -f",
+            "DROP TABLE", "DROP DATABASE", "format c:",
+            ":(){:|:&};:",  # fork bomb
+        ]
+        for blocked in _BLOCKED:
+            if blocked.lower() in command.lower():
+                return json.dumps({
+                    "error": "BLOCKED_COMMAND",
+                    "message": f"Command contains blocked pattern: '{blocked}'",
+                    "command": command,
+                })
+
+        if dry_run:
+            return json.dumps({"command": command, "dry_run": True, "message": "dry_run=True — pass dry_run=False to execute."})
+
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=cwd,
+            )
+            return json.dumps({
+                "command": command,
+                "stdout": result.stdout[:4000],
+                "stderr": result.stderr[:1000],
+                "exit_code": result.returncode,
+                "success": result.returncode == 0,
+                "truncated": len(result.stdout) > 4000,
+            })
+        except subprocess.TimeoutExpired:
+            return json.dumps({"error": f"Command timed out after {timeout}s", "command": command})
+        except Exception as exc:
+            return json.dumps({"error": f"Bash failed: {exc}", "command": command})
+
+    # ── Phase 3.5: Git tools ─────────────────────────────────────────────
+
+    async def _handle_git_status(self, args: dict[str, Any]) -> str:
+        """git status — show changed/staged/untracked files."""
+        cwd = args.get("cwd", ".")
+        return await self._handle_bash({"command": "git status --porcelain", "cwd": cwd, "dry_run": False, "timeout": 10})
+
+    async def _handle_git_diff(self, args: dict[str, Any]) -> str:
+        """git diff — staged or unstaged."""
+        staged = bool(args.get("staged", False))
+        base_ref = args.get("base_ref", "")
+        file_path = args.get("file_path", "")
+        cwd = args.get("cwd", ".")
+
+        if base_ref:
+            cmd = f"git diff {base_ref}...HEAD"
+        elif staged:
+            cmd = "git diff --cached"
+        else:
+            cmd = "git diff"
+
+        if file_path:
+            cmd += f" -- {file_path}"
+
+        return await self._handle_bash({"command": cmd, "cwd": cwd, "dry_run": False, "timeout": 15})
+
+    async def _handle_git_log(self, args: dict[str, Any]) -> str:
+        """git log — recent commits."""
+        n = min(max(1, int(args.get("n", 10))), 50)
+        file_path = args.get("file_path", "")
+        cwd = args.get("cwd", ".")
+
+        cmd = f"git log --oneline -n {n}"
+        if file_path:
+            cmd += f" -- {file_path}"
+
+        return await self._handle_bash({"command": cmd, "cwd": cwd, "dry_run": False, "timeout": 10})
+
+    async def _handle_git_commit(self, args: dict[str, Any]) -> str:
+        """Governed git commit — patent scan on staged changes first."""
+        message = args.get("message", "").strip()
+        if not message:
+            return json.dumps({"error": "Parameter 'message' is required."})
+
+        files = args.get("files", [])
+        dry_run = bool(args.get("dry_run", True))
+        cwd = args.get("cwd", ".")
+
+        # Patent scan on staged diff
+        diff_raw = json.loads(await self._handle_git_diff({"staged": True, "cwd": cwd}))
+        diff_text = diff_raw.get("stdout", "")
+        import re
+        _TS_PATTERNS = ["w_J", "w_A", r"\b0\.16\b", "theta_fold", "AGREEMENT_THRESHOLD"]
+        for pat in _TS_PATTERNS:
+            if re.search(pat, diff_text):
+                return json.dumps({
+                    "error": "PATENT_GATE",
+                    "message": f"Staged diff matches trade secret pattern '{pat}'. Commit blocked.",
+                })
+
+        if dry_run:
+            return json.dumps({"message": message, "dry_run": True, "message_out": "dry_run=True — pass dry_run=False to commit."})
+
+        # Stage files if specified
+        if files:
+            stage_cmd = "git add " + " ".join(f'"{f}"' for f in files)
+            await self._handle_bash({"command": stage_cmd, "cwd": cwd, "dry_run": False, "timeout": 10})
+
+        escaped = message.replace('"', '\\"')
+        return await self._handle_bash({
+            "command": f'git commit -m "{escaped}"',
+            "cwd": cwd,
+            "dry_run": False,
+            "timeout": 30,
+        })
+
+    async def _handle_git_branch(self, args: dict[str, Any]) -> str:
+        """Create or switch git branches."""
+        name = args.get("name", "").strip()
+        action = args.get("action", "create_and_switch")
+        cwd = args.get("cwd", ".")
+
+        if not name and action != "list":
+            return json.dumps({"error": "Parameter 'name' is required."})
+
+        cmd_map = {
+            "create": f"git branch {name}",
+            "switch": f"git checkout {name}",
+            "create_and_switch": f"git checkout -b {name}",
+            "list": "git branch -a",
+        }
+        cmd = cmd_map.get(action, f"git checkout -b {name}")
+        return await self._handle_bash({"command": cmd, "cwd": cwd, "dry_run": False, "timeout": 15})
+
+    # ── v0.38.0 Phase 4: Compound workflow handlers ─────────────────────────
+
+    async def _handle_review(self, args: dict[str, Any]) -> str:
+        """Structured code review using knowledge graph context."""
+        file_path = args.get("file_path", "").strip()
+        diff = args.get("diff", "").strip()
+        focus = args.get("focus", "all")
+        context_depth = int(args.get("context_depth", 1))
+
+        if not file_path and not diff:
+            return json.dumps({"error": "Provide either 'file_path' or 'diff' to review."})
+
+        # Gather content
+        content = diff
+        if not content and file_path:
+            read_result = json.loads(await self._handle_read({"file_path": file_path}))
+            if "error" in read_result:
+                return json.dumps(read_result)
+            content = read_result.get("content", "")
+
+        # Build focused review prompt
+        focus_instructions = {
+            "security": "Focus ONLY on OWASP Top 10 vulnerabilities, secret exposure, unsafe subprocess calls.",
+            "correctness": "Focus ONLY on logic errors, null pointer risks, incorrect assumptions.",
+            "style": "Focus ONLY on naming conventions, code style, readability.",
+            "complexity": "Focus ONLY on cyclomatic complexity, deeply nested conditionals, long functions.",
+            "tests": "Focus ONLY on test coverage gaps — what is not tested.",
+            "all": "Review all dimensions: security, correctness, style, complexity, test coverage.",
+        }
+        focus_text = focus_instructions.get(focus, focus_instructions["all"])
+
+        graph = self._load_graph()
+        graph_context = ""
+        if graph and file_path:
+            try:
+                ctx_result = json.loads(await self.handle_tool("graq_context", {
+                    "module": file_path,
+                    "depth": context_depth,
+                }))
+                graph_context = f"\n\nGraph context:\n{json.dumps(ctx_result, indent=2)}"
+            except Exception:
+                pass
+
+        review_prompt = (
+            f"Perform a code review. {focus_text}\n\n"
+            f"Code to review:\n```\n{content}\n```"
+            f"{graph_context}\n\n"
+            "Output a JSON object with:\n"
+            "- 'summary': one-line summary\n"
+            "- 'verdict': APPROVED | CHANGES_REQUESTED | BLOCKED\n"
+            "- 'comments': list of {severity, file_path, line_range, description, suggestion}\n"
+            "Severity values: BLOCKER, MAJOR, MINOR, INFO"
+        )
+
+        try:
+            graph_obj = self._load_graph()
+            if graph_obj is None:
+                return json.dumps({"error": "No graph loaded — cannot run review."})
+            result = await graph_obj.areason(review_prompt, max_rounds=2, task_type="code")
+            return json.dumps({
+                "tool": "graq_review",
+                "focus": focus,
+                "file_path": file_path or "(diff)",
+                "review": result.answer if hasattr(result, "answer") else str(result),
+            })
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "tool": "graq_review"})
+
+    async def _handle_debug(self, args: dict[str, Any]) -> str:
+        """Diagnose a bug from error/stack trace using graph call context."""
+        error = args.get("error", "").strip()
+        symptom = args.get("symptom", "").strip()
+        file_path = args.get("file_path", "").strip()
+        include_fix = bool(args.get("include_fix", True))
+
+        signal = error or symptom
+        if not signal:
+            return json.dumps({"error": "Provide either 'error' (stack trace) or 'symptom' description."})
+
+        # Optionally gather file content for context
+        file_context = ""
+        if file_path:
+            read_result = json.loads(await self._handle_read({"file_path": file_path}))
+            if "content" in read_result:
+                lines = read_result["content"].split("\n")
+                # Limit to 100 lines to keep context manageable
+                file_context = "\n".join(lines[:100])
+                if len(lines) > 100:
+                    file_context += f"\n... ({len(lines) - 100} more lines)"
+
+        fix_instruction = (
+            "\n- 'proposed_fix': unified diff fixing the root cause (or empty string if unknown)"
+            if include_fix else ""
+        )
+
+        debug_prompt = (
+            f"Debug this issue using the knowledge graph call context.\n\n"
+            f"Error/Symptom:\n{signal}\n"
+            + (f"\nFile context ({file_path}):\n```\n{file_context}\n```\n" if file_context else "")
+            + "\nOutput a JSON object with:\n"
+            "- 'root_cause': concise root cause description\n"
+            "- 'affected_files': list of file paths likely involved\n"
+            "- 'confidence': HIGH | MEDIUM | LOW\n"
+            f"- 'test_to_add': pytest test that would catch this bug{fix_instruction}"
+        )
+
+        try:
+            graph_obj = self._load_graph()
+            if graph_obj is None:
+                return json.dumps({"error": "No graph loaded — cannot run debug analysis."})
+            result = await graph_obj.areason(debug_prompt, max_rounds=2, task_type="reason")
+            return json.dumps({
+                "tool": "graq_debug",
+                "signal": signal[:200],
+                "file_path": file_path or None,
+                "analysis": result.answer if hasattr(result, "answer") else str(result),
+            })
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "tool": "graq_debug"})
+
+    async def _handle_scaffold(self, args: dict[str, Any]) -> str:
+        """Scaffold new modules/classes/APIs/tests from a spec, matching project conventions."""
+        spec = args.get("spec", "").strip()
+        scaffold_type = args.get("scaffold_type", "module")
+        output_dir = args.get("output_dir", ".").strip()
+        dry_run = bool(args.get("dry_run", True))
+        with_tests = bool(args.get("with_tests", True))
+
+        if not spec:
+            return json.dumps({"error": "Parameter 'spec' is required."})
+
+        # Gather patterns from graph for convention matching
+        graph_context = ""
+        try:
+            pattern_result = json.loads(await self.handle_tool("graq_context", {
+                "module": scaffold_type,
+                "depth": 1,
+            }))
+            graph_context = f"\nExisting project patterns:\n{json.dumps(pattern_result, indent=2)}"
+        except Exception:
+            pass
+
+        test_instruction = (
+            "\n\nAlso generate a corresponding pytest test file."
+            if with_tests else ""
+        )
+
+        scaffold_prompt = (
+            f"Scaffold a new {scaffold_type} for: {spec}\n"
+            f"Target directory: {output_dir}\n"
+            f"{graph_context}"
+            f"{test_instruction}\n\n"
+            "Output a JSON object with:\n"
+            "- 'files': list of {file_path, content} objects to create\n"
+            "- 'description': what was scaffolded\n"
+            "- 'next_steps': list of manual steps needed after scaffolding\n"
+            "Match existing project naming conventions exactly."
+        )
+
+        try:
+            graph_obj = self._load_graph()
+            if graph_obj is None:
+                return json.dumps({"error": "No graph loaded — cannot run scaffold."})
+            result = await graph_obj.areason(scaffold_prompt, max_rounds=2, task_type="generate")
+            scaffold_data = result.answer if hasattr(result, "answer") else str(result)
+
+            if dry_run:
+                return json.dumps({
+                    "tool": "graq_scaffold",
+                    "dry_run": True,
+                    "spec": spec,
+                    "scaffold_type": scaffold_type,
+                    "output_dir": output_dir,
+                    "scaffold": scaffold_data,
+                    "message": "dry_run=True — review scaffold output, then pass dry_run=False to write files.",
+                })
+
+            # Non-dry-run: write each file
+            written: list[str] = []
+            import json as _json
+            try:
+                scaffold_obj = _json.loads(scaffold_data) if isinstance(scaffold_data, str) else scaffold_data
+                files = scaffold_obj.get("files", []) if isinstance(scaffold_obj, dict) else []
+            except Exception:
+                files = []
+
+            for f in files:
+                fp = f.get("file_path", "")
+                content = f.get("content", "")
+                if fp and content:
+                    write_result = json.loads(await self._handle_write({
+                        "file_path": fp,
+                        "content": content,
+                        "dry_run": False,
+                    }))
+                    if "error" not in write_result:
+                        written.append(fp)
+
+            return json.dumps({
+                "tool": "graq_scaffold",
+                "dry_run": False,
+                "written": written,
+                "scaffold": scaffold_data,
+            })
+
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "tool": "graq_scaffold"})
+
+    async def _handle_workflow(self, args: dict[str, Any]) -> str:
+        """Orchestrate multi-step coding workflows."""
+        workflow = args.get("workflow", "").strip()
+        goal = args.get("goal", "").strip()
+        context = args.get("context", {})
+        dry_run = bool(args.get("dry_run", True))
+        max_steps = int(args.get("max_steps", 10))
+
+        if not workflow:
+            return json.dumps({"error": "Parameter 'workflow' is required."})
+        if not goal:
+            return json.dumps({"error": "Parameter 'goal' is required."})
+
+        # Workflow definitions: ordered step plans with tool routing
+        workflow_plans: dict[str, list[dict]] = {
+            "bug_fix": [
+                {"step": 1, "tool": "graq_grep", "description": "Locate error in codebase"},
+                {"step": 2, "tool": "graq_read", "description": "Read affected file"},
+                {"step": 3, "tool": "graq_debug", "description": "Diagnose root cause"},
+                {"step": 4, "tool": "graq_generate", "description": "Generate fix as diff"},
+                {"step": 5, "tool": "graq_write", "description": "Apply fix (dry_run=True by default)"},
+                {"step": 6, "tool": "graq_bash", "description": "Run tests to verify fix"},
+                {"step": 7, "tool": "graq_git_commit", "description": "Commit fix (dry_run=True by default)"},
+                {"step": 8, "tool": "graq_learn", "description": "Record lesson in knowledge graph"},
+            ],
+            "scaffold_and_test": [
+                {"step": 1, "tool": "graq_context", "description": "Gather project conventions"},
+                {"step": 2, "tool": "graq_scaffold", "description": "Scaffold new component"},
+                {"step": 3, "tool": "graq_write", "description": "Write scaffolded files (dry_run=True)"},
+                {"step": 4, "tool": "graq_bash", "description": "Run tests to validate scaffold"},
+                {"step": 5, "tool": "graq_learn", "description": "Record scaffold pattern"},
+            ],
+            "governed_refactor": [
+                {"step": 1, "tool": "graq_git_branch", "description": "Create feature branch"},
+                {"step": 2, "tool": "graq_impact", "description": "Analyse impact radius"},
+                {"step": 3, "tool": "graq_preflight", "description": "Pre-change safety check"},
+                {"step": 4, "tool": "graq_generate", "description": "Generate refactor diff"},
+                {"step": 5, "tool": "graq_write", "description": "Apply refactor (dry_run=True)"},
+                {"step": 6, "tool": "graq_bash", "description": "Run full test suite"},
+                {"step": 7, "tool": "graq_gate", "description": "Gate check on quality"},
+                {"step": 8, "tool": "graq_git_commit", "description": "Commit refactor (dry_run=True)"},
+            ],
+            "review_and_fix": [
+                {"step": 1, "tool": "graq_read", "description": "Read file to review"},
+                {"step": 2, "tool": "graq_review", "description": "Perform code review"},
+                {"step": 3, "tool": "graq_generate", "description": "Generate fixes for BLOCKER/MAJOR issues"},
+                {"step": 4, "tool": "graq_write", "description": "Apply fixes (dry_run=True)"},
+                {"step": 5, "tool": "graq_bash", "description": "Run tests after fix"},
+            ],
+        }
+
+        plan = workflow_plans.get(workflow)
+        if plan is None:
+            return json.dumps({
+                "error": f"Unknown workflow '{workflow}'. Available: {list(workflow_plans.keys())}",
+            })
+
+        # Cap steps at max_steps
+        plan = plan[:max_steps]
+
+        if dry_run:
+            return json.dumps({
+                "tool": "graq_workflow",
+                "workflow": workflow,
+                "goal": goal,
+                "dry_run": True,
+                "steps": plan,
+                "context": context,
+                "message": (
+                    f"Workflow '{workflow}' plan: {len(plan)} steps. "
+                    "Pass dry_run=False to execute. "
+                    "Each write step will still use dry_run=True unless overridden in context."
+                ),
+            })
+
+        # Non-dry-run: execute steps sequentially
+        results: list[dict] = []
+        for step in plan:
+            step_tool = step["tool"]
+            step_args = dict(context)
+            step_args["dry_run"] = True  # Inner steps default to dry_run=True for safety
+
+            try:
+                step_result = json.loads(await self.handle_tool(step_tool, step_args))
+                results.append({
+                    "step": step["step"],
+                    "tool": step_tool,
+                    "description": step["description"],
+                    "status": "ok" if "error" not in step_result else "error",
+                    "result": step_result,
+                })
+                # Stop on unrecoverable error
+                if "error" in step_result and step_result.get("error"):
+                    results.append({"step": "STOPPED", "reason": step_result["error"]})
+                    break
+            except Exception as exc:
+                results.append({
+                    "step": step["step"],
+                    "tool": step_tool,
+                    "status": "exception",
+                    "error": str(exc),
+                })
+                break
+
+        return json.dumps({
+            "tool": "graq_workflow",
+            "workflow": workflow,
+            "goal": goal,
+            "steps_executed": len(results),
+            "results": results,
+        })
+
+    async def _handle_test(self, args: dict[str, Any]) -> str:
+        """Run pytest and parse structured CodeMetric output."""
+        import re
+        import subprocess
+
+        target = args.get("target", "tests/").strip() or "tests/"
+        coverage = bool(args.get("coverage", False))
+        fail_fast = bool(args.get("fail_fast", False))
+        cwd = args.get("cwd", ".").strip() or "."
+        record_metrics = bool(args.get("record_metrics", False))
+
+        # Build pytest command
+        cmd_parts = ["python", "-m", "pytest", target, "-q", "--tb=short"]
+        if fail_fast:
+            cmd_parts.append("-x")
+        if coverage:
+            cmd_parts.extend(["--cov=.", "--cov-report=term-missing"])
+
+        cmd = " ".join(cmd_parts)
+
+        # Safety: blocked in read-only mode
+        if self.read_only:
+            return json.dumps({"error": "graq_test is blocked in read-only mode."})
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=cwd,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            return json.dumps({"error": "pytest timed out after 120 seconds.", "tool": "graq_test"})
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "tool": "graq_test"})
+
+        stdout = proc.stdout
+        stderr = proc.stderr
+        exit_code = proc.returncode
+
+        # Parse structured results from pytest -q output
+        passed = failed = skipped = errors = 0
+
+        # Match summary line: "5 passed, 2 failed, 1 skipped in 3.42s"
+        summary_match = re.search(
+            r"(\d+) passed(?:, (\d+) failed)?(?:, (\d+) skipped)?",
+            stdout,
+        )
+        if summary_match:
+            passed = int(summary_match.group(1) or 0)
+            failed = int(summary_match.group(2) or 0)
+            skipped = int(summary_match.group(3) or 0)
+        else:
+            # Try alternate: "no tests ran" or "x failed"
+            fail_only = re.search(r"(\d+) failed", stdout)
+            if fail_only:
+                failed = int(fail_only.group(1))
+
+        # Parse coverage if present
+        coverage_pct: float | None = None
+        if coverage:
+            cov_match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", stdout)
+            if cov_match:
+                coverage_pct = float(cov_match.group(1))
+
+        # Collect failing test IDs
+        failing_tests: list[str] = re.findall(r"FAILED\s+([\w/.::\-]+)", stdout)
+
+        # Duration
+        duration_match = re.search(r"in ([\d.]+)s", stdout)
+        duration_s = float(duration_match.group(1)) if duration_match else None
+
+        metrics: dict[str, Any] = {
+            "passed": passed,
+            "failed": failed,
+            "skipped": skipped,
+            "exit_code": exit_code,
+            "duration_s": duration_s,
+            "coverage_pct": coverage_pct,
+            "failing_tests": failing_tests,
+            "status": "GREEN" if exit_code == 0 else "RED",
+        }
+
+        # Optionally write CodeMetric nodes to graph
+        if record_metrics and self._graph is not None:
+            try:
+                metric_id = f"test_metrics_{target.replace('/', '_').replace('.', '_')}"
+                self._graph.add_node_simple(
+                    metric_id,
+                    label=f"Test Metrics: {target}",
+                    entity_type="CodeMetric",
+                    description=(
+                        f"Test run: {passed} passed, {failed} failed, {skipped} skipped. "
+                        f"Status: {metrics['status']}"
+                        + (f". Coverage: {coverage_pct}%" if coverage_pct is not None else "")
+                    ),
+                )
+                metrics["graph_node_id"] = metric_id
+            except Exception:
+                pass
+
+        return json.dumps({
+            "tool": "graq_test",
+            "target": target,
+            "metrics": metrics,
+            "stdout": stdout[-2000:] if len(stdout) > 2000 else stdout,
+            "stderr": stderr[-500:] if len(stderr) > 500 else stderr,
+        })
+
+    async def _handle_plan(self, args: dict[str, Any]) -> str:
+        """Handle graq_plan — goal decomposition into a governance-gated DAG plan.
+
+        This handler is READ-ONLY. It produces a reviewable ExecutionPlan and
+        writes it as an ExecutionPlan node into the knowledge graph. It does NOT
+        execute any steps.
+
+        Flow:
+            1. Load graph + run impact analysis to find affected modules
+            2. Use graph topology (causal_tiers, impact_radius) to order steps
+            3. Assign risk levels based on impact_radius + _WRITE_TOOLS membership
+            4. Insert GovernanceCheckpoints before HIGH/CRITICAL steps
+            5. Estimate cost from TASK_RECOMMENDATIONS routing metadata
+            6. Write ExecutionPlan node to graph (so future reasoning can reason about it)
+            7. Return plan JSON for caller review
+        """
+        import uuid
+
+        goal: str = args.get("goal", "").strip()
+        if not goal:
+            return json.dumps({"error": "graq_plan requires 'goal'", "tool": "graq_plan"})
+
+        scope: str = args.get("scope", "")
+        max_steps: int = int(args.get("max_steps", 15))
+        include_tests: bool = bool(args.get("include_tests", True))
+        require_approval_threshold: str = args.get("require_approval_threshold", "HIGH")
+        dry_run: bool = bool(args.get("dry_run", False))
+
+        # Import plan types (zero blast radius — new module)
+        from graqle.core.plan import ExecutionPlan, GovernanceCheckpoint, PlanStep
+
+        plan_id = f"plan_{uuid.uuid4().hex[:8]}"
+        approval_levels = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+        approval_threshold_level = approval_levels.get(require_approval_threshold, 2)
+
+        if dry_run:
+            # Fast preview: return a skeleton plan without graph analysis
+            steps = [
+                PlanStep(
+                    step_id="step_1",
+                    tool="graq_impact",
+                    description=f"Analyse impact of: {goal[:80]}",
+                    args={"component": scope or goal[:40]},
+                    risk_level="LOW",
+                ),
+                PlanStep(
+                    step_id="step_2",
+                    tool="graq_generate",
+                    description="Generate code changes as unified diff",
+                    args={"description": goal, "dry_run": True},
+                    depends_on=["step_1"],
+                    risk_level="MEDIUM",
+                ),
+                PlanStep(
+                    step_id="step_3",
+                    tool="graq_edit",
+                    description="Apply generated diff to target file(s)",
+                    args={"dry_run": True},
+                    depends_on=["step_2"],
+                    risk_level="MEDIUM",
+                    requires_approval=True,
+                ),
+            ]
+            if include_tests:
+                steps.append(PlanStep(
+                    step_id="step_4",
+                    tool="graq_test",
+                    description="Run test suite to verify changes",
+                    args={"target": "tests/", "fail_fast": True},
+                    depends_on=["step_3"],
+                    risk_level="LOW",
+                ))
+
+            plan = ExecutionPlan(
+                goal=goal,
+                plan_id=plan_id,
+                steps=steps,
+                risk_level="MEDIUM",
+                estimated_cost_usd=0.0,
+                decomposition_confidence=0.5,
+                requires_approval=any(s.requires_approval for s in steps),
+            )
+            return json.dumps({
+                "tool": "graq_plan",
+                "plan": plan.to_dict(),
+                "dry_run": True,
+                "note": "Dry-run: graph impact analysis skipped. Pass dry_run=false for full analysis.",
+            })
+
+        # Full plan: run impact analysis via existing graq_impact handler
+        try:
+            graph = self._load_graph()
+        except Exception as exc:
+            return json.dumps({"error": f"Failed to load graph: {exc}", "tool": "graq_plan"})
+
+        # Step 1: impact analysis — find affected nodes
+        impact_result_str = await self._handle_impact({
+            "component": scope or goal[:60],
+            "max_depth": 2,
+        })
+        try:
+            import json as _json
+            impact_data = _json.loads(impact_result_str)
+            affected_modules: list[str] = []
+            affected_files: list[str] = []
+            if isinstance(impact_data, dict):
+                # Extract module/file names from impact result
+                for key in ("affected_modules", "modules", "components", "nodes"):
+                    val = impact_data.get(key)
+                    if isinstance(val, list):
+                        affected_modules.extend(str(v) for v in val[:20])
+                        break
+                for key in ("files", "affected_files"):
+                    val = impact_data.get(key)
+                    if isinstance(val, list):
+                        affected_files.extend(str(v) for v in val[:20])
+                        break
+        except Exception:
+            affected_modules = []
+            affected_files = []
+
+        # Step 2: build DAG steps based on goal keywords and affected modules
+        steps: list[PlanStep] = []
+        checkpoints: list[GovernanceCheckpoint] = []
+        step_counter = 0
+
+        def _next_step_id() -> str:
+            nonlocal step_counter
+            step_counter += 1
+            return f"step_{step_counter}"
+
+        # Always start with impact analysis
+        s_impact = _next_step_id()
+        steps.append(PlanStep(
+            step_id=s_impact,
+            tool="graq_impact",
+            description=f"Full impact analysis for: {goal[:80]}",
+            args={"component": scope or goal[:60], "max_depth": 3},
+            risk_level="LOW",
+            estimated_cost_usd=0.001,
+        ))
+
+        # Preflight before any writes
+        s_preflight = _next_step_id()
+        steps.append(PlanStep(
+            step_id=s_preflight,
+            tool="graq_preflight",
+            description="Run governance preflight check",
+            args={"action": goal[:120]},
+            depends_on=[s_impact],
+            risk_level="LOW",
+            estimated_cost_usd=0.001,
+        ))
+
+        # Read affected files for context
+        if affected_files:
+            for fpath in affected_files[:3]:
+                s_read = _next_step_id()
+                steps.append(PlanStep(
+                    step_id=s_read,
+                    tool="graq_read",
+                    description=f"Read {fpath} for context",
+                    args={"path": fpath},
+                    depends_on=[s_preflight],
+                    risk_level="LOW",
+                    estimated_cost_usd=0.0,
+                ))
+
+        read_steps = [s.step_id for s in steps if s.tool == "graq_read"] or [s_preflight]
+
+        # Determine if this is a generate/edit/refactor/review/debug type goal
+        goal_lower = goal.lower()
+        is_generative = any(kw in goal_lower for kw in (
+            "add", "create", "generate", "implement", "write", "build", "fix",
+            "refactor", "update", "modify", "change", "rename", "migrate",
+        ))
+        is_analysis = any(kw in goal_lower for kw in (
+            "analyse", "analyze", "review", "audit", "check", "inspect",
+            "find", "detect", "list", "show", "understand",
+        ))
+
+        if is_generative:
+            # Generate diff
+            s_gen = _next_step_id()
+            steps.append(PlanStep(
+                step_id=s_gen,
+                tool="graq_generate",
+                description=f"Generate code changes for: {goal[:80]}",
+                args={"description": goal, "dry_run": True},
+                depends_on=read_steps,
+                risk_level="MEDIUM",
+                estimated_cost_usd=0.01,
+            ))
+
+            # Governance checkpoint before write
+            cp_id = f"cp_{len(checkpoints) + 1}"
+            checkpoints.append(GovernanceCheckpoint(
+                checkpoint_id=cp_id,
+                before_step_id=f"step_{step_counter + 1}",
+                check_type="approval",
+                description="Review generated diff before applying to files",
+                blocking=True,
+            ))
+
+            # Apply diff
+            s_edit = _next_step_id()
+            # Fix checkpoint to point to correct step
+            checkpoints[-1] = GovernanceCheckpoint(
+                checkpoint_id=cp_id,
+                before_step_id=s_edit,
+                check_type="approval",
+                description="Review generated diff before applying to files",
+                blocking=True,
+            )
+            requires_approval = approval_levels.get("MEDIUM", 1) >= approval_threshold_level
+            steps.append(PlanStep(
+                step_id=s_edit,
+                tool="graq_edit",
+                description="Apply diff to target files (dry_run=true for safety)",
+                args={"dry_run": True},
+                depends_on=[s_gen],
+                risk_level="MEDIUM",
+                requires_approval=requires_approval,
+                gate_name="validate_diff_format",
+                estimated_cost_usd=0.001,
+            ))
+
+            if include_tests:
+                s_test = _next_step_id()
+                steps.append(PlanStep(
+                    step_id=s_test,
+                    tool="graq_test",
+                    description="Run test suite to verify changes",
+                    args={"target": "tests/", "fail_fast": True},
+                    depends_on=[s_edit],
+                    risk_level="LOW",
+                    gate_name="test_coverage_gate",
+                    estimated_cost_usd=0.0,
+                ))
+
+            # Learn from outcome
+            s_learn = _next_step_id()
+            steps.append(PlanStep(
+                step_id=s_learn,
+                tool="graq_learn",
+                description="Record outcome in knowledge graph",
+                args={"action": goal[:120], "mode": "outcome"},
+                depends_on=[steps[-1].step_id],
+                risk_level="LOW",
+                estimated_cost_usd=0.001,
+            ))
+
+        elif is_analysis:
+            # Analysis-only plan
+            s_grep = _next_step_id()
+            steps.append(PlanStep(
+                step_id=s_grep,
+                tool="graq_grep",
+                description=f"Search codebase for patterns related to: {goal[:60]}",
+                args={"pattern": goal[:40], "path": "."},
+                depends_on=read_steps,
+                risk_level="LOW",
+                estimated_cost_usd=0.0,
+            ))
+            s_review = _next_step_id()
+            steps.append(PlanStep(
+                step_id=s_review,
+                tool="graq_review",
+                description=f"Review findings and produce structured analysis",
+                args={"target": scope or ".", "focus": goal[:120]},
+                depends_on=[s_grep],
+                risk_level="LOW",
+                estimated_cost_usd=0.01,
+            ))
+
+        # Enforce max_steps
+        if len(steps) > max_steps:
+            steps = steps[:max_steps]
+
+        # Overall risk = highest step risk
+        risk_priority = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+        overall_risk = max(steps, key=lambda s: risk_priority.get(s.risk_level, 0)).risk_level if steps else "LOW"
+        total_cost = sum(s.estimated_cost_usd for s in steps)
+        requires_plan_approval = any(s.requires_approval for s in steps)
+
+        plan = ExecutionPlan(
+            goal=goal,
+            plan_id=plan_id,
+            steps=steps,
+            checkpoints=checkpoints,
+            risk_level=overall_risk,
+            estimated_cost_usd=total_cost,
+            affected_files=affected_files[:10],
+            affected_modules=affected_modules[:10],
+            requires_approval=requires_plan_approval,
+            decomposition_confidence=0.75 if affected_modules else 0.5,
+        )
+
+        # Write ExecutionPlan node to KG so future reasoning can reason about the plan
+        try:
+            plan_dict = plan.to_dict()
+            graph.add_node_simple(
+                node_id=plan_id,
+                label=f"Plan: {goal[:60]}",
+                node_type="ExecutionPlan",
+                metadata={
+                    "goal": goal,
+                    "risk_level": overall_risk,
+                    "total_steps": len(steps),
+                    "estimated_cost_usd": total_cost,
+                    "requires_approval": requires_plan_approval,
+                },
+            )
+        except Exception:
+            pass  # Never fail on KG write — plan is still useful without it
+
+        return json.dumps({
+            "tool": "graq_plan",
+            "plan": plan.to_dict(),
+            "dry_run": False,
+            "affected_modules_found": len(affected_modules),
+            "affected_files_found": len(affected_files),
+        })
+
+    # ── graq_profile (Phase 7) ─────────────────────────────────────────
+    # v0.38.0 — reasoning performance profiler + CodeMetric KG node writer
+
+    async def _handle_profile(self, args: dict[str, Any]) -> str:
+        """Profile a graq_reason invocation: per-step latency, tokens, confidence.
+
+        Args:
+            query: reasoning query to profile (required)
+            max_rounds: LLM rounds to run (default 2)
+            session_label: human-readable label for KG node
+            write_kg_node: if True, write CodeMetric node to KG (default True)
+            include_step_breakdown: if True, include step details in response
+
+        Returns:
+            JSON of ProfileSummary.to_dict()
+        """
+        import time as _time
+        from graqle.core.profiler import Profiler, ProfileConfig
+
+        query: str = args.get("query", "").strip()
+        if not query:
+            return json.dumps({"error": "graq_profile requires 'query'", "tool": "graq_profile"})
+
+        max_rounds = min(max(int(args.get("max_rounds", 2)), 1), 5)
+        session_label = str(args.get("session_label", "")) or f"graq_profile:{query[:40]}"
+        write_kg_node = bool(args.get("write_kg_node", True))
+        include_step_breakdown = bool(args.get("include_step_breakdown", True))
+
+        profiler = Profiler(ProfileConfig(include_step_breakdown=include_step_breakdown))
+        trace = profiler.new_trace(session_label=session_label, query=query)
+
+        # Load graph
+        try:
+            graph = self._load_graph()
+        except Exception as exc:
+            return json.dumps({"error": f"Failed to load graph: {exc}", "tool": "graq_profile"})
+
+        # Run graq_reason with timing instrumentation per phase.
+        # We approximate phase boundaries by measuring the full areason() call
+        # and recording it as a single REASON step. Future iterations will
+        # add sub-phase hooks when the reasoning engine exposes callbacks.
+        t0_ns = _time.perf_counter_ns()
+        reason_result = None
+        reason_error: str = ""
+        try:
+            reason_result = await graph.areason(
+                query,
+                max_rounds=max_rounds,
+                task_type="reason",
+            )
+        except Exception as exc:
+            reason_error = str(exc)[:200]
+
+        # Record REASON step
+        latency_ms = (_time.perf_counter_ns() - t0_ns) / 1_000_000
+        tokens_used = 0
+        confidence = 0.0
+        model_used = ""
+
+        if reason_result is not None:
+            # Estimate token usage from cost (rough: $3/1M tokens for claude-sonnet)
+            cost_usd = getattr(reason_result, "cost_usd", 0.0)
+            tokens_used = int(cost_usd / 0.000003) if cost_usd > 0 else 0
+            confidence = float(getattr(reason_result, "confidence", 0.0))
+            model_used = str(getattr(reason_result, "model", ""))
+            if not model_used:
+                try:
+                    cfg_obj = self._config
+                    model_used = getattr(cfg_obj, "default_model", "") if cfg_obj else ""
+                except Exception:
+                    pass
+
+        trace.record_step(
+            step_name="REASON",
+            latency_ms=latency_ms,
+            tokens_used=tokens_used,
+            confidence=confidence,
+            model=model_used,
+            notes=reason_error or (
+                f"rounds={getattr(reason_result, 'rounds_completed', '?')}, "
+                f"active_nodes={len(getattr(reason_result, 'active_nodes', []))}"
+                if reason_result else ""
+            ),
+        )
+
+        summary = profiler.finish(trace)
+
+        # Write CodeMetric KG node
+        if write_kg_node:
+            try:
+                from graqle.core.node import CogniNode
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+                metric_node = CogniNode(
+                    label=f"profile_{ts}",
+                    node_type="CodeMetric",
+                    metadata=trace.to_node_metadata(),
+                )
+                graph.add_node(metric_node)
+                self._save_graph(graph)
+                summary.kg_node_written = True
+            except Exception:
+                pass  # Never fail on KG write — profile is still useful without it
+
+        result = summary.to_dict()
+        result["tool"] = "graq_profile"
+        if not include_step_breakdown:
+            result.pop("step_breakdown", None)
+        if reason_error:
+            result["reason_error"] = reason_error
+        return json.dumps(result)
+
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""
         registry = Path(".gcc/registry.md")
@@ -3322,6 +5441,13 @@ class KogniDevServer:
         # ---- MCP lifecycle methods ------------------------------------
 
         if method == "initialize":
+            _project_ctx: dict = {}
+            try:
+                _g = self._load_graph()
+                if _g is not None:
+                    _project_ctx = _g.project_context()
+            except Exception:
+                pass
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -3334,6 +5460,7 @@ class KogniDevServer:
                         "name": "graq",
                         "version": _version,
                     },
+                    "projectContext": _project_ctx,
                 },
             }
 

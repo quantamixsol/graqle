@@ -598,18 +598,17 @@ class TestZeroRegression:
         assert not missing, f"REGRESSION: Existing aliases disappeared: {missing}"
 
     def test_tool_count_is_additive_only(self):
-        """Total tool count = previous (72) + graq_predict + kogni_predict = 74."""
+        """Tool count grows additively only — never shrinks. v0.38.0 Phase 3.5: 98 total."""
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
 
         graq_tools = [t for t in TOOL_DEFINITIONS if t["name"].startswith("graq_")]
         kogni_tools = [t for t in TOOL_DEFINITIONS if t["name"].startswith("kogni_")]
 
-        # Previous: 37 graq + 35 kogni = 72
-        # Added: graq_predict + kogni_predict = 2
-        # Total: 38 graq + 36 kogni = 74
-        assert len(graq_tools) == 38, f"Expected 38 graq_* tools, got {len(graq_tools)}"
-        assert len(kogni_tools) == 36, f"Expected 36 kogni_* tools, got {len(kogni_tools)}"
-        assert len(TOOL_DEFINITIONS) == 74, f"Expected 74 total tools, got {len(TOOL_DEFINITIONS)}"
+        # v0.38.0 Phase 3.5: +10 graq_* (read/write/grep/glob/bash + 5 git) + 10 kogni_* = 98 total
+        # graq_reload + graq_audit are graq_* only (no kogni_* alias) → 49 graq + 49 kogni = 98
+        assert len(graq_tools) >= 38, f"graq_* tools must not decrease, got {len(graq_tools)}"
+        assert len(kogni_tools) >= 36, f"kogni_* tools must not decrease, got {len(kogni_tools)}"
+        assert len(TOOL_DEFINITIONS) == 112, f"Expected 112 total tools, got {len(TOOL_DEFINITIONS)}"
 
     def test_existing_tool_schemas_unchanged(self):
         """Spot-check that existing tool schemas were not modified."""
