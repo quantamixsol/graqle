@@ -163,6 +163,7 @@ async def list_projects(request: Request):
         return JSONResponse({"projects": [], "error": "Not authenticated"}, status_code=401)
 
     try:
+        import json as _json
         import boto3
         email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
         bucket = os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
@@ -170,25 +171,75 @@ async def list_projects(request: Request):
 
         prefix = f"graphs/{email_hash}/"
         paginator = s3.get_paginator("list_objects_v2")
-        project_names: set[str] = set()
+        project_prefixes: list[str] = []
 
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/"):
             for cp in page.get("CommonPrefixes", []):
-                key = cp.get("Prefix", "")
-                # key = "graphs/{hash}/project_name/"
-                parts = key.rstrip("/").split("/")
-                if len(parts) >= 3:
-                    project_names.add(parts[2])
+                project_prefixes.append(cp.get("Prefix", ""))
 
-        projects = sorted(project_names)
+        projects = []
+        for proj_prefix in sorted(project_prefixes):
+            parts = proj_prefix.rstrip("/").split("/")
+            proj_name = parts[2] if len(parts) >= 3 else proj_prefix
+            # Try to read metadata.json for rich project info
+            try:
+                meta_obj = s3.get_object(Bucket=bucket, Key=f"{proj_prefix}metadata.json")
+                meta = _json.loads(meta_obj["Body"].read().decode("utf-8"))
+                projects.append({
+                    "name": meta.get("project", proj_name),
+                    "lastPush": meta.get("lastPush", ""),
+                    "nodeCount": meta.get("nodeCount", 0),
+                    "edgeCount": meta.get("edgeCount", 0),
+                    "health": meta.get("health", "UNKNOWN"),
+                    "hasIntelligence": meta.get("hasIntelligence", False),
+                })
+            except Exception:
+                projects.append({
+                    "name": proj_name,
+                    "lastPush": "",
+                    "nodeCount": 0,
+                    "edgeCount": 0,
+                    "health": "UNKNOWN",
+                    "hasIntelligence": False,
+                })
+
+        # Sort newest push first
+        projects.sort(key=lambda p: p.get("lastPush", ""), reverse=True)
+
         return JSONResponse({
-            "projects": [{"name": p} for p in projects],
+            "projects": projects,
             "count": len(projects),
         })
 
     except Exception as e:
         logger.warning("list_projects failed: %s", e)
         return JSONResponse({"projects": [], "error": str(e)[:200]}, status_code=200)
+
+
+# ---------- Project Context ----------
+
+
+@router.get("/project-context")
+async def project_context(request: Request):
+    """Return the active project identity and graph stats for the Studio UI.
+
+    Used by TopBar badge and Dashboard project card to show which graph is loaded.
+    """
+    state = request.app.state.studio_state
+    graph = state.get("graph")
+    if graph is not None:
+        ctx = graph.project_context()
+        ctx["graph_loaded"] = True
+        return JSONResponse(ctx)
+    from pathlib import Path as _Path
+    return JSONResponse({
+        "project_name": _Path.cwd().name,
+        "source_mode": "local",
+        "graph_path": None,
+        "node_count": 0,
+        "edge_count": 0,
+        "graph_loaded": False,
+    })
 
 
 # ---------- Metrics ----------
@@ -245,24 +296,24 @@ async def graph_visualization(request: Request):
     if not graph:
         return {"nodes": [], "links": []}
 
+    # Precompute degree map in one pass (avoids O(N×E) nested loop)
+    degree_map: dict = {}
+    for eid, edge in graph.edges.items():
+        degree_map[edge.source_id] = degree_map.get(edge.source_id, 0) + 1
+        degree_map[edge.target_id] = degree_map.get(edge.target_id, 0) + 1
+
     nodes = []
     for nid, node in graph.nodes.items():
         chunk_count = len(node.properties.get("chunks", []))
-        neighbors = []
-        for eid, edge in graph.edges.items():
-            if edge.source_id == nid:
-                neighbors.append(edge.target_id)
-            elif edge.target_id == nid:
-                neighbors.append(edge.source_id)
-
+        degree = degree_map.get(nid, 0)
         nodes.append({
             "id": nid,
             "label": node.label,
             "type": node.entity_type,
             "description": (node.description or "")[:200],
             "chunks": chunk_count,
-            "degree": len(neighbors),
-            "size": max(8, min(40, 8 + math.sqrt(len(neighbors)) * 6)),
+            "degree": degree,
+            "size": max(8, min(40, 8 + math.sqrt(degree) * 6)),
             "color": _type_color(node.entity_type),
         })
 

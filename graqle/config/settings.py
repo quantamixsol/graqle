@@ -362,6 +362,8 @@ class GraqleConfig(BaseModel):
     scan: ScanConfig = Field(default_factory=ScanConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     domain: str = "custom"
+    project_name: str = ""       # Human-readable project identity (settable in graqle.yaml)
+    source_mode: str = "auto"    # "local", "cloud", "hybrid", "auto" (auto = detect at runtime)
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)
     node_models: dict[str, str] = Field(default_factory=dict)
 

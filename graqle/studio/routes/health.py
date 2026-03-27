@@ -80,8 +80,8 @@ async def health_status(request: Request):
             health_str = scorecard.get("health", "UNKNOWN")
             health_map = {"HEALTHY": 100, "GOOD": 80, "FAIR": 60, "POOR": 40, "UNKNOWN": 0}
             health_score = health_map.get(health_str, 0)
-            checks_passed = scorecard.get("checks_passed", 0)
-            checks_total = scorecard.get("checks_total", 0)
+            checks_passed = scorecard.get("checks_passed") or 0
+            checks_total = scorecard.get("checks_total") or 0
 
     return {
         "status": "ok",

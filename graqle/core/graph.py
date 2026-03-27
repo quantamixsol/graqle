@@ -721,7 +721,7 @@ class Graqle:
                     f"({pct:.0f}%) had empty descriptions. Auto-enriched {enriched} "
                     f"from metadata/properties. For better reasoning quality, add "
                     f"rich descriptions to your nodes. See: "
-                    f"https://graqle.dev/docs/kg-quality"
+                    f"https://graqle.com/docs/kg-quality"
                 )
             elif empty_count > 0:
                 logger.info(
@@ -2111,6 +2111,36 @@ class Graqle:
 
     def __len__(self) -> int:
         return len(self.nodes)
+
+    def project_context(self) -> dict:
+        """Return a snapshot of the active project identity and graph stats.
+
+        Used by the server health endpoint and MCP initialize response to surface
+        which project/graph is currently loaded.
+        """
+        from pathlib import Path
+
+        cfg = self.config
+        graph_path_raw = getattr(getattr(cfg, "graph", None), "path", None)
+        graph_path: str | None = None
+        project_name: str = getattr(cfg, "project_name", "") or ""
+        source_mode: str = getattr(cfg, "source_mode", "auto") or "auto"
+
+        if graph_path_raw:
+            abs_path = Path(graph_path_raw).resolve()
+            graph_path = str(abs_path)
+            if not project_name:
+                project_name = abs_path.parent.name or abs_path.stem
+        elif not project_name:
+            project_name = Path.cwd().name
+
+        return {
+            "project_name": project_name,
+            "source_mode": source_mode,
+            "graph_path": graph_path,
+            "node_count": len(self.nodes),
+            "edge_count": len(self.edges),
+        }
 
     def __repr__(self) -> str:
         domain = getattr(self.config, "domain", "unknown")

@@ -232,7 +232,9 @@ def create_app(
                 logger.warning("Neo4j load failed (%s), falling back to JSON", exc)
 
         # Fallback: JSON/NetworkX
-        gpath = graph_path or fallback_path
+        # Prefer: explicit arg > config.graph.path > default fallback
+        config_path_val = getattr(getattr(cfg, "graph", None), "path", None)
+        gpath = graph_path or config_path_val or fallback_path
         if Path(gpath).exists():
             g = Graqle.from_json(gpath, config=cfg)
             logger.info("Loaded graph from %s: %d nodes", gpath, len(g))
@@ -280,12 +282,47 @@ def create_app(
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
         graph = state.get("graph")
+        if graph is not None:
+            ctx = graph.project_context()
+            return HealthResponse(
+                status="ok",
+                version=__version__,
+                graph_loaded=True,
+                node_count=ctx["node_count"],
+                edge_count=ctx["edge_count"],
+                project_name=ctx["project_name"] or None,
+                graph_path=ctx["graph_path"],
+            )
+        # No graph loaded — still return project name from CWD
+        from pathlib import Path as _Path
         return HealthResponse(
             status="ok",
             version=__version__,
-            graph_loaded=graph is not None,
-            node_count=len(graph) if graph else 0,
+            graph_loaded=False,
+            node_count=0,
+            edge_count=0,
+            project_name=_Path.cwd().name,
+            graph_path=None,
         )
+
+    @app.get("/project-context")
+    async def project_context() -> Any:
+        """Return full project identity for the Studio TopBar and Dashboard card."""
+        from fastapi.responses import JSONResponse
+        graph = state.get("graph")
+        if graph is not None:
+            ctx = graph.project_context()
+        else:
+            from pathlib import Path as _Path
+            ctx = {
+                "project_name": _Path.cwd().name,
+                "source_mode": "local",
+                "graph_path": None,
+                "node_count": 0,
+                "edge_count": 0,
+            }
+        ctx["graph_loaded"] = graph is not None
+        return JSONResponse(content=ctx)
 
     @app.post("/reason", response_model=ReasonResponse)
     async def reason(request: ReasonRequest) -> Any:

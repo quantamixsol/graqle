@@ -72,3 +72,6 @@ class HealthResponse(BaseModel):
     version: str = ""
     graph_loaded: bool = False
     node_count: int = 0
+    edge_count: int = 0
+    project_name: str | None = None  # Derived from graph file path (e.g. "graqle-sdk")
+    graph_path: str | None = None    # Absolute path to the loaded graph file

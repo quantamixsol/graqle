@@ -16,7 +16,7 @@ graph:
   username: neo4j
   password: ${NEO4J_PASSWORD}  # Set via environment variable
   database: graqle
-  path: graqle.json  # JSON fallback if Neo4j unavailable
+  path: graqle_backup_20260327_pre_v0371_validation.json  # JSON fallback if Neo4j unavailable
   auto_grow: true
 
 model:
