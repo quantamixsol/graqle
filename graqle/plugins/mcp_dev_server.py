@@ -1856,6 +1856,25 @@ class KogniDevServer:
 
     def _load_graph(self) -> Any | None:
         """Lazy-load the knowledge graph. Reloads automatically if file changed on disk."""
+        # ADR-123 Phase 1: Pull from S3 if cloud version is newer (pull-before-read).
+        # Only runs on first load (self._graph is None) to avoid latency on hot-reload.
+        if self._graph is None:
+            try:
+                from graqle.core.kg_sync import pull_if_newer, _detect_project_name
+                from pathlib import Path as _Path
+                _candidates = ["graqle.json", "knowledge_graph.json", "graph.json"]
+                _local = next((_Path(c) for c in _candidates if _Path(c).exists()), _Path("graqle.json"))
+                _proj = _detect_project_name(_local.parent.resolve())
+                _result = pull_if_newer(_local, _proj)
+                if _result.pulled:
+                    logger.info(
+                        "KG sync: pulled %d nodes from S3 (%s)",
+                        _result.nodes_total,
+                        _result.reason,
+                    )
+            except Exception as _sync_exc:
+                logger.debug("KG pull-before-read skipped: %s", _sync_exc)
+
         # Hot-reload: check if graph file changed since last load
         if self._graph is not None and self._graph_file is not None:
             try:
@@ -5617,7 +5636,11 @@ class KogniDevServer:
         return None
 
     def _save_graph(self, graph: Any) -> None:
-        """Persist graph back to its source JSON file."""
+        """Persist graph back to its source JSON file.
+
+        ADR-123 Phase 2: After every local write, schedule a background S3 push
+        so learned nodes are never lost on restart or machine change.
+        """
         if self._graph_file is None:
             return
 
@@ -5631,6 +5654,16 @@ class KogniDevServer:
             logger.info("Graph saved to %s", self._graph_file)
         except Exception as exc:
             logger.error("Failed to save graph: %s", exc)
+            return
+
+        # ADR-123 Phase 2: background push to S3 (non-blocking, debounced)
+        try:
+            from graqle.core.kg_sync import schedule_push, _detect_project_name
+            from pathlib import Path as _Path
+            _proj = _detect_project_name(_Path(self._graph_file).parent)
+            schedule_push(self._graph_file, _proj)
+        except Exception as _push_exc:
+            logger.debug("KG background push skipped: %s", _push_exc)
 
     # ==================================================================
     # MCP JSON-RPC stdio transport

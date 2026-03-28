@@ -2081,12 +2081,27 @@ def _scan_repo_impl(
         max_files=max_files,
     )
 
+    # ADR-123 Phase 5: Pull from S3 before scan so --preserve-learned has latest learned nodes.
+    # This ensures cloud-taught nodes (from other machines/sessions) are preserved too.
+    out_path_check = Path(output)
+    if preserve_learned:
+        try:
+            from graqle.core.kg_sync import pull_if_newer, _detect_project_name as _kg_proj
+            _kg_proj_name = _kg_proj(repo)
+            _pull_result = pull_if_newer(out_path_check, _kg_proj_name)
+            if _pull_result.pulled and verbose:
+                console.print(
+                    f"  [cyan]Pre-scan KG pull: {_pull_result.nodes_total} nodes from S3[/cyan]"
+                )
+        except Exception as _pre_pull_exc:
+            if verbose:
+                console.print(f"[dim]Pre-scan cloud pull skipped: {_pre_pull_exc}[/dim]")
+
     data = scanner.scan()
 
     # Preserve manually-taught nodes (graq_learn, graq_learn_entity, etc.)
     # These have no filesystem path and would be lost by a filesystem-only scan.
     # Controlled by --preserve-learned flag (default: on).
-    out_path_check = Path(output)
     if preserve_learned and out_path_check.is_file():
         try:
             existing_data = json.loads(out_path_check.read_text(encoding="utf-8"))
@@ -2099,7 +2114,9 @@ def _scan_repo_impl(
                 # Preserve nodes from graq learn (manual/business nodes)
                 source = node.get("source", node.get("properties", {}).get("source", ""))
                 manual = node.get("manual", node.get("properties", {}).get("manual", False))
-                if source.startswith("graq_learn") or manual:
+                entity_type = node.get("entity_type", node.get("type", "")).upper()
+                learned_types = {"LESSON", "KNOWLEDGE", "ENTITY", "BUSINESS_OUTCOME"}
+                if source.startswith("graq_learn") or manual or entity_type in learned_types:
                     data["nodes"].append(node)
                     scanned_ids.add(nid)
                     preserved_count += 1
@@ -2118,8 +2135,10 @@ def _scan_repo_impl(
                             data.setdefault("links", []).append(edge)
                 if verbose:
                     console.print(f"  [cyan]Preserved {preserved_count} learned nodes[/cyan]")
-        except (json.JSONDecodeError, OSError):
-            pass  # No existing graph or corrupt — skip preservation
+        except json.JSONDecodeError as _json_err:
+            console.print(f"[yellow]Warning: existing graph unreadable ({_json_err}) — learned nodes not preserved[/yellow]")
+        except OSError:
+            pass  # No existing graph — skip preservation silently
 
     # React/JSX/TSX component scan — merge into graph if React files exist
     try:
@@ -2190,11 +2209,14 @@ def _scan_repo_impl(
                 console.print(f"    [dim]- {nid}[/dim]")
 
     # Auto cloud sync (if authenticated — silent skip otherwise)
+    # ADR-123 Phase 5: log sync failures instead of swallowing them silently.
     try:
         from graqle.cli.commands.cloud import auto_cloud_sync
         auto_cloud_sync(Path(path).resolve(), graph_json=data)
-    except Exception:
-        pass  # Cloud sync is non-blocking
+    except Exception as _sync_exc:
+        logger.warning("Post-scan cloud sync failed (non-fatal): %s", _sync_exc)
+        if verbose:
+            console.print(f"[dim]Cloud sync warning: {_sync_exc}[/dim]")
 
     # Auto-build embedding cache after scan (fixes: users who forget
     # `graq rebuild --embeddings` fall back to slow per-query embedding).
