@@ -1,8 +1,8 @@
 {
   "init_timestamp": "2026-03-12T00:27:27.998606+00:00",
-  "context_loads": 10334,
-  "queries": 2181,
-  "tokens_saved": 60983197,
+  "context_loads": 10458,
+  "queries": 2209,
+  "tokens_saved": 61230619,
   "mistakes_prevented": 0,
   "lessons_applied": 1,
   "safety_checks": 0,
@@ -210,64 +210,64 @@
       "last_accessed": "2026-03-12T00:27:28.035225+00:00"
     },
     "n1": {
-      "count": 1387,
-      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
+      "count": 1405,
+      "last_accessed": "2026-03-28T00:05:48.745558+00:00"
     },
     "n2": {
-      "count": 1387,
-      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
+      "count": 1405,
+      "last_accessed": "2026-03-28T00:05:48.747231+00:00"
     },
     "n3": {
-      "count": 1387,
-      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
+      "count": 1405,
+      "last_accessed": "2026-03-28T00:05:48.747231+00:00"
     },
     "n4": {
-      "count": 1387,
-      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
+      "count": 1405,
+      "last_accessed": "2026-03-28T00:05:48.747231+00:00"
     },
     "n5": {
-      "count": 1387,
-      "last_accessed": "2026-03-27T12:53:56.960863+00:00"
+      "count": 1405,
+      "last_accessed": "2026-03-28T00:05:48.749532+00:00"
     },
     "gdpr": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:11.866573+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:07.173279+00:00"
     },
     "ai_act": {
-      "count": 612,
-      "last_accessed": "2026-03-27T12:55:54.862452+00:00"
+      "count": 620,
+      "last_accessed": "2026-03-28T00:05:39.984853+00:00"
     },
     "art22": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:07.173279+00:00"
     },
     "art6": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:07.173279+00:00"
     },
     "consent": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:11.870586+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:07.173279+00:00"
     },
     "transparency": {
-      "count": 612,
-      "last_accessed": "2026-03-27T12:55:54.864464+00:00"
+      "count": 620,
+      "last_accessed": "2026-03-28T00:05:39.984853+00:00"
     },
     "hub": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:14.402493+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:09.630434+00:00"
     },
     "leaf1": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:14.403497+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:09.630434+00:00"
     },
     "leaf2": {
-      "count": 152,
-      "last_accessed": "2026-03-27T12:53:14.404500+00:00"
+      "count": 154,
+      "last_accessed": "2026-03-28T00:05:09.630434+00:00"
     },
     "high_risk": {
-      "count": 307,
-      "last_accessed": "2026-03-27T12:55:54.862452+00:00"
+      "count": 311,
+      "last_accessed": "2026-03-28T00:05:39.984853+00:00"
     },
     "graqle/core/graph.py": {
       "count": 15,
@@ -662,19 +662,18 @@
     "captured_at": "2026-03-12T00:27:28.036295+00:00"
   },
   "graph_stats_current": {
-    "nodes": 3,
-    "edges": 3,
+    "nodes": 5,
+    "edges": 7,
     "node_types": {
-      "Regulation": 1,
-      "Category": 1,
-      "Requirement": 1
+      "Concept": 5
     },
     "edge_types": {
-      "DEFINES": 1,
-      "REQUIRES": 1,
-      "SUBJECT_TO": 1
+      "RELATED_TO": 2,
+      "CONTAINS": 3,
+      "CONFLICTS_WITH": 1,
+      "REFERENCES": 1
     },
-    "captured_at": "2026-03-27T12:55:54.866467+00:00"
+    "captured_at": "2026-03-28T00:05:48.750559+00:00"
   },
   "caller_stats": {
     "dogfood-visual-planning": {

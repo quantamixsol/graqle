@@ -179,6 +179,81 @@ class TestPullIfNewerS3Older:
         assert "up to date" in result.reason
         mock_s3.get_object.assert_not_called()
 
+    def test_pulls_when_local_is_empty_despite_newer_mtime(self, tmp_path, monkeypatch):
+        """Critical: empty local graph (git stash corruption) forces pull even if local mtime is newer."""
+        from graqle.core.kg_sync import pull_if_newer
+
+        monkeypatch.delenv("GRAQLE_OFFLINE", raising=False)
+
+        # Simulate git stash corruption: file has extra metadata keys (was a real graph before)
+        # but 0 nodes — extra keys prove it was previously populated
+        corrupt_graph = _make_graph([])
+        corrupt_graph["_meta"] = {"version": "0.38.0", "scanned_at": "2026-03-28T00:00:00Z"}
+        local_file = tmp_path / "graqle.json"
+        local_file.write_text(json.dumps(corrupt_graph))  # 0 nodes + extra _meta key = corruption
+        new_time = time.time()
+        os.utime(local_file, (new_time, new_time))
+
+        mock_creds = MagicMock()
+        mock_creds.email = "user@test.com"
+
+        # S3 is OLDER than local mtime (would normally skip)
+        import datetime
+        s3_time = datetime.datetime.fromtimestamp(new_time - 7200, tz=datetime.timezone.utc)
+        cloud_nodes = [_node("code_a"), _node("code_b")]
+        cloud_data = _make_graph(cloud_nodes)
+
+        mock_body = MagicMock()
+        mock_body.read.return_value = json.dumps(cloud_data).encode()
+        mock_s3 = MagicMock()
+        mock_s3.head_object.return_value = {"LastModified": s3_time, "ContentLength": 500}
+        mock_s3.get_object.return_value = {"Body": mock_body}
+
+        with patch("graqle.core.kg_sync._load_creds", return_value=mock_creds), \
+             patch("boto3.client", return_value=mock_s3):
+            result = pull_if_newer(local_file, "myproject")
+
+        # Must pull despite local being "newer" — because local is empty
+        assert result.pulled is True, "Must force-pull when local graph is empty"
+        mock_s3.get_object.assert_called_once()
+        result_data = json.loads(local_file.read_text())
+        assert len(result_data["nodes"]) == 2
+
+    def test_no_force_pull_on_fresh_init_empty_graph(self, tmp_path, monkeypatch):
+        """Fresh project init (bare skeleton, no extra keys) must NOT force-pull — not corruption."""
+        from graqle.core.kg_sync import pull_if_newer
+
+        monkeypatch.delenv("GRAQLE_OFFLINE", raising=False)
+
+        # Fresh init: bare skeleton with ONLY the 5 standard keys — no _meta, no version
+        # This is what graqle writes on first init before any scan
+        local_file = tmp_path / "graqle.json"
+        fresh_content = json.dumps(_make_graph([]))  # only directed/multigraph/graph/nodes/links
+        local_file.write_text(fresh_content)
+        new_time = time.time()
+        os.utime(local_file, (new_time, new_time))
+
+        # Verify: no extra keys beyond the 5 skeleton keys
+        parsed = json.loads(fresh_content)
+        skeleton_keys = {"directed", "multigraph", "graph", "nodes", "links"}
+        assert set(parsed.keys()) - skeleton_keys == set(), "Fresh init must have no extra keys"
+
+        mock_creds = MagicMock()
+        mock_creds.email = "user@test.com"
+
+        import datetime
+        s3_time = datetime.datetime.fromtimestamp(new_time - 3600, tz=datetime.timezone.utc)
+        mock_s3 = MagicMock()
+        mock_s3.head_object.return_value = {"LastModified": s3_time, "ContentLength": 100}
+
+        with patch("graqle.core.kg_sync._load_creds", return_value=mock_creds), \
+             patch("boto3.client", return_value=mock_s3):
+            result = pull_if_newer(local_file, "myproject")
+
+        # Fresh init is NOT corruption — must not force-pull
+        assert result.pulled is False
+        mock_s3.get_object.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # pull_if_newer — S3 newer (pull and merge)
@@ -261,6 +336,41 @@ class TestPullIfNewerS3Newer:
         result_data = json.loads(local_file.read_text())
         result_ids = {n["id"] for n in result_data["nodes"]}
         assert "lesson_001" not in result_ids
+
+    def test_no_overwrite_when_s3_also_empty(self, tmp_path, monkeypatch):
+        """Circuit-breaker: if S3 also has 0 nodes, do NOT overwrite local (infinite loop guard)."""
+        from graqle.core.kg_sync import pull_if_newer
+
+        monkeypatch.delenv("GRAQLE_OFFLINE", raising=False)
+
+        # Local is corrupt (has _meta key, 0 nodes)
+        corrupt_graph = _make_graph([])
+        corrupt_graph["_meta"] = {"version": "0.38.0"}
+        local_file = tmp_path / "graqle.json"
+        local_file.write_text(json.dumps(corrupt_graph))
+        old_time = time.time() - 3600
+        os.utime(local_file, (old_time, old_time))
+
+        mock_creds = MagicMock()
+        mock_creds.email = "user@test.com"
+
+        import datetime
+        s3_time = datetime.datetime.fromtimestamp(time.time(), tz=datetime.timezone.utc)
+        # S3 also has 0 nodes
+        empty_cloud = _make_graph([])
+        mock_body = MagicMock()
+        mock_body.read.return_value = json.dumps(empty_cloud).encode()
+        mock_s3 = MagicMock()
+        mock_s3.head_object.return_value = {"LastModified": s3_time, "ContentLength": 100}
+        mock_s3.get_object.return_value = {"Body": mock_body}
+
+        with patch("graqle.core.kg_sync._load_creds", return_value=mock_creds), \
+             patch("boto3.client", return_value=mock_s3):
+            result = pull_if_newer(local_file, "myproject")
+
+        # Must NOT pull — circuit-breaker kicks in (S3 also empty)
+        assert result.pulled is False
+        assert "empty" in result.reason.lower()
 
     def test_boto3_not_available(self, tmp_path, monkeypatch):
         from graqle.core.kg_sync import pull_if_newer

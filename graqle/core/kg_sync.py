@@ -167,26 +167,67 @@ def pull_if_newer(
         s3_last_modified: float = head["LastModified"].timestamp()
         local_mtime: float = local_path.stat().st_mtime if local_path.exists() else 0.0
 
-        if s3_last_modified <= local_mtime:
+        # Detect corrupt/empty local graph — pull regardless of timestamp.
+        # Fix (graq_predict 88%): read file ONCE here to avoid TOCTOU race and
+        # reuse the parsed content below for merge_learned (eliminates second read).
+        # Detection logic: 0 nodes AND JSON is structurally valid (not a fresh init).
+        # A fresh init has valid JSON with nodes=[] and no extra metadata — we
+        # distinguish it from corruption by checking if any other keys exist beyond
+        # the bare skeleton (directed/multigraph/graph/nodes/links).
+        local_json: dict | None = None
+        local_nodes_parsed: list[dict] = []
+        local_is_corrupt = False
+
+        if local_path.exists():
+            try:
+                raw_text = local_path.read_text(encoding="utf-8")
+                local_json = json.loads(raw_text)
+                local_nodes_parsed = local_json.get("nodes", [])
+                _SKELETON_KEYS = {"directed", "multigraph", "graph", "nodes", "links"}
+                _extra_keys = set(local_json.keys()) - _SKELETON_KEYS
+                # Corrupt: 0 nodes but has extra metadata keys (was a real graph before)
+                if len(local_nodes_parsed) == 0 and _extra_keys:
+                    local_is_corrupt = True
+                    logger.warning(
+                        "Local graqle.json has 0 nodes but extra keys %s "
+                        "(corrupt/emptied after git op?) — forcing pull from S3",
+                        _extra_keys,
+                    )
+            except (json.JSONDecodeError, OSError):
+                local_is_corrupt = True
+                logger.warning("Local graqle.json unreadable — forcing pull from S3")
+
+        if s3_last_modified <= local_mtime and not local_is_corrupt:
             return PullResult(reason="local is up to date")
 
-        # S3 is newer — download
-        logger.info("Pulling KG from S3 (cloud newer by %.0fs)", s3_last_modified - local_mtime)
+        # S3 is newer (or local is corrupt) — download
+        if local_is_corrupt:
+            logger.info("Pulling KG from S3 (local graph corrupt/empty)")
+        else:
+            logger.info("Pulling KG from S3 (cloud newer by %.0fs)", s3_last_modified - local_mtime)
         response = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
         cloud_data = json.loads(response["Body"].read().decode("utf-8"))
 
         cloud_nodes: list[dict] = cloud_data.get("nodes", [])
         cloud_links: list[dict] = cloud_data.get("links", [])
 
-        if merge_learned and local_path.exists():
-            # Preserve local LESSON / KNOWLEDGE / ENTITY nodes not in cloud
+        # Fix (graq_predict): circuit-breaker — if S3 also has 0 nodes, don't
+        # overwrite local with empty. Log and return without writing to avoid
+        # infinite pull loops when both local and cloud are empty.
+        if len(cloud_nodes) == 0:
+            logger.warning(
+                "S3 graph also has 0 nodes — skipping overwrite to avoid empty→empty loop. "
+                "Run 'graq scan' to rebuild from source."
+            )
+            return PullResult(reason="S3 graph is also empty — skipping overwrite")
+
+        if merge_learned and local_json is not None:
+            # Reuse already-parsed local content (no second file read — TOCTOU fix)
             try:
-                local_data = json.loads(local_path.read_text(encoding="utf-8"))
-                local_nodes: list[dict] = local_data.get("nodes", [])
                 cloud_ids = {n.get("id") for n in cloud_nodes}
                 learned_types = {"LESSON", "KNOWLEDGE", "ENTITY", "BUSINESS_OUTCOME"}
                 extra = [
-                    n for n in local_nodes
+                    n for n in local_nodes_parsed
                     if n.get("id") not in cloud_ids
                     and n.get("entity_type", n.get("type", "")).upper() in learned_types
                 ]
@@ -204,7 +245,7 @@ def pull_if_newer(
 
         return PullResult(
             pulled=True,
-            nodes_added=len(cloud_nodes) - (len(local_nodes) if merge_learned and local_path.exists() else 0),
+            nodes_added=len(cloud_nodes) - (len(local_nodes_parsed) if merge_learned and local_json is not None else 0),
             nodes_total=len(cloud_nodes),
             reason="pulled from S3",
         )
