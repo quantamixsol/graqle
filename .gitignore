@@ -67,6 +67,13 @@ graqle_backup_*.json
 # Claude Code session data
 .claude/
 
+# Internal workspace — strategy, roadmap, ADRs, branch history (NEVER publish)
+.gcc/
+.gsm/
+
+# Pre-computed intelligence modules (internal graph structure, regeneratable)
+.graqle/intelligence/
+
 # SCORCH output
 scorch-output/
 
