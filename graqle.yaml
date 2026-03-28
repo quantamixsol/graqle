@@ -3,10 +3,10 @@
 #
 # REASONING ACCOUNT (cost tracking):
 #   The `reason` task is routed to eu.anthropic.claude-opus-4-6-v1
-#   on AWS account REDACTED_ACCOUNT_ID (profile: cbs-dpt, region: eu-north-1).
-#   All other tasks use the default model on the existing account.
-#   Infrastructure (Lambda, Amplify, deployments) is UNCHANGED — still
-#   on the existing account. Only Graqle SDK reasoning calls use cbs-dpt.
+#   via a dedicated AWS Bedrock profile (profile: cbs-dpt, region: eu-north-1).
+#   All other tasks use the default model on the primary account.
+#   Infrastructure (Lambda, Amplify, deployments) is UNCHANGED.
+#   Only Graqle SDK reasoning calls use cbs-dpt.
 #   AWS_PROFILE=cbs-dpt is set in .env — this only affects boto3 calls
 #   made by the Graqle SDK, not the deployment pipeline.
 
@@ -16,7 +16,7 @@ graph:
   username: neo4j
   password: ${NEO4J_PASSWORD}  # Set via environment variable
   database: graqle
-  path: graqle_backup_20260327_pre_v0371_validation.json  # JSON fallback if Neo4j unavailable
+  path: graqle.json  # JSON fallback if Neo4j unavailable
   auto_grow: true
 
 model:
@@ -33,7 +33,7 @@ routing:
       model: eu.anthropic.claude-opus-4-6-v1
       region: eu-north-1
       profile: cbs-dpt
-      reason: "Deep graph reasoning — Opus 4.6 on account REDACTED_ACCOUNT_ID (cbs-dpt) for cost tracking"
+      reason: "Deep graph reasoning — Opus 4.6 on cbs-dpt profile for cost tracking"
     - task: predict
       provider: bedrock
       model: eu.anthropic.claude-opus-4-6-v1
