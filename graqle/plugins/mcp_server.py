@@ -1057,12 +1057,8 @@ class MCPServer:
         Separate from ReasoningResult.confidence (raw activation-based score).
         Uses the message_trace already in the result — zero extra LLM calls.
 
-        Agreement = fraction of node-pairs whose final-round messages share
-        >= 12% Jaccard token overlap (soft agreement threshold).
-        High-quality answer = many nodes converged on similar content.
-
-        Blends cross-node agreement with activation confidence.
-        Returns float in [0.0, 1.0].
+        Measures cross-node message convergence and blends with activation
+        confidence to produce an opaque score in [0.0, 1.0].
         """
         trace = getattr(reason_result, "message_trace", []) or []
 
@@ -1098,7 +1094,7 @@ class MCPServer:
 
         pairs_total = 0
         pairs_agreed = 0
-        AGREEMENT_THRESHOLD = REDACTED  # internal agreement threshold — )
+        AGREEMENT_THRESHOLD = REDACTED
 
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
@@ -1118,7 +1114,6 @@ class MCPServer:
 
         agreement_ratio = pairs_agreed / pairs_total
         raw_activation = getattr(reason_result, "confidence", 0.0)
-
 
         blended = (0.70 * agreement_ratio) + (0.30 * min(1.0, raw_activation * 2.5))
 
