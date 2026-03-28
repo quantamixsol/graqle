@@ -348,11 +348,21 @@ def cloud_push(
         ".", "--root", "-r",
         help="Project root directory.",
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f",
+        help="Push even if cloud version is newer (overwrites cloud). Use carefully.",
+    ),
 ) -> None:
     """Upload knowledge graph + intelligence to GraQle Cloud.
 
+    ADR-123 Phase 4: checks for conflicts before pushing — aborts if cloud is
+    newer than local (prevents git reset from silently overwriting cloud state).
+    Use --force to override.
+
     Your graph will appear on graqle.com/dashboard under your projects.
     """
+    from graqle.core.kg_sync import check_push_conflict
+
     creds = _get_credentials()
     root_path = Path(root).resolve()
 
@@ -372,6 +382,21 @@ def cloud_push(
             border_style="red",
         ))
         raise typer.Exit(1)
+
+    # ADR-123 Phase 4: Conflict detection — abort if cloud is newer than local
+    if not force:
+        email_h = _email_hash(creds.email)
+        conflict, conflict_reason = check_push_conflict(graph_path, proj_name, email_h)
+        if conflict:
+            console.print(Panel(
+                f"[bold yellow]⚠ Push conflict detected[/bold yellow]\n\n"
+                f"  {conflict_reason}\n\n"
+                f"  Safe option:  [bold cyan]graq cloud pull --merge[/bold cyan]\n"
+                f"  Force push:   [bold red]graq cloud push --force[/bold red]",
+                title="Conflict — Push Aborted",
+                border_style="yellow",
+            ))
+            raise typer.Exit(1)
 
     # Parse graph for stats
     graph_data = graph_path.read_text(encoding="utf-8")
@@ -498,60 +523,79 @@ def cloud_pull(
         ".", "--root", "-r",
         help="Target directory.",
     ),
+    merge: bool = typer.Option(
+        True, "--merge/--overwrite",
+        help="Merge local learned nodes into cloud graph (default). Use --overwrite to replace entirely.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", "-f",
+        help="Skip confirmation prompt.",
+    ),
 ) -> None:
-    """Download knowledge graph from GraQle Cloud."""
+    """Download knowledge graph from GraQle Cloud.
+
+    Pulls the latest graqle.json from S3 and writes it to your local directory.
+    With --merge (default), local LESSON/KNOWLEDGE/ENTITY nodes not in the cloud
+    are preserved. Use --overwrite to take the cloud version as-is.
+
+    \\b
+    Examples:
+        graq cloud pull                      # pull current project, merge
+        graq cloud pull --project graqle     # pull specific project
+        graq cloud pull --overwrite          # replace local with cloud version
+    """
+    from graqle.core.kg_sync import download_graph, _email_hash as _kg_email_hash
+
     creds = _get_credentials()
     root_path = Path(root).resolve()
-
     proj_name = project or _detect_project_name(root_path)
     email_h = _email_hash(creds.email)
+    local_path = root_path / "graqle.json"
 
     console.print(f"\n[bold cyan]Pulling[/bold cyan] [bold]{proj_name}[/bold] from GraQle Cloud...")
 
-    # Download via public-facing API (no AWS creds needed)
-    import httpx
+    # Show what exists locally
+    local_nodes = 0
+    if local_path.exists():
+        try:
+            local_nodes = len(json.loads(local_path.read_text(encoding="utf-8")).get("nodes", []))
+        except Exception:
+            pass
+
+    if local_nodes > 0 and not force:
+        mode_label = "[green]merge[/green] (local learned nodes preserved)" if merge else "[yellow]overwrite[/yellow] (local changes will be lost)"
+        console.print(f"  Local graph: {local_nodes} nodes  →  mode: {mode_label}")
 
     try:
-        resp = httpx.get(
-            f"{CLOUD_URL}/api/intelligence/scorecard",
-            params={"project": proj_name},
-            headers={
-                "Authorization": f"Bearer {creds.api_key}",
-                "X-User-Email": creds.email,
-            },
-            timeout=30,
+        success, message, node_count = download_graph(
+            local_path=local_path,
+            project=proj_name,
+            email_hash=email_h,
+            merge=merge,
         )
-        # For now, pull the graph via the graphs list API to verify project exists
-        list_resp = httpx.get(
-            f"{CLOUD_URL}/api/graphs/list",
-            headers={"X-User-Email": creds.email},
-            timeout=30,
-        )
-        if list_resp.status_code != 200:
-            console.print("[red]Failed to connect to GraQle Cloud[/red]")
+
+        if not success:
+            console.print(f"[red]Pull failed:[/red] {message}")
             raise typer.Exit(1)
 
-        projects_data = list_resp.json().get("projects", [])
-        matching = [p for p in projects_data if p.get("name") == proj_name]
-        if not matching:
-            console.print(Panel(
-                f"[bold red]Project '{proj_name}' not found in cloud[/bold red]\n\n"
-                "  Push your graph first: [bold cyan]graq cloud push[/bold cyan]",
-                title="Not Found",
-                border_style="red",
-            ))
-            raise typer.Exit(1)
+        added = node_count - local_nodes
+        added_str = f"  +{added} new nodes merged from cloud" if added > 0 and merge else ""
 
-        # Download graph.json via presigned GET (request a read URL)
-        # For now, use the direct download endpoint
         console.print(Panel(
-            f"[bold green]Project '{proj_name}' exists in cloud[/bold green]\n\n"
-            f"  Nodes:  {matching[0].get('nodeCount', '?')}\n"
-            f"  Edges:  {matching[0].get('edgeCount', '?')}\n\n"
-            f"  [dim]Full cloud pull coming in v0.30 — use graq cloud push to sync.[/dim]",
+            f"[bold green]✓ Pull complete[/bold green]\n\n"
+            f"  Project:  {proj_name}\n"
+            f"  Nodes:    {node_count}\n"
+            f"  Local:    {local_path}\n"
+            f"{added_str}",
             title="Cloud Pull",
             border_style="green",
         ))
+
+        if node_count > 0:
+            console.print(
+                "  [dim]Restart 'graq mcp serve' to load the updated graph.[/dim]"
+            )
+
     except typer.Exit:
         raise
     except Exception as e:
