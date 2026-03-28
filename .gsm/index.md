@@ -2,6 +2,8 @@
 
 | Document | Type | Tags | Summary |
 |----------|------|------|---------|
+| decisions/ADR-123-kg-sync-single-source-of-truth.md | decision | kg-sync, s3, graq-learn, architecture | 10 failure categories; S3 = source of truth; 6-phase fix plan; 7 binary success criteria |
+| decisions/ADR-122-feature-branch-isolation-protocol.md | decision | git-workflow, master-protection, release-safety | Pre-merge checklist + two explicit approval gates before master merge or tag push |
 | decisions/ADR-116-coding-ontology-completeness.md | decision | ontology, coding-domain, roadmap | ~25% complete; roadmap to 16 skills/13 entities/12 relationships/8 output gates |
 | decisions/ADR-115-phase35-file-system-tools.md | decision | tools, file-system, git, safety | 10 new tools (read/write/grep/glob/bash/git_*); _WRITE_TOOLS + routing P0 fixes |
 | decisions/ADR-114-graq-generate-stream-param.md | decision | generation, streaming, backend-agnostic | stream=True on graq_generate: areason_stream() → chunks in metadata, all 14 backends work |

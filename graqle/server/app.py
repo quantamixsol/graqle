@@ -251,6 +251,23 @@ def create_app(
         else:
             state["config"] = GraqleConfig.default()
 
+        # ADR-123 Phase 6: On Lambda/server cold start, pull latest graph from S3.
+        # Uses /tmp on Lambda (ephemeral) — ensures each cold start gets cloud state,
+        # not a frozen deploy snapshot. Silent on failure (falls through to local file).
+        _graph_path = Path(graph_path or "graqle.json")
+        try:
+            from graqle.core.kg_sync import pull_if_newer, _detect_project_name
+            _proj = _detect_project_name(_graph_path.parent.resolve())
+            _pull = pull_if_newer(_graph_path, _proj)
+            if _pull.pulled:
+                logger.info(
+                    "Startup KG sync: pulled %d nodes from S3 (%s)",
+                    _pull.nodes_total,
+                    _pull.reason,
+                )
+        except Exception as _startup_pull_exc:
+            logger.debug("Startup KG pull skipped: %s", _startup_pull_exc)
+
         # Load graph (config-aware: Neptune, Neo4j or JSON)
         graph = _load_graph_from_config(state["config"])
         if graph is not None:
