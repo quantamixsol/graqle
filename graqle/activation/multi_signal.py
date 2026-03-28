@@ -225,7 +225,7 @@ class MultiSignalActivation:
 
             topology: dict[str, dict[str, float]] = {}
             for r in records:
-                # Authority: blend PageRank (70%) + degree centrality (30%)
+                # Authority: weighted blend of PageRank and degree centrality
                 pr_norm = (r["pagerank"] / max_pr) if max_pr > 0 else 0.0
                 deg_norm = (r["degree"] / max_degree) if max_degree > 0 else 0.0
                 authority = (0.7 * pr_norm + 0.3 * deg_norm) * self.AUTHORITY_CAP

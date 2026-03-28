@@ -33,7 +33,7 @@ All notable changes to GraQle are documented in this file.
 - When `re_embed=True`, rebuild loads graph with `skip_validation=True` to bypass the embedding dimension check that would otherwise block recovery.
 
 **Stricter agreement threshold** (`graqle/plugins/mcp_server.py`)
-- Internal agreement threshold raised. Internal threshold calibrated to prevent false write-backs from boilerplate token overlap.
+- Internal agreement threshold raised to reduce false write-backs caused by boilerplate token overlap between node responses.
 
 **Embedding model transparency** (`graqle/plugins/mcp_server.py`)
 - `graq_predict` output now includes `"embedding_model": "<model-name>"` field. Lets callers detect mid-session model changes that would cause a dimension mismatch on subsequent graph loads.
@@ -61,7 +61,7 @@ European Patent **EP26167849.4** was filed 2026-03-25. The following features ar
 
 ### Files Changed
 
-- `graqle/plugins/mcp_server.py` — FB-004 fix, FB-005 fix, `AGREEMENT_THRESHOLD`, `_get_active_embedding_model()`, `embedding_model` output field
+- `graqle/plugins/mcp_server.py` — FB-004 fix, FB-005 fix, stricter agreement threshold, `_get_active_embedding_model()`, `embedding_model` output field
 - `graqle/core/graph.py` — `skip_validation` parameter on `from_json()`
 - `tests/test_plugins/test_mcp_server.py` — 11 new tests (3 v1.4 hotfix + 8 v0.35.0)
 - `tests/test_plugins/test_mcp_predict.py` — wired `_get_backend_for_node` in mock graph fixture
