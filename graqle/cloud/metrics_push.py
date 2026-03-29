@@ -65,8 +65,8 @@ def _push_sync(payload: dict[str, Any]) -> None:
     from graqle.cloud.credentials import load_credentials
 
     creds = load_credentials()
-    if not creds.is_authenticated or creds.plan not in ("team", "enterprise"):
-        return  # Free/pro tier — skip silently
+    if not creds.is_authenticated or creds.plan not in ("pro", "enterprise"):
+        return  # Free tier — skip silently
 
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

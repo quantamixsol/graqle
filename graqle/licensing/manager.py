@@ -1,4 +1,4 @@
-"""GraQle License Manager — offline verification with HMAC signing.
+"""GraQle License Manager — offline verification with HMAC signing (ADR-126: 3 tiers).
 
 License keys are self-contained: base64(json_payload).base64(hmac_sha256).
 No network calls required for verification. Keys can be provided via:
@@ -38,7 +38,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 # ---------------------------------------------------------------------------
-# Tier definitions
+# Tier definitions (ADR-126: 3 tiers — FREE, PRO, ENTERPRISE)
 # ---------------------------------------------------------------------------
 
 class LicenseTier(str, Enum):
@@ -46,7 +46,6 @@ class LicenseTier(str, Enum):
 
     FREE = "free"
     PRO = "pro"
-    TEAM = "team"
     ENTERPRISE = "enterprise"
 
 
@@ -91,28 +90,29 @@ TIER_FEATURES: dict[LicenseTier, set[str]] = {
         "auto_grow_hook",
         "metrics_dashboard",
     },
-    # PRO tier is now reserved for future team-adjacent features.
-    # All solo developer features have been moved to FREE (v0.7.5).
-    LicenseTier.PRO: set(),
-    LicenseTier.TEAM: {
-        "shared_kg_sync",
-        "multi_instance_coordination",
-        "cross_dev_lessons",
-        "team_analytics",
-        "custom_ontologies",
-        # Cloud sync + Neptune (ADR-112)
-        "cloud_sync",
+    # PRO tier — analytical, cloud sync, shared graph (ADR-126 override)
+    LicenseTier.PRO: {
         "cloud_observability",
         "cloud_metrics",
-        "shared_graph",
         "cross_repo",
+        "cloud_sync",       # ADR-126 override: Pro gets cloud sync
+        "shared_graph",     # ADR-126 override: Pro gets shared graph
     },
+    # ENTERPRISE tier — team management, compliance (ADR-126)
+    # Team seats, multi-dev coordination, SSO, audit — Enterprise only
     LicenseTier.ENTERPRISE: {
+        # Original enterprise features
         "private_deployment",
         "compliance_reporting",
         "sla_support",
         "custom_integrations",
         "audit_trail",
+        # Team management features (Enterprise only)
+        "shared_kg_sync",
+        "multi_instance_coordination",
+        "cross_dev_lessons",
+        "team_analytics",
+        "custom_ontologies",
     },
 }
 
@@ -310,7 +310,7 @@ class LicenseManager:
         Parameters
         ----------
         tier:
-            One of ``free``, ``pro``, ``team``, ``enterprise``.
+            One of ``free``, ``pro``, ``enterprise``.
         holder:
             Name of the individual or organisation.
         email:

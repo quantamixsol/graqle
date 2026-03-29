@@ -38,13 +38,13 @@ class TestGenerateLicenseKey:
         assert lic.expires_at is None
         assert lic.is_valid is True
 
-    def test_time_limited_team_key(self):
-        key = generate_license_key("team", "Test Org", "org@test.com", duration_days=365)
+    def test_time_limited_enterprise_key(self):
+        key = generate_license_key("enterprise", "Test Org", "org@test.com", duration_days=365)
         mgr = LicenseManager.__new__(LicenseManager)
         mgr._license = None
         lic = mgr._verify_key(key)
         assert lic is not None
-        assert lic.tier == LicenseTier.TEAM
+        assert lic.tier == LicenseTier.ENTERPRISE
         assert lic.expires_at is not None
         assert lic.is_valid is True
         # Should expire roughly 365 days from now
@@ -117,11 +117,11 @@ class TestKeygenMain:
         assert "." in key_line
 
     def test_generates_key_with_duration(self, capsys):
-        with patch.object(sys, "argv", ["keygen", "team", "Org", "org@org.com", "90"]):
+        with patch.object(sys, "argv", ["keygen", "enterprise", "Org", "org@org.com", "90"]):
             main()
         captured = capsys.readouterr()
         assert "License Key" in captured.out
-        assert "team" in captured.out
+        assert "enterprise" in captured.out
 
     def test_generated_key_verifies(self, capsys):
         with patch.object(sys, "argv", ["keygen", "enterprise", "Corp", "c@c.com"]):

@@ -1,4 +1,4 @@
-"""graq activate — activate a GraQle license key.
+"""graq activate — activate a GraQle license key (ADR-126: 3 tiers).
 
 Validates and stores the license key in ~/.graqle/license.key.
 License keys are generated after Stripe payment and delivered via email.
@@ -31,7 +31,7 @@ def activate_command(
         False, "--project", "-p", help="Store key at project level (graqle.license) instead of user level"
     ),
 ) -> None:
-    """Activate a GraQle Team or Enterprise license.
+    """Activate a GraQle Pro or Enterprise license.
 
     License keys are delivered via email after purchase at
     https://graqle.com/pricing. The key is verified offline
@@ -96,23 +96,28 @@ def activate_command(
     )
 
     tier_features = license_obj.all_features - set()  # copy
-    team_features = {
+    pro_features = {
+        "cloud_observability": "Cloud observability",
+        "cloud_metrics": "Cloud metrics & ROI tracking",
+        "cross_repo": "Cross-repo analysis",
+    }
+    enterprise_features = {
         "shared_kg_sync": "Shared KG sync across team",
         "multi_instance_coordination": "Multi-developer coordination",
         "cross_dev_lessons": "Cross-developer lesson sharing",
         "team_analytics": "Team analytics & insights",
         "custom_ontologies": "Custom domain ontologies",
-    }
-    enterprise_features = {
         "private_deployment": "Private deployment",
         "compliance_reporting": "Compliance & audit trail",
         "sla_support": "SLA support",
         "custom_integrations": "Custom integrations",
         "audit_trail": "Full audit trail",
+        "cloud_sync": "Cloud sync",
+        "shared_graph": "Shared knowledge graphs",
     }
 
     unlocked = []
-    for feat, desc in {**team_features, **enterprise_features}.items():
+    for feat, desc in {**pro_features, **enterprise_features}.items():
         if feat in tier_features:
             unlocked.append(f"  [green]+[/green] {desc}")
 
@@ -129,7 +134,7 @@ def activate_command(
             f"[bold]Unlocked features:[/bold]\n"
             f"{unlocked_str}\n\n"
             f"[dim]View status: graq billing\n"
-            f"All Community features remain free forever.[/dim]",
+            f"All Free features remain free forever.[/dim]",
             border_style="green",
             title="Activated",
         )

@@ -4023,21 +4023,8 @@ class KogniDevServer:
         if not description and not provided_diff:
             return json.dumps({"error": "Either 'description' or 'diff' is required."})
 
-        # Plan gate
-        try:
-            creds = load_credentials()
-            if creds.plan not in ("team", "enterprise"):
-                return json.dumps({
-                    "error": "PLAN_GATE",
-                    "message": (
-                        "graq_edit is available on Team and Enterprise plans. "
-                        "Upgrade at https://graqle.com/pricing"
-                    ),
-                    "current_plan": creds.plan,
-                    "required_plan": "team",
-                })
-        except Exception:
-            pass  # dev/local setup
+        # ADR-126: No feature-level tool gating. All MCP tools available on all plans.
+        # Gating is on node limits only.
 
         # Step 1: Preflight
         preflight_raw = json.loads(await self._handle_preflight({
@@ -4187,20 +4174,7 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'description' is required."})
 
         # Plan gate — team/enterprise only
-        try:
-            creds = load_credentials()
-            if creds.plan not in ("team", "enterprise"):
-                return json.dumps({
-                    "error": "PLAN_GATE",
-                    "message": (
-                        "graq_generate is available on Team and Enterprise plans. "
-                        "Upgrade at https://graqle.com/pricing"
-                    ),
-                    "current_plan": creds.plan,
-                    "required_plan": "team",
-                })
-        except Exception:
-            pass  # If credentials fail, let through (dev/local setup)
+        # ADR-126: No feature-level tool gating. All MCP tools available on all plans.
 
         t0 = _time.monotonic()
         graph = self._require_graph()

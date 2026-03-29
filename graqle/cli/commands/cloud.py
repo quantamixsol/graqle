@@ -319,8 +319,8 @@ def auto_cloud_sync(
             console.print(f"  [dim]Cloud sync skipped: {e}[/dim]")
         return False
 
-    # Neptune sync (Team/Enterprise plan only)
-    if creds.plan in ("team", "enterprise"):
+    # Neptune sync (Pro/Enterprise plan only — ADR-126)
+    if creds.plan in ("pro", "enterprise"):
         try:
             from graqle.connectors.neptune import upsert_nodes, upsert_edges, check_neptune_available
             available, _ = check_neptune_available()
@@ -480,9 +480,9 @@ def cloud_push(
 
     uploaded = len(upload_files) - len(failed)
 
-    # Neptune sync (Team/Enterprise plan)
+    # Neptune sync (Pro/Enterprise plan — ADR-126)
     neptune_synced = False
-    if creds.plan in ("team", "enterprise"):
+    if creds.plan in ("pro", "enterprise"):
         try:
             from graqle.connectors.neptune import upsert_nodes, upsert_edges, check_neptune_available
             available, _ = check_neptune_available()

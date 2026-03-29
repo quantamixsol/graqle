@@ -129,7 +129,7 @@ class SyncEngine:
         try:
             from graqle.cloud.credentials import load_credentials
             creds = load_credentials()
-            return creds.is_authenticated and creds.plan in ("team", "enterprise")
+            return creds.is_authenticated and creds.plan in ("pro", "enterprise")
         except Exception:
             return False
 

@@ -75,13 +75,13 @@ class TestLicenseGeneration:
             "customer_email": "buyer@company.com",
             "customer_details": {"name": "Jane Buyer"},
             "customer": "cus_abc123",
-            "metadata": {"graqle_tier": "team"},
+            "metadata": {"graqle_tier": "enterprise"},
             "payment_status": "paid",
         }
 
         result = generate_license_from_checkout(session)
 
-        assert result["tier"] == "team"
+        assert result["tier"] == "enterprise"
         assert result["email"] == "buyer@company.com"
         assert result["holder"] == "Jane Buyer"
         assert result["license_key"]  # Non-empty
@@ -94,7 +94,7 @@ class TestLicenseGeneration:
         license_obj = manager._verify_key(result["license_key"])
 
         assert license_obj is not None
-        assert license_obj.tier.value == "team"
+        assert license_obj.tier.value == "enterprise"
         assert license_obj.email == "buyer@company.com"
         assert license_obj.is_valid is True
 
@@ -126,7 +126,7 @@ class TestLicenseGeneration:
         }
 
         result = generate_license_from_checkout(session)
-        assert result["tier"] == "team"
+        assert result["tier"] == "enterprise"
 
 
 class TestWebhookEventHandler:
@@ -141,7 +141,7 @@ class TestWebhookEventHandler:
                 "customer_email": "dev@test.com",
                 "customer_details": {"name": "Dev"},
                 "customer": "cus_test",
-                "metadata": {"graqle_tier": "team"},
+                "metadata": {"graqle_tier": "enterprise"},
                 "payment_status": "paid",
             }
         }
@@ -203,7 +203,7 @@ class TestLambdaHandler:
                     "customer_email": "lambda@test.com",
                     "customer_details": {"name": "Lambda"},
                     "customer": "cus_lambda",
-                    "metadata": {"graqle_tier": "team"},
+                    "metadata": {"graqle_tier": "enterprise"},
                     "payment_status": "paid",
                 }
             }

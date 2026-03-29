@@ -1,4 +1,4 @@
-"""graq billing — show license tier, usage, and upgrade options.
+"""graq billing — show license tier, usage, and upgrade options (ADR-126: 3 tiers).
 
 Displays current license status, feature availability, usage stats,
 and clear upgrade paths with pricing.
@@ -48,9 +48,8 @@ def billing_command(
 
     # ── Current tier ──────────────────────────────────────────────
     tier_colors = {
-        LicenseTier.FREE: "white",
+        LicenseTier.FREE: "green",
         LicenseTier.PRO: "cyan",
-        LicenseTier.TEAM: "blue",
         LicenseTier.ENTERPRISE: "magenta",
     }
     color = tier_colors.get(tier, "white")
@@ -69,10 +68,10 @@ def billing_command(
         )
     else:
         tier_info = (
-            f"  Tier:    [bold {color}]Community (Free)[/bold {color}]\n"
-            f"  All 13 innovations included\n"
-            f"  All 7 MCP tools included\n"
-            f"  No limits, no expiry"
+            f"  Tier:    [bold {color}]Free[/bold {color}]\n"
+            f"  All 15 patented innovations included\n"
+            f"  26 MCP tools included\n"
+            f"  BYOB — bring your own backend, no query limits"
         )
 
     console.print(
@@ -98,82 +97,94 @@ def billing_command(
                     f"({p.get('node_count', 0)} nodes, {p.get('backend', '?')})"
                 )
 
-    # ── Feature comparison table ──────────────────────────────────
+    # ── Feature comparison table (ADR-126: 3 tiers) ──────────────
     console.print()
     table = Table(title="Feature Tiers", show_header=True, header_style="bold")
     table.add_column("Feature", style="bold")
-    table.add_column("Community\n$0/forever", justify="center", style="green")
-    table.add_column("Team\n$29/dev/mo", justify="center", style="blue")
-    table.add_column("Enterprise\nCustom", justify="center", style="magenta")
+    table.add_column("Free\n$0/forever", justify="center", style="green")
+    table.add_column("Pro\n$19/mo", justify="center", style="cyan")
+    table.add_column("Enterprise\nPer-seat", justify="center", style="magenta")
 
-    # Community features (summary)
-    community_highlights = [
-        ("All 13 innovations (PCST, SHACL, etc.)", True, True, True),
-        ("All 7 MCP tools", True, True, True),
+    # Free features (included in all tiers)
+    free_highlights = [
+        ("All 15 patented innovations (PCST, SHACL, etc.)", True, True, True),
+        ("26 MCP tools", True, True, True),
         ("CLI + Python SDK + REST API", True, True, True),
-        ("Unlimited queries", True, True, True),
-        ("Auto-growing knowledge graph", True, True, True),
+        ("Unlimited queries (BYOB)", True, True, True),
+        ("Auto-growing knowledge graph (1,500 nodes)", True, True, True),
         ("Multi-backend (Ollama, Claude, GPT, Bedrock)", True, True, True),
         ("Multi-IDE (Claude Code, Cursor, VS Code, etc.)", True, True, True),
         ("Session continuity workspace", True, True, True),
-        ("Commercial use", True, True, True),
+        ("Commercial use — Apache 2.0 license", True, True, True),
     ]
 
-    team_only = [
-        ("Shared KG sync across team", False, True, True),
-        ("Multi-developer coordination", False, True, True),
-        ("Cross-developer lesson sharing", False, True, True),
-        ("Team analytics & insights", False, True, True),
-        ("Custom domain ontologies", False, True, True),
+    # Pro-only features
+    pro_only = [
+        ("Cloud observability", False, True, True),
+        ("Cloud metrics & ROI tracking", False, True, True),
+        ("Cross-repo analysis", False, True, True),
+        ("Custom extractors", False, True, True),
+        ("15,000 node limit", False, True, True),
+        ("Priority support", False, True, True),
     ]
 
+    # Enterprise-only features
     enterprise_only = [
+        ("Shared KG sync across team", False, False, True),
+        ("Multi-developer coordination", False, False, True),
+        ("Cross-developer lesson sharing", False, False, True),
+        ("Team analytics & insights", False, False, True),
+        ("Custom domain ontologies", False, False, True),
         ("Private deployment", False, False, True),
+        ("SSO / SAML 2.0", False, False, True),
         ("Compliance & audit trail", False, False, True),
         ("SLA support", False, False, True),
         ("Custom integrations", False, False, True),
+        ("Unlimited nodes", False, False, True),
     ]
 
-    rows = community_highlights + team_only + enterprise_only
+    rows = free_highlights + pro_only + enterprise_only
     if not verbose:
         # Show abbreviated list
-        rows = community_highlights[:4] + team_only[:2] + enterprise_only[:1]
+        rows = free_highlights[:4] + pro_only[:2] + enterprise_only[:2]
         rows.append(("... use --verbose for full list", None, None, None))
 
-    for feature, free, team, ent in rows:
+    for feature, free, pro, ent in rows:
         if free is None:
             table.add_row(f"[dim]{feature}[/dim]", "", "", "")
         else:
             table.add_row(
                 feature,
-                "[green]included[/green]" if free else "[dim]—[/dim]",
-                "[blue]included[/blue]" if team else "[dim]—[/dim]",
-                "[magenta]included[/magenta]" if ent else "[dim]—[/dim]",
+                "[green]included[/green]" if free else "[dim]\u2014[/dim]",
+                "[cyan]included[/cyan]" if pro else "[dim]\u2014[/dim]",
+                "[magenta]included[/magenta]" if ent else "[dim]\u2014[/dim]",
             )
 
     console.print(table)
 
-    # ── Upgrade CTA ───────────────────────────────────────────────
-    if tier in (LicenseTier.FREE, LicenseTier.PRO):
+    # ── Upgrade CTA (ADR-126: 3-tier paths) ───────────────────────
+    if tier == LicenseTier.FREE:
         console.print(
             Panel(
-                "[bold]Ready to share your knowledge graph with your team?[/bold]\n\n"
-                "  Team plan: [bold cyan]$29/dev/month[/bold cyan]\n"
-                "  Includes shared KG sync, team analytics, and multi-dev coordination.\n\n"
+                "[bold]Ready to unlock power features?[/bold]\n\n"
+                "  Pro plan: [bold cyan]$19/month[/bold cyan]\n"
+                "  Includes cloud observability, cross-repo analysis, and 15,000 nodes.\n\n"
                 "  [bold]Purchase:[/bold] https://graqle.com/pricing\n"
                 "  [bold]Activate:[/bold] graq activate <license-key>\n\n"
-                "[dim]Enterprise: Contact sales@graqle.com[/dim]",
+                "[dim]Enterprise: Contact sales@graqle.com for per-seat pricing[/dim]",
                 border_style="cyan",
                 title="Upgrade",
             )
         )
-    elif tier == LicenseTier.TEAM:
+    elif tier == LicenseTier.PRO:
         console.print(
             Panel(
-                "[bold]Need private deployment or compliance features?[/bold]\n\n"
+                "[bold]Need team collaboration or compliance features?[/bold]\n\n"
+                "  Enterprise plan: [bold magenta]Per-seat pricing[/bold magenta]\n"
+                "  Includes shared KG sync, SSO, audit trail, and unlimited nodes.\n\n"
                 "  Contact: [bold]sales@graqle.com[/bold]\n\n"
-                "[dim]Your Team license is active and all Team features are unlocked.[/dim]",
-                border_style="blue",
+                "[dim]Your Pro license is active and all Pro features are unlocked.[/dim]",
+                border_style="magenta",
                 title="Enterprise",
             )
         )

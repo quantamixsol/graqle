@@ -56,7 +56,7 @@ class TestCloudCredentials:
 
         creds = CloudCredentials(
             api_key="grq_test", email="user@test.com",
-            plan="team", connected=True,
+            plan="enterprise", connected=True,
         )
         save_credentials(creds)
         assert creds_file.exists()

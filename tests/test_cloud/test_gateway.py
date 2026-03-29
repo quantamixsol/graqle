@@ -70,15 +70,15 @@ class TestCloudGateway:
 
 class TestUpsellTriggers:
     def test_no_triggers_team_plan(self):
-        triggers = check_upsell_triggers("team", node_count=10000)
+        triggers = check_upsell_triggers("enterprise", node_count=10000)
         assert len(triggers) == 0
 
     def test_graph_size_trigger_free(self):
-        triggers = check_upsell_triggers("free", node_count=450)
+        triggers = check_upsell_triggers("free", node_count=1100)
         assert any(t.trigger_type == "graph_size" for t in triggers)
 
     def test_no_trigger_small_graph(self):
-        triggers = check_upsell_triggers("free", node_count=100)
+        triggers = check_upsell_triggers("free", node_count=500)
         assert not any(t.trigger_type == "graph_size" for t in triggers)
 
     def test_multi_developer_trigger(self):
@@ -89,16 +89,17 @@ class TestUpsellTriggers:
         triggers = check_upsell_triggers("free", query_count=100)
         assert any(t.trigger_type == "high_usage" for t in triggers)
 
-    def test_cross_repo_trigger(self):
-        triggers = check_upsell_triggers("pro", has_multiple_repos=True)
+    def test_cross_repo_trigger_free(self):
+        triggers = check_upsell_triggers("free", has_multiple_repos=True)
         assert any(t.trigger_type == "cross_repo" for t in triggers)
 
-    def test_pro_graph_size_trigger(self):
+    def test_pro_no_upsell_triggers(self):
+        # Pro is a paid plan — no upsell triggers (ADR-126)
         triggers = check_upsell_triggers("pro", node_count=4500)
-        assert any(t.trigger_type == "graph_size" for t in triggers)
+        assert len(triggers) == 0
 
     def test_trigger_has_value_prop(self):
-        triggers = check_upsell_triggers("free", node_count=450)
+        triggers = check_upsell_triggers("free", node_count=1100)
         for t in triggers:
             assert t.value_prop  # should have associated cloud value prop
 

@@ -1,4 +1,4 @@
-"""Tests for graqle.licensing.manager — tiers, features, decorators, LicenseManager."""
+"""Tests for graqle.licensing.manager — tiers, features, decorators, LicenseManager (ADR-126: 3 tiers)."""
 
 # ── graqle:intelligence ──
 # module: tests.test_licensing.test_manager
@@ -72,14 +72,13 @@ def _generate_key(tier: str = "pro", **kwargs) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LicenseTier
+# LicenseTier (ADR-126: 3 tiers — no TEAM)
 # ---------------------------------------------------------------------------
 
 class TestLicenseTier:
     def test_tier_values(self):
         assert LicenseTier.FREE.value == "free"
         assert LicenseTier.PRO.value == "pro"
-        assert LicenseTier.TEAM.value == "team"
         assert LicenseTier.ENTERPRISE.value == "enterprise"
 
     def test_tier_is_str_enum(self):
@@ -90,9 +89,14 @@ class TestLicenseTier:
         assert _TIER_ORDER == [
             LicenseTier.FREE,
             LicenseTier.PRO,
-            LicenseTier.TEAM,
             LicenseTier.ENTERPRISE,
         ]
+
+    def test_only_three_tiers(self):
+        assert len(list(LicenseTier)) == 3
+
+    def test_team_tier_does_not_exist(self):
+        assert not hasattr(LicenseTier, "TEAM")
 
 
 # ---------------------------------------------------------------------------
@@ -118,20 +122,29 @@ class TestTierFeatures:
         assert "ontology_generator" in free
         assert "mcp_learn" in free
 
-    def test_pro_tier_is_empty(self):
-        """PRO tier reserved for future team-adjacent features (v0.7.5)."""
+    def test_pro_tier_has_analytical_and_cloud_features(self):
+        """PRO tier gains analytical + cloud features (ADR-126 override)."""
         pro = TIER_FEATURES[LicenseTier.PRO]
-        assert len(pro) == 0
-
-    def test_team_tier_features(self):
-        team = TIER_FEATURES[LicenseTier.TEAM]
-        assert "shared_kg_sync" in team
-        assert "team_analytics" in team
+        assert "cloud_observability" in pro
+        assert "cloud_metrics" in pro
+        assert "cross_repo" in pro
+        assert "cloud_sync" in pro       # ADR-126 override
+        assert "shared_graph" in pro     # ADR-126 override
+        assert len(pro) == 5
 
     def test_enterprise_tier_features(self):
         ent = TIER_FEATURES[LicenseTier.ENTERPRISE]
+        # Original enterprise features
         assert "private_deployment" in ent
         assert "audit_trail" in ent
+        # Team management features (Enterprise only)
+        assert "shared_kg_sync" in ent
+        assert "team_analytics" in ent
+        assert "custom_ontologies" in ent
+        # cloud_sync and shared_graph moved to Pro (ADR-126 override)
+        assert "cloud_sync" not in ent
+        assert "shared_graph" not in ent
+        assert len(ent) == 10
 
     def test_tiers_have_no_overlap(self):
         """Features introduced at each tier should be unique to that tier."""
@@ -201,8 +214,8 @@ class TestLicense:
         # PRO should include all FREE + PRO features
         assert TIER_FEATURES[LicenseTier.FREE].issubset(features)
         assert TIER_FEATURES[LicenseTier.PRO].issubset(features)
-        # But not TEAM or ENTERPRISE
-        assert not TIER_FEATURES[LicenseTier.TEAM].issubset(features)
+        # But not ENTERPRISE
+        assert not TIER_FEATURES[LicenseTier.ENTERPRISE].issubset(features)
 
     def test_all_features_enterprise_includes_all(self):
         lic = License(
@@ -317,11 +330,11 @@ class TestLicenseManagerLoading:
         assert mgr.license is None
 
     def test_load_from_env_var(self):
-        key = _generate_key("team")
+        key = _generate_key("enterprise")
         mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
-        assert mgr.current_tier == LicenseTier.TEAM
+        assert mgr.current_tier == LicenseTier.ENTERPRISE
         assert mgr.license is not None
-        assert mgr.license.tier == LicenseTier.TEAM
+        assert mgr.license.tier == LicenseTier.ENTERPRISE
 
     def test_load_from_user_file(self, tmp_path):
         key = _generate_key("enterprise")
@@ -373,8 +386,11 @@ class TestHasFeature:
         assert mgr.has_feature("mcp_preflight") is True
         # Free features still work
         assert mgr.has_feature("pcst_activation") is True
+        # Pro features now available
+        assert mgr.has_feature("cloud_observability") is True
+        assert mgr.has_feature("cross_repo") is True
 
-    def test_team_feature_with_pro_license(self):
+    def test_enterprise_feature_with_pro_license(self):
         key = _generate_key("pro")
         mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
         assert mgr.has_feature("shared_kg_sync") is False
@@ -385,7 +401,7 @@ class TestHasFeature:
 
     def test_check_feature_raises_on_missing(self):
         mgr = _make_manager_safe()
-        with pytest.raises(LicenseError, match="requires GraQle Team"):
+        with pytest.raises(LicenseError, match="requires GraQle Enterprise"):
             mgr.check_feature("shared_kg_sync")
 
     def test_check_feature_ok_for_free(self):
@@ -394,7 +410,7 @@ class TestHasFeature:
 
     def test_check_feature_error_includes_tier_name(self):
         mgr = _make_manager_safe()
-        with pytest.raises(LicenseError, match="Team"):
+        with pytest.raises(LicenseError, match="Enterprise"):
             mgr.check_feature("shared_kg_sync")
 
     def test_check_feature_error_includes_upgrade_url(self):
@@ -424,7 +440,7 @@ class TestGenerateKey:
     def test_with_expiry(self):
         expires = (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()
         key = LicenseManager.generate_key(
-            tier="team",
+            tier="enterprise",
             holder="Test",
             email="test@test.com",
             expires_at=expires,
@@ -540,7 +556,7 @@ class TestModuleLevelAPI:
             mod._manager = _make_manager_safe()
             assert has_feature("pcst_activation") is True
             assert has_feature("mcp_preflight") is True  # ungated in v0.7.5
-            assert has_feature("shared_kg_sync") is False  # TEAM tier still gated
+            assert has_feature("shared_kg_sync") is False  # ENTERPRISE tier gated
         finally:
             mod._manager = old
 

@@ -71,7 +71,7 @@ class TeamConfig:
     team_id: str = ""
     team_name: str = ""
     owner_email: str = ""
-    plan: str = "team"  # team, enterprise
+    plan: str = "enterprise"  # Enterprise only (ADR-126: team seats require Enterprise)
     created_at: str = ""
     cloud_endpoint: str = ""
     neptune_endpoint: str = ""

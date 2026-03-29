@@ -67,8 +67,8 @@ CLOUD_VALUE_PROPS = {
             "Stale knowledge alerts (docs that drift from code)",
             "Cross-repo dependency visualization",
         ],
-        "min_plan": "team",
-        "price": "$29/dev/mo",
+        "min_plan": "pro",
+        "price": "$19/mo",
     },
     "metrics": {
         "title": "Cloud Metrics & Analytics",
@@ -83,8 +83,8 @@ CLOUD_VALUE_PROPS = {
             "ROI calculator (time saved × developer hourly rate)",
             "Monthly trend reports",
         ],
-        "min_plan": "team",
-        "price": "$29/dev/mo",
+        "min_plan": "pro",
+        "price": "$19/mo",
     },
     "shared_graph": {
         "title": "Shared Knowledge Graph",
@@ -99,8 +99,8 @@ CLOUD_VALUE_PROPS = {
             "Persistent graph survives laptop wipes",
             "Cross-repo architecture views",
         ],
-        "min_plan": "team",
-        "price": "$29/dev/mo",
+        "min_plan": "pro",
+        "price": "$19/mo",
     },
     "cross_repo": {
         "title": "Cross-Repo Intelligence",
@@ -115,8 +115,8 @@ CLOUD_VALUE_PROPS = {
             "API contract verification",
             "Architecture drift detection",
         ],
-        "min_plan": "team",
-        "price": "$29/dev/mo",
+        "min_plan": "pro",
+        "price": "$19/mo",
     },
 }
 
@@ -153,11 +153,11 @@ def check_upsell_triggers(
     """
     triggers: list[UpsellTrigger] = []
 
-    if current_plan in ("team", "enterprise"):
+    if current_plan in ("pro", "enterprise"):
         return triggers  # Already on paid plan
 
     # Signal: Graph getting large (approaching free tier limit)
-    if node_count > 400 and current_plan == "free":
+    if node_count > 1000 and current_plan == "free":
         triggers.append(UpsellTrigger(
             trigger_type="graph_size",
             feature_key="shared_graph",

@@ -46,20 +46,21 @@ from typing import Any
 logger = logging.getLogger("graqle.server.stripe_webhook")
 
 # Tier mapping from Stripe Price/Product metadata
+# ADR-126: 3 tiers — team maps to enterprise for backward compatibility
 STRIPE_TIER_MAP = {
     "pro": "pro",
     "pro_monthly": "pro",
     "pro_annual": "pro",
-    "team": "team",
-    "team_monthly": "team",
-    "team_annual": "team",
+    "team": "enterprise",          # Legacy team → enterprise (ADR-126)
+    "team_monthly": "enterprise",  # Legacy team → enterprise (ADR-126)
+    "team_annual": "enterprise",   # Legacy team → enterprise (ADR-126)
     "enterprise": "enterprise",
     "enterprise_annual": "enterprise",
 }
 
 # Default license duration by tier
 TIER_DURATION_DAYS = {
-    "team": 365,
+    "pro": 365,
     "enterprise": 365,
 }
 
@@ -132,8 +133,8 @@ def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
 
     # Extract tier from metadata (set on Stripe Product/Price or checkout session)
     metadata = session.get("metadata", {})
-    tier_key = metadata.get("graqle_tier", "team")
-    tier = STRIPE_TIER_MAP.get(tier_key, "team")
+    tier_key = metadata.get("graqle_tier", "enterprise")
+    tier = STRIPE_TIER_MAP.get(tier_key, "enterprise")
 
     # Duration
     duration_days = TIER_DURATION_DAYS.get(tier, 365)

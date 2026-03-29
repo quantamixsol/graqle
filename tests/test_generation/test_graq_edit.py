@@ -110,18 +110,20 @@ class TestHandleEdit:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_free_plan_blocked(self, server) -> None:
+    async def test_free_plan_not_blocked(self, server) -> None:
+        """ADR-126: No feature-level tool gating. All MCP tools available on all plans."""
         with patch("graqle.cloud.credentials.load_credentials") as mock_creds:
             mock_creds.return_value = MagicMock(plan="free")
             result = json.loads(await server._handle_edit({
                 "file_path": "foo.py", "diff": SAMPLE_DIFF
             }))
-        assert result.get("error") == "PLAN_GATE"
+        # Should NOT return PLAN_GATE — may return file-not-found or other error, but not PLAN_GATE
+        assert result.get("error") != "PLAN_GATE"
 
     @pytest.mark.asyncio
     async def test_dry_run_true_by_default(self, server, tmp_py_file: Path) -> None:
         with patch("graqle.cloud.credentials.load_credentials") as mock_creds:
-            mock_creds.return_value = MagicMock(plan="team")
+            mock_creds.return_value = MagicMock(plan="enterprise")
             with patch.object(server, "_handle_preflight", new=AsyncMock(return_value=json.dumps({
                 "risk_level": "low", "warnings": [], "lessons": [], "safety_boundaries": [], "adrs": []
             }))):
@@ -151,7 +153,7 @@ class TestHandleEdit:
     @pytest.mark.asyncio
     async def test_result_has_success_field(self, server, tmp_py_file: Path) -> None:
         with patch("graqle.cloud.credentials.load_credentials") as mock_creds:
-            mock_creds.return_value = MagicMock(plan="team")
+            mock_creds.return_value = MagicMock(plan="enterprise")
             with patch.object(server, "_handle_preflight", new=AsyncMock(return_value=json.dumps({
                 "risk_level": "low", "warnings": [], "lessons": [], "safety_boundaries": [], "adrs": []
             }))):

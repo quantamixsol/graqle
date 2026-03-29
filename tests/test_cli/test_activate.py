@@ -30,7 +30,7 @@ class TestActivateCommand:
 
         # Generate a valid key
         key = LicenseManager.generate_key(
-            tier="team",
+            tier="enterprise",
             holder="Test Corp",
             email="test@corp.com",
         )
@@ -51,7 +51,7 @@ class TestActivateCommand:
         license_obj = manager._verify_key(key)
 
         assert license_obj is not None
-        assert license_obj.tier.value == "team"
+        assert license_obj.tier.value == "enterprise"
         assert license_obj.holder == "Test Corp"
         assert license_obj.email == "test@corp.com"
         assert license_obj.is_valid is True
@@ -62,7 +62,7 @@ class TestActivateCommand:
 
         # Generate an already-expired key
         key = LicenseManager.generate_key(
-            tier="team",
+            tier="enterprise",
             holder="Test Corp",
             email="test@corp.com",
             expires_at="2020-01-01T00:00:00+00:00",  # Past date
@@ -83,7 +83,7 @@ class TestActivateKeyStorage:
         from graqle.licensing.manager import LicenseManager
 
         key = LicenseManager.generate_key(
-            tier="team", holder="Test", email="t@t.com",
+            tier="enterprise", holder="Test", email="t@t.com",
         )
 
         license_path = tmp_path / ".graqle" / "license.key"
@@ -97,7 +97,7 @@ class TestActivateKeyStorage:
         license_obj = manager._verify_key(stored_key)
 
         assert license_obj is not None
-        assert license_obj.tier.value == "team"
+        assert license_obj.tier.value == "enterprise"
 
     def test_key_written_to_project_dir(self, tmp_path) -> None:
         from graqle.licensing.manager import LicenseManager

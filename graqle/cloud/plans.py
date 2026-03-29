@@ -1,16 +1,15 @@
-"""GraQle Cloud Plans — plan limits and monetization gating.
+"""GraQle Cloud Plans — plan limits and monetization gating (ADR-126).
 
 Defines tier limits and gates features behind plan boundaries.
 The gating is soft (helpful suggestions, not hard blocks for most features)
 because we want users to experience value before asking them to pay.
 
-Monetization philosophy:
-- Free tier: generous enough to hook developers (500 nodes, unlimited queries)
-- Pro tier: for power users who outgrow free ($19/mo, 5,000 nodes)
-- Team tier: the real product ($29/dev/mo, 50,000 nodes, cloud sync)
-- Enterprise: custom pricing, private deployment
+Monetization philosophy (ADR-126 — 3 tiers):
+- Free tier: generous enough to hook developers (1,500 nodes, BYOB unlimited queries)
+- Pro tier: power features for serious developers ($19/mo, 15,000 nodes)
+- Enterprise: per-seat pricing, unlimited nodes, shared graphs, SSO, audit trail
 
-Upsell strategy:
+Upgrade strategy:
 - Users who find value locally are shown cloud benefits naturally
 - Never block a user mid-workflow — show upgrade after completion
 - Observability, metrics, and shared graphs are the key value-adds
@@ -58,7 +57,7 @@ class PlanLimits:
 
 PLAN_LIMITS: dict[str, PlanLimits] = {
     "free": PlanLimits(
-        max_nodes=500,
+        max_nodes=1_500,
         max_docs=10,
         max_repos=1,
         max_team_members=1,
@@ -73,32 +72,17 @@ PLAN_LIMITS: dict[str, PlanLimits] = {
         custom_extractors=False,
     ),
     "pro": PlanLimits(
-        max_nodes=5_000,
-        max_docs=-1,
-        max_repos=1,
-        max_team_members=1,
-        cloud_sync=False,
-        cloud_observability=False,
-        cloud_metrics=False,
-        semantic_linking=True,
-        llm_assisted=True,
-        cross_repo=False,
-        shared_graph=False,
-        priority_support=True,
-        custom_extractors=False,
-    ),
-    "team": PlanLimits(
-        max_nodes=50_000,
+        max_nodes=15_000,
         max_docs=-1,
         max_repos=-1,
-        max_team_members=-1,
-        cloud_sync=True,
+        max_team_members=1,
+        cloud_sync=True,           # ADR-126 override: Pro gets cloud sync
         cloud_observability=True,
         cloud_metrics=True,
         semantic_linking=True,
         llm_assisted=True,
         cross_repo=True,
-        shared_graph=True,
+        shared_graph=True,         # ADR-126 override: Pro gets shared graph
         priority_support=True,
         custom_extractors=True,
     ),
@@ -130,15 +114,10 @@ PLAN_PRICING: dict[str, dict[str, Any]] = {
         "billing": "monthly",
         "tagline": "Power features for serious developers",
     },
-    "team": {
-        "price": "$29/dev/mo",
-        "billing": "monthly per seat",
-        "tagline": "Shared knowledge, cloud observability, team insights",
-    },
     "enterprise": {
-        "price": "Custom",
-        "billing": "annual",
-        "tagline": "Private deployment, compliance, SLA",
+        "price": "Per-seat",
+        "billing": "annual per seat",
+        "tagline": "Shared graphs, SSO, audit trail, team intelligence",
     },
 }
 
@@ -182,16 +161,13 @@ def check_node_limit(plan: str, current_nodes: int) -> PlanCheckResult:
     if limits.max_nodes == -1 or current_nodes < limits.max_nodes:
         return PlanCheckResult(allowed=True, current_plan=plan)
 
-    # Determine upgrade target
+    # Determine upgrade target (ADR-126: free -> pro -> enterprise)
     if plan == "free":
         required = "pro"
-        value = "Pro supports 5,000 nodes — 10x your current limit."
-    elif plan == "pro":
-        required = "team"
-        value = "Team supports 50,000 nodes + cloud sync for your whole team."
+        value = "Pro supports 15,000 nodes — 10x your current limit."
     else:
         required = "enterprise"
-        value = "Enterprise has unlimited nodes."
+        value = "Enterprise has unlimited nodes + shared graphs for your team."
 
     return PlanCheckResult(
         allowed=False,
@@ -227,14 +203,14 @@ def check_feature(plan: str, feature: str) -> PlanCheckResult:
     limits = get_plan_limits(plan)
 
     feature_checks: dict[str, tuple[bool, str, str]] = {
-        "cloud_sync": (limits.cloud_sync, "team", "Cloud sync lets your team share one knowledge graph."),
-        "cloud_observability": (limits.cloud_observability, "team", "Track graph health and usage across your team."),
-        "cloud_metrics": (limits.cloud_metrics, "team", "See ROI: token savings, time saved, context hit rates."),
+        "cloud_sync": (limits.cloud_sync, "pro", "Cloud sync lets you back up and share your knowledge graph."),
+        "cloud_observability": (limits.cloud_observability, "pro", "Track graph health and usage across your projects."),
+        "cloud_metrics": (limits.cloud_metrics, "pro", "See ROI: time saved, context hit rates."),
         "semantic_linking": (limits.semantic_linking, "pro", "Semantic linking finds connections humans miss."),
         "llm_assisted": (limits.llm_assisted, "pro", "LLM-assisted analysis extracts deeper relationships."),
-        "cross_repo": (limits.cross_repo, "team", "Connect microservice repos into one architecture view."),
-        "shared_graph": (limits.shared_graph, "team", "One dev teaches, everyone benefits. Instant onboarding."),
-        "custom_extractors": (limits.custom_extractors, "team", "Build custom extractors for your domain."),
+        "cross_repo": (limits.cross_repo, "pro", "Connect microservice repos into one architecture view."),
+        "shared_graph": (limits.shared_graph, "pro", "One dev teaches, everyone benefits. Instant onboarding."),
+        "custom_extractors": (limits.custom_extractors, "pro", "Build custom extractors for your domain."),
     }
 
     check = feature_checks.get(feature)
@@ -264,8 +240,8 @@ def check_team_member_limit(plan: str, current_members: int) -> PlanCheckResult:
     return PlanCheckResult(
         allowed=False,
         current_plan=plan,
-        required_plan="team",
-        message=f"Team features require the Team plan ({PLAN_PRICING['team']['price']}).",
+        required_plan="enterprise",
+        message=f"Team features require the Enterprise plan ({PLAN_PRICING['enterprise']['price']}).",
         upgrade_command="graq billing",
         value_prop="Share your knowledge graph with your entire team.",
     )
@@ -278,7 +254,7 @@ def check_team_member_limit(plan: str, current_members: int) -> PlanCheckResult:
 def get_usage_summary(plan: str, stats: dict[str, Any]) -> dict[str, Any]:
     """Generate a usage summary with upgrade recommendations.
 
-    This is shown in `graq billing` and `graq metrics` to help users
+    This is shown in ``graq billing`` and ``graq metrics`` to help users
     understand the value they're getting and what they'd gain by upgrading.
     """
     limits = get_plan_limits(plan)
@@ -302,7 +278,7 @@ def get_usage_summary(plan: str, stats: dict[str, Any]) -> dict[str, Any]:
             },
             "queries": {
                 "current": query_count,
-                "limit": -1,  # unlimited on all plans
+                "limit": -1,  # unlimited on all plans (BYOB)
             },
         },
         "value_delivered": {},
@@ -313,34 +289,34 @@ def get_usage_summary(plan: str, stats: dict[str, Any]) -> dict[str, Any]:
     if query_count > 0:
         # Rough estimate: each graph query saves ~30 seconds of file searching
         time_saved_hours = query_count * 30 / 3600
-        # Rough estimate: each query saves ~500 tokens vs brute-force
-        tokens_saved = query_count * 500
+        # Rough estimate: each query saves ~500 context window space
+        context_saved = query_count * 500
         summary["value_delivered"] = {
             "estimated_time_saved_hours": round(time_saved_hours, 1),
-            "estimated_tokens_saved": tokens_saved,
+            "estimated_context_saved": context_saved,
             "queries_answered_by_graph": query_count,
         }
 
     # Upgrade benefits based on current usage
     if plan == "free":
-        if node_count > 300:
+        if node_count > 1000:
             summary["upgrade_benefits"].append({
                 "plan": "pro",
-                "reason": f"Your graph ({node_count} nodes) is approaching the 500-node free limit.",
-                "benefit": "Pro gives you 5,000 nodes + semantic linking.",
+                "reason": f"Your graph ({node_count} nodes) is approaching the 1,500-node free limit.",
+                "benefit": "Pro gives you 15,000 nodes + full analytical features.",
             })
         if query_count > 20:
             summary["upgrade_benefits"].append({
-                "plan": "team",
+                "plan": "enterprise",
                 "reason": f"You've run {query_count} queries — your graph is clearly valuable.",
-                "benefit": "Team adds cloud observability so you can see ROI across your team.",
+                "benefit": "Enterprise adds shared graphs + cloud sync for your whole team.",
             })
     elif plan == "pro":
-        if node_count > 3000:
+        if node_count > 10_000:
             summary["upgrade_benefits"].append({
-                "plan": "team",
-                "reason": f"Your graph ({node_count} nodes) is approaching the 5,000-node Pro limit.",
-                "benefit": "Team gives you 50,000 nodes + cloud sync + observability.",
+                "plan": "enterprise",
+                "reason": f"Your graph ({node_count} nodes) is approaching the 15,000-node Pro limit.",
+                "benefit": "Enterprise gives you unlimited nodes + shared graphs + SSO.",
             })
 
     return summary

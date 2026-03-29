@@ -79,7 +79,7 @@ def register_command(
                 "  [green]+[/green] Product updates and new features\n"
                 "  [green]+[/green] Tips for getting more from your knowledge graph\n"
                 "  [green]+[/green] Priority support\n"
-                "  [green]+[/green] Early access to Team features\n\n"
+                "  [green]+[/green] Early access to Pro features\n\n"
                 "[dim]No code, queries, or secrets are ever collected.\n"
                 "Unsubscribe anytime. Data stored in ~/.graqle/profile.json[/dim]",
                 border_style="cyan",

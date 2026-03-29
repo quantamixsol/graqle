@@ -56,7 +56,7 @@ class TestPushReasoningMetrics:
 
         team_creds = CloudCredentials(
             api_key="grq_teamkey",
-            plan="team",
+            plan="enterprise",
             connected=True,
         )
 
@@ -87,7 +87,7 @@ class TestPushReasoningMetrics:
         """Project name is capped at 64 chars to keep payload small."""
         from graqle.cloud.credentials import CloudCredentials
 
-        creds = CloudCredentials(api_key="grq_x", plan="team", connected=True)
+        creds = CloudCredentials(api_key="grq_x", plan="enterprise", connected=True)
         mock_response = MagicMock()
         mock_response.status = 202
         mock_response.__enter__ = lambda s: s
