@@ -93,3 +93,6 @@ graqle/benchmarks/results/
 
 # Benchmark logs
 *.log
+
+# TS-2: Private calibration values (ADR-130)
+.graqle/reclassify_confidence.json
