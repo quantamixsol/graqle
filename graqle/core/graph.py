@@ -11,9 +11,11 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
+from collections import defaultdict
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Callable
 
 import networkx as nx
 
@@ -257,6 +259,122 @@ class Graqle:
             self._auto_enrich_descriptions()
             self._auto_load_chunks()
             self._enforce_no_empty_descriptions()
+
+    # ------------------------------------------------------------------
+    # ADR-128: Atomic batch reclassification (copy-on-write)
+    # ------------------------------------------------------------------
+
+    def reclassify_batch(
+        self,
+        reclassify_fn: Callable[[dict], None],
+        *,
+        validate: bool = True,
+        max_node_loss_pct: float = 0.5,
+    ) -> dict:
+        """Atomic copy-on-write batch reclassification of all graph nodes.
+
+        Prevents split-brain state: the live ``/reason`` endpoint never sees
+        a partially reclassified graph.  All mutations happen on a deep-copied
+        shadow; only on full success is the real graph updated in a single
+        GIL-protected pass.
+
+        The ``reclassify_fn`` receives a plain dict with keys ``entity_type``,
+        ``label``, ``name``, and ``properties`` extracted from each
+        :class:`CogniNode`. It may mutate the dict in-place. On success,
+        changes are written back to the original CogniNode attributes.
+
+        Args:
+            reclassify_fn: Mutating callable applied to each node-data dict.
+            validate: When True, check for dangling edges and node-count
+                collapse before committing.
+            max_node_loss_pct: Minimum fraction of original node count that
+                must survive in the shadow copy (0.0-1.0).
+
+        Returns:
+            Stats dict: ``{"reclassified": N, "skipped": N, "failed": 0, "by_type": {...}}``
+
+        Raises:
+            RuntimeError: If any per-node reclassification raises, or if
+                validation detects dangling edges / excessive node loss.
+        """
+        original_count = len(self.nodes)
+
+        # Step 1 — extract node data into shadow dicts (deep-copied)
+        shadow_nodes: dict[str, dict] = {}
+        for nid, node in self.nodes.items():
+            shadow_nodes[nid] = copy.deepcopy({
+                "entity_type": node.entity_type,
+                "label": node.label,
+                "name": getattr(node, "label", nid),
+                "properties": dict(node.properties) if node.properties else {},
+            })
+
+        # Step 2 — apply reclassify_fn per node, collect failures
+        failures: list[tuple[str, Exception]] = []
+        reclassified = 0
+        skipped = 0
+        by_type: dict[str, int] = defaultdict(int)
+
+        for nid, node_data in shadow_nodes.items():
+            old_type = node_data.get("entity_type")
+            try:
+                reclassify_fn(node_data)
+            except Exception as exc:  # noqa: BLE001
+                failures.append((nid, exc))
+                continue
+
+            new_type = node_data.get("entity_type")
+            if new_type != old_type:
+                reclassified += 1
+                by_type[new_type] += 1
+            else:
+                skipped += 1
+
+        # Step 3 — abort on ANY failure; original graph untouched
+        if failures:
+            raise RuntimeError(
+                f"reclassify_batch aborted: {len(failures)} node(s) failed. "
+                f"Original graph unchanged. First: {failures[0][0]}: {failures[0][1]}"
+            )
+
+        # Step 4 — optional validation
+        if validate:
+            shadow_ids = set(shadow_nodes.keys())
+            # Dangling-edge check
+            for eid, edge in self.edges.items():
+                if edge.source_id not in shadow_ids or edge.target_id not in shadow_ids:
+                    raise RuntimeError(
+                        f"Dangling edge detected: ({edge.source_id} -> {edge.target_id}). "
+                        "Aborting."
+                    )
+            # Node-count collapse check
+            if original_count > 0 and len(shadow_ids) < original_count * max_node_loss_pct:
+                raise RuntimeError(
+                    f"Node count collapse: {len(shadow_ids)}/{original_count} "
+                    f"below {max_node_loss_pct:.0%} threshold. Aborting."
+                )
+
+        # Step 5 — atomic swap: write shadow data back to CogniNodes
+        for nid, node_data in shadow_nodes.items():
+            node = self.nodes[nid]
+            node.entity_type = node_data["entity_type"]
+            # Merge any new properties added by reclassification
+            for key in ("domain", "reclassification_confidence",
+                        "reclassification_source", "reclassification_from"):
+                if key in node_data:
+                    node.properties[key] = node_data[key]
+
+        # Step 6 — invalidate caches
+        self._activator = None
+        self._nx_graph = None
+
+        # Step 7 — return stats
+        return {
+            "reclassified": reclassified,
+            "skipped": skipped,
+            "failed": 0,
+            "by_type": dict(by_type),
+        }
 
     # --- Construction ---
 
