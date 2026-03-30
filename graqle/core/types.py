@@ -25,6 +25,7 @@ class ReasoningType(str, Enum):
     SYNTHESIS = "synthesis"
     EVIDENCE = "evidence"
     HYPOTHESIS = "hypothesis"
+    PROTOCOL_TRACE = "protocol_trace"
 
 
 class NodeStatus(str, Enum):
