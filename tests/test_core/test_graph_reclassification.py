@@ -110,7 +110,7 @@ class TestReclassifyBatchAtomicity:
             node_data["entity_type"] = "MCP_TOOL"
             node_data["domain"] = "mcp"
             node_data["reclassification_from"] = "Entity"
-            node_data["reclassification_confidence"] = 0.95
+            node_data["reclassification_confidence"] = 0.91
             node_data["reclassification_source"] = "name prefix"
 
         graph.reclassify_batch(reclassify)
@@ -118,7 +118,7 @@ class TestReclassifyBatchAtomicity:
         assert node.entity_type == "MCP_TOOL"
         assert node.properties.get("domain") == "mcp"
         assert node.properties.get("reclassification_from") == "Entity"
-        assert node.properties.get("reclassification_confidence") == 0.95
+        assert node.properties.get("reclassification_confidence") == 0.91
 
 
 class TestReclassifyMcpModule:
@@ -142,8 +142,8 @@ class TestReclassifyMcpModule:
     def test_reclassify_first_match_wins(self) -> None:
         from graqle.scanner.reclassify_mcp import _match_rule
 
-        # "graq_transport" matches graq_ (MCP_TOOL, 0.95) AND transport (0.90)
-        # First match should win: MCP_TOOL
+        # "graq_transport" matches both graq_ prefix rule AND transport keyword rule
+        # First match wins: MCP_TOOL (higher confidence rule listed first)
         node = {"entity_type": "Entity", "label": "graq_transport"}
         rule = _match_rule(node)
         assert rule is not None
