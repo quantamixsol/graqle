@@ -120,8 +120,7 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        # v0.38.0 Phase 7: +graq_gov_gate + kogni_gov_gate = 114 total
-        assert len(TOOL_DEFINITIONS) == 114
+        assert len(TOOL_DEFINITIONS) == 116  # +2: graq_correct + kogni_correct (R6)
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -285,7 +284,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 114  # 57 graq_* + 57 kogni_* aliases (v0.38.0 Phase 10)
+        assert len(tools) == 116  # +2: graq_correct + kogni_correct (R6)
 
 
 # ---------------------------------------------------------------------------
