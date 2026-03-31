@@ -62,14 +62,85 @@ def _load_penalties(path: Path | None = None) -> Dict[str, float]:
     return _DEFAULT_PENALTIES.copy()
 
 
+def load_federation_config(path: Path | None = None) -> Dict[str, Any]:
+    """Load R9 federation tuning values from private config.
+
+    Falls back to safe defaults if the file doesn't exist.
+    Production values are in .graqle/r9_federation.json (gitignored).
+    """
+    if path is None:
+        path = Path(".graqle/r9_federation.json")
+
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            logger.info("Loaded R9 federation config from %s", path)
+            return data
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            logger.warning("Invalid R9 federation config %s: %s — using defaults", path, exc)
+
+    return {}
+
+
+def apply_federation_config(
+    config: "FederatedActivationConfig",
+    path: Path | None = None,
+) -> "FederatedActivationConfig":
+    """Apply private federation tuning values to config.
+
+    Overwrites safe defaults with production values from .graqle/r9_federation.json.
+    """
+    data = load_federation_config(path)
+    if not data:
+        return config
+
+    if "dedup_threshold" in data:
+        config.dedup_threshold = float(data["dedup_threshold"])
+    if "min_kg_quorum" in data:
+        config.min_kg_quorum = int(data["min_kg_quorum"])
+    if "min_diversity_ratio" in data:
+        config.min_diversity_ratio = float(data["min_diversity_ratio"])
+    if "ema_alpha" in data:
+        config.ema_alpha = float(data["ema_alpha"])
+    if "disagreement_discount" in data:
+        config.disagreement_discount = float(data["disagreement_discount"])
+
+    return config
+
+
 @dataclass
 class FederatedActivationConfig:
-    """Configuration for R9 federated cross-KG activation."""
+    """Configuration for R9 federated cross-KG activation.
 
+    R10 fields: unaligned_penalty, cross_kg_enabled, warnings, alignment_metadata.
+    R9 fields: top_k_per_kg, timeout_ms, min_kg_quorum, dedup_threshold,
+    authority_weights, diversity_enforcement, min_diversity_ratio,
+    conflict_detection, rrf_k, ema_alpha, disagreement_discount.
+
+    All tuning values are config fields with safe defaults (TS-2 compliant).
+    Production values loaded from .graqle/r9_penalties.json.
+    """
+
+    # ── R10 fields (alignment penalty) ──
     unaligned_penalty: float = 1.0
     cross_kg_enabled: bool = False
     warnings: List[str] = field(default_factory=list)
     alignment_metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # ── R9 fields (federation) ──
+    # Safe defaults for open-source users. Production values loaded
+    # from .graqle/r9_federation.json (gitignored) via load_federation_config().
+    top_k_per_kg: int = 10
+    timeout_ms: int = 5000
+    min_kg_quorum: int = 1          # safe default — overridden by private config
+    dedup_threshold: float = 1.0    # safe default (no dedup) — overridden by private config
+    authority_weights: Dict[str, float] = field(default_factory=dict)
+    diversity_enforcement: bool = True
+    min_diversity_ratio: float = 0.0  # safe default (no enforcement) — overridden by private config
+    conflict_detection: bool = True
+    rrf_k: int = 60                 # published constant (Cormack et al. 2009) — NOT proprietary
+    ema_alpha: float = 0.5          # safe default — overridden by private config
+    disagreement_discount: float = 1.0  # safe default (no discount) — overridden by private config
 
 
 def configure_r9_from_alignment(
