@@ -124,6 +124,10 @@ MCP_ENTITY_SHAPES: dict[str, dict] = {
 # ---------------------------------------------------------------------------
 
 MCP_RELATIONSHIP_SHAPES: dict[str, dict] = {
+    "CALLS_VIA_MCP": {
+        "domain": {"MCP_CLIENT", "JavaScriptModule", "ReactComponent"},
+        "range": {"MCP_TOOL", "Function", "CodeFunction"},
+    },
     "EXPOSES_TOOL": {
         "domain": {"MCP_SERVER"},
         "range": {"MCP_TOOL"},
