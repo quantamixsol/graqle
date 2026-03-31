@@ -208,6 +208,7 @@ def test_unresolved_missing_handler(handlers: list[MockHandler]) -> None:
         call_sites=[call],
         handlers=handlers,
         alias_map={},
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(unresolved) == 1
     assert isinstance(unresolved[0], UnresolvedEdge)
@@ -226,6 +227,7 @@ def test_unresolved_dynamic(handlers: list[MockHandler]) -> None:
         call_sites=[call],
         handlers=handlers,
         alias_map={},
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(unresolved) == 1
     assert "DYNAMIC" in unresolved[0].reason.upper()
@@ -297,12 +299,12 @@ def test_emit_creates_valid_edge() -> None:
 # ===========================================================================
 
 
-def test_confidence_defaults_are_opaque() -> None:
-    """_load_confidence_config defaults are all None (sentinel, not proprietary)."""
-    config = _load_confidence_config(config_path=Path("/nonexistent/path.json"))
-    assert isinstance(config, dict)
-    for value in config.values():
-        assert value is None
+def test_confidence_defaults_raise_configuration_error() -> None:
+    """_load_confidence_config raises ConfigurationError when config is missing."""
+    from graqle.scanner.mcp_linker import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="missing or incomplete"):
+        _load_confidence_config(config_path=Path("/nonexistent/path.json"))
 
 
 # ===========================================================================
@@ -356,17 +358,18 @@ def test_resolution_priority() -> None:
 # ===========================================================================
 
 
-def test_unconfigured_confidence_goes_to_unresolved() -> None:
-    """When no confidence config is provided, edges go to unresolved
-    with reason UNCONFIGURED_CONFIDENCE (B1 blocker fix from PR #5 review)."""
+def test_unconfigured_confidence_raises() -> None:
+    """When no confidence config exists, _load_confidence_config raises
+    ConfigurationError (B1 blocker fix — fail-fast, not warn-and-continue)."""
+    from graqle.scanner.mcp_linker import ConfigurationError
+
     handlers = _make_handlers("reason")
     call = _make_call("reason")
-    # Deliberately omit confidence_config — defaults are None
-    resolved, unresolved = resolve_cross_language(
-        call_sites=[call],
-        handlers=handlers,
-        alias_map={},
-    )
-    assert len(resolved) == 0, "Expected no resolved edges without confidence config"
-    assert len(unresolved) == 1
-    assert "UNCONFIGURED" in unresolved[0].reason
+    # Deliberately omit confidence_config — defaults are None, raises on load
+    with pytest.raises(ConfigurationError):
+        resolve_cross_language(
+            call_sites=[call],
+            handlers=handlers,
+            alias_map={},
+            # No confidence_config → _load_confidence_config() → raises
+        )

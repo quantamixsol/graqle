@@ -28,6 +28,11 @@ from typing import Any, Protocol, Sequence, runtime_checkable
 
 logger = logging.getLogger("graqle.scanner.mcp_linker")
 
+
+class ConfigurationError(Exception):
+    """Raised when required MCP linker configuration is missing."""
+
+
 # ---------------------------------------------------------------------------
 # Confidence config (ADR-130 / TS-2 compliant — NO hardcoded values)
 # ---------------------------------------------------------------------------
@@ -78,13 +83,13 @@ def _load_confidence_config(
             exc,
         )
 
-    # B1 fix: warn when confidence values are unconfigured (None sentinel)
-    if any(v is None for v in conf.values()):
-        logger.warning(
-            "MCP linker confidence config missing or incomplete at %s. "
-            "Edges will have confidence=None and may be rejected by "
-            "downstream gates. Create the config per ADR-130/TS-2.",
-            path,
+    # B1 fix: fail-fast when confidence values are unconfigured (None sentinel)
+    unconfigured = [k for k, v in conf.items() if v is None]
+    if unconfigured:
+        raise ConfigurationError(
+            f"MCP linker confidence config missing or incomplete at {path}. "
+            f"Unconfigured keys: {unconfigured}. "
+            f"Create the config per ADR-130/TS-2."
         )
 
     if config_path is None:
