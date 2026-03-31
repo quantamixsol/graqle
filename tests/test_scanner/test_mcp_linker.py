@@ -60,6 +60,13 @@ CONF_PREFIX = 0.8
 CONF_ALIAS = 0.7
 CONF_REGISTRY = 0.6
 
+_TEST_CONFIDENCE_CONFIG = {
+    "direct_match": CONF_DIRECT,
+    "prefix_strip": CONF_PREFIX,
+    "alias_strip": CONF_ALIAS,
+    "registry_fallback": CONF_REGISTRY,
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -120,6 +127,7 @@ def test_direct_bare_name_match(handlers: list[MockHandler]) -> None:
         call_sites=[call],
         handlers=handlers,
         alias_map={},
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(resolved) == 1
     assert isinstance(resolved[0], CrossLangEdge)
@@ -139,6 +147,7 @@ def test_prefix_strip_match(handlers: list[MockHandler]) -> None:
         call_sites=[call],
         handlers=handlers,
         alias_map={},
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(resolved) == 1
     assert resolved[0].bare_name == "reason"
@@ -159,6 +168,7 @@ def test_alias_resolution(
         call_sites=[call],
         handlers=handlers,
         alias_map=alias_map,
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(resolved) == 1
     assert resolved[0].bare_name == "reason"
@@ -180,6 +190,7 @@ def test_registry_fallback(
         handlers=handlers,
         alias_map={},
         registry_bindings=registry_bindings,
+        confidence_config=_TEST_CONFIDENCE_CONFIG,
     )
     assert len(resolved) == 1
     assert resolved[0].resolution_path == "registry_fallback"
@@ -287,11 +298,11 @@ def test_emit_creates_valid_edge() -> None:
 
 
 def test_confidence_defaults_are_opaque() -> None:
-    """_load_confidence_config defaults are all 0.0 (opaque, not proprietary)."""
+    """_load_confidence_config defaults are all None (sentinel, not proprietary)."""
     config = _load_confidence_config(config_path=Path("/nonexistent/path.json"))
     assert isinstance(config, dict)
     for value in config.values():
-        assert value == 0.0
+        assert value is None
 
 
 # ===========================================================================
@@ -331,10 +342,31 @@ def test_resolution_priority() -> None:
     call_direct = _make_call("reason")
     call_prefix = _make_call("graq_reason")
 
-    resolved_d, _ = resolve_cross_language([call_direct], handlers, alias_map={})
-    resolved_p, _ = resolve_cross_language([call_prefix], handlers, alias_map={})
+    resolved_d, _ = resolve_cross_language([call_direct], handlers, alias_map={}, confidence_config=_TEST_CONFIDENCE_CONFIG)
+    resolved_p, _ = resolve_cross_language([call_prefix], handlers, alias_map={}, confidence_config=_TEST_CONFIDENCE_CONFIG)
 
     assert len(resolved_d) == 1
     assert resolved_d[0].resolution_path == "direct_match"
     assert len(resolved_p) == 1
     assert resolved_p[0].resolution_path == "prefix_strip"
+
+
+# ===========================================================================
+# 13. test_unconfigured_confidence_goes_to_unresolved (B1 blocker fix)
+# ===========================================================================
+
+
+def test_unconfigured_confidence_goes_to_unresolved() -> None:
+    """When no confidence config is provided, edges go to unresolved
+    with reason UNCONFIGURED_CONFIDENCE (B1 blocker fix from PR #5 review)."""
+    handlers = _make_handlers("reason")
+    call = _make_call("reason")
+    # Deliberately omit confidence_config — defaults are None
+    resolved, unresolved = resolve_cross_language(
+        call_sites=[call],
+        handlers=handlers,
+        alias_map={},
+    )
+    assert len(resolved) == 0, "Expected no resolved edges without confidence config"
+    assert len(unresolved) == 1
+    assert "UNCONFIGURED" in unresolved[0].reason

@@ -35,13 +35,13 @@ logger = logging.getLogger("graqle.scanner.mcp_linker")
 _CONFIDENCE_CONFIG_PATH = Path(".graqle") / "mcp_linker_confidence.json"
 
 # Opaque defaults — actual tuned values MUST live in the config file.
-# These zeros ensure resolution still works structurally but confidence
-# is meaningless until the operator ships a real config.
-_DEFAULT_CONFIDENCE: dict[str, float] = {
-    "direct_match": 0.0,
-    "prefix_strip": 0.0,
-    "alias_strip": 0.0,
-    "registry_fallback": 0.0,
+# Sentinel defaults (None) — fail-fast when config is missing.
+# B1 fix: 0.0 defaults silently caused R2 to reject ALL edges at >=0.75 gate.
+_DEFAULT_CONFIDENCE: dict[str, float | None] = {
+    "direct_match": None,
+    "prefix_strip": None,
+    "alias_strip": None,
+    "registry_fallback": None,
 }
 
 _confidence_cache: dict[str, float] | None = None
@@ -76,6 +76,15 @@ def _load_confidence_config(
             "Failed to load MCP linker confidence config (%s): %s — using defaults",
             path,
             exc,
+        )
+
+    # B1 fix: warn when confidence values are unconfigured (None sentinel)
+    if any(v is None for v in conf.values()):
+        logger.warning(
+            "MCP linker confidence config missing or incomplete at %s. "
+            "Edges will have confidence=None and may be rejected by "
+            "downstream gates. Create the config per ADR-130/TS-2.",
+            path,
         )
 
     if config_path is None:
@@ -142,7 +151,7 @@ def build_alias_map(
 
     if handlers:
         for h in handlers:
-            bare = getattr(h, "bare_name", None)
+            bare = getattr(h, "bare_name", None) or getattr(h, "tool_name", None)
             if bare:
                 alias_map[f"{_KOGNI_PREFIX}{bare}"] = f"{_GRAQ_PREFIX}{bare}"
 
@@ -234,7 +243,7 @@ def resolve_cross_language(
                 tool_name=tool,
                 bare_name=tool,
                 resolution_path="direct_match",
-                confidence=conf.get("direct_match", 0.0),
+                confidence=conf.get("direct_match"),
             )
 
         # (b) Prefix-strip: graq_reason → reason
@@ -248,7 +257,7 @@ def resolve_cross_language(
                     bare_name=bare,
                     alias_chain=(tool, bare),
                     resolution_path="prefix_strip",
-                    confidence=conf.get("prefix_strip", 0.0),
+                    confidence=conf.get("prefix_strip"),
                 )
 
         # (c) Alias + strip: kogni_reason → graq_reason → reason
@@ -263,7 +272,7 @@ def resolve_cross_language(
                     bare_name=bare,
                     alias_chain=(tool, graq_name, bare),
                     resolution_path="alias_strip",
-                    confidence=conf.get("alias_strip", 0.0),
+                    confidence=conf.get("alias_strip"),
                 )
 
         # (d) TOOL_REGISTRY fallback
@@ -277,12 +286,19 @@ def resolve_cross_language(
                     bare_name=bare,
                     alias_chain=(tool, bare),
                     resolution_path="registry_fallback",
-                    confidence=conf.get("registry_fallback", 0.0),
+                    confidence=conf.get("registry_fallback"),
                 )
 
-        # (e) Collect result
+        # (e) Collect result — B1 fix: reject edges with unconfigured confidence
         if edge is not None:
-            resolved.append(edge)
+            if edge.confidence is None:
+                unresolved.append(UnresolvedEdge(
+                    source=site,
+                    reason="UNCONFIGURED_CONFIDENCE",
+                    hint=f"Confidence for {edge.resolution_path} is None — config missing",
+                ))
+            else:
+                resolved.append(edge)
         else:
             unresolved.append(UnresolvedEdge(
                 source=site,
