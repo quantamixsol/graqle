@@ -3361,20 +3361,33 @@ class KogniDevServer:
             if not query or not predicted_tool or not corrected_tool:
                 return json.dumps({"error": "Missing required: question, predicted_tool, corrected_tool"})
 
-            # Extract KG context if graph is available
+            # Extract KG context via actual topk=20 activation (not positional sampling)
+            # Patent Claim #1 requires KG-informed routing with scoring
             activated_nodes: list[str] = []
             activated_types: list[str] = []
             activation_scores: list[float] = []
             graph = self._load_graph()
             if graph is not None:
                 try:
-                    for nid, node in list(graph.nodes.items())[:20]:
-                        activated_nodes.append(str(nid))
-                        if hasattr(node, "entity_type") and node.entity_type:
+                    # Use ChunkScorer activation (embedding-only, no LLM call)
+                    graph.config.activation.max_nodes = 20
+                    activated_nodes = graph._activate_subgraph(query, strategy="chunk")
+
+                    # Retrieve scores from activator side-channel
+                    scores_dict = {}
+                    if hasattr(graph, "_activator") and graph._activator is not None:
+                        scores_dict = getattr(graph._activator, "last_relevance", {}) or {}
+
+                    # Build types and scores aligned to activated_nodes
+                    for nid in activated_nodes:
+                        node = graph.nodes.get(nid)
+                        if node and hasattr(node, "entity_type") and node.entity_type:
                             activated_types.append(node.entity_type)
-                        activation_scores.append(1.0)
+                        else:
+                            activated_types.append("UNKNOWN")
+                        activation_scores.append(round(scores_dict.get(nid, 0.0), 4))
                 except Exception:
-                    pass  # fail-open: KG context is best-effort
+                    pass  # fail-open: KG activation is best-effort
 
             from graqle.intent.types import CorrectionRecord
             from graqle.intent.correction_store import CorrectionStore, RingBuffer
