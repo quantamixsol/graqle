@@ -228,7 +228,7 @@ class TestMakeDedupKey:
     def test_basic_format(self):
         c = BridgeCandidate(
             source_id="src/utils.py", target_id="utils_entity",
-            confidence=0.95, language="python",
+            confidence=0.91, language="python",
         )
         key = make_dedup_key(c)
         assert key.startswith("python::")
@@ -333,6 +333,44 @@ class TestValidateCandidate:
         reason = _validate_candidate(
             c, {"src.py", "entity_a"}, set(), set(),
             "PythonModule", "Entity", 0.4,
+        )
+        assert reason is None
+
+    def test_check7_invalid_provenance(self):
+        c = self._make_candidate(relationship="CALLS_VIA_MCP")
+        c.metadata["provenance"] = "unknown_source"
+        reason = _validate_candidate(
+            c, {"src.py", "entity_a"}, set(), set(),
+            "PythonModule", "Entity", 0.4,
+            source_language="javascript", target_language="python",
+        )
+        assert reason and "invalid_provenance" in reason
+
+    def test_check7_valid_provenance(self):
+        c = self._make_candidate(relationship="CALLS_VIA_MCP")
+        c.metadata["provenance"] = "bridge_injection"
+        reason = _validate_candidate(
+            c, {"src.py", "entity_a"}, set(), set(),
+            "PythonModule", "Entity", 0.4,
+            source_language="javascript", target_language="python",
+        )
+        assert reason is None
+
+    def test_check8_wrong_direction(self):
+        c = self._make_candidate(relationship="CALLS_VIA_MCP")
+        reason = _validate_candidate(
+            c, {"src.py", "entity_a"}, set(), set(),
+            "PythonModule", "Entity", 0.4,
+            source_language="python", target_language="javascript",
+        )
+        assert reason and "wrong_direction" in reason
+
+    def test_check8_correct_direction(self):
+        c = self._make_candidate(relationship="CALLS_VIA_MCP")
+        reason = _validate_candidate(
+            c, {"src.py", "entity_a"}, set(), set(),
+            "PythonModule", "Entity", 0.4,
+            source_language="javascript", target_language="python",
         )
         assert reason is None
 

@@ -19,9 +19,11 @@ Language-namespaced dedup keys prevent cross-language collisions
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
@@ -83,9 +85,36 @@ _NORMALISE_RE = re.compile(r"[^a-z0-9]+")
 _CAMEL_SPLIT_RE = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
 _CAMEL_LOWER_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
 
-# Confidence constants
-_DEFAULT_CONFIDENCE_THRESHOLD: float = 0.4
-_EXACT_MATCH_CONFIDENCE: float = 0.95  # < 1.0: normalisation may conflate distinct names
+# Confidence configuration — loaded from .graqle/bridge_config.json (gitignored).
+# Safe non-proprietary defaults used when config absent.
+_BRIDGE_CONFIG_PATH = Path(".graqle") / "bridge_config.json"
+_SAFE_DEFAULT_EXACT_MATCH: float = 0.9
+_SAFE_DEFAULT_THRESHOLD: float = 0.35
+
+
+def _load_bridge_config() -> dict[str, float]:
+    """Load bridge confidence thresholds from private config.
+
+    Falls back to safe non-proprietary defaults if the file does not
+    exist or cannot be parsed.
+    """
+    defaults = {
+        "exact_match_confidence": _SAFE_DEFAULT_EXACT_MATCH,
+        "default_confidence_threshold": _SAFE_DEFAULT_THRESHOLD,
+    }
+    if not _BRIDGE_CONFIG_PATH.is_file():
+        return defaults
+    try:
+        data = json.loads(_BRIDGE_CONFIG_PATH.read_text(encoding="utf-8"))
+        defaults.update({k: float(v) for k, v in data.items() if k in defaults})
+    except (json.JSONDecodeError, ValueError, OSError) as exc:
+        logger.warning("Failed to load bridge config: %s — using safe defaults", exc)
+    return defaults
+
+
+_bridge_cfg = _load_bridge_config()
+_DEFAULT_CONFIDENCE_THRESHOLD: float = _bridge_cfg["default_confidence_threshold"]
+_EXACT_MATCH_CONFIDENCE: float = _bridge_cfg["exact_match_confidence"]
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +265,16 @@ class BridgeDetectionReport:
 
 
 # ---------------------------------------------------------------------------
-# R2 Bridge Validation Protocol — 6 checks (reordered per GraQle review)
+# R2 Bridge Validation Protocol — 8 checks (ADR-135: 6 original + 2 R2 spec)
 # ---------------------------------------------------------------------------
+
+# R5 Provenance: valid sources for CALLS_VIA_MCP edges
+_VALID_PROVENANCE_SOURCES: frozenset[str] = frozenset({
+    "r5_cross_language_linker",
+    "manual_annotation",
+    "bridge_injection",
+})
+
 
 def _validate_candidate(
     candidate: BridgeCandidate,
@@ -247,13 +284,15 @@ def _validate_candidate(
     source_type: str,
     target_type: str,
     confidence_threshold: float,
+    source_language: str = "",
+    target_language: str = "",
 ) -> str | None:
-    """Run the 6-check R2 Bridge Validation Protocol.
+    """Run the 8-check R2 Bridge Validation Protocol (ADR-135).
+
+    Checks 1-6: structural + soft gates (original implementation).
+    Checks 7-8: R2 spec requirements (R5 Provenance, Direction).
 
     Returns ``None`` if valid, or a rejection reason string.
-
-    Check order (per GraQle review): structural invariants first,
-    then soft gates.
     """
     # 1. No self-loops
     if candidate.source_id == candidate.target_id:
@@ -265,7 +304,7 @@ def _validate_candidate(
     if candidate.target_id not in all_node_ids:
         return f"target_missing:{candidate.target_id}"
 
-    # 3. Type compatibility
+    # 3. Type compatibility (R3 Type Conformance)
     if source_type and target_type:
         if (source_type, target_type) not in _COMPATIBLE_PAIRS:
             return f"type_incompatible:{source_type}->{target_type}"
@@ -280,9 +319,23 @@ def _validate_candidate(
     if dedup_key in seen_dedup_keys:
         return "duplicate_dedup_key"
 
-    # 6. Confidence threshold (soft gate — last)
+    # 6. Confidence threshold (soft gate — last of original checks)
     if candidate.confidence < confidence_threshold:
         return f"below_confidence:{candidate.confidence}<{confidence_threshold}"
+
+    # 7. R5 Provenance: CALLS_VIA_MCP edges must have valid provenance
+    if candidate.relationship == "CALLS_VIA_MCP":
+        provenance = candidate.metadata.get("provenance", "")
+        if provenance and provenance not in _VALID_PROVENANCE_SOURCES:
+            return f"invalid_provenance:{provenance}"
+
+    # 8. Direction: CALLS_VIA_MCP must flow TypeScript → Python
+    if candidate.relationship == "CALLS_VIA_MCP":
+        src_lang = source_language or candidate.language
+        tgt_lang = target_language or candidate.metadata.get("target_language", "")
+        if src_lang and tgt_lang:
+            if not (src_lang == "javascript" and tgt_lang == "python"):
+                return f"wrong_direction:{src_lang}->{tgt_lang}"
 
     return None
 
@@ -369,6 +422,7 @@ class BridgeDetector:
             for kg_node in exact_matches:
                 kg_id = kg_node.get("id", "")
                 kg_type = kg_node.get("entity_type", kg_node.get("type", ""))
+                kg_lang = derive_language(kg_node)
                 candidate = BridgeCandidate(
                     source_id=s_id,
                     target_id=kg_id,
@@ -380,6 +434,7 @@ class BridgeDetector:
                 reason = _validate_candidate(
                     candidate, all_node_ids, existing_edge_keys,
                     seen_dedup, s_type, kg_type, self.confidence_threshold,
+                    source_language=s_lang, target_language=kg_lang,
                 )
                 if reason is None:
                     seen_dedup.add(make_dedup_key(candidate))
@@ -419,9 +474,11 @@ class BridgeDetector:
                             method="token_overlap",
                             language=s_lang,
                         )
+                        kg_lang = derive_language(kg_node)
                         reason = _validate_candidate(
                             candidate, all_node_ids, existing_edge_keys,
                             seen_dedup, s_type, kg_type, self.confidence_threshold,
+                            source_language=s_lang, target_language=kg_lang,
                         )
                         if reason is None:
                             seen_dedup.add(make_dedup_key(candidate))

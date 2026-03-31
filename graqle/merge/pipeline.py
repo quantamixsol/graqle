@@ -16,6 +16,7 @@ detect → validate → reconcile → inject.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -54,7 +55,7 @@ class BridgeMetrics:
 
     cc_delta: int = 0
     cross_edges: int = 0
-    bds: float = 0.0  # bridge density score = cross_edges / total_edges
+    bds: float = 0.0  # bridge density score = cross_edges / √(N_py × N_ts)
 
     @property
     def meets_success_criteria(self) -> bool:
@@ -288,9 +289,13 @@ class BridgePipeline:
         # 5. Compute post-injection metrics.
         report.cc_after = self._connected_component_count(self._graph)
 
-        total_edges = self._total_edge_count(self._graph)
+        # BDS = cross_edges / √(N_py × N_ts) per R2 spec
+        from graqle.analysis.bridge import derive_language
+        n_py = sum(1 for n in scanner_nodes if derive_language(n) == "python")
+        n_ts = sum(1 for n in scanner_nodes if derive_language(n) == "javascript")
         cross_edges = injected
-        bds = cross_edges / total_edges if total_edges > 0 else 0.0
+        denominator = math.sqrt(n_py * n_ts) if (n_py > 0 and n_ts > 0) else 0.0
+        bds = cross_edges / denominator if denominator > 0 else 0.0
 
         report.metrics = BridgeMetrics(
             cc_delta=report.cc_delta,  # uses PipelineReport.cc_delta property
