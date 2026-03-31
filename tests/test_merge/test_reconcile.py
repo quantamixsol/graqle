@@ -40,12 +40,12 @@ class TestBridgeReconciler:
         assert result.stats == {"exact_name": 1}
 
     def test_higher_confidence_wins(self):
-        c_high = _candidate(confidence=0.95)
+        c_high = _candidate(confidence=0.91)
         c_low = _candidate(confidence=0.7, method="token_overlap")
         report = BridgeDetectionReport(candidates=[c_low, c_high])
         result = BridgeReconciler(report).reconcile()
         assert len(result.accepted) == 1
-        assert result.accepted[0].confidence == 0.95
+        assert result.accepted[0].confidence == 0.91
         assert len(result.merged) == 1
 
     def test_confidence_tie_method_priority(self):
