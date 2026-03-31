@@ -4476,14 +4476,88 @@ class KogniDevServer:
                 _os.fsync(tmp.fileno())
                 tmp_path = tmp.name
             _os.replace(tmp_path, fp)
+
+            # ADR-134: auto-sync written file into KG so graq_reason sees it
+            kg_synced = self._post_write_kg_sync(str(fp))
+
             return json.dumps({
                 "file_path": str(fp),
                 "written": True,
                 "lines": len(content.splitlines()),
                 "bytes": len(content.encode()),
+                "kg_synced": kg_synced,
             })
         except Exception as exc:
             return json.dumps({"error": f"Write failed: {exc}", "written": False})
+
+    def _post_write_kg_sync(self, file_path: str) -> bool:
+        """ADR-134: Incrementally scan a written file into the running KG.
+
+        This ensures that subsequent graq_reason/graq_context calls can
+        see the new code. Without this, newly generated/written files are
+        invisible to the KG until the next full ``graq scan``.
+
+        Returns True if sync succeeded, False otherwise (never raises).
+        """
+        try:
+            from graqle.cli.commands.grow import _incremental_scan
+
+            graph = self._load_graph()
+            if graph is None:
+                return False
+
+            # Determine project root from graph file path
+            root = Path(getattr(graph, "_graph_path", ".")).parent
+            if not root.exists():
+                root = Path(".").resolve()
+
+            # Make relative path for incremental scan
+            fp = Path(file_path)
+            try:
+                rel_path = str(fp.relative_to(root))
+            except ValueError:
+                rel_path = str(fp)
+
+            new_nodes, new_edges = _incremental_scan(root, [rel_path])
+
+            if not new_nodes and not new_edges:
+                return False
+
+            # Merge into running graph
+            existing_node_ids = set(graph.nodes.keys()) if hasattr(graph, "nodes") else set()
+            added = 0
+            for node in new_nodes:
+                nid = node.get("id", "")
+                if nid and nid not in existing_node_ids:
+                    try:
+                        graph.add_node_simple(
+                            nid,
+                            node.get("label", ""),
+                            node.get("type", "Entity"),
+                            node.get("description", ""),
+                        )
+                        added += 1
+                    except Exception:
+                        pass
+
+            for edge in new_edges:
+                try:
+                    graph.add_edge_simple(
+                        edge.get("source", ""),
+                        edge.get("target", ""),
+                        edge.get("relationship", "RELATED_TO"),
+                    )
+                except Exception:
+                    pass
+
+            if added > 0:
+                logger.info("ADR-134 KG sync: added %d nodes from %s", added, rel_path)
+                self._save_graph(graph)
+
+            return True
+        except Exception as exc:
+            logger.debug("ADR-134 KG sync failed (non-blocking): %s", exc)
+            return False
 
     async def _handle_grep(self, args: dict[str, Any]) -> str:
         """Search file contents by regex pattern."""
