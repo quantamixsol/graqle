@@ -167,7 +167,7 @@ class TestCodingOntologyPhase4:
 class TestPhase4ToolDefinitions:
     def test_total_tool_count(self):
         """v0.38.0 Phase 7: 56 graq_* + 56 kogni_* = 112."""
-        assert len(TOOL_DEFINITIONS) == 114
+        assert len(TOOL_DEFINITIONS) == 116  # +2: graq_correct + kogni_correct (R6)
 
     def test_compound_tools_defined(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

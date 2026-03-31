@@ -155,7 +155,7 @@ class TestGraqGovGateTool:
 
     def test_total_tool_count_updated(self) -> None:
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
-        assert len(TOOL_DEFINITIONS) == 114
+        assert len(TOOL_DEFINITIONS) == 116  # +2: graq_correct + kogni_correct (R6)
 
     def test_graq_gov_gate_in_write_tools(self) -> None:
         from graqle.plugins.mcp_dev_server import _WRITE_TOOLS
