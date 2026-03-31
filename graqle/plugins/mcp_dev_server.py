@@ -663,6 +663,36 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_correct",
+        "description": (
+            "Record a routing correction — tells the classifier it picked the wrong tool. "
+            "Persists the correction, updates the online learner, and returns status."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The original query that was misrouted",
+                },
+                "predicted_tool": {
+                    "type": "string",
+                    "description": "The tool the router chose",
+                },
+                "corrected_tool": {
+                    "type": "string",
+                    "description": "The tool that should have been chosen",
+                },
+                "correction_source": {
+                    "type": "string",
+                    "description": "Source of correction: explicit, implicit_retry, or api",
+                    "default": "explicit",
+                },
+            },
+            "required": ["question", "predicted_tool", "corrected_tool"],
+        },
+    },
+    {
         "name": "graq_lifecycle",
         "description": (
             "Session lifecycle hooks for development workflows. "
@@ -1849,6 +1879,8 @@ class KogniDevServer:
         self._graph_mtime: float = 0.0
         self._gov: Any = None  # GovernanceMiddleware, loaded lazily
         self._neo4j_traversal: Any = None  # Neo4jTraversal, set when Neo4j active
+        self._intent_learner: Any = None  # OnlineLearner, loaded lazily
+        self._intent_ring_buffer: Any = None  # RingBuffer for dedup
 
     # ------------------------------------------------------------------
     # Graph lifecycle
@@ -2164,6 +2196,7 @@ class KogniDevServer:
             "graq_audit": self._handle_audit,
             "graq_runtime": self._handle_runtime,
             "graq_route": self._handle_route,
+            "graq_correct": self._handle_correct,
             "graq_lifecycle": self._handle_lifecycle,
             "graq_gate": self._handle_gate,
             "graq_gov_gate": self._handle_gov_gate,
@@ -2209,6 +2242,7 @@ class KogniDevServer:
             "kogni_predict": self._handle_predict,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
+            "kogni_correct": self._handle_correct,
             "kogni_lifecycle": self._handle_lifecycle,
             "kogni_gate": self._handle_gate,
             "kogni_gov_gate": self._handle_gov_gate,
@@ -3313,6 +3347,101 @@ class KogniDevServer:
         recommendation = route_question(question, has_runtime=has_runtime)
 
         return json.dumps(recommendation.to_dict())
+
+    # ── 11b. graq_correct ─────────────────────────────────────────────
+
+    async def _handle_correct(self, args: dict[str, Any]) -> str:
+        """Record a routing correction and update the online learner (fail-open)."""
+        try:
+            query = args.get("question", "")
+            predicted_tool = args.get("predicted_tool", "")
+            corrected_tool = args.get("corrected_tool", "")
+            correction_source = args.get("correction_source", "explicit")
+
+            if not query or not predicted_tool or not corrected_tool:
+                return json.dumps({"error": "Missing required: question, predicted_tool, corrected_tool"})
+
+            # Extract KG context via actual topk=20 activation (not positional sampling)
+            # Patent Claim #1 requires KG-informed routing with scoring
+            activated_nodes: list[str] = []
+            activated_types: list[str] = []
+            activation_scores: list[float] = []
+            graph = self._load_graph()
+            if graph is not None:
+                try:
+                    # Use ChunkScorer activation (embedding-only, no LLM call)
+                    graph.config.activation.max_nodes = 20
+                    activated_nodes = graph._activate_subgraph(query, strategy="chunk")
+
+                    # Retrieve scores from activator side-channel
+                    scores_dict = {}
+                    if hasattr(graph, "_activator") and graph._activator is not None:
+                        scores_dict = getattr(graph._activator, "last_relevance", {}) or {}
+
+                    # Build types and scores aligned to activated_nodes
+                    for nid in activated_nodes:
+                        node = graph.nodes.get(nid)
+                        if node and hasattr(node, "entity_type") and node.entity_type:
+                            activated_types.append(node.entity_type)
+                        else:
+                            activated_types.append("UNKNOWN")
+                        activation_scores.append(round(scores_dict.get(nid, 0.0), 4))
+                except Exception:
+                    pass  # fail-open: KG activation is best-effort
+
+            from graqle.intent.types import CorrectionRecord
+            from graqle.intent.correction_store import CorrectionStore, RingBuffer
+
+            # Lazy-init ring buffer
+            if self._intent_ring_buffer is None:
+                self._intent_ring_buffer = RingBuffer(max_size=1000)
+
+            normalized = query.lower().strip()
+            record = CorrectionRecord.create(
+                raw_query=query,
+                normalized_query=normalized,
+                activated_nodes=activated_nodes,
+                activated_node_types=list(set(activated_types)),
+                activation_scores=activation_scores,
+                predicted_tool=predicted_tool,
+                corrected_tool=corrected_tool,
+                confidence_at_prediction=0.0,
+                keyword_rules_matched=[],
+                correction_source=correction_source,
+                session_id="mcp",
+            )
+
+            # Persist (co-located with graph file)
+            corrections_path = "corrections.jsonl"
+            if self._graph_file:
+                import os
+                corrections_path = os.path.join(
+                    os.path.dirname(self._graph_file), "corrections.jsonl",
+                )
+            CorrectionStore.persist_correction(record, corrections_path, self._intent_ring_buffer)
+
+            # Online learning (feature-gated, fail-open)
+            learner_version = None
+            intent_cfg = getattr(self._config, "intent", None) if self._config else None
+            learner_enabled = getattr(intent_cfg, "learner_enabled", False) if intent_cfg else False
+            if learner_enabled:
+                try:
+                    if self._intent_learner is None:
+                        from graqle.intent.online_learner import OnlineLearner
+                        self._intent_learner = OnlineLearner()
+                    self._intent_learner.update(record)
+                    learner_version = self._intent_learner.weight_version
+                except Exception as learn_exc:
+                    logger.warning("OnlineLearner update failed (non-fatal): %s", learn_exc)
+
+            return json.dumps({
+                "status": "recorded",
+                "record_id": record.id,
+                "learner_version": learner_version,
+            })
+        except Exception as exc:
+            logger.error("_handle_correct failed (non-fatal): %s", exc)
+            return json.dumps({"error": str(exc), "status": "failed"})
 
     # ── 12. graq_lifecycle ────────────────────────────────────────────
 
