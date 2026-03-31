@@ -64,12 +64,35 @@ def _load_penalties(path: Path | None = None) -> Dict[str, float]:
 
 @dataclass
 class FederatedActivationConfig:
-    """Configuration for R9 federated cross-KG activation."""
+    """Configuration for R9 federated cross-KG activation.
 
+    R10 fields: unaligned_penalty, cross_kg_enabled, warnings, alignment_metadata.
+    R9 fields: top_k_per_kg, timeout_ms, min_kg_quorum, dedup_threshold,
+    authority_weights, diversity_enforcement, min_diversity_ratio,
+    conflict_detection, rrf_k, ema_alpha, disagreement_discount.
+
+    All tuning values are config fields with safe defaults (TS-2 compliant).
+    Production values loaded from .graqle/r9_penalties.json.
+    """
+
+    # ── R10 fields (alignment penalty) ──
     unaligned_penalty: float = 1.0
     cross_kg_enabled: bool = False
     warnings: List[str] = field(default_factory=list)
     alignment_metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # ── R9 fields (federation) ──
+    top_k_per_kg: int = 10
+    timeout_ms: int = 5000
+    min_kg_quorum: int = 1
+    dedup_threshold: float = 0.92
+    authority_weights: Dict[str, float] = field(default_factory=dict)
+    diversity_enforcement: bool = True
+    min_diversity_ratio: float = 0.2
+    conflict_detection: bool = True
+    rrf_k: int = 60
+    ema_alpha: float = 0.3
+    disagreement_discount: float = 0.8
 
 
 def configure_r9_from_alignment(

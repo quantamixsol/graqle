@@ -54,6 +54,7 @@ class ActivationStrategy(str, Enum):
     FULL = "full"
     TOP_K = "top_k"
     MANUAL = "manual"
+    FEDERATED = "federated"  # R9: multi-KG federated activation
 
 
 @runtime_checkable
