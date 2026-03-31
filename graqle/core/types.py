@@ -151,3 +151,33 @@ class NodeConfig:
     max_tokens: int = 2048
     temperature: float = 0.3
     system_prompt: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# R5 Cross-Language MCP Linker types (ADR-131)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MCPCallSite:
+    """A TypeScript callTool() invocation detected by the scanner."""
+
+    tool_name: str | None       # None if dynamic
+    params_raw: str | None
+    file: str
+    line: int
+    enclosing_function: str
+    is_dynamic: bool
+    variable_hint: str | None   # for dynamic: the variable name
+
+
+@dataclass
+class MCPHandler:
+    """A Python MCP handler function detected by the scanner."""
+
+    tool_name: str              # bare name: "reason", "predict"
+    function_name: str          # "_handle_reason"
+    file: str
+    line: int
+    class_context: str | None
+    registry_confirmed: bool    # True if found in TOOL_REGISTRY
