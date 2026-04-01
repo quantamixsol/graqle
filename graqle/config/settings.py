@@ -251,6 +251,7 @@ class GovernancePolicyConfig(BaseModel):
     """
 
     ts_hard_block: bool = True
+    ts_patterns_file: str | None = None     # Path to ip_patterns.yml (ADR-140)
     review_threshold: float = 0.70          # T2 gate threshold
     block_threshold: float = 0.90           # T3 block threshold
     auto_pass_max_radius: int = 2           # T1 max impact_radius for auto-pass
@@ -262,6 +263,22 @@ class GovernancePolicyConfig(BaseModel):
     workflow_require_preflight: bool = True # Require preflight in governed workflows
     workflow_require_learn: bool = True     # Require graq_learn at end of governed workflows
 
+
+
+class CalibrationConfig(BaseModel):
+    """Confidence calibration configuration (R11, TS-2 compliant)."""
+
+    enabled: bool = False
+    method: str = "temperature"  # temperature | platt | isotonic
+    temperature: float = 1.0
+    ece_target: float = 0.08
+    mce_target: float = 0.15
+    brier_target: float = 0.25
+    bins: int = 10
+    min_benchmark_samples: int = 50
+    recalibrate_interval: int = 100
+    benchmark_path: str | None = None
+    persist_path: str = ".graqle/calibration/"
 
 class RedactionConfig(BaseModel):
     """Privacy redaction configuration for document scanning."""
@@ -398,6 +415,7 @@ class GraqleConfig(BaseModel):
     models: dict[str, NamedModelConfig] = Field(default_factory=dict)
     node_models: dict[str, str] = Field(default_factory=dict)
     governance: GovernancePolicyConfig = Field(default_factory=GovernancePolicyConfig)
+    calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> GraqleConfig:
