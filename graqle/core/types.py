@@ -193,3 +193,78 @@ class MCPHandler:
     line: int
     class_context: str | None
     registry_confirmed: bool    # True if found in TOOL_REGISTRY
+
+# ---------------------------------------------------------------------------
+# R15 Multi-Backend Debate types (ADR-139)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DebateTurn:
+    """Single turn in a multi-panelist debate round."""
+
+    round_number: int
+    panelist: str  # backend name
+    position: str  # propose / challenge / synthesize
+    argument: str
+    evidence_refs: list[str]  # KG node IDs
+    confidence: float  # 0-1
+    cost_usd: float
+    latency_ms: float
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class DebateTrace:
+    """Full trace of a multi-panelist debate session."""
+
+    query: str
+    turns: list[DebateTurn]
+    synthesis: str
+    final_confidence: float
+    total_cost_usd: float
+    total_latency_ms: float
+    consensus_reached: bool
+    rounds_completed: int
+    panelist_names: list[str]
+    max_clearance_seen: str = "public"  # highest clearance of any input context
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class ClearanceLevel(str, Enum):
+    """Controls what KG context is sent to each debate panelist backend."""
+
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    CONFIDENTIAL = "confidential"
+
+
+@dataclass
+class DebateCostBudget:
+    """Tracks and enforces a decaying cost budget across debate rounds."""
+
+    initial_budget: float
+    decay_factor: float = 0.0  # Loaded from .graqle/debate_config.json at runtime
+    _remaining: float = field(init=False)
+    _round: int = field(default=0, init=False)
+
+    def __post_init__(self) -> None:
+        self._remaining = self.initial_budget
+
+    @property
+    def exhausted(self) -> bool:
+        """Return True when budget is fully spent."""
+        return self._remaining <= 0.0
+
+    def authorize_round(self, estimated_cost: float) -> bool:
+        """Return False if exhausted or estimated cost exceeds remaining budget."""
+        if self.exhausted or estimated_cost > self._remaining:
+            return False
+        return True
+
+    def record_spend(self, actual_cost: float) -> float:
+        """Deduct cost, apply decay, advance round, return remaining budget."""
+        self._remaining -= actual_cost
+        self._remaining *= self.decay_factor
+        self._round += 1
+        return self._remaining

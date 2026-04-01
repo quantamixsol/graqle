@@ -113,3 +113,7 @@ docs/
 .mcp.json
 graqle.yaml
 .graqle/ip_gate_audit.jsonl
+
+# R15 Multi-Backend Debate — private config and prompt templates
+.graqle/debate_config.json
+graqle/orchestration/_debate_prompts.py

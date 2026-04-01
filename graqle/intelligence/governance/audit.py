@@ -206,3 +206,16 @@ class AuditTrail:
             json.dumps(session.model_dump(), indent=2, default=str),
             encoding="utf-8",
         )
+
+
+class DebateAuditEvent(AuditEntry):
+    """Audit entry for a single debate turn in DRACE branching trails."""
+
+    action: str = Field(default="debate")
+    round_number: int = 0
+    panelist: str = ""
+    position: str = ""  # propose / challenge / synthesize
+    cost_usd: float = 0.0
+    clearance_level: str = "public"
+    branch_parent_id: str | None = None
+    gate_decisions: dict[str, Any] = Field(default_factory=dict)

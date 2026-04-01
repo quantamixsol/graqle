@@ -231,7 +231,16 @@ class OpenAIBackend(BaseBackend):
 
     @property
     def cost_per_1k_tokens(self) -> float:
-        costs = {"gpt-4o-mini": 0.0003, "gpt-4o": 0.005, "gpt-4-turbo": 0.01}
+        costs = {
+            "gpt-4o-mini": 0.0003,
+            "gpt-4o": 0.005,
+            "gpt-4-turbo": 0.01,
+            "gpt-5.4": 0.015,
+            "gpt-5.4-mini": 0.003,
+            "gpt-5.4-nano": 0.0006,
+        }
+        if self._model not in costs:
+            logger.warning("Unknown OpenAI model %r for cost tracking; using default $0.001/1k tokens", self._model)
         return costs.get(self._model, 0.001)
 
 

@@ -11,7 +11,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
-      - ./graqle.yaml.example:/app/graqle.yaml:ro
+      - ./graqle.yaml:/app/graqle.yaml:ro
       - ./data:/app/data:ro
     restart: unless-stopped
     healthcheck:
