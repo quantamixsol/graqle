@@ -1094,7 +1094,7 @@ class MCPServer:
 
         pairs_total = 0
         pairs_agreed = 0
-        AGREEMENT_THRESHOLD = REDACTED
+        AGREEMENT_THRESHOLD = float(os.environ.get("GRAQLE_AGREEMENT_THRESHOLD", "0.0"))
 
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
