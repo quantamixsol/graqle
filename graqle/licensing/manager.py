@@ -25,6 +25,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -159,12 +160,23 @@ class License:
 # License manager
 # ---------------------------------------------------------------------------
 
+_license_logger = logging.getLogger("graqle.licensing.manager")
+
+
+def _get_verification_key() -> bytes:
+    """Load HMAC signing key from environment, with dev fallback."""
+    env_val = os.environ.get("GRAQLE_LICENSE_KEY_SECRET")
+    if env_val:
+        return env_val.encode("utf-8")
+    _license_logger.warning(
+        "GRAQLE_LICENSE_KEY_SECRET not set — using dev fallback key. "
+        "Set the env var in production (e.g. AWS Lambda config)."
+    )
+    return b"graqle-dev-fallback-rotate-2025Q3"
+
+
 class LicenseManager:
     """Offline license verification.  No phone-home, no telemetry."""
-
-    # HMAC key for license-key verification.
-    # A production deployment may swap this for RSA public-key verification.
-    _VERIFICATION_KEY: bytes = b"graqle-quantamix-2026"
 
     def __init__(self) -> None:
         self._license: License | None = None
@@ -224,7 +236,7 @@ class LicenseManager:
 
             # Verify HMAC
             expected = hmac.new(
-                self._VERIFICATION_KEY,
+                _get_verification_key(),
                 payload_bytes,
                 hashlib.sha256,
             ).digest()
@@ -337,7 +349,7 @@ class LicenseManager:
         payload_b64 = base64.urlsafe_b64encode(payload_bytes).rstrip(b"=").decode()
 
         signature = hmac.new(
-            LicenseManager._VERIFICATION_KEY,
+            _get_verification_key(),
             payload_bytes,
             hashlib.sha256,
         ).digest()
