@@ -251,6 +251,7 @@ class GovernancePolicyConfig(BaseModel):
     """
 
     ts_hard_block: bool = True
+    ts_patterns_file: str | None = None     # Path to ip_patterns.yml (ADR-140)
     review_threshold: float = 0.70          # T2 gate threshold
     block_threshold: float = 0.90           # T3 block threshold
     auto_pass_max_radius: int = 2           # T1 max impact_radius for auto-pass

@@ -22,6 +22,7 @@ import pytest
 
 from graqle.licensing.manager import (
     _TIER_ORDER,
+    _get_verification_key,
     TIER_FEATURES,
     License,
     LicenseError,
@@ -59,7 +60,7 @@ def _sign_payload(payload: dict) -> str:
     payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
     payload_b64 = base64.urlsafe_b64encode(payload_bytes).rstrip(b"=").decode()
     signature = hmac.new(
-        LicenseManager._VERIFICATION_KEY,
+        _get_verification_key(),
         payload_bytes,
         hashlib.sha256,
     ).digest()
@@ -69,6 +70,13 @@ def _sign_payload(payload: dict) -> str:
 
 def _generate_key(tier: str = "pro", **kwargs) -> str:
     return _sign_payload(_make_payload(tier=tier, **kwargs))
+
+
+_TEST_LICENSE_KEY = "graqle-test-only-key-do-not-use-in-prod"
+
+@pytest.fixture(autouse=True)
+def _set_test_license_key(monkeypatch):
+    monkeypatch.setenv("GRAQLE_LICENSE_KEY_SECRET", _TEST_LICENSE_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +251,8 @@ def _make_manager_safe(**env_overrides) -> LicenseManager:
     """Create a LicenseManager safely (patches Path.home to avoid RuntimeError on CI)."""
     import tempfile
     tmp = Path(tempfile.mkdtemp())
-    with patch.dict(os.environ, env_overrides, clear=True):
+    env = {"GRAQLE_LICENSE_KEY_SECRET": _TEST_LICENSE_KEY, **env_overrides}
+    with patch.dict(os.environ, env, clear=True):
         with patch.object(Path, "home", return_value=tmp):
             return LicenseManager()
 
@@ -330,7 +339,7 @@ class TestLicenseManagerLoading:
         license_file = license_dir / "license.key"
         license_file.write_text(key, encoding="utf-8")
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"GRAQLE_LICENSE_KEY_SECRET": _TEST_LICENSE_KEY}, clear=True):
             with patch.object(Path, "home", return_value=tmp_path):
                 mgr = LicenseManager()
         assert mgr.current_tier == LicenseTier.ENTERPRISE

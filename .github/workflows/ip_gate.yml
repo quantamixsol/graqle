@@ -1,0 +1,40 @@
+# IP Protection Gate — full-diff scanning (ADR-140)
+# Scans every PR diff for TS-1..TS-6 pattern leakage before merge.
+
+name: IP Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ip-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install graqle
+        run: pip install -e ".[dev]"
+
+      - name: Run IP gate on diff
+        run: |
+          git diff origin/main...HEAD -- '*.py' '*.ts' '*.tsx' '*.js' '*.md' | \
+            python -c "
+          import sys
+          from graqle.core.governance import _check_ts_leakage
+          diff = sys.stdin.read()
+          blocked, reason = _check_ts_leakage(diff)
+          if blocked:
+              print(f'::error::IP GATE BLOCKED: {reason}')
+              sys.exit(1)
+          print('IP gate: PASS')
+          "
