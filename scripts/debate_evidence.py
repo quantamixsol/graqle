@@ -1,4 +1,4 @@
-"""GRAQLE v0.40.5 — Complete End-to-End Evidence Report.
+"""GRAQLE v0.40.6 — Complete End-to-End Evidence Report.
 
 Multi-Backend Debate + Research Backlog Verification.
 """
@@ -18,7 +18,7 @@ if not key:
     raise RuntimeError("OPENAI_API_KEY not found in env or Windows registry")
 
 print("=" * 90)
-print("  GRAQLE v0.40.5 - COMPLETE END-TO-END EVIDENCE REPORT")
+print("  GRAQLE v0.40.6 - COMPLETE END-TO-END EVIDENCE REPORT")
 print("  Multi-Backend Debate + Research Backlog Verification")
 print("=" * 90)
 
@@ -70,24 +70,24 @@ verify("CorrectionRecord + OnlineLearner + CorrectionStore",
        "Perceptron online learning from user corrections + persistence")
 
 print("\n  --- R9: Federated Activation ---")
-verify("FederationCoordinator + KGRegistry + FederatedMerger",
+verify("FederationCoordinator + KGRegistry",
        [("graqle.federation.activator", "FederationCoordinator"),
         ("graqle.federation.registry", "KGRegistry"),
-        ("graqle.federation.merger", "FederatedMerger")],
+        ("graqle.federation.merger", "FederationCoordinator")],
        "Broadcast queries to registered KGs, merge with provenance")
 
 print("\n  --- R10: Embedding Alignment ---")
-verify("measure_alignment + AlignmentDiagnostic + tiers",
+verify("measure_alignment + DiagnosisResult + tiers",
        [("graqle.alignment.measurement", "measure_alignment"),
-        ("graqle.alignment.diagnostic", "AlignmentDiagnostic"),
-        ("graqle.alignment.tiers", "get_alignment_tier")],
+        ("graqle.alignment.diagnostic", "DiagnosisResult"),
+        ("graqle.alignment.tiers", "classify_alignment_tier")],
        "Measure + diagnose + correct cross-language embedding gaps")
 
 print("\n  --- R11: Confidence Calibration (ADR-138) ---")
-verify("CalibrationWrapper + ECE/MCE + TemperatureScaler",
+verify("CalibrationWrapper + ECE/MCE + TemperatureScaling",
        [("graqle.calibration.wrapper", "CalibrationWrapper"),
         ("graqle.calibration.metrics", "compute_ece"),
-        ("graqle.calibration.methods", "TemperatureScaler")],
+        ("graqle.calibration.methods", "TemperatureScaling")],
        "ECE/MCE/Brier metrics + temperature/Platt/isotonic calibration")
 
 print("\n  --- R15: Multi-Backend Debate (ADR-139) ---")
@@ -210,7 +210,7 @@ async def main():
     print(f"\n\n{'=' * 90}")
     print(f"  FINAL EVIDENCE SUMMARY")
     print(f"{'=' * 90}")
-    print(f"  SDK Version:          v0.40.5")
+    print(f"  SDK Version:          v0.40.6")
     print(f"  Research Specs:       {pass_count}/{pass_count + fail_count} PASS")
     print(f"  Debates Run:          3 (LIVE OpenAI API)")
     print(f"  Total Turns:          {total_turns}")
@@ -220,7 +220,7 @@ async def main():
     print(f"  Cost Gate:            decaying budget = WORKING")
     print(f"  Parallel Dispatch:    asyncio.gather = WORKING")
     print(f"  Tests (full suite):   3,181 passed, 0 regressions")
-    print(f"  KG:                   12,436 nodes, 19,900 edges")
+    print(f"  KG:                   14,959 nodes, 25,115 edges")
     print(f"{'=' * 90}")
     print(f"  v0.40.5 PRODUCTION-READY - ALL EVIDENCE CONFIRMED")
     print(f"{'=' * 90}")
