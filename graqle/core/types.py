@@ -56,6 +56,15 @@ class ActivationStrategy(str, Enum):
     MANUAL = "manual"
 
 
+class CalibrationMethod(str, Enum):
+    """Confidence calibration method applied to reasoning results."""
+
+    NONE = "none"
+    TEMPERATURE = "temperature"
+    PLATT = "platt"
+    ISOTONIC = "isotonic"
+
+
 @runtime_checkable
 class ModelBackend(Protocol):
     """Protocol for any model that can generate text from a prompt.
@@ -107,6 +116,8 @@ class ReasoningResult:
     backend_status: str = "ok"  # "ok", "unavailable", "fallback", "not_configured"
     backend_error: str | None = None  # Error message if backend failed
     reasoning_mode: str = "full"  # "full", "fallback_traversal", "keyword"
+    raw_confidence: float | None = None  # Pre-calibration confidence for audit trail
+    calibration_method: str | None = None  # CalibrationMethod value applied
 
     @property
     def content(self) -> str:
