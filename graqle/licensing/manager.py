@@ -163,16 +163,42 @@ class License:
 _license_logger = logging.getLogger("graqle.licensing.manager")
 
 
-def _get_verification_key() -> bytes:
-    """Load HMAC signing key from environment, with dev fallback."""
+_OLD_COMPROMISED_KEY: bytes = b"HMAC_KEY_REDACTED_SEE_ADR140"
+_FALLBACK_DEV_KEY: bytes = b"graqle-dev-fallback-rotate-2025Q3"
+
+
+def _get_verification_keys() -> list[bytes]:
+    """Return all valid verification keys (primary + grace period keys).
+
+    During key rotation, both the new key and the old compromised key
+    are accepted. Remove the old key after grace period expires.
+    Grace period: until 2026-05-01 (30 days from rotation).
+    """
+    keys: list[bytes] = []
     env_val = os.environ.get("GRAQLE_LICENSE_KEY_SECRET")
     if env_val:
-        return env_val.encode("utf-8")
-    _license_logger.warning(
-        "GRAQLE_LICENSE_KEY_SECRET not set — using dev fallback key. "
-        "Set the env var in production (e.g. AWS Lambda config)."
-    )
-    return b"graqle-dev-fallback-rotate-2025Q3"
+        keys.append(env_val.encode("utf-8"))
+    else:
+        _license_logger.warning(
+            "GRAQLE_LICENSE_KEY_SECRET not set — using dev fallback key. "
+            "Set the env var in production."
+        )
+        keys.append(_FALLBACK_DEV_KEY)
+    # Grace period: accept old key until 2026-05-01
+    grace_deadline = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) < grace_deadline:
+        if _OLD_COMPROMISED_KEY not in keys:
+            keys.append(_OLD_COMPROMISED_KEY)
+            _license_logger.info("Dual-key grace period active until 2026-05-01")
+    return keys
+
+
+def _get_verification_key() -> bytes:
+    """Load HMAC signing key from environment, with dev fallback.
+
+    .. deprecated:: Use ``_get_verification_keys()`` for dual-key support.
+    """
+    return _get_verification_keys()[0]
 
 
 class LicenseManager:
@@ -234,14 +260,18 @@ class LicenseManager:
             payload_bytes = base64.urlsafe_b64decode(payload_b64 + "==")
             signature = base64.urlsafe_b64decode(sig_b64 + "==")
 
-            # Verify HMAC
-            expected = hmac.new(
-                _get_verification_key(),
-                payload_bytes,
-                hashlib.sha256,
-            ).digest()
-
-            if not hmac.compare_digest(signature, expected):
+            # Verify HMAC — try all valid keys (dual-key grace period)
+            verified = False
+            for key in _get_verification_keys():
+                expected = hmac.new(
+                    key,
+                    payload_bytes,
+                    hashlib.sha256,
+                ).digest()
+                if hmac.compare_digest(signature, expected):
+                    verified = True
+                    break
+            if not verified:
                 return None
 
             # Parse the JSON payload
@@ -349,7 +379,7 @@ class LicenseManager:
         payload_b64 = base64.urlsafe_b64encode(payload_bytes).rstrip(b"=").decode()
 
         signature = hmac.new(
-            _get_verification_key(),
+            _get_verification_keys()[0],
             payload_bytes,
             hashlib.sha256,
         ).digest()

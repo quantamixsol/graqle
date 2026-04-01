@@ -22,7 +22,9 @@ import pytest
 
 from graqle.licensing.manager import (
     _TIER_ORDER,
+    _OLD_COMPROMISED_KEY,
     _get_verification_key,
+    _get_verification_keys,
     TIER_FEATURES,
     License,
     LicenseError,
@@ -456,6 +458,46 @@ class TestGenerateKey:
         assert lic is not None
         assert "beta_x" in lic.features
         assert "beta_y" in lic.features
+
+
+# ---------------------------------------------------------------------------
+# Dual-key grace period
+# ---------------------------------------------------------------------------
+
+class TestDualKeyGracePeriod:
+    """Verify dual-key verification during grace period."""
+
+    def test_old_key_accepted_during_grace(self):
+        """Tokens signed with old compromised key should still verify during grace period."""
+        # Sign with old key
+        payload = json.dumps({"tier": "pro", "holder": "test", "email": "t@t.com",
+                              "issued_at": datetime.now(timezone.utc).isoformat(),
+                              "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                              "features": []}, sort_keys=True).encode("utf-8")
+        payload_b64 = base64.urlsafe_b64encode(payload).rstrip(b"=").decode()
+        sig = hmac.new(_OLD_COMPROMISED_KEY, payload, hashlib.sha256).digest()
+        sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+        old_key = f"{payload_b64}.{sig_b64}"
+
+        mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=old_key)
+        assert mgr.current_tier == LicenseTier.PRO, "Old key should be accepted during grace period"
+
+    def test_new_key_accepted(self):
+        """Tokens signed with new key should verify."""
+        key = _generate_key("team")
+        mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
+        assert mgr.current_tier == LicenseTier.TEAM
+
+    def test_generate_uses_primary_key(self):
+        """generate_key should use the primary (new) key, not the old one."""
+        key = _generate_key("pro")
+        # Verify it was signed with primary key (first in list), not old key
+        payload_b64, sig_b64 = key.rsplit(".", 1)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64 + "==")
+        signature = base64.urlsafe_b64decode(sig_b64 + "==")
+        primary_key = _get_verification_keys()[0]
+        expected = hmac.new(primary_key, payload_bytes, hashlib.sha256).digest()
+        assert hmac.compare_digest(signature, expected), "generate_key must use primary key"
 
 
 # ---------------------------------------------------------------------------
