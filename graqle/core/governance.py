@@ -29,8 +29,10 @@ Usage:
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import sys
@@ -41,16 +43,21 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
+
+_logger = logging.getLogger("graqle.core.governance")
+
 
 # ---------------------------------------------------------------------------
 # TS-BLOCK: Trade Secret Patterns (binary pre-gate — never threshold-based)
 # ---------------------------------------------------------------------------
 
+# Default built-in patterns — used when no external pattern file is loaded.
 # These patterns detect potential exposure of TS-1..TS-4 internals.
-# They match comments, strings, and variable names that would expose
-# weight values, formula internals, or threshold constants.
-# See CLAUDE.md IP governance section for full TS-1..TS-4 definitions.
-_TS_BLOCK_PATTERNS: list[re.Pattern[str]] = [
+_TS_BLOCK_PATTERNS_DEFAULT: list[re.Pattern[str]] = [
     # TS-1: Q-function weight values
     re.compile(r"\bw_J\b|\bw_A\b", re.IGNORECASE),
     # TS-2: Jaccard formula internals
@@ -65,6 +72,91 @@ _TS_BLOCK_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"70.*30.*blend|_compute_answer_confidence.*formula", re.IGNORECASE),
 ]
 
+# Module-level caches for externalized TS patterns (ADR-140)
+_ts_patterns_cache: list[dict[str, Any]] | None = None
+_ts_exclude_paths: list[re.Pattern[str]] = []
+_ts_declassified: dict[str, list[re.Pattern[str]]] = {}
+
+
+def _load_ts_patterns(path: str | None = None) -> list[dict[str, Any]]:
+    """Load externalized TS patterns from env var or YAML file.
+
+    Resolution order:
+      1. GRAQLE_TS_PATTERNS env var (base64-encoded JSON array)
+      2. ``path`` argument (YAML file, typically .graqle/ip_patterns.yml)
+      3. Fall back to built-in ``_TS_BLOCK_PATTERNS_DEFAULT``
+
+    Fail-closed: any parse error logs a warning and returns the built-in
+    defaults so that TS protection is NEVER silently disabled.
+    """
+    global _ts_patterns_cache, _ts_exclude_paths, _ts_declassified  # noqa: PLW0603
+
+    # 1. Environment variable (base64 JSON)
+    env_val = os.environ.get("GRAQLE_TS_PATTERNS", "").strip()
+    if env_val:
+        try:
+            raw = json.loads(base64.b64decode(env_val))
+            if isinstance(raw, list) and len(raw) > 0:
+                _ts_patterns_cache = raw
+                _logger.debug("Loaded %d TS patterns from GRAQLE_TS_PATTERNS env", len(raw))
+                return raw
+        except Exception as exc:
+            _logger.warning("GRAQLE_TS_PATTERNS env parse failed (fail-closed): %s", exc)
+
+    # 2. YAML file
+    if path and yaml is not None:
+        try:
+            p = Path(path)
+            if p.exists():
+                data = yaml.safe_load(p.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    patterns = data.get("patterns", [])
+                    if isinstance(patterns, list) and len(patterns) > 0:
+                        _ts_patterns_cache = patterns
+                        # Load exclude paths
+                        excludes = data.get("exclude_paths", [])
+                        _ts_exclude_paths = [re.compile(e) for e in excludes if isinstance(e, str)]
+                        # Load declassified overrides
+                        decl = data.get("declassified", {})
+                        if isinstance(decl, dict):
+                            for pid, globs in decl.items():
+                                if isinstance(globs, list):
+                                    _ts_declassified[pid] = [re.compile(g) for g in globs]
+                        _logger.debug("Loaded %d TS patterns from %s", len(patterns), path)
+                        return patterns
+        except Exception as exc:
+            _logger.warning("TS pattern file %s parse failed (fail-closed): %s", path, exc)
+
+    # 3. Fall back to built-in defaults (fail-closed — never returns empty)
+    _ts_patterns_cache = None  # signal: using defaults
+    return []
+
+
+def invalidate_ts_patterns_cache() -> None:
+    """Clear the TS patterns cache — forces reload on next check."""
+    global _ts_patterns_cache, _ts_exclude_paths, _ts_declassified  # noqa: PLW0603
+    _ts_patterns_cache = None
+    _ts_exclude_paths = []
+    _ts_declassified = {}
+
+
+def _is_path_excluded(file_path: str) -> bool:
+    """Return True if file_path matches any exclude pattern."""
+    for pat in _ts_exclude_paths:
+        if pat.search(file_path):
+            return True
+    return False
+
+
+def _is_declassified(pattern_id: str, file_path: str) -> bool:
+    """Return True if pattern_id is declassified for the given file_path."""
+    globs = _ts_declassified.get(pattern_id, [])
+    for g in globs:
+        if g.search(file_path):
+            return True
+    return False
+
+
 # Layer 2: 200+ secret patterns — imported from secret_patterns module
 # (pure stdlib leaf module — zero graqle.* imports, safe circular-import)
 from graqle.core.secret_patterns import check_secrets_full as _check_secrets_full
@@ -74,13 +166,41 @@ from graqle.core.secret_patterns import check_secrets_full as _check_secrets_ful
 _SECRET_PATTERNS: list = []  # Deprecated — use check_secrets_full instead
 
 
-def _check_ts_leakage(content: str) -> tuple[bool, str]:
+def _check_ts_leakage(content: str, file_path: str = "") -> tuple[bool, str]:
     """Check for TS-1..TS-4 trade secret exposure.
 
     Returns (blocked: bool, matched_pattern: str).
     This is the only UNCONDITIONAL block — no bypass, no threshold, no override.
+
+    If externalized patterns are loaded, uses those with path exclusion and
+    declassification support. Otherwise falls back to built-in defaults.
     """
-    for pattern in _TS_BLOCK_PATTERNS:
+    # Path-level exclusion (e.g. test fixtures)
+    if file_path and _is_path_excluded(file_path):
+        return False, ""
+
+    # Use externalized patterns if loaded
+    if _ts_patterns_cache is not None:
+        for entry in _ts_patterns_cache:
+            pid = entry.get("id", "")
+            regex = entry.get("regex", "")
+            if not regex:
+                continue
+            # Declassification check
+            if file_path and _is_declassified(pid, file_path):
+                continue
+            flags = re.IGNORECASE if entry.get("ignore_case", True) else 0
+            try:
+                m = re.search(regex, content, flags)
+            except re.error:
+                continue
+            if m:
+                label = entry.get("label", pid or regex)
+                return True, f"Trade secret pattern detected: {label!r} ({m.group()!r})"
+        return False, ""
+
+    # Built-in defaults
+    for pattern in _TS_BLOCK_PATTERNS_DEFAULT:
         m = pattern.search(content)
         if m:
             return True, f"Trade secret pattern detected: {m.group()!r}"
@@ -112,6 +232,7 @@ class GovernanceConfig:
     """
     # TS protection — cannot be disabled
     ts_hard_block: bool = True              # NEVER set to False in production
+    ts_patterns_file: Optional[str] = None  # Path to ip_patterns.yml (ADR-140)
 
     # T1 auto-pass boundaries
     auto_pass_max_radius: int = 2           # impact_radius ≤ this → T1
@@ -495,8 +616,10 @@ class GovernanceMiddleware:
 
         # ── TS-BLOCK: unconditional, no threshold, no bypass ──────────────
         # TS-BLOCK is NOT subject to dry_run — always hard-blocks.
+        if cfg.ts_patterns_file and _ts_patterns_cache is None:
+            _load_ts_patterns(path=cfg.ts_patterns_file)
         if cfg.ts_hard_block:
-            ts_blocked, ts_reason = _check_ts_leakage(combined)
+            ts_blocked, ts_reason = _check_ts_leakage(combined, file_path=file_path)
             if ts_blocked:
                 _r = GateResult(
                     tier="TS-BLOCK",
