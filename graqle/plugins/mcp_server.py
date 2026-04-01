@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -1094,7 +1095,7 @@ class MCPServer:
 
         pairs_total = 0
         pairs_agreed = 0
-        AGREEMENT_THRESHOLD = float(os.environ.get("GRAQLE_AGREEMENT_THRESHOLD", "0.0"))
+        AGREEMENT_THRESHOLD = float(os.environ.get("GRAQLE_AGREEMENT_THRESHOLD", "1.0"))
 
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
