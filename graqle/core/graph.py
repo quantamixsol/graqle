@@ -688,7 +688,7 @@ class Graqle:
 
                 suffix = fp.suffix.lower()
                 if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
-                    chunks = self._chunk_source_code(content, max_chunks=5)
+                    chunks = self._chunk_source_code(content)
                 else:
                     chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
 
@@ -885,7 +885,7 @@ class Graqle:
                         if content.strip():
                             suffix = fp.suffix.lower()
                             if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
-                                chunks = self._chunk_source_code(content, max_chunks=5)
+                                chunks = self._chunk_source_code(content)
                             else:
                                 chunks = [{"text": content[:4000], "type": suffix.lstrip(".") or "text"}]
                             if chunks:
@@ -926,11 +926,12 @@ class Graqle:
             )
 
     @staticmethod
-    def _chunk_source_code(content: str, max_chunks: int = 5) -> list[dict[str, str]]:
+    def _chunk_source_code(content: str, max_chunks: int = 15) -> list[dict[str, str]]:
         """Split source code into semantic chunks at function/class boundaries.
 
         Returns a list of ``{"text": ..., "type": ...}`` dicts, capped at
-        *max_chunks* to stay within token budgets.
+        *max_chunks* to stay within token budgets.  Raised from 5 to 15
+        (OT-018) so files up to ~600 lines are fully indexed.
         """
         import re as _re
 

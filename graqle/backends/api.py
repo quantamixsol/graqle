@@ -28,6 +28,41 @@ logger = logging.getLogger("graqle.backends.api")
 
 # Retry configuration
 MAX_RETRIES = 3
+
+
+def _get_env_with_win_fallback(key: str) -> str:
+    """Read an environment variable with Windows registry fallback.
+
+    On Windows, env vars set via SetEnvironmentVariable('User') or
+    SetEnvironmentVariable('Machine') are only visible to processes
+    started AFTER the change.  IDE extensions (VS Code, Claude Code)
+    spawn shells before the user sets the key, so os.environ misses it.
+    This function checks the User and Machine registry as fallback.
+    """
+    value = os.environ.get(key, "")
+    if value:
+        return value
+    if os.name != "nt":
+        return ""
+    try:
+        import winreg
+        # Try User-level first, then Machine-level
+        for hive, path in [
+            (winreg.HKEY_CURRENT_USER, "Environment"),
+            (winreg.HKEY_LOCAL_MACHINE,
+             r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        ]:
+            try:
+                with winreg.OpenKey(hive, path) as hkey:
+                    val, _ = winreg.QueryValueEx(hkey, key)
+                    if val:
+                        os.environ[key] = str(val)  # cache for future calls
+                        return str(val)
+            except (OSError, FileNotFoundError):
+                continue
+    except ImportError:
+        pass
+    return ""
 BASE_DELAY = 1.0  # seconds
 MAX_DELAY = 30.0
 
@@ -181,7 +216,7 @@ class OpenAIBackend(BaseBackend):
         max_retries: int = MAX_RETRIES,
     ) -> None:
         self._model = model
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+        self._api_key = api_key or _get_env_with_win_fallback("OPENAI_API_KEY")
         self._client = None
         self._max_retries = max_retries
 

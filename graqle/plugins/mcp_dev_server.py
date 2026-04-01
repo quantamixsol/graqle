@@ -1400,7 +1400,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "file_path": {"type": "string", "description": "Absolute or relative path to file"},
                 "offset": {"type": "integer", "description": "Start line (1-indexed, default 1)", "default": 1},
-                "limit": {"type": "integer", "description": "Max lines to return (default 200)", "default": 200},
+                "limit": {"type": "integer", "description": "Max lines to return (default 500)", "default": 500},
             },
             "required": ["file_path"],
         },
@@ -2023,9 +2023,9 @@ class KogniDevServer:
                     return
 
             elif backend_name == "openai":
-                from graqle.backends.api import OpenAIBackend
+                from graqle.backends.api import OpenAIBackend, _get_env_with_win_fallback
                 if not api_key:
-                    api_key = os.environ.get("OPENAI_API_KEY")
+                    api_key = _get_env_with_win_fallback("OPENAI_API_KEY")
                 if api_key:
                     graph.set_default_backend(OpenAIBackend(model=model_name, api_key=api_key))
                     logger.info("Backend: OpenAI (%s)", model_name)
@@ -4532,7 +4532,7 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'file_path' is required."})
 
         offset = max(1, int(args.get("offset", 1)))
-        limit = min(max(1, int(args.get("limit", 200))), 2000)
+        limit = min(max(1, int(args.get("limit", 500))), 2000)
 
         fp = Path(file_path)
         if not fp.exists():
