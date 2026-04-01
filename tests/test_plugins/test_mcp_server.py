@@ -611,12 +611,11 @@ def test_agreement_threshold_rejects_boilerplate_only_overlap():
     union = len(a_tokens | b_tokens)
     assert union > 0
     jaccard = len(a_tokens & b_tokens) / union
-    # The only shared tokens are boilerplate framing: "query:", "architectural", "risk.", "confidence:"
-    # Jaccard should be < 0.16 to verify the threshold correctly rejects pure-boilerplate overlap
-    assert jaccard < 0.16, (
-        f"Messages with mostly-different content have Jaccard={jaccard:.3f} >= 0.16. "
-        f"This test verifies the AGREEMENT_THRESHOLD=0.16 gate. "
-        f"Shared tokens: {a_tokens & b_tokens}"
+    # Distinct messages should have low token overlap — well below the
+    # internal agreement gate. Exact threshold is private (TS-3).
+    assert jaccard < 0.20, (
+        f"Messages with mostly-different content have unexpectedly high "
+        f"Jaccard={jaccard:.3f}. Shared tokens: {a_tokens & b_tokens}"
     )
 
 

@@ -97,3 +97,8 @@ graqle/benchmarks/results/
 # TS-2: Private calibration values (ADR-130)
 .graqle/reclassify_confidence.json
 .graqle/bridge_config.json
+
+# IP Protection Gate — trade secret patterns (ADR-140)
+.graqle/ip_patterns.yml
+.graqle/ts_patterns.enc
+.graqle/ip_gate_audit.jsonl
