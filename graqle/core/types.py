@@ -234,7 +234,7 @@ class DebateCostBudget:
     """Tracks and enforces a decaying cost budget across debate rounds."""
 
     initial_budget: float
-    decay_factor: float = 0.75
+    decay_factor: float = 0.0  # Loaded from .graqle/debate_config.json at runtime
     _remaining: float = field(init=False)
     _round: int = field(default=0, init=False)
 

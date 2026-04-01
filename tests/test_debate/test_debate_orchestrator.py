@@ -37,7 +37,7 @@ def _make_orchestrator(
         max_rounds=max_rounds,
     )
     pool = BackendPool(panelists)
-    cost_gate = DebateCostGate(DebateCostBudget(initial_budget=budget))
+    cost_gate = DebateCostGate(DebateCostBudget(initial_budget=budget, decay_factor=0.75))
     return DebateOrchestrator(config, pool, cost_gate)
 
 

@@ -66,30 +66,30 @@ class TestDebateCostBudget:
         assert b.exhausted is False
 
     def test_exhausted_when_zero(self):
-        b = DebateCostBudget(initial_budget=0.0)
+        b = DebateCostBudget(initial_budget=0.0, decay_factor=0.75)
         assert b.exhausted is True
 
     def test_authorize_round_passes(self):
-        b = DebateCostBudget(initial_budget=1.0)
+        b = DebateCostBudget(initial_budget=1.0, decay_factor=0.75)
         assert b.authorize_round(0.5) is True
 
     def test_authorize_round_fails_over_budget(self):
-        b = DebateCostBudget(initial_budget=0.1)
+        b = DebateCostBudget(initial_budget=0.1, decay_factor=0.75)
         assert b.authorize_round(0.5) is False
 
     def test_authorize_round_fails_when_exhausted(self):
-        b = DebateCostBudget(initial_budget=0.0)
+        b = DebateCostBudget(initial_budget=0.0, decay_factor=0.75)
         assert b.authorize_round(0.01) is False
 
     def test_record_spend_with_decay(self):
-        b = DebateCostBudget(initial_budget=1.0)
+        b = DebateCostBudget(initial_budget=1.0, decay_factor=0.75)
         remaining = b.record_spend(0.25)
         expected = (1.0 - 0.25) * 0.75
         assert remaining == pytest.approx(expected)
         assert b._round == 1
 
     def test_multi_round_compounding(self):
-        b = DebateCostBudget(initial_budget=1.0)
+        b = DebateCostBudget(initial_budget=1.0, decay_factor=0.75)
         r1 = b.record_spend(0.1)
         assert r1 == pytest.approx((1.0 - 0.1) * 0.75)
         r2 = b.record_spend(0.1)
@@ -112,45 +112,45 @@ class TestDebateCostBudget:
 class TestDebateCostGate:
 
     def test_check_round_passes(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0, decay_factor=0.75))
         gate.check_round(0.1)  # should not raise
 
     def test_check_round_raises_when_exhausted(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0, decay_factor=0.75))
         with pytest.raises(BudgetExhaustedError):
             gate.check_round(0.1)
 
     def test_check_round_raises_when_over_budget(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=0.05))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=0.05, decay_factor=0.75))
         with pytest.raises(BudgetExhaustedError):
             gate.check_round(0.1)
 
     def test_record_and_decay_returns_remaining(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0, decay_factor=0.75))
         remaining = gate.record_and_decay(0.2)
         assert remaining == pytest.approx((1.0 - 0.2) * 0.75)
 
     def test_remaining_property(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=2.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=2.0, decay_factor=0.75))
         assert gate.remaining == pytest.approx(2.0)
 
     def test_current_round_starts_zero(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=1.0, decay_factor=0.75))
         assert gate.current_round == 0
 
     def test_current_round_increments(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=10.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=10.0, decay_factor=0.75))
         gate.record_and_decay(0.1)
         assert gate.current_round == 1
         gate.record_and_decay(0.1)
         assert gate.current_round == 2
 
     def test_exhausted_property(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0, decay_factor=0.75))
         assert gate.exhausted is True
 
     def test_budget_exhausted_error_fields(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0))
+        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0, decay_factor=0.75))
         with pytest.raises(BudgetExhaustedError) as exc_info:
             gate.check_round(0.01)
         assert exc_info.value.remaining_budget == pytest.approx(0.0)
