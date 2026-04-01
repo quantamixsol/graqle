@@ -270,7 +270,7 @@ class CalibrationConfig(BaseModel):
     enabled: bool = False
     method: str = "temperature"  # temperature | platt | isotonic
     temperature: float = 1.0
-    ece_target: float = 0.05
+    ece_target: float = 0.08
     mce_target: float = 0.15
     brier_target: float = 0.25
     bins: int = 10
