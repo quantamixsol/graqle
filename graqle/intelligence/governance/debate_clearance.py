@@ -55,3 +55,39 @@ class ClearanceFilter:
             return ClearanceLevel(raw.lower()) if isinstance(raw, str) else raw
         except (ValueError, AttributeError):
             return ClearanceLevel.PUBLIC
+
+    def check_output_clearance(
+        self,
+        max_clearance_seen: ClearanceLevel,
+        output_clearance: ClearanceLevel,
+    ) -> None:
+        """Raise if synthesis saw higher-clearance context than output allows.
+
+        Prevents clearance laundering: CONFIDENTIAL context processed by
+        a trusted backend must not be returned through a PUBLIC channel.
+        """
+        seen_rank = CLEARANCE_HIERARCHY.get(max_clearance_seen, 0)
+        output_rank = CLEARANCE_HIERARCHY.get(output_clearance, 0)
+        if seen_rank > output_rank:
+            raise ClearanceViolationError(
+                f"Synthesis saw {max_clearance_seen.value} context "
+                f"but output clearance is {output_clearance.value}. "
+                f"Cannot downgrade clearance.",
+                max_seen=max_clearance_seen,
+                output_level=output_clearance,
+            )
+
+
+class ClearanceViolationError(Exception):
+    """Raised when synthesis output would launder clearance levels."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        max_seen: ClearanceLevel,
+        output_level: ClearanceLevel,
+    ) -> None:
+        super().__init__(message)
+        self.max_seen = max_seen
+        self.output_level = output_level

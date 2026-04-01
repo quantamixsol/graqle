@@ -78,7 +78,18 @@ class BackendPool:
             self._dispatch_one(name, backend, prompt, max_tokens, temperature)
             for name, backend in self._panelists
         ]
-        return list(await asyncio.gather(*tasks))
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        # Filter: BaseException/CancelledError bypass _dispatch_one's try/except
+        results: list[PanelistResponse] = []
+        for i, r in enumerate(raw):
+            if isinstance(r, BaseException):
+                name = self._panelists[i][0] if i < len(self._panelists) else "unknown"
+                results.append(PanelistResponse(
+                    panelist=name, error=f"{type(r).__name__}: {r}",
+                ))
+            else:
+                results.append(r)
+        return results
 
     async def _dispatch_one(
         self,

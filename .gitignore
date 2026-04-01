@@ -97,3 +97,5 @@ graqle/benchmarks/results/
 # TS-2: Private calibration values (ADR-130)
 .graqle/reclassify_confidence.json
 .graqle/bridge_config.json
+.graqle/debate_config.json
+graqle/orchestration/_debate_prompts.py

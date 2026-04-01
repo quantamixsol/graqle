@@ -30,6 +30,16 @@ from graqle.intelligence.governance.debate_cost_gate import (
     BudgetExhaustedError,
     DebateCostGate,
 )
+
+try:
+    from graqle.orchestration._debate_prompts import (
+        build_propose_prompt,
+        build_challenge_prompt,
+        build_synthesize_prompt,
+    )
+    _PROMPTS_LOADED = True
+except ImportError:
+    _PROMPTS_LOADED = False
 from graqle.orchestration.backend_pool import BackendPool, PanelistResponse
 
 logger = logging.getLogger(__name__)
@@ -203,36 +213,23 @@ class DebateOrchestrator:
         )
 
     # ------------------------------------------------------------------
-    # Prompt builders
+    # Prompt builders — delegates to private _debate_prompts module
     # ------------------------------------------------------------------
 
     def _build_propose_prompt(self, query: str, context: str) -> str:
-        parts = [
-            "You are a debate panelist. Propose a well-reasoned answer.",
-            f"\nQuery: {query}",
-        ]
-        if context:
-            parts.append(f"\nContext:\n{context}")
-        parts.append(
-            "\nProvide your proposal. End with 'Confidence: X.XX' "
-            "where X.XX is a value between 0 and 1."
+        if _PROMPTS_LOADED:
+            return build_propose_prompt(query, context)
+        raise ImportError(
+            "Debate prompt templates not found. "
+            "Ensure graqle/orchestration/_debate_prompts.py is present."
         )
-        return "\n".join(parts)
 
     def _build_challenge_prompt(
         self, query: str, proposals: list[PanelistResponse],
     ) -> str:
-        proposal_block = "\n---\n".join(
-            f"[{p.panelist}]: {p.response}" for p in proposals if p.ok
-        )
-        return (
-            "You are a debate panelist in the challenge phase. "
-            "Review the proposals below and critique them. "
-            "If you fully agree, say 'I concur'. Otherwise raise "
-            "specific objections.\n\n"
-            f"Original query: {query}\n\n"
-            f"Proposals:\n{proposal_block}"
-        )
+        if _PROMPTS_LOADED:
+            return build_challenge_prompt(query, proposals)
+        raise ImportError("Debate prompt templates not found.")
 
     def _build_synthesize_prompt(
         self,
@@ -240,18 +237,6 @@ class DebateOrchestrator:
         proposals: list[PanelistResponse],
         challenges: list[PanelistResponse],
     ) -> str:
-        proposal_block = "\n---\n".join(
-            f"[{p.panelist}]: {p.response}" for p in proposals if p.ok
-        )
-        challenge_block = "\n---\n".join(
-            f"[{c.panelist}]: {c.response}" for c in challenges if c.ok
-        )
-        return (
-            "You are the debate judge. Synthesize the proposals and "
-            "challenges into a single, well-supported answer.\n\n"
-            f"Query: {query}\n\n"
-            f"Proposals:\n{proposal_block}\n\n"
-            f"Challenges:\n{challenge_block}\n\n"
-            "Provide a final synthesized answer. End with "
-            "'Confidence: X.XX' where X.XX is between 0 and 1."
-        )
+        if _PROMPTS_LOADED:
+            return build_synthesize_prompt(query, proposals, challenges)
+        raise ImportError("Debate prompt templates not found.")

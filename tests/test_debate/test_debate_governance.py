@@ -12,7 +12,10 @@ from graqle.intelligence.governance.debate_cost_gate import (
     BudgetExhaustedError,
     DebateCostGate,
 )
-from graqle.intelligence.governance.debate_clearance import ClearanceFilter
+from graqle.intelligence.governance.debate_clearance import (
+    ClearanceFilter,
+    ClearanceViolationError,
+)
 from graqle.intelligence.governance.debate_citation import (
     CitationError,
     CitationValidator,
@@ -282,3 +285,43 @@ class TestDebateAuditEvent:
         assert event.cost_usd == pytest.approx(0.05)
         assert event.clearance_level == "internal"
         assert event.branch_parent_id == "parent-abc"
+
+
+# ---------------------------------------------------------------------------
+# 7. ClearanceFilter — output clamping (R3 remediation)
+# ---------------------------------------------------------------------------
+
+
+class TestClearanceOutputClamping:
+    """Prevent clearance laundering: CONFIDENTIAL -> PUBLIC."""
+
+    def test_same_level_passes(self):
+        f = ClearanceFilter()
+        f.check_output_clearance(ClearanceLevel.PUBLIC, ClearanceLevel.PUBLIC)
+
+    def test_lower_seen_passes(self):
+        f = ClearanceFilter()
+        f.check_output_clearance(ClearanceLevel.PUBLIC, ClearanceLevel.CONFIDENTIAL)
+
+    def test_higher_seen_raises(self):
+        f = ClearanceFilter()
+        with pytest.raises(ClearanceViolationError):
+            f.check_output_clearance(
+                ClearanceLevel.CONFIDENTIAL, ClearanceLevel.PUBLIC,
+            )
+
+    def test_violation_error_fields(self):
+        f = ClearanceFilter()
+        with pytest.raises(ClearanceViolationError) as exc_info:
+            f.check_output_clearance(
+                ClearanceLevel.CONFIDENTIAL, ClearanceLevel.PUBLIC,
+            )
+        assert exc_info.value.max_seen is ClearanceLevel.CONFIDENTIAL
+        assert exc_info.value.output_level is ClearanceLevel.PUBLIC
+
+    def test_internal_to_public_raises(self):
+        f = ClearanceFilter()
+        with pytest.raises(ClearanceViolationError):
+            f.check_output_clearance(
+                ClearanceLevel.INTERNAL, ClearanceLevel.PUBLIC,
+            )

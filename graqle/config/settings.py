@@ -264,6 +264,26 @@ class GovernancePolicyConfig(BaseModel):
     workflow_require_learn: bool = True     # Require graq_learn at end of governed workflows
 
 
+def _load_debate_defaults() -> dict:
+    """Load debate defaults from private config (.graqle/debate_config.json).
+
+    Falls back to safe sentinel defaults if the file is missing.
+    The private config file is gitignored and contains TS-2 calibration values.
+    """
+    import json as _json
+    _path = Path(".graqle") / "debate_config.json"
+    if _path.exists():
+        try:
+            return _json.loads(_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    # Safe sentinels — require explicit config for production use
+    return {"convergence_threshold": 0.0, "cost_ceiling_usd": 0.0, "decay_factor": 0.0}
+
+
+_DEBATE_DEFAULTS = _load_debate_defaults()
+
+
 class DebateConfig(BaseModel):
     """Multi-model debate / ensemble configuration."""
 
@@ -271,28 +291,12 @@ class DebateConfig(BaseModel):
     panelists: list[str] = Field(default_factory=list)  # backend names from models dict
     judge_profile: str | None = None  # named model for synthesis judge
     max_rounds: int = 3
-    convergence_threshold: float = Field(default=0.85)
-    cost_ceiling_usd: float = Field(default=5.0)
+    convergence_threshold: float = Field(default=_DEBATE_DEFAULTS.get("convergence_threshold", 0.0))
+    cost_ceiling_usd: float = Field(default=_DEBATE_DEFAULTS.get("cost_ceiling_usd", 0.0))
     require_citation: bool = True
     ab_mode: bool = False  # A/B comparison mode
-    decay_factor: float = Field(default=0.75)
+    decay_factor: float = Field(default=_DEBATE_DEFAULTS.get("decay_factor", 0.0))
     clearance_levels: dict[str, str] = Field(default_factory=dict)  # panelist -> clearance level
-
-
-class CalibrationConfig(BaseModel):
-    """Confidence calibration configuration (R11, TS-2 compliant)."""
-
-    enabled: bool = False
-    method: str = "temperature"  # temperature | platt | isotonic
-    temperature: float = 1.0
-    ece_target: float = 0.05
-    mce_target: float = 0.15
-    brier_target: float = 0.25
-    bins: int = 10
-    min_benchmark_samples: int = 50
-    recalibrate_interval: int = 100
-    benchmark_path: str | None = None
-    persist_path: str = ".graqle/calibration/"
 
 
 class RedactionConfig(BaseModel):
@@ -431,7 +435,6 @@ class GraqleConfig(BaseModel):
     node_models: dict[str, str] = Field(default_factory=dict)
     governance: GovernancePolicyConfig = Field(default_factory=GovernancePolicyConfig)
     debate: DebateConfig = Field(default_factory=DebateConfig)
-    calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
 
     @model_validator(mode="after")
     def _validate_debate_panelists(self) -> "GraqleConfig":
