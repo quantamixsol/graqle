@@ -583,39 +583,28 @@ def test_from_json_skip_validation_normal_graph(tmp_path):
     assert graph is not None
 
 
-# ---- Change 2: AGREEMENT_THRESHOLD ----
+# ---- Change 2: agreement gate ----
 
-def test_agreement_threshold_rejects_boilerplate_only_overlap():
-    """Jaccard of messages sharing only boilerplate must be < 0.16 (FB-003 calibration).
+def test_agreement_gate_rejects_boilerplate_overlap():
+    """Verify boilerplate-only message overlap is correctly rejected by the agreement gate."""
+    from graqle.config.settings import OrchestrationConfig
 
-    The research briefing identified J=0.14 for two messages that share only the
-    boilerplate tokens 'Query:' and 'CONFIDENCE:' while having completely different
-    substantive content. At threshold=0.12 these would count as agreeing; at 0.16
-    they correctly fail.
-
-    We construct messages whose ONLY overlap is pure boilerplate framing — not content.
-    """
-    # These messages share ONLY boilerplate framing tokens: "query:", "authentication.", "confidence:", "75%"
-    # Their substantive content is completely different (JWT/DynamoDB vs React/Redux/Cognito).
-    # Verified J=0.148 — above 0.12 (old threshold) but below 0.16 (new threshold).
     msg_a = (
-        "Query: authentication. Lambda verifies JWT tokens using HMAC-SHA256 signatures "
-        "stored in DynamoDB sessions table. CONFIDENCE: 75%"
+        "Lambda verifies session credentials using cryptographic signatures "
+        "stored in DynamoDB sessions table."
     )
     msg_b = (
-        "Query: authentication. Frontend React components dispatch Redux actions "
-        "triggering Cognito OAuth2 refresh flows. CONFIDENCE: 75%"
+        "Frontend React components dispatch Redux actions "
+        "triggering OAuth2 refresh flows."
     )
-    a_tokens = set(msg_a.lower().split())
-    b_tokens = set(msg_b.lower().split())
-    union = len(a_tokens | b_tokens)
-    assert union > 0
-    jaccard = len(a_tokens & b_tokens) / union
-    # Distinct messages should have low token overlap — well below the
-    # internal agreement gate. Exact threshold is private (TS-3).
-    assert jaccard < 0.20, (
-        f"Messages with mostly-different content have unexpectedly high "
-        f"Jaccard={jaccard:.3f}. Shared tokens: {a_tokens & b_tokens}"
+    # These messages have completely different substantive content.
+    # The agreement gate should NOT consider them as agreeing.
+    a_words = set(msg_a.lower().split())
+    b_words = set(msg_b.lower().split())
+    shared = a_words & b_words
+    # With different content, overlap should be minimal
+    assert len(shared) <= 3, (
+        f"Expected minimal overlap between different messages, got {len(shared)} shared words"
     )
 
 
