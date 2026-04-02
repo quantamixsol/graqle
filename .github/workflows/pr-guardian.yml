@@ -1,0 +1,69 @@
+name: PR Guardian (Dogfood)
+
+# Runs GraQle PR Guardian on GraQle's own PRs — dogfooding.
+# Uses the local action (./action/pr-guardian) not the published one.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  guardian:
+    name: GraQle PR Guardian
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for blast radius
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install graqle
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate PR diff
+        id: diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+          echo "diff_path=/tmp/pr.diff" >> "$GITHUB_OUTPUT"
+
+      - name: Run PR Guardian
+        id: guardian
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          graq pr-guardian \
+            --diff "${{ steps.diff.outputs.diff_path }}" \
+            --repo "${{ github.repository }}" \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --fail-on fail \
+            --output-format json \
+            --badge-path .graqle/guardian-badge.svg \
+            --sarif /tmp/guardian.sarif \
+            | tee /tmp/guardian_report.json
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: /tmp/guardian.sarif
+        continue-on-error: true
+
+      - name: Upload badge artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-badge
+          path: .graqle/guardian-badge.svg
+        continue-on-error: true
