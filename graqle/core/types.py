@@ -276,6 +276,7 @@ class ClearanceLevel(int, Enum):
     PUBLIC = 0
     INTERNAL = 1
     CONFIDENTIAL = 2
+    RESTRICTED = 3
 
 
 @dataclass

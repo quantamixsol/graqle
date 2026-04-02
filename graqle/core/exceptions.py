@@ -36,3 +36,14 @@ class EmbeddingDimensionMismatchError(GraqleError):
         self.stored_dim = stored_dim
         self.active_model = active_model
         self.active_dim = active_dim
+
+
+class GovernanceViolation(GraqleError):
+    """Policy violation (clearance laundering, taint escalation, redaction bypass).
+
+    Stores optional ``input_state`` dict for audit logging at rejection time.
+    """
+
+    def __init__(self, message: str, input_state: dict | None = None) -> None:
+        super().__init__(message)
+        self.input_state: dict | None = input_state
