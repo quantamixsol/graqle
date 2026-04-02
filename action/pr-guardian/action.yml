@@ -1,0 +1,68 @@
+name: 'GraQle PR Guardian'
+description: 'AI-powered blast radius analysis & governance gates for every PR. Know what breaks before you merge.'
+author: 'GraQle'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for PR comments and commit status'
+    required: true
+    default: ${{ github.token }}
+  graqle-api-key:
+    description: 'GraQle API key (free tier: leave empty for 10 PRs/month)'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Fail the check on: "fail", "warn", or "never"'
+    required: false
+    default: 'fail'
+  max-depth:
+    description: 'Max BFS depth for blast radius traversal'
+    required: false
+    default: '3'
+  custom-shacl:
+    description: 'Path to custom SHACL rules file (Pro tier only)'
+    required: false
+    default: ''
+  sarif-output:
+    description: 'Write SARIF file for GitHub Code Scanning'
+    required: false
+    default: 'true'
+  badge-path:
+    description: 'Path to write badge SVG'
+    required: false
+    default: '.graqle/guardian-badge.svg'
+
+outputs:
+  verdict:
+    description: 'PASS | WARN | FAIL'
+  blast-radius:
+    description: 'Number of affected downstream modules'
+  breaking-changes:
+    description: 'Number of breaking changes detected'
+  badge-url:
+    description: 'URL to governance badge SVG'
+  sarif-path:
+    description: 'Path to SARIF output file'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '--github-token'
+    - ${{ inputs.github-token }}
+    - '--api-key'
+    - ${{ inputs.graqle-api-key }}
+    - '--fail-on'
+    - ${{ inputs.fail-on }}
+    - '--max-depth'
+    - ${{ inputs.max-depth }}
+    - '--custom-shacl'
+    - ${{ inputs.custom-shacl }}
+    - '--sarif-output'
+    - ${{ inputs.sarif-output }}
+    - '--badge-path'
+    - ${{ inputs.badge-path }}
