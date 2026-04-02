@@ -320,3 +320,41 @@ class TestReasoningMemoryRedundancy:
             r = ToolResult.success(data="x", clearance=ClearanceLevel.PUBLIC)
             mem.store(round_num=1, node_id=nid, result=r, confidence=0.9, source_agent_id="ag")
         assert mem.redundancy_rate({"a", "b", "c", "d"}) == pytest.approx(0.5)
+
+
+# ===================================================================
+# 10. TestTS2ConfigEnforcement
+# ===================================================================
+
+
+class TestTS2ConfigEnforcement:
+    """Verify ReasoningMemory enforces all 5 required config keys (TS-2)."""
+
+    VALID_CONFIG = {
+        "MEMORY_SUMMARY_MAX_CHARS": 500,
+        "MEMORY_MIN_CONFIDENCE": 0.5,
+        "EPISTEMIC_DECAY_LAMBDA": 0.1,
+        "CONTRADICTION_PENALTY": 0.2,
+        "REVERIFICATION_THRESHOLD": 0.8,
+    }
+
+    def test_missing_all_keys_raises(self):
+        with pytest.raises(ValueError, match="requires config keys"):
+            ReasoningMemory(config={})
+
+    @pytest.mark.parametrize("missing_key", [
+        "MEMORY_SUMMARY_MAX_CHARS",
+        "MEMORY_MIN_CONFIDENCE",
+        "EPISTEMIC_DECAY_LAMBDA",
+        "CONTRADICTION_PENALTY",
+        "REVERIFICATION_THRESHOLD",
+    ])
+    def test_missing_one_key_raises(self, missing_key):
+        incomplete = {k: v for k, v in self.VALID_CONFIG.items() if k != missing_key}
+        assert len(incomplete) == 4
+        with pytest.raises(ValueError, match="requires config keys"):
+            ReasoningMemory(config=incomplete)
+
+    def test_all_keys_present_succeeds(self):
+        memory = ReasoningMemory(config=self.VALID_CONFIG)
+        assert memory is not None

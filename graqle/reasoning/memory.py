@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 _MAX_SNAPSHOTS = 10
 _SUMMARY_CHAR_CAP = 8000  # ~2000 tokens
 
+_REQUIRED_KEYS = [
+    "MEMORY_SUMMARY_MAX_CHARS",
+    "MEMORY_MIN_CONFIDENCE",
+    "EPISTEMIC_DECAY_LAMBDA",
+    "CONTRADICTION_PENALTY",
+    "REVERIFICATION_THRESHOLD",
+]
+
 
 class ReasoningMemory:
     """Governed Epistemic Memory — provenance-tracked, decay-aware store.
@@ -33,11 +41,17 @@ class ReasoningMemory:
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
-        self._max_chars: int = int(config.get("MEMORY_SUMMARY_MAX_CHARS", 200))
-        self._min_confidence: float = float(config.get("MEMORY_MIN_CONFIDENCE", 0.1))
-        self._decay_lambda: float = float(config.get("EPISTEMIC_DECAY_LAMBDA", 0.9))
-        self._contradiction_penalty: float = float(config.get("CONTRADICTION_PENALTY", 0.9))
-        self._reverification_threshold: float = float(config.get("REVERIFICATION_THRESHOLD", 0.4))
+        missing = [k for k in _REQUIRED_KEYS if k not in config]
+        if missing:
+            raise ValueError(
+                f"ReasoningMemory requires config keys: {missing}. "
+                f"TS-2: these must come from graqle_secrets.yaml, not defaults."
+            )
+        self._max_chars: int = int(config["MEMORY_SUMMARY_MAX_CHARS"])
+        self._min_confidence: float = float(config["MEMORY_MIN_CONFIDENCE"])
+        self._decay_lambda: float = float(config["EPISTEMIC_DECAY_LAMBDA"])
+        self._contradiction_penalty: float = float(config["CONTRADICTION_PENALTY"])
+        self._reverification_threshold: float = float(config["REVERIFICATION_THRESHOLD"])
 
         self._store: dict[str, ProvenanceEntry] = {}
         self._epochs: list[dict[str, ProvenanceEntry]] = []
