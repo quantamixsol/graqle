@@ -1,10 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg" type="image/svg+xml">
-  <source media="(prefers-color-scheme: light)" srcset="assets/hero-dark.svg" type="image/svg+xml">
-  <img alt="GraQle — AI writes code. GraQle makes it safe." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark-hq.png" width="800">
-</picture>
+<img alt="GraQle — AI writes code. GraQle makes it safe." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark-hq.png" width="800">
 
 # AI writes code. Gra**Q**le makes it safe.
 
@@ -23,16 +19,35 @@ Every change is impact-analysed, gate-checked, and taught back — automatically
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
 [![MCP Tools: 74](https://img.shields.io/badge/MCP%20tools-74-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code-v0.3.0-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
 
 ```bash
 pip install graqle && graq scan repo . && graq run "find every security bug in this codebase"
 ```
 
-[Website](https://graqle.com) · [Dashboard](https://graqle.com/dashboard) · [PyPI](https://pypi.org/project/graqle/) · [Changelog](CHANGELOG.md)
+[Website](https://graqle.com) · [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) · [Dashboard](https://graqle.com/dashboard) · [PyPI](https://pypi.org/project/graqle/) · [Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
 <!-- mcp-name: io.github.quantamixsol/graqle -->
 
 </div>
+
+---
+
+## What's New in v0.3.0
+
+- **VS Code Extension Security Hardening**
+  - Credential Forwarding — AWS, Anthropic, and OpenAI credentials forwarded securely via allowlist-only environment (no `process.env` spread)
+  - Project-Scoping — each workspace loads its own knowledge graph; workspace changes restart MCP with correct config
+  - Error Surfacing — validation failures and backend errors surface as actionable messages (no more silent swallowing)
+  - CSP Nonce — all WebView panels use per-session Content Security Policy nonces
+
+- **VS Code Extension** — [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
+
+  ```bash
+  code --install-extension graqle.graqle-vscode
+  ```
+
+See the full [Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md) for details.
 
 ---
 
@@ -442,7 +457,7 @@ This is not a demo feature. This is proof the tool works at the scale and comple
 
 | Command | Description |
 |---------|-------------|
-| `graq login --api-key grq_...` | Authenticate with Graqle cloud |
+| `graq login --api-key <YOUR_API_KEY>` | Authenticate with Graqle cloud |
 | `graq cloud push` | Push graph to S3 — team sync |
 | `graq cloud pull --merge` | Pull graph from S3 — preserves local lessons |
 | `graq studio` | Visual dashboard |
@@ -491,16 +506,18 @@ Works on any website. Results feed back into the knowledge graph automatically.
 
 ## Pricing
 
-| | Free ($0) | Pro ($19/mo) | Team ($29/dev/mo) |
-|:--|:--:|:--:|:--:|
-| CLI + SDK + MCP | Unlimited | Unlimited | Unlimited |
-| All 14 backends | ✅ | ✅ | ✅ |
-| Graph nodes | 500 | 25,000 | Unlimited |
-| Cloud projects | 1 | 3 | Unlimited |
-| SCORCH Vision | — | ✅ | ✅ |
-| Phantom Computer Skills | — | ✅ | ✅ |
-| Cross-project graphs | — | ✅ | ✅ |
-| Team shared graphs | — | — | ✅ |
+| | Free ($0) | Pro ($19/mo) | Team ($29/dev/mo) | Enterprise (Custom) |
+|:--|:--:|:--:|:--:|:--:|
+| CLI + SDK + MCP | Unlimited | Unlimited | Unlimited | Unlimited |
+| All 14 backends | ✅ | ✅ | ✅ | ✅ |
+| Graph nodes | 500 | 25,000 | Unlimited | Unlimited |
+| Cloud projects | 1 | 3 | Unlimited | Unlimited |
+| SCORCH Vision | — | ✅ | ✅ | ✅ |
+| Phantom Computer Skills | — | ✅ | ✅ | ✅ |
+| Cross-project graphs | — | ✅ | ✅ | ✅ |
+| Team shared graphs | — | — | ✅ | ✅ |
+| SSO + audit logs | — | — | — | ✅ |
+| On-premise deployment | — | — | — | ✅ |
 
 **[Start free →](https://graqle.com)**
 
@@ -581,7 +598,7 @@ Static analysis tells you what code exists. Graqle tells you how it connects, wh
 
 European Patent Applications EP26162901.8 and EP26166054.2 — Quantamix Solutions B.V.
 Phantom browser automation plugin: Copyright 2026 Quantamix Solutions B.V.
-Free to use under the [license terms](LICENSE). See [SECURITY.md](SECURITY.md) for supply-chain documentation.
+Free to use under the [license terms](https://github.com/quantamixsol/graqle/blob/master/LICENSE). See [SECURITY.md](https://github.com/quantamixsol/graqle/blob/master/SECURITY.md) for supply-chain documentation.
 
 ```bibtex
 @article{kumar2026graqle,
