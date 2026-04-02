@@ -4,6 +4,75 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.40.7 — 2026-04-02
+
+### Fixed
+- **4 BLOCKERs + 3 MAJORs in debate_evidence.py** — found by `graq_review` dogfooding. Includes type safety, edge case handling, and error propagation fixes.
+
+---
+
+## v0.40.6 — 2026-04-02
+
+### Fixed
+- **4 wrong class names in debate_evidence.py** — import references corrected. All 10 research module imports now pass.
+- KG stats updated after incremental rescan.
+
+---
+
+## v0.40.5 — 2026-04-01
+
+### Fixed
+- **OT-018: File reader truncation** — `graq_read` default limit raised from 200 to 500 lines. `max_chunks` raised from 5 to 15.
+- **Windows env var fallback** — `_get_env_with_win_fallback()` reads Windows Credential Manager when environment variables are absent.
+
+---
+
+## v0.40.4 — 2026-04-01
+
+### Added
+- **R15 Multi-Backend Debate** — optional multi-LLM debate mode (`mode=off|debate|ensemble`). Governance-first design with cost ceiling, audit events, and TS-2 clearance. 4 patent claims (R11-R14).
+  - `DebateConfig` in settings.py with panelist validation
+  - `DebateTrace` / `DebateTurn` dataclasses in types.py
+  - GPT-5.4 cost entries in OpenAI backend
+  - 3 live OpenAI debate evidence runs completed
+
+### Fixed
+- **6 trade secret violations** remediated from research team review (3-round PR process).
+- Test constant `decay_factor=0.75` replaced with `_TEST_DECAY` to avoid coinciding with internal values.
+
+---
+
+## v0.40.3 — 2026-04-01
+
+### Added
+- **R11 Confidence Calibration** — 200-question benchmark (7 confidence bands), ECE/MCE/Brier metrics, temperature/Platt/isotonic calibration, CalibrationWrapper. ADR-138.
+
+---
+
+## v0.40.1 — 2026-03-31
+
+### Added
+- **Research Sprint Complete** — R2 Bridge Edges, R3 MCP Domain, R5 Cross-Language Linker, R6 Learned Intent, R9 Federated Activation, R10 Embedding Alignment. 7 specs, 8 patent claims.
+
+### Fixed
+- IP Protection Gate live (ADR-140). HMAC rotated, TS-1..TS-6 externalized, branch protection enforced.
+
+---
+
+## v0.39.0 — 2026-03-28
+
+### Added
+- **ADR-123 KG Sync** — 6-phase S3 pull-before-read + push-after-write. Makes S3 single source of truth. 35 tests.
+
+---
+
+## v0.38.0 — 2026-03-27
+
+### Added
+- **Phase 10 SOC2/ISO27001 Compliance** — 5-layer governance gate, 201-pattern secret scanner, RBAC actor identity, policy DSL, adversarial test suite. 303 tests.
+
+---
+
 ## v0.35.4 — 2026-03-26
 
 ### Fixed
