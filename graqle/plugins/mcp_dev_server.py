@@ -2931,9 +2931,12 @@ class KogniDevServer:
         if self._graph is None:
             self._load_graph()  # make sure dev server graph is loaded first
         cfg = MCPConfig(graph_path="graqle.json")
+        # FRAGILE(B7): sync with MCPServer.__init__ — S1 will replace with from_graph() classmethod
         proxy = MCPServer(cfg)
         proxy._graph = self._graph        # inject already-loaded graph — skips _ensure_graph
         proxy._embedder = getattr(self, "_embedder", None)
+        if proxy._graph is None:
+            logger.warning("B7 guard: proxy._graph is None after injection — predict may use stale state")
         result = await proxy._handle_predict(args)
         # MCPToolResult.content is already a JSON string — return it directly
         content = getattr(result, "content", None)
@@ -5768,7 +5771,8 @@ class KogniDevServer:
         if reason_result is not None:
             # Estimate token usage from cost (rough: $3/1M tokens for claude-sonnet)
             cost_usd = getattr(reason_result, "cost_usd", 0.0)
-            tokens_used = int(cost_usd / 0.000003) if cost_usd > 0 else 0
+            _COST_PER_TOKEN_USD = 0.000003  # Approximate: $3/1M tokens (Claude Sonnet)
+            tokens_used = int(cost_usd / _COST_PER_TOKEN_USD) if cost_usd is not None and cost_usd > 0 else 0
             confidence = float(getattr(reason_result, "confidence", 0.0))
             model_used = str(getattr(reason_result, "model", ""))
             if not model_used:
@@ -5866,7 +5870,7 @@ class KogniDevServer:
             _proj = _detect_project_name(_Path(self._graph_file).parent)
             schedule_push(self._graph_file, _proj)
         except Exception as _push_exc:
-            logger.debug("KG background push skipped: %s", _push_exc)
+            logger.warning("KG background push failed: %s", _push_exc)
 
     # ==================================================================
     # MCP JSON-RPC stdio transport

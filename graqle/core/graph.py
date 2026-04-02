@@ -1523,7 +1523,7 @@ class Graqle:
                 f"nodes={len(node_ids)}, lessons={len(lesson_refs)}"
             )
         except Exception as e:
-            logger.debug(f"Metrics recording skipped: {e}")
+            logger.warning("Metrics recording failed: %s", e)
 
     def _record_activation_memory(
         self, query: str, node_ids: list[str], result: ReasoningResult,
@@ -1538,7 +1538,7 @@ class Graqle:
 
             self._activation_memory.record(query, node_ids, result)
         except Exception as e:
-            logger.debug(f"Activation memory recording skipped: {e}")
+            logger.warning("Activation memory recording failed: %s", e)
 
     def _reformulate_query(self, query: str, *, context: Any = None) -> str:
         """Apply query reformulation if configured (ADR-104).

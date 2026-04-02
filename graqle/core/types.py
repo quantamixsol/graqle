@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -66,6 +67,22 @@ class CalibrationMethod(str, Enum):
     ISOTONIC = "isotonic"
 
 
+class CalibrationOutcome(str, Enum):
+    """Outcome of a calibration/prediction operation.
+
+    SKIPPED_LOW_CONFIDENCE does NOT match DRY_RUN in accuracy calculations.
+    This distinction prevents accuracy inflation (S0 Bug B5).
+    """
+
+    WRITTEN = "written"
+    DRY_RUN = "dry_run"
+    SKIPPED_LOW_CONFIDENCE = "skipped_low_confidence"
+    SKIPPED_DUPLICATE = "skipped_duplicate"
+    SKIPPED_GENERATION_ERROR = "skipped_generation_error"
+    FAILED = "failed"
+    NOT_APPLICABLE = "not_applicable"
+
+
 @runtime_checkable
 class ModelBackend(Protocol):
     """Protocol for any model that can generate text from a prompt.
@@ -119,6 +136,24 @@ class ReasoningResult:
     reasoning_mode: str = "full"  # "full", "fallback_traversal", "keyword"
     raw_confidence: float | None = None  # Pre-calibration confidence for audit trail
     calibration_method: str | None = None  # CalibrationMethod value applied
+
+    def __post_init__(self) -> None:
+        if self.confidence is None:  # type: ignore[comparison-overlap]
+            raise ValueError(
+                "ReasoningResult.confidence must not be None (expected float). "
+                "Fix the upstream data source that produced this result."
+            )
+        if self.cost_usd is None:  # type: ignore[comparison-overlap]
+            raise ValueError(
+                "ReasoningResult.cost_usd must not be None (expected float). "
+                "Fix the upstream data source that produced this result."
+            )
+        if self.confidence == 0.0:
+            warnings.warn(
+                "ReasoningResult.confidence is exactly 0.0 — valid but may "
+                "indicate a missing calibration step",
+                stacklevel=3,
+            )
 
     @property
     def content(self) -> str:

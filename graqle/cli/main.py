@@ -2062,6 +2062,7 @@ def predict(
     # _handle_predict expects a dict of args (same as MCP tool call protocol).
     try:
         from graqle.plugins.mcp_server import MCPServer
+        # FRAGILE(B7): sync with MCPServer.__init__ — S1 will replace with from_graph() classmethod
         server = MCPServer.__new__(MCPServer)
         server._graph = graph
         server._config = cfg

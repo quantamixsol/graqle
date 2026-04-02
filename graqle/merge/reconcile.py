@@ -158,11 +158,17 @@ class BridgeReconciler:
         if len(group) == 1:
             return group[0]
 
-        return min(
-            group,
-            key=lambda c: (
-                -(c.confidence or 0.0),
+        def _sort_key(c: BridgeCandidate) -> tuple:
+            if c.confidence is None:
+                logger.warning(
+                    "Candidate %s has None confidence; sorting as lowest priority",
+                    getattr(c, "source_id", "unknown"),
+                )
+                return (float("inf"), _DEFAULT_PRIORITY, "")
+            return (
+                -c.confidence,
                 _METHOD_PRIORITY.get(c.method or "", _DEFAULT_PRIORITY),
                 c.source_id or "",
-            ),
-        )
+            )
+
+        return min(group, key=_sort_key)
