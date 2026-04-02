@@ -33,21 +33,24 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
-## What's New in v0.3.0
+## What's New
 
-- **VS Code Extension Security Hardening**
-  - Credential Forwarding — AWS, Anthropic, and OpenAI credentials forwarded securely via allowlist-only environment (no `process.env` spread)
-  - Project-Scoping — each workspace loads its own knowledge graph; workspace changes restart MCP with correct config
-  - Error Surfacing — validation failures and backend errors surface as actionable messages (no more silent swallowing)
-  - CSP Nonce — all WebView panels use per-session Content Security Policy nonces
+### SDK v0.40.7
 
-- **VS Code Extension** — [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
+- **R15 Multi-Backend Debate** — optional multi-LLM debate mode: propose/challenge/synthesize across providers. 4 patent claims. Governance-first design.
+- **graq_review dogfooding** — GraQle's own code review tool found 4 BLOCKERs + 3 MAJORs in the debate module that unit tests missed. All fixed.
+- **OT-018 file reader fix** — `graq_read` no longer truncates files on Windows. Environment variable fallback for Windows Store Python.
+- **3 live OpenAI debates** — full evidence report demonstrating cross-provider reasoning with GPT-5.4 vs Claude Sonnet 4.6.
+- **14,959 node KG** — largest production graph to date.
 
-  ```bash
-  code --install-extension graqle.graqle-vscode
-  ```
+### VS Code Extension v0.3.0
 
-See the full [Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md) for details.
+- **Credential Forwarding** — AWS, Anthropic, and OpenAI credentials forwarded securely via allowlist-only environment
+- **Project-Scoping** — each workspace loads its own knowledge graph; workspace changes restart MCP with correct config
+- **Error Surfacing** — backend errors surface as actionable messages instead of silent swallowing
+- **Security Hardening** — `shell:false` on all subprocess spawns, CSP nonce on WebView, secret redaction in logs
+
+[Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | See the full [Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
 ---
 
@@ -189,7 +192,7 @@ Your Code                    Knowledge Graph                AI Reasoning
                             interaction and lesson        Gate every change before it ships
 ```
 
-**6-gate validation pipeline** — every scanned node passes: parse integrity → completeness repair → chunk quality → edge deduplication → relationship inference → compilation verification. Hollow nodes are auto-repaired, never silently dropped. Health threshold: 95% chunk coverage + 99% edge integrity = HEALTHY.
+**6-gate validation pipeline** — every scanned node passes: parse integrity → completeness repair → chunk quality → edge deduplication → relationship inference → compilation verification. Hollow nodes are auto-repaired, never silently dropped.
 
 ---
 
