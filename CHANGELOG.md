@@ -4,6 +4,26 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.1 — 2026-04-03
+
+### Added
+- **Content security architecture** — 5-layer detection pipeline (property-key matching, 200+ regex patterns, Shannon entropy analysis, AST credential detection, semantic placeholder) classifies every node with a sensitivity level before content enters reasoning.
+- **7 exit gates** — content redaction enforced at every path from KG to external APIs: LLM reasoning, chunk synthesis, description enrichment, embedding, code generation, code review/debug, and query reformulation.
+- **Cryptographic audit trail** — SHA-256 content hashes (pre/post redaction), append-only JSONL security audit log, dry-run mode for verification before sending.
+- **Sensitivity-aware embedding** — typed placeholders (e.g., `<API_KEY_VALUE>`) preserve vector quality while redacting actual values. SECRET content blocked from cloud embedding entirely.
+- **Shannon entropy detector** — catches novel/custom secret formats not matching known regex patterns.
+- `graqle/security/` package — sensitivity classifier, content gate, audit, entropy detector (932 lines).
+- `graqle/core/redaction.py` — property-level redaction utilities (145 lines).
+- 85 new tests (47 security architecture + 38 redaction).
+
+### Security
+- All 7 gates fail-CLOSED: if security module fails to load, content is NOT sent to external providers.
+- Deep-copy node isolation prevents concurrent reasoning calls from corrupting each other's state.
+- SECURITY.md updated with accurate description of content security architecture.
+- Send-time overhead: ~7ms (negligible against 500ms-5s LLM API latency).
+
+---
+
 ## v0.42.0 — 2026-04-03
 
 ### Added
