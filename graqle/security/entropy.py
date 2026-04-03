@@ -108,7 +108,7 @@ class EntropyDetector:
     def __init__(
         self,
         threshold: float = 4.5,
-        min_length: int = 16,
+        min_length: int = 12,  # N4 fix: lowered from 16 to catch short API keys
     ) -> None:
         self.threshold = threshold
         self.min_length = min_length

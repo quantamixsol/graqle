@@ -262,12 +262,13 @@ class TestContentSecurityGate:
         assert record.content_hash_pre != record.content_hash_post
 
     def test_prepare_content_dry_run(self):
+        """N5 fix: dry-run still redacts content but flags in audit record."""
         content, record = self.gate.prepare_content_for_send(
             "AKIAIOSFODNN7EXAMPLE", "bedrock", gate_id="G5", dry_run=True,
         )
         assert record.dry_run is True
-        # In dry-run, content is NOT redacted (returned as-is for preview)
-        assert "AKIAIOSFODNN7EXAMPLE" in content
+        # N5: dry-run STILL redacts (prevents accidental exposure in prod)
+        assert "AKIAIOSFODNN7EXAMPLE" not in content
 
     def test_gate_check(self):
         result = self.gate.gate_check("AKIAIOSFODNN7EXAMPLE", "anthropic")

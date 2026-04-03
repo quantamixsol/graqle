@@ -4409,15 +4409,13 @@ class KogniDevServer:
                 pass  # If file can't be read, proceed with KG context only
 
         # ADR-151 G5: Scan and redact source file content before sending to LLM
+        # B1 fix: fail-CLOSED — if security gate fails, content is NOT sent
         if file_content:
-            try:
-                from graqle.security.content_gate import ContentSecurityGate
-                _g5_gate = ContentSecurityGate()
-                file_content, _g5_record = _g5_gate.prepare_content_for_send(
-                    file_content, destination="llm_generate", gate_id="G5",
-                )
-            except ImportError:
-                pass  # Security package not installed — degrade gracefully
+            from graqle.security.content_gate import ContentSecurityGate
+            _g5_gate = ContentSecurityGate()
+            file_content, _g5_record = _g5_gate.prepare_content_for_send(
+                file_content, destination="llm_generate", gate_id="G5",
+            )
 
         # Build generation prompt with actual file content
         file_context = f" for file '{file_path}'" if file_path else ""
@@ -5008,14 +5006,12 @@ class KogniDevServer:
                 pass
 
         # ADR-151 G6: Redact code content before sending to LLM for review
-        try:
-            from graqle.security.content_gate import ContentSecurityGate
-            _g6_gate = ContentSecurityGate()
-            content, _ = _g6_gate.prepare_content_for_send(
-                content, destination="llm_review", gate_id="G6",
-            )
-        except ImportError:
-            pass
+        # B1 fix: fail-CLOSED
+        from graqle.security.content_gate import ContentSecurityGate
+        _g6_gate = ContentSecurityGate()
+        content, _ = _g6_gate.prepare_content_for_send(
+            content, destination="llm_review", gate_id="G6",
+        )
 
         review_prompt = (
             f"Perform a code review. {focus_text}\n\n"
@@ -5070,18 +5066,16 @@ class KogniDevServer:
         )
 
         # ADR-151 G6: Redact file context and error traces before sending to LLM
-        try:
-            from graqle.security.content_gate import ContentSecurityGate
-            _g6_debug_gate = ContentSecurityGate()
-            if file_context:
-                file_context, _ = _g6_debug_gate.prepare_content_for_send(
-                    file_context, destination="llm_debug", gate_id="G6",
-                )
-            signal, _ = _g6_debug_gate.prepare_content_for_send(
-                signal, destination="llm_debug", gate_id="G6",
+        # B1 fix: fail-CLOSED
+        from graqle.security.content_gate import ContentSecurityGate
+        _g6_debug_gate = ContentSecurityGate()
+        if file_context:
+            file_context, _ = _g6_debug_gate.prepare_content_for_send(
+                file_context, destination="llm_debug", gate_id="G6",
             )
-        except ImportError:
-            pass
+        signal, _ = _g6_debug_gate.prepare_content_for_send(
+            signal, destination="llm_debug", gate_id="G6",
+        )
 
         debug_prompt = (
             f"Debug this issue using the knowledge graph call context.\n\n"

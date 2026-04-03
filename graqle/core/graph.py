@@ -1330,12 +1330,12 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # 1.5 ADR-151 SECURITY GATE (G1): Redact sensitive content before LLM
-        # Uses ContentSecurityGate for 5-layer detection + typed placeholders.
-        # Original properties are preserved and restored after reasoning.
-        _original_props: dict[str, dict[str, Any]] = {}
-        _original_descs: dict[str, str] = {}
-        _original_chunks: dict[str, list] = {}
+        # 1.5 ADR-151 SECURITY GATE (G1): Redact via node snapshots.
+        # B1 fix: fail-CLOSED — security gate MUST load or operation blocks.
+        # B2 fix: deep-copy nodes — never mutate originals across await.
+        # Snapshots replace originals in self.nodes during reasoning,
+        # then originals are restored. No mutation of original node objects.
+        _original_nodes: dict[str, Any] = {}  # nid -> original node reference
         llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
         if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
             from graqle.security.content_gate import ContentSecurityGate
@@ -1344,24 +1344,29 @@ class Graqle:
 
             for nid in node_ids:
                 node = self.nodes[nid]
-                # Save originals for restore after reasoning
-                _original_props[nid] = node.properties
-                _original_descs[nid] = node.description
-                _original_chunks[nid] = node.properties.get("chunks", [])
+                _original_nodes[nid] = node  # save reference to original
 
-                # Use unified gate for G1
+                # B2: shallow-copy node, deep-copy only properties
+                snapshot = copy.copy(node)
+                snapshot.properties = copy.deepcopy(node.properties)
+                # description is str (immutable) — shared safely
+
+                # Redact snapshot via unified gate
                 chunks_text = []
-                for c in node.properties.get("chunks", []):
+                for c in snapshot.properties.get("chunks", []):
                     if isinstance(c, dict):
                         chunks_text.append(c.get("text", ""))
                     elif isinstance(c, str):
                         chunks_text.append(c)
 
-                safe_props, safe_desc, safe_chunks = _gate.prepare_node_for_llm(
-                    node.properties, node.description or "", chunks_text,
+                safe_props, safe_desc, _ = _gate.prepare_node_for_llm(
+                    snapshot.properties, snapshot.description or "", chunks_text,
                 )
-                node.properties = safe_props
-                node.description = safe_desc
+                snapshot.properties = safe_props
+                snapshot.description = safe_desc
+
+                # Swap: put snapshot in graph for orchestrator to use
+                self.nodes[nid] = snapshot
 
         # 2. Assign backends to activated nodes
         for nid in node_ids:
@@ -1411,17 +1416,12 @@ class Graqle:
             relevance_scores=relevance_scores,
         )
 
-        # 4. Deactivate nodes
+        # 4. Deactivate nodes and restore originals (B2: snapshots discarded)
         for nid in node_ids:
-            self.nodes[nid].deactivate()
-
-        # 4.5 ADR-151 G1: Restore original properties after reasoning
-        for nid, orig_props in _original_props.items():
             if nid in self.nodes:
-                self.nodes[nid].properties = orig_props
-        for nid, orig_desc in _original_descs.items():
-            if nid in self.nodes:
-                self.nodes[nid].description = orig_desc
+                self.nodes[nid].deactivate()
+        for nid, original in _original_nodes.items():
+            self.nodes[nid] = original  # restore original, discard snapshot
 
         # 5. Record metrics
         self._record_query_metrics(query, result, node_ids)
@@ -1460,9 +1460,8 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # ADR-151 SECURITY GATE (G1): Redact before streaming
-        _original_props: dict[str, dict[str, Any]] = {}
-        _original_descs: dict[str, str] = {}
+        # ADR-151 SECURITY GATE (G1): Redact before streaming (B1+B2 fix)
+        _original_nodes_stream: dict[str, Any] = {}
         llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
         if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
             from graqle.security.content_gate import ContentSecurityGate
@@ -1471,21 +1470,24 @@ class Graqle:
 
             for nid in node_ids:
                 node = self.nodes[nid]
-                _original_props[nid] = node.properties
-                _original_descs[nid] = node.description
+                _original_nodes_stream[nid] = node
+
+                snapshot = copy.copy(node)
+                snapshot.properties = copy.deepcopy(node.properties)
 
                 chunks_text = []
-                for c in node.properties.get("chunks", []):
+                for c in snapshot.properties.get("chunks", []):
                     if isinstance(c, dict):
                         chunks_text.append(c.get("text", ""))
                     elif isinstance(c, str):
                         chunks_text.append(c)
 
                 safe_props, safe_desc, _ = _gate.prepare_node_for_llm(
-                    node.properties, node.description or "", chunks_text,
+                    snapshot.properties, snapshot.description or "", chunks_text,
                 )
-                node.properties = safe_props
-                node.description = safe_desc
+                snapshot.properties = safe_props
+                snapshot.description = safe_desc
+                self.nodes[nid] = snapshot
 
         for nid in node_ids:
             backend = self._get_backend_for_node(nid)
@@ -1498,13 +1500,9 @@ class Graqle:
         for nid in node_ids:
             self.nodes[nid].deactivate()
 
-        # ADR-151 G1: Restore original properties after streaming
-        for nid, orig_props in _original_props.items():
-            if nid in self.nodes:
-                self.nodes[nid].properties = orig_props
-        for nid, orig_desc in _original_descs.items():
-            if nid in self.nodes:
-                self.nodes[nid].description = orig_desc
+        # ADR-151 G1: Restore original nodes after streaming (B2)
+        for nid, original in _original_nodes_stream.items():
+            self.nodes[nid] = original
 
     async def areason_batch(
         self,

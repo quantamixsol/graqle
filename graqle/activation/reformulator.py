@@ -555,12 +555,9 @@ class QueryReformulator:
         graph_hint = ""
         if self._graph_summary:
             # ADR-151 G7: Redact graph_summary before sending to LLM
-            _summary = self._graph_summary
-            try:
-                from graqle.security.content_gate import ContentSecurityGate
-                _summary = ContentSecurityGate().redact_text(_summary)
-            except ImportError:
-                pass
+            # B1 fix: fail-CLOSED
+            from graqle.security.content_gate import ContentSecurityGate
+            _summary = ContentSecurityGate().redact_text(self._graph_summary)
             graph_hint = f"\nKnowledge graph contents: {_summary}\n"
 
         return (

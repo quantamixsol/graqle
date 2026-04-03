@@ -285,8 +285,8 @@ class ContentSecurityGate:
             gate_id, destination, level.name, len(markers), blocked,
         )
 
-        if dry_run:
-            return content, record  # Don't actually redact in dry-run
+        # N5 fix: dry-run still redacts content but flags in audit record.
+        # This prevents accidental secret exposure if dry_run is enabled in prod.
         return redacted, record
 
     def gate_check(self, content: str, destination: str) -> GateResult:
