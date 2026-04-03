@@ -322,6 +322,25 @@ class RedactionConfig(BaseModel):
     redact_tokens: bool = True
 
 
+class LLMRedactionConfig(BaseModel):
+    """Content redaction for LLM-bound reasoning paths (C1 security gate).
+
+    Controls whether sensitive node properties are scrubbed before being
+    sent to external LLM backends during reasoning. Enabled by default.
+
+    Example YAML::
+
+        llm_redaction:
+          enabled: true
+          sensitive_keys: ["custom_secret", "internal_id"]
+          redaction_marker: "[REDACTED]"
+    """
+
+    enabled: bool = True
+    sensitive_keys: list[str] = Field(default_factory=list)
+    redaction_marker: str = "[REDACTED]"
+
+
 class LinkingConfig(BaseModel):
     """Auto-linking configuration for document-to-code connections."""
 
@@ -449,6 +468,7 @@ class GraqleConfig(BaseModel):
     governance: GovernancePolicyConfig = Field(default_factory=GovernancePolicyConfig)
     debate: DebateConfig = Field(default_factory=DebateConfig)
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
+    llm_redaction: LLMRedactionConfig = Field(default_factory=LLMRedactionConfig)
 
     @model_validator(mode="after")
     def _validate_debate_panelists(self) -> "GraqleConfig":

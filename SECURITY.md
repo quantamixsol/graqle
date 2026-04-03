@@ -117,14 +117,42 @@ The knowledge graph does **not** contain:
 - Credentials, secrets, or environment variable values
 - User data or PII
 
-### LLM Provider Communication
+### LLM Provider Communication 
 
 When using cloud LLM backends (Anthropic, OpenAI, etc.), GraQle sends:
 - The user's query
 - Relevant graph context (node descriptions, relationships)
 - System prompts for reasoning
+- For code generation (`graq_generate`): source file content (up to 50K chars)
 
-GraQle does **not** send full source files to LLM providers. Only graph-level context is transmitted.
+**Content Security Architecture (Tag-Gate-Audit)**
+
+All content sent to external providers passes through a multi-layer security pipeline:
+
+1. **TAG at Ingest** — Every KG node is classified with a sensitivity level (PUBLIC, INTERNAL, SECRET, RESTRICTED) during `graq scan` using 5 detection layers:
+   - L0: Property-key pattern matching
+   - L1: Regex scanning (200+ patterns for API keys, tokens, connection strings, PEM keys, JWTs)
+   - L2: Shannon entropy detection (catches novel secret formats)
+   - L3: AST structural detection (credential assignments in source code)
+   - L4: Semantic classification (reserved for future use)
+
+2. **GATE at Every Exit** — 7 security gates enforce redaction at every point content leaves the trust boundary:
+   - G1: LLM reasoning prompts (node properties, descriptions, chunks)
+   - G2-G3: Chunk synthesis and description enrichment
+   - G4: Embedding API calls (uses semantic-preserving typed placeholders)
+   - G5: Code generation (source file scanning)
+   - G6: Code review and debugging
+   - G7: Query reformulation
+
+3. **AUDIT Always** — Every external transmission creates a cryptographic audit record:
+   - SHA-256 content hashes (pre and post redaction)
+   - Append-only JSONL audit log
+   - Dry-run mode (`--dry-run`) shows what would be sent without sending
+   - Integrates with SOC2/ISO27001 compliance layer
+
+**Sensitive values are replaced with typed placeholders** (e.g., `<API_KEY_VALUE>`, `<AWS_ACCESS_KEY>`) rather than generic `[REDACTED]`, preserving semantic meaning for embedding quality while removing actual secret material.
+
+**Send-time overhead: ~7ms** (negligible against 500ms-5s LLM API latency).
 
 ### Dependencies
 

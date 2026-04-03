@@ -786,9 +786,12 @@ class Graqle:
                             val_str = val_str[:300] + "..."
                         parts.append(f"{key}: {val_str}")
 
-                # Then remaining properties (skip duplicates and internal keys)
+                # Then remaining properties (skip duplicates, internal, and sensitive keys)
+                # G3: prevent sensitive properties from entering descriptions
+                from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
                 skip_keys = {"id", "label", "type", "description", "source_file",
-                             "source_line", "confidence", "source"} | set(priority_keys)
+                             "source_line", "confidence", "source",
+                             } | set(priority_keys) | DEFAULT_SENSITIVE_KEYS
                 for key, val in node.properties.items():
                     if key in skip_keys:
                         continue
@@ -901,7 +904,10 @@ class Graqle:
                 # Build a richer chunk by combining description with key properties
                 parts = [desc]
                 # Include select metadata fields that add context
-                skip_keys = {"chunks", "chunk_count", "file_path", "source_file"}
+                # G2: skip sensitive property keys in chunk synthesis
+                from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
+                skip_keys = {"chunks", "chunk_count", "file_path", "source_file"
+                             } | DEFAULT_SENSITIVE_KEYS
                 for k, v in node.properties.items():
                     if k in skip_keys:
                         continue
@@ -1324,6 +1330,43 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
+        # 1.5 SECURITY GATE (G1): Redact via node snapshots.
+        # Fail-CLOSED: security gate must load
+        # Deep-copy nodes to prevent concurrent mutation
+        # Snapshots replace originals in self.nodes during reasoning,
+        # then originals are restored. No mutation of original node objects.
+        _original_nodes: dict[str, Any] = {}  # nid -> original node reference
+        llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
+        if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
+            from graqle.security.content_gate import ContentSecurityGate
+
+            _gate = ContentSecurityGate()
+
+            for nid in node_ids:
+                node = self.nodes[nid]
+                _original_nodes[nid] = node  # save reference to original
+
+                # Full deepcopy isolates all mutable attributes
+                # (properties, tags, metadata, embeddings, relations)
+                snapshot = copy.deepcopy(node)
+
+                # Redact snapshot via unified gate
+                chunks_text = []
+                for c in snapshot.properties.get("chunks", []):
+                    if isinstance(c, dict):
+                        chunks_text.append(c.get("text", ""))
+                    elif isinstance(c, str):
+                        chunks_text.append(c)
+
+                safe_props, safe_desc, _ = _gate.prepare_node_for_llm(
+                    snapshot.properties, snapshot.description or "", chunks_text,
+                )
+                snapshot.properties = safe_props
+                snapshot.description = safe_desc
+
+                # Swap: put snapshot in graph for orchestrator to use
+                self.nodes[nid] = snapshot
+
         # 2. Assign backends to activated nodes
         for nid in node_ids:
             backend = self._get_backend_for_node(nid, task_type=task_type)
@@ -1372,9 +1415,12 @@ class Graqle:
             relevance_scores=relevance_scores,
         )
 
-        # 4. Deactivate nodes
+        # 4. Deactivate nodes and restore originals (snapshots discarded)
         for nid in node_ids:
-            self.nodes[nid].deactivate()
+            if nid in self.nodes:
+                self.nodes[nid].deactivate()
+        for nid, original in _original_nodes.items():
+            self.nodes[nid] = original  # restore original, discard snapshot
 
         # 5. Record metrics
         self._record_query_metrics(query, result, node_ids)
@@ -1413,6 +1459,35 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
+        # SECURITY GATE (G1): Redact before streaming 
+        _original_nodes_stream: dict[str, Any] = {}
+        llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
+        if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
+            from graqle.security.content_gate import ContentSecurityGate
+
+            _gate = ContentSecurityGate()
+
+            for nid in node_ids:
+                node = self.nodes[nid]
+                _original_nodes_stream[nid] = node
+
+                # Full deepcopy isolates all mutable attributes
+                snapshot = copy.deepcopy(node)
+
+                chunks_text = []
+                for c in snapshot.properties.get("chunks", []):
+                    if isinstance(c, dict):
+                        chunks_text.append(c.get("text", ""))
+                    elif isinstance(c, str):
+                        chunks_text.append(c)
+
+                safe_props, safe_desc, _ = _gate.prepare_node_for_llm(
+                    snapshot.properties, snapshot.description or "", chunks_text,
+                )
+                snapshot.properties = safe_props
+                snapshot.description = safe_desc
+                self.nodes[nid] = snapshot
+
         for nid in node_ids:
             backend = self._get_backend_for_node(nid)
             self.nodes[nid].activate(backend)
@@ -1423,6 +1498,10 @@ class Graqle:
 
         for nid in node_ids:
             self.nodes[nid].deactivate()
+
+        # G1: Restore original nodes after streaming 
+        for nid, original in _original_nodes_stream.items():
+            self.nodes[nid] = original
 
     async def areason_batch(
         self,

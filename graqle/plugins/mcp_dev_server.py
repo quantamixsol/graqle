@@ -60,7 +60,8 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 
-_SENSITIVE_KEYS = frozenset({"api_key", "secret", "password", "token", "credential"})
+# C1: Use shared sensitive keys from redaction module (single source of truth)
+from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS as _SENSITIVE_KEYS
 
 _LESSON_ENTITY_TYPES = frozenset({
     "LESSON", "MISTAKE", "SAFETY", "ADR", "DECISION",
@@ -4416,6 +4417,15 @@ class KogniDevServer:
             except Exception:
                 pass  # If file can't be read, proceed with KG context only
 
+        # G5: Scan and redact source file content before sending to LLM
+        # Fail-CLOSED: security gate must load
+        if file_content:
+            from graqle.security.content_gate import ContentSecurityGate
+            _g5_gate = ContentSecurityGate()
+            file_content, _g5_record = _g5_gate.prepare_content_for_send(
+                file_content, destination="llm_generate", gate_id="G5",
+            )
+
         # Build generation prompt with actual file content
         file_context = f" for file '{file_path}'" if file_path else ""
         file_content_block = ""
@@ -5037,6 +5047,14 @@ class KogniDevServer:
             except Exception:
                 pass
 
+        # G6: Redact code content before sending to LLM for review
+        # Fail-CLOSED: security gate must load
+        from graqle.security.content_gate import ContentSecurityGate
+        _g6_gate = ContentSecurityGate()
+        content, _ = _g6_gate.prepare_content_for_send(
+            content, destination="llm_review", gate_id="G6",
+        )
+
         # OT-034: Detect abbreviated diffs that cause false positive reviews
         # Count only lines where '...' is the sole content (not Python Ellipsis in code)
         abbreviated_warning = ""
@@ -5107,6 +5125,18 @@ class KogniDevServer:
         fix_instruction = (
             "\n- 'proposed_fix': unified diff fixing the root cause (or empty string if unknown)"
             if include_fix else ""
+        )
+
+        # G6: Redact file context and error traces before sending to LLM
+        # Fail-CLOSED: security gate must load
+        from graqle.security.content_gate import ContentSecurityGate
+        _g6_debug_gate = ContentSecurityGate()
+        if file_context:
+            file_context, _ = _g6_debug_gate.prepare_content_for_send(
+                file_context, destination="llm_debug", gate_id="G6",
+            )
+        signal, _ = _g6_debug_gate.prepare_content_for_send(
+            signal, destination="llm_debug", gate_id="G6",
         )
 
         debug_prompt = (
