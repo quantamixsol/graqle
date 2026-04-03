@@ -4,6 +4,39 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.0 — 2026-04-03
+
+### Added
+- **GenerateResult dataclass** — all 14 backends now return structured results with truncation detection (`truncated`, `stop_reason`, `tokens_used`, `model`). Full str backward-compat via 30+ proxied methods.
+- **Continuation loop** — `CogniNode.reason()` auto-continues truncated responses with configurable `max_continuations` (default 3) and seam deduplication.
+- **Format-aware validation** — advisory output validation for `graq_generate`: balanced delimiters, SUMMARY marker, diff hunk integrity. Non-blocking.
+- **Model output limits** — `model_limits.py` with 70+ model token limits, prefix matching, LRU cache.
+- **File visibility fixes** — `graq_edit` auto-syncs written files into KG (OT-031/ADR-134), `graq_review` resolves relative paths (OT-033), abbreviated diff detection (OT-034).
+- 60 new tests across 3 test modules.
+
+### Changed
+- **BREAKING:** `Aggregator.aggregate()` returns `tuple[str, dict]` instead of `str`. The dict contains `synthesis_truncated` and `synthesis_stop_reason`. Only 1 internal caller (Orchestrator).
+- `OrchestrationConfig` gains `max_continuations` (default 3) and `continuation_overlap_lines` (default 15).
+- `Message` dataclass gains `metadata: dict` field (default empty dict).
+
+### Fixed
+- OT-028: `graq_reason` responses no longer silently truncated at ~4000 chars.
+- OT-030: `graq_generate` produces complete output for files >300 lines via continuation.
+- OT-031: Newly edited files are auto-scanned into the KG (ADR-134).
+- OT-032: Correction cost reduced from $2.50/call to ~$0.05 via continuation loop.
+- OT-033: `graq_review` finds files regardless of working directory.
+- OT-034: `graq_review` warns on abbreviated diffs instead of producing false positives.
+- OT-035: Format validation catches structural incompleteness in generated code.
+
+---
+
+## v0.41.0 — 2026-04-02
+
+### Added
+- PR Guardian MVP — automated governance checks on pull requests.
+
+---
+
 ## v0.40.7 — 2026-04-02
 
 ### Fixed
