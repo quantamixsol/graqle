@@ -155,6 +155,17 @@ class ChunkScorer:
             len(chunk_texts), len(desc_texts),
         )
 
+        # ADR-151 G4: Redact sensitive content before embedding API calls
+        # Uses semantic-preserving typed placeholders (not generic [REDACTED])
+        # so embedding vectors retain structural meaning.
+        try:
+            from graqle.security.content_gate import ContentSecurityGate
+            _g4_gate = ContentSecurityGate()
+            chunk_texts = [_g4_gate.redact_for_embedding(t) for t in chunk_texts]
+            desc_texts = [_g4_gate.redact_for_embedding(t) for t in desc_texts]
+        except ImportError:
+            pass  # Security package not installed — degrade gracefully
+
         # Batch embed
         chunk_embeddings = []
         for text in chunk_texts:

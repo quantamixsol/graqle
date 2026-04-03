@@ -787,6 +787,7 @@ class Graqle:
                         parts.append(f"{key}: {val_str}")
 
                 # Then remaining properties (skip duplicates, internal, and sensitive keys)
+                # ADR-151 G3: prevent sensitive properties from entering descriptions
                 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
                 skip_keys = {"id", "label", "type", "description", "source_file",
                              "source_line", "confidence", "source",
@@ -903,7 +904,7 @@ class Graqle:
                 # Build a richer chunk by combining description with key properties
                 parts = [desc]
                 # Include select metadata fields that add context
-                # C1: Also skip sensitive property keys to prevent leaking to LLMs
+                # ADR-151 G2: skip sensitive property keys in chunk synthesis
                 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
                 skip_keys = {"chunks", "chunk_count", "file_path", "source_file"
                              } | DEFAULT_SENSITIVE_KEYS
@@ -1329,52 +1330,38 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # 1.5 C1 SECURITY GATE: Redact sensitive properties before LLM paths
-        # This is the single choke point covering ALL areason() callers.
+        # 1.5 ADR-151 SECURITY GATE (G1): Redact sensitive content before LLM
+        # Uses ContentSecurityGate for 5-layer detection + typed placeholders.
         # Original properties are preserved and restored after reasoning.
         _original_props: dict[str, dict[str, Any]] = {}
         _original_descs: dict[str, str] = {}
+        _original_chunks: dict[str, list] = {}
         llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
         if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
-            from graqle.core.redaction import (
-                DEFAULT_SENSITIVE_KEYS,
-                redact_chunks,
-                redact_node_properties,
-                redact_text,
-            )
+            from graqle.security.content_gate import ContentSecurityGate
 
-            user_keys = frozenset(
-                getattr(llm_redaction_cfg, "sensitive_keys", None) or []
-            )
-            marker = getattr(
-                llm_redaction_cfg, "redaction_marker", "[REDACTED]"
-            )
-            effective_keys = DEFAULT_SENSITIVE_KEYS | user_keys
+            _gate = ContentSecurityGate()
 
             for nid in node_ids:
                 node = self.nodes[nid]
                 # Save originals for restore after reasoning
                 _original_props[nid] = node.properties
                 _original_descs[nid] = node.description
+                _original_chunks[nid] = node.properties.get("chunks", [])
 
-                # Redact properties
-                safe_props = redact_node_properties(
-                    node.properties, effective_keys, marker,
+                # Use unified gate for G1
+                chunks_text = []
+                for c in node.properties.get("chunks", []):
+                    if isinstance(c, dict):
+                        chunks_text.append(c.get("text", ""))
+                    elif isinstance(c, str):
+                        chunks_text.append(c)
+
+                safe_props, safe_desc, safe_chunks = _gate.prepare_node_for_llm(
+                    node.properties, node.description or "", chunks_text,
                 )
-                # Redact chunk text content
-                if "chunks" in safe_props and isinstance(
-                    safe_props["chunks"], list
-                ):
-                    safe_props["chunks"] = redact_chunks(
-                        safe_props["chunks"], effective_keys, marker,
-                    )
                 node.properties = safe_props
-
-                # Redact description (may contain enriched property values)
-                if node.description:
-                    node.description = redact_text(
-                        node.description, effective_keys, marker,
-                    )
+                node.description = safe_desc
 
         # 2. Assign backends to activated nodes
         for nid in node_ids:
@@ -1428,7 +1415,7 @@ class Graqle:
         for nid in node_ids:
             self.nodes[nid].deactivate()
 
-        # 4.5 C1 SECURITY GATE: Restore original properties after reasoning
+        # 4.5 ADR-151 G1: Restore original properties after reasoning
         for nid, orig_props in _original_props.items():
             if nid in self.nodes:
                 self.nodes[nid].properties = orig_props
@@ -1473,44 +1460,32 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # C1 SECURITY GATE: Redact sensitive properties before LLM paths
+        # ADR-151 SECURITY GATE (G1): Redact before streaming
         _original_props: dict[str, dict[str, Any]] = {}
         _original_descs: dict[str, str] = {}
         llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
         if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
-            from graqle.core.redaction import (
-                DEFAULT_SENSITIVE_KEYS,
-                redact_chunks,
-                redact_node_properties,
-                redact_text,
-            )
+            from graqle.security.content_gate import ContentSecurityGate
 
-            user_keys = frozenset(
-                getattr(llm_redaction_cfg, "sensitive_keys", None) or []
-            )
-            marker = getattr(
-                llm_redaction_cfg, "redaction_marker", "[REDACTED]"
-            )
-            effective_keys = DEFAULT_SENSITIVE_KEYS | user_keys
+            _gate = ContentSecurityGate()
 
             for nid in node_ids:
                 node = self.nodes[nid]
                 _original_props[nid] = node.properties
                 _original_descs[nid] = node.description
-                safe_props = redact_node_properties(
-                    node.properties, effective_keys, marker,
+
+                chunks_text = []
+                for c in node.properties.get("chunks", []):
+                    if isinstance(c, dict):
+                        chunks_text.append(c.get("text", ""))
+                    elif isinstance(c, str):
+                        chunks_text.append(c)
+
+                safe_props, safe_desc, _ = _gate.prepare_node_for_llm(
+                    node.properties, node.description or "", chunks_text,
                 )
-                if "chunks" in safe_props and isinstance(
-                    safe_props["chunks"], list
-                ):
-                    safe_props["chunks"] = redact_chunks(
-                        safe_props["chunks"], effective_keys, marker,
-                    )
                 node.properties = safe_props
-                if node.description:
-                    node.description = redact_text(
-                        node.description, effective_keys, marker,
-                    )
+                node.description = safe_desc
 
         for nid in node_ids:
             backend = self._get_backend_for_node(nid)
@@ -1523,7 +1498,7 @@ class Graqle:
         for nid in node_ids:
             self.nodes[nid].deactivate()
 
-        # C1: Restore original properties after streaming
+        # ADR-151 G1: Restore original properties after streaming
         for nid, orig_props in _original_props.items():
             if nid in self.nodes:
                 self.nodes[nid].properties = orig_props
