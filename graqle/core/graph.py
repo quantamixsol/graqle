@@ -1346,10 +1346,9 @@ class Graqle:
                 node = self.nodes[nid]
                 _original_nodes[nid] = node  # save reference to original
 
-                # B2: shallow-copy node, deep-copy only properties
-                snapshot = copy.copy(node)
-                snapshot.properties = copy.deepcopy(node.properties)
-                # description is str (immutable) — shared safely
+                # B4 fix: full deepcopy isolates ALL mutable attributes
+                # (properties, tags, metadata, embeddings, relations)
+                snapshot = copy.deepcopy(node)
 
                 # Redact snapshot via unified gate
                 chunks_text = []
@@ -1472,8 +1471,8 @@ class Graqle:
                 node = self.nodes[nid]
                 _original_nodes_stream[nid] = node
 
-                snapshot = copy.copy(node)
-                snapshot.properties = copy.deepcopy(node.properties)
+                # B4 fix: full deepcopy isolates ALL mutable attributes
+                snapshot = copy.deepcopy(node)
 
                 chunks_text = []
                 for c in snapshot.properties.get("chunks", []):

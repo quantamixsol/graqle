@@ -166,7 +166,8 @@ class ChunkScorer:
         for t in chunk_texts:
             level = _g4_classifier.classify_node({}, description=t)
             if level >= SensitivityLevel.SECRET:
-                _redacted_chunk_texts.append("")  # Block SECRET+ from cloud embedding
+                # B5 fix: non-empty sentinel prevents Titan V2 400 error + NaN cosine
+                _redacted_chunk_texts.append("[CONTENT_REDACTED]")
             else:
                 _redacted_chunk_texts.append(_g4_gate.redact_for_embedding(t))
         chunk_texts = _redacted_chunk_texts
