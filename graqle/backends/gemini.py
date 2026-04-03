@@ -29,7 +29,7 @@ import logging
 import os
 from typing import Any
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.gemini")
 
@@ -72,7 +72,7 @@ class GeminiBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         if not self._api_key:
             raise ValueError(
                 "Gemini API key required. "
@@ -81,7 +81,7 @@ class GeminiBackend(BaseBackend):
 
         from graqle.backends.api import _retry_with_backoff
 
-        async def _call() -> str:
+        async def _call() -> GenerateResult:
             try:
                 import httpx
             except ImportError:
@@ -113,14 +113,27 @@ class GeminiBackend(BaseBackend):
             candidates = data.get("candidates", [])
             if not candidates:
                 logger.warning("[%s] No candidates in Gemini response", self.name)
-                return ""
+                return GenerateResult(text="", model=self._model)
 
-            content = candidates[0].get("content", {})
+            candidate = candidates[0]
+            content = candidate.get("content", {})
             parts = content.get("parts", [])
-            if not parts:
-                return ""
+            text = parts[0].get("text", "") if parts else ""
 
-            return parts[0].get("text", "")
+            # OT-028: Capture finishReason for truncation detection
+            finish_reason = candidate.get("finishReason", "") or ""
+            truncated = finish_reason == "MAX_TOKENS"
+            # Gemini token count from usageMetadata
+            usage = data.get("usageMetadata", {})
+            tokens_used = usage.get("candidatesTokenCount")
+
+            return GenerateResult(
+                text=text,
+                truncated=truncated,
+                stop_reason=finish_reason,
+                tokens_used=tokens_used,
+                model=self._model,
+            )
 
         return await _retry_with_backoff(
             _call, backend_name=self.name, max_retries=self._max_retries

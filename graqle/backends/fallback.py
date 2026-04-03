@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.fallback")
 
@@ -48,7 +48,7 @@ class BackendFallbackChain(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         errors: list[tuple[str, Exception]] = []
 
         for backend in self._backends:

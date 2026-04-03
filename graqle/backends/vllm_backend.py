@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.vllm")
 
@@ -84,7 +84,7 @@ class VLLMBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         **kwargs: Any,
-    ) -> str:
+    ) -> GenerateResult:
         """Generate text using vLLM engine."""
         self._ensure_engine()
 
@@ -122,8 +122,14 @@ class VLLMBackend(BaseBackend):
             final_output = output
 
         if final_output and final_output.outputs:
-            return final_output.outputs[0].text
-        return ""
+            text = final_output.outputs[0].text
+            finish_reason = getattr(final_output.outputs[0], "finish_reason", "") or ""
+            truncated = finish_reason == "length"
+            return GenerateResult(
+                text=text, truncated=truncated,
+                stop_reason=finish_reason, model=self.model_name,
+            )
+        return GenerateResult(text="", model=self.model_name)
 
     @property
     def name(self) -> str:

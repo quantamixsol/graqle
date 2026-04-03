@@ -106,7 +106,7 @@ class BackendPool:
 
         t0 = time.perf_counter()
         try:
-            raw: str = await asyncio.wait_for(
+            raw_result = await asyncio.wait_for(
                 backend.generate(
                     effective_prompt,
                     max_tokens=max_tokens,
@@ -114,9 +114,17 @@ class BackendPool:
                 ),
                 timeout=self._timeout_s,
             )
+            # OT-028 B2/M1: Extract truncation before str conversion
+            _is_truncated = getattr(raw_result, "truncated", False)
+            raw: str = str(raw_result)
             latency_ms = (time.perf_counter() - t0) * 1000.0
             approx_tokens = max(len(raw) / 4, 1)
             cost_usd = approx_tokens * getattr(backend, "cost_per_1k_tokens", 0.0) / 1000.0
+            if _is_truncated:
+                logger.warning(
+                    "OT-030: Panelist %s response truncated (stop_reason=%s)",
+                    name, getattr(raw_result, "stop_reason", ""),
+                )
             return PanelistResponse(
                 panelist=name, response=raw,
                 cost_usd=cost_usd, latency_ms=latency_ms,

@@ -97,6 +97,79 @@ INSTRUCTIONS:
 - State your confidence as CONFIDENCE: [0-100]%"""
 
 
+# ── OT-028 Layer 2: Continuation loop helpers ──────────────
+
+
+def _build_continuation_prompt(overlap_anchor: str) -> str:
+    """Build a prompt that asks the LLM to continue from where it left off.
+
+    B3 security: overlap_anchor is sanitized to prevent prompt injection
+    from malicious/adversarial LLM output being re-injected as instructions.
+    """
+    # Sanitize: strip any delimiter markers that could escape the quoted block
+    safe_anchor = overlap_anchor.replace("=== END PREVIOUS ===", "[END_MARKER]")
+    safe_anchor = safe_anchor.replace("=== LAST LINES", "[LAST_MARKER]")
+    # Truncate to prevent oversized anchors from dominating the prompt
+    if len(safe_anchor) > 3000:
+        safe_anchor = safe_anchor[-3000:]
+    return (
+        "Your previous response was truncated. "
+        "Continue EXACTLY where you left off.\n\n"
+        "=== LAST LINES OF YOUR PREVIOUS RESPONSE ===\n"
+        f"{safe_anchor}\n"
+        "=== END PREVIOUS ===\n\n"
+        "Continue from this exact point. "
+        "Do not repeat any content shown above. "
+        "Do not add preamble or summary."
+    )
+
+
+def _extract_overlap_anchor(content: str, n_lines: int = 15) -> str:
+    """Extract the last N lines of content as an overlap anchor."""
+    if not content or not content.strip():
+        return ""
+    lines = [ln for ln in content.rstrip().splitlines() if ln.strip()]
+    if len(lines) >= n_lines:
+        return "\n".join(lines[-n_lines:])
+    return "\n".join(lines) if lines else ""
+
+
+def _deduplicate_seam(
+    previous: str,
+    continuation: str,
+    overlap_lines: int = 15,
+) -> str:
+    """Remove duplicated content at the junction of previous and continuation.
+
+    Uses longest-suffix-of-previous matching longest-prefix-of-continuation
+    at line granularity.
+    """
+    prev_lines = previous.rstrip().splitlines()
+    cont_lines = continuation.strip().splitlines()
+
+    if not cont_lines:
+        return previous
+
+    # Find the longest suffix of prev_lines that matches a prefix of cont_lines
+    max_check = min(overlap_lines, len(prev_lines), len(cont_lines))
+    best_overlap = 0
+
+    for overlap in range(1, max_check + 1):
+        if prev_lines[-overlap:] == cont_lines[:overlap]:
+            best_overlap = overlap
+
+    # Merge: keep all of previous, append only the non-overlapping continuation
+    if best_overlap > 0:
+        merged_continuation = "\n".join(cont_lines[best_overlap:])
+    else:
+        merged_continuation = continuation.strip()
+
+    if not merged_continuation:
+        return previous
+
+    return previous.rstrip() + "\n" + merged_continuation
+
+
 @dataclass
 class CogniNode:
     """A knowledge graph node with an embedded SLM agent.
@@ -156,6 +229,8 @@ class CogniNode:
     async def reason(
         self, query: str, incoming_messages: list[Message],
         embedding_fn: Any = None,
+        max_continuations: int = 3,
+        continuation_overlap_lines: int = 15,
     ) -> Message:
         """Produce a reasoning output given query + incoming messages.
 
@@ -229,11 +304,73 @@ class CogniNode:
             prompt = f"System: {self.system_prompt}\n\n{prompt}"
 
         # Generate response
-        response = await self.backend.generate(
+        raw_result = await self.backend.generate(
             prompt,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
         )
+
+        # OT-028 B1: Extract truncation metadata BEFORE str conversion
+        _is_truncated = bool(getattr(raw_result, "truncated", False))
+        _stop_reason = getattr(raw_result, "stop_reason", "") or ""
+
+        # Convert to str — re.search(), .lower(), etc. require it
+        response = str(raw_result)
+
+        # ── OT-028 Layer 2: Continuation loop for truncated responses ──
+        _continuation_count = 0
+        _continuation_error = False
+        while _is_truncated and _continuation_count < max_continuations:
+            _continuation_count += 1
+            overlap_anchor = _extract_overlap_anchor(
+                response, n_lines=continuation_overlap_lines,
+            )
+            if not overlap_anchor:
+                logger.warning(
+                    "OT-028: Node %s empty overlap anchor — aborting continuation",
+                    self.id,
+                )
+                break
+            cont_prompt = _build_continuation_prompt(overlap_anchor)
+            try:
+                cont_result = await self.backend.generate(
+                    cont_prompt,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                )
+                cont_text = str(cont_result) if cont_result else ""
+                if not cont_text.strip():
+                    logger.warning(
+                        "OT-028: Node %s continuation %d returned empty — aborting",
+                        self.id, _continuation_count,
+                    )
+                    break
+                _is_truncated = bool(getattr(cont_result, "truncated", False))
+                _stop_reason = getattr(cont_result, "stop_reason", "") or ""
+                new_response = _deduplicate_seam(
+                    response, cont_text,
+                    overlap_lines=continuation_overlap_lines,
+                )
+                # Guard zero-progress: content identity check (not length)
+                if new_response.strip() == response.strip():
+                    logger.warning(
+                        "OT-028: Node %s continuation %d produced no new content — aborting",
+                        self.id, _continuation_count,
+                    )
+                    break
+                response = new_response
+                logger.debug(
+                    "OT-028: Node %s continuation %d/%d (still_truncated=%s, len=%d)",
+                    self.id, _continuation_count, max_continuations,
+                    _is_truncated, len(response),
+                )
+            except Exception as e:
+                logger.warning(
+                    "OT-028: Node %s continuation %d failed: %s — using accumulated response",
+                    self.id, _continuation_count, e,
+                )
+                _continuation_error = True
+                break  # Fail open: return what we have so far
 
         # Semantic SHACL gate validation (v3 — preferred)
         if self.semantic_gate is not None:
@@ -249,11 +386,14 @@ class CogniNode:
                     f"{validation.to_feedback()}\n\n"
                     f"Please fix the violations and respond again."
                 )
-                response = await self.backend.generate(
+                retry_result = await self.backend.generate(
                     retry_prompt,
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
                 )
+                _is_truncated = bool(getattr(retry_result, "truncated", False))
+                _stop_reason = getattr(retry_result, "stop_reason", "") or ""
+                response = str(retry_result)
         # Legacy SHACL gate (v2 — format-based, fallback)
         elif self.shacl_gate is not None:
             validation = self.shacl_gate.validate(self.entity_type, response, query)
@@ -265,11 +405,14 @@ class CogniNode:
                     f"{validation.to_feedback()}\n\n"
                     f"Please fix the violations and respond again."
                 )
-                response = await self.backend.generate(
+                retry_result = await self.backend.generate(
                     retry_prompt,
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
                 )
+                _is_truncated = bool(getattr(retry_result, "truncated", False))
+                _stop_reason = getattr(retry_result, "stop_reason", "") or ""
+                response = str(retry_result)
 
         # Parse confidence from response (simple extraction)
         confidence = self._extract_confidence(response)
@@ -280,6 +423,23 @@ class CogniNode:
         # Update state
         self.state.update(response, confidence)
         self.status = NodeStatus.CONVERGED
+
+        # OT-028 B1+L2: Surface truncation + continuation metadata in Message
+        _meta: dict = {
+            "still_truncated": _is_truncated,
+            "continuation_error": _continuation_error,
+        }
+        if _continuation_count > 0:
+            _meta["continuation_count"] = _continuation_count
+            _meta["was_continued"] = True
+        if _is_truncated:
+            _meta["truncated"] = True
+            _meta["stop_reason"] = _stop_reason
+            _meta["confidence_unreliable"] = True
+            logger.warning(
+                "OT-030: Node %s response still truncated after %d continuations (stop_reason=%s)",
+                self.id, _continuation_count, _stop_reason,
+            )
 
         # Create outgoing message
         return Message(
@@ -292,6 +452,7 @@ class CogniNode:
             evidence=[self.id],
             parent_messages=[m.id for m in incoming_messages],
             token_count=len(response.split()),  # approximate
+            metadata=_meta,
         )
 
     def _build_evidence_text(

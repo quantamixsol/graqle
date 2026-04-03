@@ -72,6 +72,11 @@ class ModelBackend(Protocol):
 
     Implementations: LocalModel, AnthropicBackend, OpenAIBackend,
     OllamaBackend, BedrockBackend, CustomBackend.
+
+    OT-028/030: Backends now return GenerateResult (str-compatible).
+    Protocol keeps -> str annotation to avoid circular import
+    (types.py cannot import backends.base). runtime_checkable only
+    checks method existence, not return types, so this is safe.
     """
 
     async def generate(

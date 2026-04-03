@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import random
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.mock")
 
@@ -88,7 +88,7 @@ class MockBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         self._warn_fallback()
 
         if self._latency_ms > 0:
@@ -98,28 +98,29 @@ class MockBackend(BaseBackend):
         self._call_count += 1
 
         if self._response:
-            return self._response
-
-        if self._responses:
+            text = self._response
+        elif self._responses:
             idx = (self._call_count - 1) % len(self._responses)
-            return self._responses[idx]
+            text = self._responses[idx]
+        else:
+            # Fallback response clearly marked as mock — full transparency
+            conf = random.uniform(*self._confidence_range)
+            if self._is_fallback:
+                text = (
+                    f"[NO LLM CONFIGURED — this is a placeholder response, not real AI reasoning. "
+                    f"Run 'graq setup-guide' to choose a backend (free options available). "
+                    f"Run 'graq doctor' to check your setup.] "
+                    f"Placeholder analysis for this node. "
+                    f"Confidence: {conf:.0%}"
+                )
+            else:
+                text = (
+                    f"Based on my specialized knowledge, I can provide the following analysis. "
+                    f"The query relates to my domain expertise. "
+                    f"Confidence: {conf:.0%}"
+                )
 
-        # Fallback response clearly marked as mock — full transparency
-        conf = random.uniform(*self._confidence_range)
-        if self._is_fallback:
-            return (
-                f"[NO LLM CONFIGURED — this is a placeholder response, not real AI reasoning. "
-                f"Run 'graq setup-guide' to choose a backend (free options available). "
-                f"Run 'graq doctor' to check your setup.] "
-                f"Placeholder analysis for this node. "
-                f"Confidence: {conf:.0%}"
-            )
-
-        return (
-            f"Based on my specialized knowledge, I can provide the following analysis. "
-            f"The query relates to my domain expertise. "
-            f"Confidence: {conf:.0%}"
-        )
+        return GenerateResult(text=text, model="mock")
 
     async def agenerate_stream(
         self,
@@ -136,13 +137,13 @@ class MockBackend(BaseBackend):
 
         v0.38.0: Phase 3 streaming implementation.
         """
-        full_response = await self.generate(
+        result = await self.generate(
             prompt,
             max_tokens=max_tokens,
             temperature=temperature,
             stop=stop,
         )
-        words = full_response.split(" ")
+        words = str(result).split(" ")
         for i, word in enumerate(words):
             chunk = word if i == len(words) - 1 else word + " "
             yield chunk

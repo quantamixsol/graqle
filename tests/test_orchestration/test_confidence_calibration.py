@@ -60,7 +60,7 @@ def _setup_mocks(orch, messages_dict):
     """Wire up mocks so run() executes one round and returns."""
     orch.message_protocol.run_round = AsyncMock(return_value=messages_dict)
     orch.convergence_detector.check = MagicMock(return_value=True)
-    orch.aggregator.aggregate = AsyncMock(return_value="synthesized answer")
+    orch.aggregator.aggregate = AsyncMock(return_value=("synthesized answer", {"synthesis_truncated": False, "synthesis_stop_reason": ""}))
     orch.observer.observe_round = AsyncMock(return_value=[])
 
 

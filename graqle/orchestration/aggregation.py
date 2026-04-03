@@ -104,8 +104,27 @@ class Aggregator:
         messages: dict[str, Message],
         backend: ModelBackend | None = None,
         governance_context: str = "",
-    ) -> str:
-        """Aggregate node outputs into a final answer."""
+    ) -> tuple[str, dict]:
+        """Aggregate node outputs into a final answer.
+
+        Returns:
+            (answer_text, truncation_info) where truncation_info has keys:
+            synthesis_truncated (bool), synthesis_stop_reason (str).
+            No instance state — safe for async/concurrent use.
+        """
+        return await self._aggregate_inner(
+            query, messages, backend, governance_context
+        )
+
+    async def _aggregate_inner(
+        self,
+        query: str,
+        messages: dict[str, Message],
+        backend: ModelBackend | None = None,
+        governance_context: str = "",
+    ) -> tuple[str, dict]:
+        """Inner aggregation logic. Returns (answer, truncation_info)."""
+        _no_trunc = {"synthesis_truncated": False, "synthesis_stop_reason": ""}
         effective_backend = (
             self.synthesis_backend or backend or self.backend
         )
@@ -117,17 +136,17 @@ class Aggregator:
             # Fall back to best single message if all filtered
             if messages:
                 best = max(messages.values(), key=lambda m: m.confidence)
-                return best.content
-            return "No reasoning produced."
+                return best.content, _no_trunc
+            return "No reasoning produced.", _no_trunc
 
         if self.strategy == "weighted_synthesis" and effective_backend:
             return await self._weighted_synthesis(
                 query, filtered, effective_backend, governance_context
             )
         elif self.strategy == "majority_vote":
-            return self._majority_vote(filtered)
+            return self._majority_vote(filtered), _no_trunc
         else:
-            return self._confidence_weighted(filtered)
+            return self._confidence_weighted(filtered), _no_trunc
 
     def _filter_messages(
         self, messages: dict[str, Message]
@@ -185,7 +204,20 @@ class Aggregator:
                 query=query, agent_outputs=agent_outputs
             )
 
-        return await backend.generate(prompt, max_tokens=4096, temperature=0.2)
+        raw_result = await backend.generate(prompt, max_tokens=4096, temperature=0.2)
+        # OT-028 B2: Extract truncation as local state (no instance leak)
+        _truncated = bool(getattr(raw_result, "truncated", False))
+        _stop_reason = getattr(raw_result, "stop_reason", "") or ""
+        if _truncated:
+            logger.warning(
+                "OT-030: Synthesis response truncated (stop_reason=%s)",
+                _stop_reason,
+            )
+        trunc_info = {
+            "synthesis_truncated": _truncated,
+            "synthesis_stop_reason": _stop_reason,
+        }
+        return str(raw_result), trunc_info
 
     def _confidence_weighted(self, messages: dict[str, Message]) -> str:
         """Simple concatenation weighted by confidence."""

@@ -254,7 +254,7 @@ class Orchestrator:
                 agg_backend = node.backend
                 break
 
-        answer = await self.aggregator.aggregate(
+        answer, synthesis_trunc_info = await self.aggregator.aggregate(
             query, final_messages, backend=agg_backend
         )
 
@@ -371,6 +371,21 @@ class Orchestrator:
             metadata["observer_summary"] = observer_report.to_summary()
             metadata["health_score"] = observer_report.health_score
             cost_usd += observer_report.observer_cost_usd
+
+        # OT-028 B1+B2: Surface truncation from nodes and synthesis
+        # Null-safe: (or {}) handles metadata=None; .get(, False) handles absent key
+        truncated_nodes = [
+            nid for nid, msg in final_messages.items()
+            if bool((getattr(msg, "metadata", None) or {}).get("truncated", False))
+        ]
+        if truncated_nodes:
+            metadata["truncated_nodes"] = truncated_nodes
+            metadata["truncation_count"] = len(truncated_nodes)
+        if synthesis_trunc_info.get("synthesis_truncated"):
+            metadata["synthesis_truncated"] = True
+            metadata["synthesis_stop_reason"] = synthesis_trunc_info.get(
+                "synthesis_stop_reason", ""
+            )
 
         result = ReasoningResult(
             query=query,

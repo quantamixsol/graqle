@@ -4271,10 +4271,19 @@ class KogniDevServer:
             skip_syntax_check=bool(args.get("skip_syntax_check", False)),
         )
 
+        # OT-031 (ADR-134): Auto-sync written file into KG after successful edit
+        kg_synced = False
+        if not dry_run and apply_result.success and file_path:
+            try:
+                kg_synced = self._post_write_kg_sync(file_path)
+            except Exception as exc:
+                logger.debug("OT-031 KG sync failed (non-blocking): %s", exc)
+
         result: dict[str, Any] = {
             **apply_result.to_dict(),
             "preflight_risk": preflight_raw.get("risk_level", "low"),
             "preflight_warnings": preflight_raw.get("warnings", [])[:3],
+            "kg_synced": kg_synced,
         }
         if generation_result:
             result["generation"] = {
@@ -4530,6 +4539,25 @@ class KogniDevServer:
         except Exception:
             pass  # safety_check is advisory — never block generation
 
+        # Step 4b: Layer 3 format-aware validation (OT-028/030/035)
+        # Read-only — safe for dry_run, never mutates output
+        format_validation_data: dict = {}
+        try:
+            from graqle.validation.output_format import validate_generate_output
+            fmt_validation = validate_generate_output(
+                raw_answer,
+                output_format="diff" if diff_text.startswith(("@@", "---", "diff ")) else "auto",
+                expect_summary=True,
+            )
+            format_validation_data = fmt_validation.to_dict()
+            if not fmt_validation.valid:
+                logger.warning(
+                    "graq_generate format issues: %s",
+                    [d.message for d in fmt_validation.diagnostics],
+                )
+        except Exception as e:
+            logger.debug("format_validation skipped: %s", e)  # advisory — never block
+
         # Step 5: Assemble CodeGenerationResult
         generation_result = CodeGenerationResult(
             query=description,
@@ -4550,6 +4578,7 @@ class KogniDevServer:
                 "preflight_warnings": preflight_raw.get("warnings", [])[:3],
                 "stream": stream,
                 "chunks": stream_chunks,  # empty list when stream=False
+                **({"format_validation": format_validation_data} if format_validation_data else {}),
             },
         )
 
@@ -4977,7 +5006,20 @@ class KogniDevServer:
         # Gather content
         content = diff
         if not content and file_path:
-            read_result = json.loads(await self._handle_read({"file_path": file_path}))
+            # OT-033: Resolve relative paths against project root so untracked
+            # files and newly created files are found regardless of CWD
+            resolved_path = file_path
+            fp = Path(file_path)
+            if not fp.is_absolute() and not fp.exists():
+                graph_obj = self._load_graph()
+                graph_path = getattr(graph_obj, "_graph_path", None) if graph_obj else None
+                if graph_path is not None:
+                    root = Path(graph_path).parent
+                    candidate = root / file_path
+                    if candidate.exists():
+                        resolved_path = str(candidate.resolve())
+                        logger.debug("OT-033: resolved %s → %s", file_path, resolved_path)
+            read_result = json.loads(await self._handle_read({"file_path": resolved_path}))
             if "error" in read_result:
                 return json.dumps(read_result)
             content = read_result.get("content", "")
@@ -5013,9 +5055,22 @@ class KogniDevServer:
             content, destination="llm_review", gate_id="G6",
         )
 
+        # OT-034: Detect abbreviated diffs that cause false positive reviews
+        # Count only lines where '...' is the sole content (not Python Ellipsis in code)
+        abbreviated_warning = ""
+        abbrev_count = sum(1 for line in content.splitlines() if line.strip() == "...")
+        if abbrev_count >= 3:
+            abbreviated_warning = (
+                "\n\nWARNING: This diff appears abbreviated (contains '...' placeholder lines). "
+                "Abbreviated diffs cause false positive findings. If possible, "
+                "submit the full diff for accurate review.\n"
+            )
+            logger.warning("graq_review: abbreviated diff detected (%d '...' lines)", abbrev_count)
+
         review_prompt = (
             f"Perform a code review. {focus_text}\n\n"
             f"Code to review:\n```\n{content}\n```"
+            f"{abbreviated_warning}"
             f"{graph_context}\n\n"
             "Output a JSON object with:\n"
             "- 'summary': one-line summary\n"
@@ -5029,12 +5084,19 @@ class KogniDevServer:
             if graph_obj is None:
                 return json.dumps({"error": "No graph loaded — cannot run review."})
             result = await graph_obj.areason(review_prompt, max_rounds=2, task_type="code")
-            return json.dumps({
+            response: dict[str, Any] = {
                 "tool": "graq_review",
                 "focus": focus,
                 "file_path": file_path or "(diff)",
                 "review": result.answer if hasattr(result, "answer") else str(result),
-            })
+            }
+            # OT-034: Flag abbreviated diff in response
+            if abbreviated_warning:
+                response["abbreviated_diff_warning"] = (
+                    "Diff appears abbreviated — findings may include false positives. "
+                    "Submit the full diff for accurate review."
+                )
+            return json.dumps(response)
         except Exception as exc:
             return json.dumps({"error": str(exc), "tool": "graq_review"})
 

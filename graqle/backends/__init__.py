@@ -5,10 +5,10 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult, TruncationError
 from graqle.backends.mock import MockBackend
 
-__all__ = ["BaseBackend", "MockBackend"]
+__all__ = ["BaseBackend", "GenerateResult", "TruncationError", "MockBackend"]
 
 # Lazy imports for optional backends
 def __getattr__(name: str):

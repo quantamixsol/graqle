@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 
 class LocalModel(BaseBackend):
@@ -73,7 +73,7 @@ class LocalModel(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         self._load_model()
 
         result = self._pipeline(
@@ -92,7 +92,7 @@ class LocalModel(BaseBackend):
                 if idx != -1:
                     text = text[:idx]
 
-        return text.strip()
+        return GenerateResult(text=text.strip(), model=self._model_name)
 
     @property
     def name(self) -> str:

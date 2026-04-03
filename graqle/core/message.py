@@ -44,6 +44,7 @@ class Message:
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     timestamp: datetime = field(default_factory=datetime.utcnow)
     token_count: int = 0
+    metadata: dict = field(default_factory=dict)  # OT-028: extensible metadata (truncation, etc.)
 
     def to_prompt_context(self) -> str:
         """Format message for inclusion in an SLM prompt."""
@@ -68,6 +69,7 @@ class Message:
             "parents": self.parent_messages,
             "tokens": self.token_count,
             "timestamp": self.timestamp.isoformat(),
+            **({"metadata": self.metadata} if self.metadata else {}),
         }
 
     @classmethod

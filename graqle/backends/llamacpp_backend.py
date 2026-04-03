@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.llamacpp")
 
@@ -85,7 +85,7 @@ class LlamaCppBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         **kwargs: Any,
-    ) -> str:
+    ) -> GenerateResult:
         """Generate text using llama.cpp.
 
         Note: llama.cpp is synchronous, so this runs in a thread executor.
@@ -95,11 +95,11 @@ class LlamaCppBackend(BaseBackend):
         self._ensure_model()
 
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
+        text = await loop.run_in_executor(
             None,
             lambda: self._generate_sync(prompt, max_tokens, temperature),
         )
-        return result
+        return GenerateResult(text=text, model=str(Path(self.model_path).stem))
 
     def _generate_sync(
         self, prompt: str, max_tokens: int, temperature: float

@@ -100,6 +100,9 @@ class OrchestrationConfig(BaseModel):
     aggregation: str = "weighted_synthesis"
     async_mode: bool = False
     confidence_threshold: float = 0.8
+    # OT-028 Layer 2: Continuation loop for truncated responses
+    max_continuations: int = 3
+    continuation_overlap_lines: int = 15
 
 
 class ObserverConfig(BaseModel):

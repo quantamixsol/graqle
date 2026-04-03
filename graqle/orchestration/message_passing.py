@@ -84,8 +84,15 @@ class MessagePassingProtocol:
         async def _node_reason(node_id: str) -> tuple[str, Message]:
             node = graph.nodes[node_id]
             query_msg = Message.create_query_broadcast(query, node_id)
+            # OT-028 L2: Wire continuation config from graph
+            orch_cfg = getattr(graph, "config", None)
+            orch = getattr(orch_cfg, "orchestration", None)
+            _max_cont = getattr(orch, "max_continuations", 3)
+            _overlap = getattr(orch, "continuation_overlap_lines", 15)
             result = await node.reason(
-                query, [query_msg], embedding_fn=self.embedding_fn
+                query, [query_msg], embedding_fn=self.embedding_fn,
+                max_continuations=_max_cont,
+                continuation_overlap_lines=_overlap,
             )
             result.source_node_id = node_id
             result.round = 0
@@ -142,8 +149,15 @@ class MessagePassingProtocol:
                 incoming.insert(0, self._observer_feedback[node_id])
 
             # Re-reason with neighbor context + evidence filtering
+            # OT-028 L2: Wire continuation config from graph
+            orch_cfg = getattr(graph, "config", None)
+            orch = getattr(orch_cfg, "orchestration", None)
+            _max_cont = getattr(orch, "max_continuations", 3)
+            _overlap = getattr(orch, "continuation_overlap_lines", 15)
             result = await node.reason(
-                query, incoming, embedding_fn=self.embedding_fn
+                query, incoming, embedding_fn=self.embedding_fn,
+                max_continuations=_max_cont,
+                continuation_overlap_lines=_overlap,
             )
             result.source_node_id = node_id
             result.round = round_num

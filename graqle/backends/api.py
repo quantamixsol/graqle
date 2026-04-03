@@ -22,7 +22,7 @@ import logging
 import os
 from typing import Any
 
-from graqle.backends.base import BaseBackend
+from graqle.backends.base import BaseBackend, GenerateResult
 
 logger = logging.getLogger("graqle.backends.api")
 
@@ -136,7 +136,7 @@ class AnthropicBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         async def _call():
             client = self._get_client()
             response = await client.messages.create(
@@ -149,8 +149,25 @@ class AnthropicBackend(BaseBackend):
             # Defensive response validation
             if not response.content:
                 logger.warning(f"[{self.name}] Empty content in response")
-                return ""
-            return response.content[0].text
+                return GenerateResult(
+                    text="",
+                    truncated=False,
+                    stop_reason=getattr(response, "stop_reason", "") or "",
+                    tokens_used=None,
+                    model=self._model,
+                )
+            # OT-028: Capture stop_reason for truncation detection
+            stop_reason = getattr(response, "stop_reason", "") or ""
+            truncated = stop_reason == "max_tokens"
+            usage = getattr(response, "usage", None)
+            tokens_used = getattr(usage, "output_tokens", None) if usage else None
+            return GenerateResult(
+                text=response.content[0].text,
+                truncated=truncated,
+                stop_reason=stop_reason,
+                tokens_used=tokens_used,
+                model=self._model,
+            )
 
         return await _retry_with_backoff(
             _call, backend_name=self.name, max_retries=self._max_retries
@@ -203,7 +220,7 @@ class AnthropicBackend(BaseBackend):
                 temperature=temperature,
                 stop=stop,
             )
-            yield result
+            yield str(result)
 
 
 class OpenAIBackend(BaseBackend):
@@ -239,7 +256,7 @@ class OpenAIBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         async def _call():
             client = self._get_client()
             response = await client.chat.completions.create(
@@ -252,9 +269,21 @@ class OpenAIBackend(BaseBackend):
             # Defensive response validation
             if not response.choices:
                 logger.warning(f"[{self.name}] No choices in response")
-                return ""
-            content = response.choices[0].message.content
-            return content or ""
+                return GenerateResult(text="", model=self._model)
+            choice = response.choices[0]
+            content = choice.message.content or ""
+            # OT-028: Capture finish_reason for truncation detection
+            finish_reason = getattr(choice, "finish_reason", "") or ""
+            truncated = finish_reason == "length"
+            usage = getattr(response, "usage", None)
+            tokens_used = getattr(usage, "completion_tokens", None) if usage else None
+            return GenerateResult(
+                text=content,
+                truncated=truncated,
+                stop_reason=finish_reason,
+                tokens_used=tokens_used,
+                model=self._model,
+            )
 
         return await _retry_with_backoff(
             _call, backend_name=self.name, max_retries=self._max_retries
@@ -387,7 +416,7 @@ class BedrockBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         import json
 
         async def _call():
@@ -426,11 +455,24 @@ class BedrockBackend(BaseBackend):
                     f"(cumulative: ${self.total_cost_usd:.6f})"
                 )
 
+            # OT-028: Capture stop_reason for truncation detection
+            stop_reason = result.get("stop_reason", "") or ""
+            truncated = stop_reason == "max_tokens"
+
             # Defensive validation
             if "content" not in result or not result["content"]:
                 logger.warning(f"[{self.name}] No content in Bedrock response")
-                return ""
-            return result["content"][0].get("text", "")
+                return GenerateResult(
+                    text="", truncated=truncated, stop_reason=stop_reason,
+                    tokens_used=out_tok or None, model=self._model,
+                )
+            return GenerateResult(
+                text=result["content"][0].get("text", ""),
+                truncated=truncated,
+                stop_reason=stop_reason,
+                tokens_used=out_tok or None,
+                model=self._model,
+            )
 
         try:
             return await _retry_with_backoff(
@@ -507,7 +549,7 @@ class OllamaBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         async def _call():
             try:
                 import httpx
@@ -539,7 +581,17 @@ class OllamaBackend(BaseBackend):
                     text = re.sub(
                         r"<think>.*?</think>\s*", "", text, flags=re.DOTALL
                     )
-                return text.strip()
+                # OT-028: Capture done_reason for truncation detection
+                done_reason = data.get("done_reason", "") or ""
+                truncated = done_reason == "length"
+                tokens_used = data.get("eval_count")  # Ollama output token count
+                return GenerateResult(
+                    text=text.strip(),
+                    truncated=truncated,
+                    stop_reason=done_reason,
+                    tokens_used=tokens_used,
+                    model=self._model,
+                )
 
         return await _retry_with_backoff(
             _call, backend_name=self.name, max_retries=self._max_retries
@@ -580,7 +632,7 @@ class CustomBackend(BaseBackend):
         max_tokens: int = 512,
         temperature: float = 0.3,
         stop: list[str] | None = None,
-    ) -> str:
+    ) -> GenerateResult:
         async def _call():
             try:
                 import httpx
@@ -609,9 +661,19 @@ class CustomBackend(BaseBackend):
                 choices = data.get("choices", [])
                 if not choices:
                     logger.warning(f"[{self.name}] No choices in response")
-                    return ""
-                message = choices[0].get("message", {})
-                return message.get("content", "")
+                    return GenerateResult(text="", model=self._model)
+                choice = choices[0]
+                message = choice.get("message", {})
+                # OT-028: Best-effort finish_reason from OpenAI-compatible API
+                finish_reason = choice.get("finish_reason", "") or ""
+                truncated = finish_reason == "length"
+                return GenerateResult(
+                    text=message.get("content", ""),
+                    truncated=truncated,
+                    stop_reason=finish_reason,
+                    tokens_used=None,  # Unknown for custom endpoints
+                    model=self._model,
+                )
 
         return await _retry_with_backoff(
             _call, backend_name=self.name, max_retries=self._max_retries
