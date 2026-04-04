@@ -41,6 +41,21 @@ def _build_mock_graph() -> MagicMock:
         "SyncEngine": MagicMock(label="SyncEngine", entity_type="Class", description="Cloud sync"),
     }
     graph.edges = {}
+    # OT-054: _handle_generate now calls backend.generate() directly
+    # instead of graph.areason(). Mock the new code path.
+    graph._activate_subgraph = MagicMock(return_value=["SyncEngine"])
+    graph.config.activation.strategy = "spread"
+    _mock_backend = MagicMock()
+    _mock_gen_result = MagicMock()
+    _mock_gen_result.text = (
+        "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,2 @@\n+# added\n"
+        "\nSUMMARY: Added comment."
+    )
+    _mock_gen_result.tokens_used = 100
+    _mock_backend.generate = AsyncMock(return_value=_mock_gen_result)
+    _mock_backend.cost_per_1k_tokens = 0.003
+    graph._get_backend_for_node = MagicMock(return_value=_mock_backend)
+    # Keep areason for any other tests that might use it
     graph.areason = AsyncMock(return_value=_MockReasoningResult())
     return graph
 

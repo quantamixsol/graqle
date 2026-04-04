@@ -22,28 +22,23 @@ def _build_mock_server():
     server._graph_file = None
     server._graph_mtime = 0.0
 
-    # Mock graph that supports both areason and areason_stream
+    # OT-054: Mock graph with direct backend.generate() path
     mock_graph = MagicMock()
+    mock_graph.nodes = {
+        "node_a": MagicMock(label="node_a", entity_type="Class", description="Test node"),
+    }
+    mock_graph._activate_subgraph = MagicMock(return_value=["node_a"])
+    mock_graph.config.activation.strategy = "spread"
 
-    # areason returns a structured ReasoningResult-like object
-    mock_result = MagicMock()
-    mock_result.answer = "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,2 @@\n+# added\n SUMMARY: Added comment"
-    mock_result.confidence = 0.82
-    mock_result.rounds_completed = 1
-    mock_result.active_nodes = ["node_a"]
-    mock_result.cost_usd = 0.001
-    mock_result.backend_status = "ok"
-    mock_result.backend_error = ""
-    mock_graph.areason = AsyncMock(return_value=mock_result)
+    # Direct backend mock
+    mock_backend = MagicMock()
+    mock_gen_result = MagicMock()
+    mock_gen_result.text = "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,2 @@\n+# added\nSUMMARY: Added comment"
+    mock_gen_result.tokens_used = 100
+    mock_backend.generate = AsyncMock(return_value=mock_gen_result)
+    mock_backend.cost_per_1k_tokens = 0.003
+    mock_graph._get_backend_for_node = MagicMock(return_value=mock_backend)
 
-    # areason_stream yields chunk objects with .content attribute
-    async def _fake_stream(*args, **kwargs):
-        for text in ["--- a/foo.py\n", "+++ b/foo.py\n", "@@ -1 +1,2 @@\n", "+# added\n"]:
-            chunk = MagicMock()
-            chunk.content = text
-            yield chunk
-
-    mock_graph.areason_stream = _fake_stream
     server._graph = mock_graph
 
     return server
@@ -74,8 +69,8 @@ async def test_stream_false_returns_no_chunks(server):
 
 
 @pytest.mark.asyncio
-async def test_stream_true_populates_chunks(server):
-    """stream=True → metadata.chunks contains the streamed text pieces."""
+async def test_stream_true_returns_empty_chunks_ot054(server):
+    """OT-054: stream=True logs warning but returns empty chunks (direct backend mode)."""
     with patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_preflight",
                new=AsyncMock(return_value='{"risk_level":"low","warnings":[]}')), \
          patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_safety_check",
@@ -88,13 +83,13 @@ async def test_stream_true_populates_chunks(server):
     if "error" not in data:
         chunks = data["metadata"]["chunks"]
         assert isinstance(chunks, list)
-        assert len(chunks) >= 1
+        assert len(chunks) == 0  # OT-054: streaming not supported in direct mode
         assert data["metadata"]["stream"] is True
 
 
 @pytest.mark.asyncio
-async def test_stream_true_chunks_join_to_non_empty(server):
-    """stream=True → joining chunks produces non-empty text."""
+async def test_stream_true_still_returns_valid_diff_ot054(server):
+    """OT-054: stream=True still produces a valid diff (non-streaming fallback)."""
     with patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_preflight",
                new=AsyncMock(return_value='{"risk_level":"low","warnings":[]}')), \
          patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_safety_check",
@@ -105,8 +100,9 @@ async def test_stream_true_chunks_join_to_non_empty(server):
 
     data = json.loads(raw)
     if "error" not in data:
-        chunks = data["metadata"]["chunks"]
-        assert "".join(chunks).strip() != ""
+        patches = data.get("patches", [])
+        assert len(patches) >= 1
+        assert "---" in patches[0]["unified_diff"]
 
 
 @pytest.mark.asyncio
