@@ -4,6 +4,17 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.4 — 2026-04-04
+
+### Fixed
+- **graq_generate activation quality** — sibling modules from the same package now seeded into activation via exact `PurePath` parent match. Resolves hub-bias where test files outscored actual source modules.
+- **graq_generate context-augmented activation** — `context` parameter keywords included in the activation query (sentence-boundary truncated, type-safe). ChunkScorer now matches on graq_reason design terms.
+- **graq_generate round optimization** — respects config `min_rounds` floor and caller `max_rounds` ceiling.
+- **graq_generate sandbox fix** — new file paths validated against graph root. Absolute paths rejected. Parent directory existence checked within sandbox.
+- **graq_generate stream consistency** — `areason_stream` and `areason` use the same activation query.
+
+---
+
 ## v0.42.3 — 2026-04-04
 
 ### Fixed
