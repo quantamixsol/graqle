@@ -59,6 +59,7 @@ from graqle.intelligence.models import (
 )
 from graqle.intelligence.scorecard import RunningScorecard
 from graqle.intelligence.validators import run_all_gates
+from graqle.utils.gitignore import GitignoreMatcher
 
 logger = logging.getLogger("graqle.intelligence.pipeline")
 
@@ -190,12 +191,18 @@ def structural_pass(root: Path) -> ProjectShape:
         if any((root / m).exists() for m in markers):
             shape.ai_tools.append(tool)
 
+    # .gitignore filtering (v0.42.2 hotfix B1 — aligns compile with scan)
+    gitignore = GitignoreMatcher(root)
+
     # Walk directory tree
     for dirpath, dirnames, filenames in os.walk(root):
-        # Skip hidden and build dirs
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
+        # Single combined filter: SKIP_DIRS (fast) + hidden dirs + .gitignore patterns
         dirnames[:] = [
             d for d in dirnames
-            if d not in SKIP_DIRS and not (d.startswith(".") and d not in {".github"})
+            if d not in SKIP_DIRS
+            and not (d.startswith(".") and d not in {".github"})
+            and not gitignore.is_ignored(f"{rel_dir}/{d}" if rel_dir != "." else d)
         ]
         shape.dir_count += 1
 
