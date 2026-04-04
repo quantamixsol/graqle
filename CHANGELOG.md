@@ -4,6 +4,18 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.3 — 2026-04-04
+
+### Fixed
+- **graq_generate task routing** — `_handle_generate` now uses `task_type="generate"` instead of `"reason"`, enabling proper model routing when task-based rules are configured in `graqle.yaml`. Cost reduction of 5-18x when routing code generation to a cheaper model.
+- **graq_generate KG sync** — after non-dry-run file generation, new files are automatically synced into the knowledge graph (mirrors `_handle_edit` behavior). Subsequent `graq_reason`/`graq_context` calls about generated files now have full graph coverage.
+- **graq_generate file resolution** — graceful handling for non-existent target file paths (graq_generate creates new files).
+
+### Added
+- **`context` parameter for graq_generate** — optional parameter to pipe `graq_reason` output as advisory design constraints into the generation prompt. XML-delimited, sanitized, capped at 4096 characters. Enables `graq_reason` → `graq_generate` pipeline for architecture-first code generation.
+
+---
+
 ## v0.42.1 — 2026-04-03
 
 ### Added
