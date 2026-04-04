@@ -4,6 +4,16 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.5 — 2026-04-05
+
+### Fixed
+- **graq_generate output format (OT-054)** — replaced multi-agent `areason()` pipeline with direct `backend.generate()` call. Code generation now produces unified diffs instead of prose analysis. Single LLM call with rich prompt: file content (XML-delimited), graph context from activated nodes, preflight data, optional design constraints.
+- **graq_generate prompt injection mitigation** — file content uses XML delimiters instead of markdown fences. All inputs capped (file: 50K chars, description: 4K, context: 2K). System prompt instructs model to treat XML-tagged content as data only.
+- **graq_generate confidence scoring** — confidence derived from actual output quality (diff headers, hunk markers, SUMMARY presence) instead of hardcoded values.
+- **graq_generate error handling** — activation failures logged instead of silently swallowed. Backend selection errors return structured JSON. `stream=True` logs warning (direct-backend mode does not support streaming).
+
+---
+
 ## v0.42.4 — 2026-04-04
 
 ### Fixed
