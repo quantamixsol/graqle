@@ -4437,6 +4437,7 @@ class KogniDevServer:
         Gate: team/enterprise plan only.
         """
         import time as _time
+        from pathlib import Path, PurePath
         from graqle.core.generation import CodeGenerationResult, DiffPatch, GenerationRequest
         from graqle.cloud.credentials import load_credentials
 
@@ -4457,13 +4458,39 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'description' is required."})
 
         # B3: Resolve file path via graph root (v0.42.2 hotfix)
+        # OT-048: graq_generate creates new files — FileNotFoundError is expected.
+        # Sandbox check: resolve against graph root before allowing.
+        _original_file_path = file_path  # preserve relative path for P0-A sibling matching
         if file_path:
             try:
                 file_path = self._resolve_file_path(file_path)
             except PermissionError as pe:
+                logger.warning("access_denied resolving %s: %s", file_path, pe)
                 return json.dumps({"success": False, "error": "access_denied"})
-            except FileNotFoundError as fnf:
-                return json.dumps({"success": False, "error": str(fnf), "file_path": file_path})
+            except FileNotFoundError:
+                # OT-048: new file — sandbox-validate against graph root
+                _graph_file = getattr(self, "_graph_file", None)
+                if not _graph_file:
+                    return json.dumps({
+                        "success": False,
+                        "error": "graph_path_not_configured",
+                    })
+                # Reject absolute paths (PurePath join silently discards left side)
+                if Path(file_path).is_absolute():
+                    return json.dumps({
+                        "success": False,
+                        "error": "absolute_path_rejected",
+                    })
+                _fp = (Path(_graph_file).parent / file_path).resolve()
+                if _fp.parent.exists():
+                    file_path = str(_fp)
+                    logger.debug("OT-048: new file target — %s", file_path)
+                else:
+                    logger.warning("graq_generate: parent missing for %s", _fp.parent)
+                    return json.dumps({
+                        "success": False,
+                        "error": "parent_directory_missing",
+                    })
 
         # Plan gate — team/enterprise only
         try:
@@ -4597,35 +4624,73 @@ class KogniDevServer:
             f"6. After the diff, add one line: SUMMARY: <one sentence>\n"
         )
 
+        # P0-A: Path-locality seeding — exact parent match, platform-aware.
+        # Uses _original_file_path (relative) to match graph node IDs (also relative).
+        _MAX_LOCALITY_NODES = 15
+        _sibling_ids: list[str] = []
+        if _original_file_path:
+            try:
+                _target_parent = PurePath(_original_file_path).parent
+                _sibling_ids = [
+                    nid for nid in graph.nodes
+                    if PurePath(nid).parent == _target_parent
+                    and nid != _original_file_path
+                ][:_MAX_LOCALITY_NODES]
+            except (ValueError, TypeError):
+                pass  # non-path node IDs — fall through to standard activation
+            if _sibling_ids:
+                logger.info(
+                    "graq_generate locality: %d sibling nodes from %s",
+                    len(_sibling_ids), _target_parent,
+                )
+
+        # P0-B: Context-augmented activation — include context keywords in
+        # the activation query so ChunkScorer matches on constraint terms.
+        # Truncate at sentence boundary to avoid clipping mid-keyword.
+        _CTX_SEARCH_WINDOW = 600
+        _CTX_SENTENCE_MIN = 200
+        _CTX_FALLBACK_LEN = 500
+        _activation_query = generation_prompt
+        if context and description and isinstance(context, str):
+            _ctx_preview = context[:_CTX_SEARCH_WINDOW]
+            _last_period = _ctx_preview.rfind(".")
+            if _last_period > _CTX_SENTENCE_MIN:
+                _ctx_preview = _ctx_preview[:_last_period + 1]
+            else:
+                _ctx_preview = _ctx_preview[:_CTX_FALLBACK_LEN]
+            _activation_query = f"{description}\nConstraints: {_ctx_preview}"
+            logger.debug("Context-augmented activation query (%d chars)", len(_activation_query))
+
+        # P2: Round optimization — respect both config floor AND caller ceiling.
+        try:
+            _min_rounds = int(graph.config.orchestration.min_rounds)
+        except (AttributeError, TypeError, ValueError):
+            _min_rounds = 1
+        _effective_rounds = min(max(_min_rounds, 1), max_rounds)
+
         stream_chunks: list[str] = []
         try:
             if stream:
-                # T3.4: streaming path — collect chunks from agenerate_stream().
-                # Works with ANY backend:
-                #   Anthropic → native token-by-token via client.messages.stream()
-                #   All others → single-chunk fallback from BaseBackend.agenerate_stream()
-                # The full result is also returned in the standard `answer` field so
-                # callers that ignore `chunks` still get the complete response.
                 async for chunk in graph.areason_stream(
-                    generation_prompt,
-                    max_rounds=max_rounds,
+                    _activation_query,
+                    max_rounds=_effective_rounds,
                 ):
                     if hasattr(chunk, "content"):
                         stream_chunks.append(chunk.content)
                     else:
                         stream_chunks.append(str(chunk))
-                # Re-run non-streaming for the structured ReasoningResult fields
-                # (confidence, active_nodes, cost_usd, etc.) — areason_stream only yields text.
                 result = await graph.areason(
-                    generation_prompt,
-                    max_rounds=max_rounds,
+                    _activation_query,
+                    max_rounds=_effective_rounds,
                     task_type="generate",
+                    node_ids=_sibling_ids if _sibling_ids else None,
                 )
             else:
                 result = await graph.areason(
-                    generation_prompt,
-                    max_rounds=max_rounds,
+                    _activation_query,
+                    max_rounds=_effective_rounds,
                     task_type="generate",
+                    node_ids=_sibling_ids if _sibling_ids else None,
                 )
         except Exception as exc:
             err = str(exc)[:300]
