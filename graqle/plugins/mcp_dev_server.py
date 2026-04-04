@@ -4596,13 +4596,13 @@ class KogniDevServer:
                 result = await graph.areason(
                     generation_prompt,
                     max_rounds=max_rounds,
-                    task_type="reason",
+                    task_type="generate",
                 )
             else:
                 result = await graph.areason(
                     generation_prompt,
                     max_rounds=max_rounds,
-                    task_type="reason",
+                    task_type="generate",
                 )
         except Exception as exc:
             err = str(exc)[:300]
