@@ -1385,6 +1385,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     ),
                     "default": False,
                 },
+                "context": {
+                    "type": "string",
+                    "description": (
+                        "Optional design constraints (e.g., graq_reason output) to strongly guide "
+                        "generation. LLM compliance is best-effort."
+                    ),
+                    "maxLength": 4096,
+                },
             },
             "required": ["description"],
         },
@@ -4421,6 +4429,7 @@ class KogniDevServer:
             file_path: target file (optional — graph infers if omitted)
             max_rounds: LLM reasoning rounds (default 2, max 5)
             dry_run: if True, return diff without applying (always True in Phase 1)
+            context: graq_reason output as advisory constraints (OT-049, max 4096 chars)
 
         Returns:
             JSON of CodeGenerationResult.to_dict()
@@ -4436,6 +4445,13 @@ class KogniDevServer:
         max_rounds = min(max(int(args.get("max_rounds", 2)), 1), 5)
         dry_run = bool(args.get("dry_run", True))  # Phase 1: always dry_run
         stream = bool(args.get("stream", False))  # T3.4: backend streaming support
+        _raw_context = args.get("context", "")  # OT-049: graq_reason output as constraints
+        # Sanitize + cap length (prompt-injection mitigation per graq_review BLOCKER)
+        _MAX_CONTEXT_CHARS = 4096
+        context = _raw_context[:_MAX_CONTEXT_CHARS].strip() if _raw_context else ""
+
+        # TODO(OT-048): remove FileNotFoundError pass once _resolve_file_path
+        # handles non-existent paths natively (B3 merge from public master).
 
         if not description:
             return json.dumps({"error": "Parameter 'description' is required."})
@@ -4552,6 +4568,12 @@ class KogniDevServer:
 
         # Build generation prompt with actual file content
         file_context = f" for file '{file_path}'" if file_path else ""
+        # OT-049: Inject graq_reason output as advisory constraints (XML-delimited)
+        context_block = ""
+        if context:
+            context_block = (
+                f"\n<design-constraints>\n{context.strip()}\n</design-constraints>\n"
+            )
         file_content_block = ""
         if file_content:
             file_content_block = (
@@ -4564,6 +4586,7 @@ class KogniDevServer:
         generation_prompt = (
             f"CODE GENERATION TASK{file_context}:\n"
             f"{description}\n"
+            f"{context_block}"
             f"{file_content_block}"
             f"Instructions:\n"
             f"1. Produce ONLY a valid unified diff in standard format (--- a/... +++ b/... @@ hunks)\n"
@@ -4596,13 +4619,13 @@ class KogniDevServer:
                 result = await graph.areason(
                     generation_prompt,
                     max_rounds=max_rounds,
-                    task_type="reason",
+                    task_type="generate",
                 )
             else:
                 result = await graph.areason(
                     generation_prompt,
                     max_rounds=max_rounds,
-                    task_type="reason",
+                    task_type="generate",
                 )
         except Exception as exc:
             err = str(exc)[:300]
@@ -4682,7 +4705,16 @@ class KogniDevServer:
         except Exception as e:
             logger.debug("format_validation skipped: %s", e)  # advisory — never block
 
-        # Step 5: Assemble CodeGenerationResult
+        # Step 5: OT-050 — sync written file into KG (mirrors _handle_edit per ADR-134)
+        if not dry_run and file_path:
+            try:
+                self._post_write_kg_sync(file_path)
+            except (IOError, OSError, RuntimeError) as sync_err:
+                logger.exception(
+                    "KG sync after graq_generate failed for %s", file_path,
+                )
+
+        # Step 6: Assemble CodeGenerationResult
         generation_result = CodeGenerationResult(
             query=description,
             answer=summary_line or f"Generated diff: {lines_added} lines added, {lines_removed} removed.",
