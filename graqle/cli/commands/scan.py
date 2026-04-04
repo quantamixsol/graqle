@@ -609,69 +609,11 @@ class JSAnalyzer:
 
 
 # ---------------------------------------------------------------------------
-# Gitignore Matcher (lightweight)
+# Gitignore Matcher — extracted to graqle.utils.gitignore (v0.42.2 hotfix B1)
+# Re-exported here for backward compatibility.
 # ---------------------------------------------------------------------------
 
-class GitignoreMatcher:
-    """Simple .gitignore pattern matching (covers most common patterns).
-
-    Also reads ``.graqle-ignore`` if present, applying the same syntax.
-    Extra patterns can be supplied via *extra_patterns* (e.g. from ``--exclude``).
-    """
-
-    def __init__(
-        self,
-        repo_root: Path,
-        *,
-        extra_patterns: list[str] | None = None,
-    ) -> None:
-        self._patterns: list[re.Pattern[str]] = []
-        for ignore_file in (".gitignore", ".graqle-ignore"):
-            gi = repo_root / ignore_file
-            if gi.is_file():
-                self._load_file(gi)
-        if extra_patterns:
-            for pat in extra_patterns:
-                pat = pat.strip()
-                if pat and not pat.startswith("#"):
-                    self._patterns.append(self._compile(pat))
-
-    def _load_file(self, path: Path) -> None:
-        """Load patterns from a gitignore-style file."""
-        for raw_line in path.read_text(errors="ignore").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            self._patterns.append(self._compile(line))
-
-    @staticmethod
-    def _compile(pattern: str) -> re.Pattern[str]:
-        """Convert a gitignore glob to a regex."""
-        neg = False
-        if pattern.startswith("!"):
-            neg = True
-            pattern = pattern[1:]
-        pattern = pattern.rstrip("/")
-        # Escape and convert globs
-        regex = pattern.replace(".", r"\.")
-        regex = regex.replace("**", "<<<GLOBSTAR>>>")
-        regex = regex.replace("*", "[^/]*")
-        regex = regex.replace("<<<GLOBSTAR>>>", ".*")
-        regex = regex.replace("?", "[^/]")
-        # Match at any directory level if no leading /
-        if not regex.startswith("/"):
-            regex = f"(?:^|.*/){regex}"
-        else:
-            regex = "^" + regex[1:]
-        regex += "(?:/.*)?$"
-        return re.compile(regex)
-
-    def is_ignored(self, rel_path: str) -> bool:
-        """Return True if *rel_path* matches any ignore pattern."""
-        for pat in self._patterns:
-            if pat.search(rel_path):
-                return True
-        return False
+from graqle.utils.gitignore import GitignoreMatcher  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -2218,43 +2160,8 @@ def _scan_repo_impl(
         if verbose:
             console.print(f"[dim]Cloud sync warning: {_sync_exc}[/dim]")
 
-    # Auto-build embedding cache after scan (fixes: users who forget
-    # `graq rebuild --embeddings` fall back to slow per-query embedding).
-    cache_path = Path(".graqle/chunk_embeddings.npz")
-    cache_stale = (
-        cache_path.exists()
-        and cache_path.stat().st_mtime < out_path.stat().st_mtime
-    )
-    if not cache_path.exists() or cache_stale:
-        try:
-            from graqle.activation.chunk_scorer import ChunkScorer
-            from graqle.activation.embeddings import create_embedding_engine
-            from graqle.core.graph import Graqle
-
-            console.print("\n[cyan]Building embedding cache for fast queries...[/cyan]")
-            _cfg = None
-            if config_path and config_path.exists():
-                try:
-                    from graqle.config.settings import GraqleConfig
-                    _cfg = GraqleConfig.from_yaml(str(config_path))
-                except Exception:
-                    pass
-            engine = create_embedding_engine(_cfg)
-            graph_obj = Graqle.from_json(str(out_path))
-            scorer = ChunkScorer(embedding_engine=engine)
-            scorer.build_cache(graph_obj)
-            cache_size = cache_path.stat().st_size / 1024 if cache_path.exists() else 0
-            console.print(
-                f"[green]Embedding cache built[/green] "
-                f"({cache_size:.0f} KB) — queries will be fast."
-            )
-        except Exception as exc:
-            console.print(
-                f"\n[yellow]Could not auto-build embedding cache: {exc}[/yellow]\n"
-                "[yellow]Run [bold]graq rebuild --embeddings[/bold] manually.[/yellow]"
-            )
-    else:
-        console.print("\n[dim]Embedding cache is up to date.[/dim]")
+    # Auto-build embedding cache (shared helper — v0.42.2 hotfix B2)
+    _rebuild_embedding_cache(out_path, config_path)
 
     # Auto-install git post-commit hook so graph stays in sync with every commit.
     # This is the core promise: "graph grows with your code."
@@ -2406,6 +2313,10 @@ def scan_docs(
     _save_graph_data(graph_path, nodes, edges)
     _print_doc_scan_summary(result)
 
+    # Rebuild embedding cache so DOCUMENT/SECTION nodes get embeddings (v0.42.2 hotfix B2).
+    # force=True: graph just changed with new doc nodes, cache is always stale.
+    _rebuild_embedding_cache(graph_path, force=True)
+
 
 @scan_app.command("file")
 def scan_file(
@@ -2436,6 +2347,10 @@ def scan_file(
 
     _save_graph_data(graph_path, nodes, edges)
     _print_doc_scan_summary(result)
+
+    # Rebuild embedding cache so DOCUMENT/SECTION nodes get embeddings (v0.42.2 hotfix B2).
+    # force=True: graph just changed with new doc nodes, cache is always stale.
+    _rebuild_embedding_cache(graph_path, force=True)
 
 
 @scan_app.command("all")
@@ -2616,6 +2531,59 @@ def scan_json(
 # ---------------------------------------------------------------------------
 # Helpers for doc scan CLI commands
 # ---------------------------------------------------------------------------
+
+
+def _rebuild_embedding_cache(
+    graph_path: Path,
+    config_path: Path | None = None,
+    *,
+    force: bool = False,
+) -> None:
+    """Rebuild the embedding cache after graph changes (v0.42.2 hotfix B2).
+
+    Shared helper used by both scan_repo and scan_docs to ensure
+    DOCUMENT/SECTION/KNOWLEDGE nodes get embeddings for graq_reason.
+    """
+    # Derive cache path from graph location, not CWD (MAJOR fix from review)
+    cache_dir = graph_path.parent / ".graqle"
+    cache_path = cache_dir / "chunk_embeddings.npz"
+    cache_stale = (
+        cache_path.exists()
+        and cache_path.stat().st_mtime < graph_path.stat().st_mtime
+    )
+    if not cache_path.exists() or cache_stale or force:
+        try:
+            from graqle.activation.chunk_scorer import ChunkScorer
+            from graqle.activation.embeddings import create_embedding_engine
+            from graqle.core.graph import Graqle
+
+            console.print("\n[cyan]Building embedding cache for fast queries...[/cyan]")
+            _cfg = None
+            if config_path and config_path.exists():
+                try:
+                    from graqle.config.settings import GraqleConfig
+                    _cfg = GraqleConfig.from_yaml(str(config_path))
+                except Exception as cfg_exc:
+                    console.print(
+                        f"[yellow]Config load failed ({config_path}): {cfg_exc}, "
+                        "using defaults[/yellow]"
+                    )
+            engine = create_embedding_engine(_cfg)
+            graph_obj = Graqle.from_json(str(graph_path))
+            scorer = ChunkScorer(embedding_engine=engine)
+            scorer.build_cache(graph_obj)
+            cache_size = cache_path.stat().st_size / 1024 if cache_path.exists() else 0
+            console.print(
+                f"[green]Embedding cache built[/green] "
+                f"({cache_size:.0f} KB) — queries will be fast."
+            )
+        except Exception as exc:
+            console.print(
+                f"\n[yellow]Could not auto-build embedding cache: {exc}[/yellow]\n"
+                "[yellow]Run [bold]graq rebuild --embeddings[/bold] manually.[/yellow]"
+            )
+    else:
+        console.print("\n[dim]Embedding cache is up to date.[/dim]")
 
 
 def _load_graph_data(graph_path: Path) -> tuple[dict, dict]:

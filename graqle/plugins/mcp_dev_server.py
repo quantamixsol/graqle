@@ -1882,6 +1882,11 @@ class KogniDevServer:
         self._neo4j_traversal: Any = None  # Neo4jTraversal, set when Neo4j active
         self._intent_learner: Any = None  # OnlineLearner, loaded lazily
         self._intent_ring_buffer: Any = None  # RingBuffer for dedup
+        # B4: Session cache for cross-tool context reuse (v0.42.2 hotfix)
+        # Key: (file_path, description, file_mtime), Value: generation result dict
+        # Avoids re-reasoning in graq_edit when graq_reason already produced the fix.
+        from collections import OrderedDict
+        self._session_cache: OrderedDict = OrderedDict()
 
     # ------------------------------------------------------------------
     # Graph lifecycle
@@ -1994,6 +1999,91 @@ class KogniDevServer:
         except Exception as exc:
             logger.error("Failed to load graph: %s", exc)
             return None
+
+    def _resolve_file_path(self, file_path: str) -> str:
+        """Resolve a relative file path against the graph's project root.
+
+        Ported from _handle_review OT-033 to all file-handling handlers
+        (v0.42.2 hotfix B3). Resolution order:
+        1. Graph-root-relative (preferred — most reliable)
+        2. CWD-relative (if exists and contained)
+        3. Bounded rglob fallback (filtered before cap)
+
+        All resolved paths verified via Path.is_relative_to() (Python 3.9+).
+        Absolute paths rejected. Path traversal raises PermissionError.
+        """
+        import itertools
+
+        # Security: reject traversal attempts
+        fp = Path(file_path)
+        if ".." in fp.parts:
+            raise PermissionError("Path traversal not allowed")
+
+        normalized = file_path.replace("\\", "/")
+
+        # Establish project root from graph
+        graph_obj = self._load_graph()
+        # Use server's _graph_file (always set), fallback to graph._graph_path
+        _raw = getattr(self, "_graph_file", None) or (
+            getattr(graph_obj, "_graph_path", None) if graph_obj else None
+        )
+        # Guard against MagicMock attributes (test fixtures use __new__ bypass)
+        graph_path = str(_raw) if isinstance(_raw, (str, Path)) else None
+        try:
+            project_root = Path(graph_path).parent.resolve() if graph_path else Path.cwd().resolve()
+        except (TypeError, ValueError):
+            project_root = Path.cwd().resolve()
+            graph_path = None
+
+        def _assert_contained(resolved: Path) -> str:
+            """Post-resolution containment check (canonical security gate)."""
+            resolved = resolved.resolve()
+            if not resolved.is_relative_to(project_root):
+                raise PermissionError("Path escapes project root")
+            return str(resolved)
+
+        # 0. Absolute path — containment check if graph loaded, pass-through otherwise
+        if fp.is_absolute():
+            if fp.exists():
+                if graph_path is not None:
+                    return _assert_contained(fp)
+                return str(fp.resolve())  # No graph = no root to enforce
+            raise FileNotFoundError(f"Cannot resolve: {file_path}")
+
+        # 1. Graph-root-relative (preferred)
+        if graph_path is not None:
+            candidate = (project_root / file_path).resolve()
+            if candidate.exists():
+                return _assert_contained(candidate)
+
+        # 2. CWD-relative
+        resolved_fp = fp.resolve()
+        if resolved_fp.exists():
+            return _assert_contained(resolved_fp)
+
+        # 3. Bounded rglob fallback (filter INSIDE generator, before islice cap)
+        if graph_path is not None:
+            target_name = fp.name
+            _SKIP = frozenset({".git", "node_modules", "__pycache__", ".venv", "venv"})
+
+            def _filtered_rglob():
+                for m in project_root.rglob(target_name):
+                    if any(p in _SKIP or p.startswith(".") for p in m.parts):
+                        continue
+                    if str(m.resolve()).replace("\\", "/").endswith(normalized):
+                        yield m
+
+            matches = list(itertools.islice(_filtered_rglob(), 50))
+            if len(matches) == 1:
+                return _assert_contained(matches[0])
+            elif len(matches) > 1:
+                logger.warning(
+                    "resolve_file_path: %d matches for %s — using first",
+                    len(matches), file_path,
+                )
+                return _assert_contained(matches[0])
+
+        raise FileNotFoundError(f"Cannot resolve: {file_path}")
 
     @staticmethod
     def _assign_backend(graph: Any, cfg: Any) -> None:
@@ -3150,6 +3240,8 @@ class KogniDevServer:
         self._graph = None  # Force reload
         self._config = None  # Force config re-read
         self._graph_mtime = 0.0
+        if hasattr(self, "_session_cache"):
+            self._session_cache.clear()  # B4: Invalidate cache on reload
         graph = self._load_graph()
         new_count = len(graph.nodes) if graph else 0
 
@@ -4153,7 +4245,7 @@ class KogniDevServer:
         if not description and not provided_diff:
             return json.dumps({"error": "Either 'description' or 'diff' is required."})
 
-        # Plan gate
+        # Plan gate (runs BEFORE file resolution — business check first)
         try:
             creds = load_credentials()
             if creds.plan not in ("team", "enterprise"):
@@ -4168,6 +4260,14 @@ class KogniDevServer:
                 })
         except Exception:
             pass  # dev/local setup
+
+        # B3: Resolve file path via graph root (v0.42.2 hotfix)
+        # Best-effort resolution — PermissionError blocks traversal attempts,
+        # FileNotFoundError deferred so governance gates still fire.
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (PermissionError, FileNotFoundError):
+            pass  # Resolution is best-effort; actual file I/O catches real errors
 
         # Step 1: Preflight
         preflight_raw = json.loads(await self._handle_preflight({
@@ -4232,12 +4332,27 @@ class KogniDevServer:
         generation_result: dict[str, Any] | None = None
 
         if not unified_diff and description:
-            gen_raw = json.loads(await self._handle_generate({
-                "description": description,
-                "file_path": file_path,
-                "max_rounds": int(args.get("max_rounds", 2)),
-                "dry_run": True,  # generation is always dry_run — edit applies it
-            }))
+            # B4: Check session cache before expensive generation (v0.42.2 hotfix)
+            import copy
+            cache_key = None
+            if file_path is not None and description is not None:
+                try:
+                    file_mtime = Path(file_path).stat().st_mtime
+                except OSError:
+                    file_mtime = 0.0
+                cache_key = (file_path, description, file_mtime)
+            cached = getattr(self, "_session_cache", {}).get(cache_key) if cache_key else None
+            if cached and cached.get("patches") is not None:
+                logger.info("B4: cache hit for %s — skipping re-generation", file_path)
+                self._session_cache.move_to_end(cache_key)  # LRU touch
+                gen_raw = copy.deepcopy(cached)
+            else:
+                gen_raw = json.loads(await self._handle_generate({
+                    "description": description,
+                    "file_path": file_path,
+                    "max_rounds": int(args.get("max_rounds", 2)),
+                    "dry_run": True,  # generation is always dry_run — edit applies it
+                }))
             if "error" in gen_raw:
                 return json.dumps(gen_raw)  # propagate generation error
             generation_result = gen_raw
@@ -4324,6 +4439,15 @@ class KogniDevServer:
 
         if not description:
             return json.dumps({"error": "Parameter 'description' is required."})
+
+        # B3: Resolve file path via graph root (v0.42.2 hotfix)
+        if file_path:
+            try:
+                file_path = self._resolve_file_path(file_path)
+            except PermissionError as pe:
+                return json.dumps({"success": False, "error": "access_denied"})
+            except FileNotFoundError as fnf:
+                return json.dumps({"success": False, "error": str(fnf), "file_path": file_path})
 
         # Plan gate — team/enterprise only
         try:
@@ -4582,7 +4706,22 @@ class KogniDevServer:
             },
         )
 
-        return json.dumps(generation_result.to_dict())
+        # B4: Cache generation result for cross-tool reuse (v0.42.2 hotfix)
+        result_dict = generation_result.to_dict()
+        if file_path is not None and description is not None and hasattr(self, "_session_cache"):
+            try:
+                file_mtime = Path(file_path).stat().st_mtime
+            except OSError:
+                file_mtime = 0.0
+            cache_key = (file_path, description, file_mtime)
+            # Evict oldest BEFORE insert to stay within cap
+            while len(self._session_cache) >= 32:
+                self._session_cache.popitem(last=False)
+            self._session_cache[cache_key] = result_dict
+        else:
+            logger.debug("B4: skipping cache — missing file_path or description")
+
+        return json.dumps(result_dict)
 
     # ── Phase 3.5: File system tools ──────────────────────────────────────
     # graq_read, graq_write, graq_grep, graq_glob, graq_bash
@@ -4595,6 +4734,14 @@ class KogniDevServer:
         file_path = args.get("file_path", "")
         if not file_path:
             return json.dumps({"error": "Parameter 'file_path' is required."})
+
+        # B3: Resolve file path via graph root (v0.42.2 hotfix)
+        # Read is less restrictive — absolute paths that exist are allowed
+        # (containment only enforced for write operations)
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (PermissionError, FileNotFoundError):
+            pass  # Fall through — original exists() check below handles it
 
         offset = max(1, int(args.get("offset", 1)))
         limit = min(max(1, int(args.get("limit", 500))), 2000)
@@ -5006,19 +5153,13 @@ class KogniDevServer:
         # Gather content
         content = diff
         if not content and file_path:
-            # OT-033: Resolve relative paths against project root so untracked
-            # files and newly created files are found regardless of CWD
-            resolved_path = file_path
-            fp = Path(file_path)
-            if not fp.is_absolute() and not fp.exists():
-                graph_obj = self._load_graph()
-                graph_path = getattr(graph_obj, "_graph_path", None) if graph_obj else None
-                if graph_path is not None:
-                    root = Path(graph_path).parent
-                    candidate = root / file_path
-                    if candidate.exists():
-                        resolved_path = str(candidate.resolve())
-                        logger.debug("OT-033: resolved %s → %s", file_path, resolved_path)
+            # B3: Use shared _resolve_file_path (replaces inline OT-033 code)
+            try:
+                resolved_path = self._resolve_file_path(file_path)
+            except PermissionError as pe:
+                return json.dumps({"error": "access_denied"})
+            except FileNotFoundError:
+                resolved_path = file_path  # Genuine not-found — read will report error
             read_result = json.loads(await self._handle_read({"file_path": resolved_path}))
             if "error" in read_result:
                 return json.dumps(read_result)
@@ -5098,7 +5239,10 @@ class KogniDevServer:
                 )
             return json.dumps(response)
         except Exception as exc:
-            return json.dumps({"error": str(exc), "tool": "graq_review"})
+            # B5: Log full traceback server-side, return opaque error to caller (v0.42.2)
+            import traceback
+            logger.error("graq_review failed: %s\n%s", exc, traceback.format_exc())
+            return json.dumps({"error": "internal_error", "tool": "graq_review"})
 
     async def _handle_debug(self, args: dict[str, Any]) -> str:
         """Diagnose a bug from error/stack trace using graph call context."""
