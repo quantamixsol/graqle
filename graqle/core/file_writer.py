@@ -109,30 +109,57 @@ class DiffApplicationError(Exception):
 def _apply_patch_to_lines(
     original_lines: list[str],
     diff_ops: list[tuple[str, str]],
+    *,
+    context_match_threshold: float = 0.5,
+    max_gap: int = 0,
 ) -> list[str]:
     """Apply parsed diff operations to original_lines.
 
-    Uses a context-matching approach:
-    - Walk through diff ops matching context (' ') lines to positions in original
-    - Insert '+' lines, skip '-' lines
+    Single-pass design: scans forward through original_lines matching context
+    and delete lines, inserting additions, tracking match positions for
+    validation. All validation happens inline before any irreversible mutation.
+
     - OT-023 fix: track context match rate and FAIL if too many mismatches
       (previously silently appended code at EOF on mismatch)
+    - OT-023 hardening: track match positions and validate positional coherence
+      to catch greedy forward-scan mis-matches on duplicate/similar lines.
+
+    Parameters
+    ----------
+    context_match_threshold:
+        Minimum fraction of context lines that must match, in (0.0, 1.0].
+        Default 0.5 — at least half the context lines must be found.
+    max_gap:
+        Maximum allowed gap between consecutive matched positions (context +
+        delete lines). Default 0 means auto: max(50, len(original_lines)//5).
     """
+    # --- Input validation ---
+    if not 0.0 < context_match_threshold <= 1.0:
+        raise ValueError(
+            f"context_match_threshold must be in (0.0, 1.0], got {context_match_threshold}"
+        )
+    if max_gap < 0:
+        raise ValueError(f"max_gap must be >= 0, got {max_gap}")
+
+    n = len(original_lines)
+    effective_max_gap = max_gap if max_gap > 0 else max(50, n // 5)
+
+    # --- Single pass: match, validate, and build result simultaneously ---
     result: list[str] = []
     orig_idx = 0
-    n = len(original_lines)
     context_total = 0
     context_matched = 0
+    match_positions: list[int] = []  # positions of ALL matched ' ' and '-' lines
 
     for op, text in diff_ops:
         if op == " ":
             context_total += 1
             # Context line — advance original pointer until we find it
             found = False
-            scan_start = orig_idx
             while orig_idx < n:
                 if original_lines[orig_idx].rstrip("\n") == text.rstrip("\n"):
                     result.append(original_lines[orig_idx])
+                    match_positions.append(orig_idx)
                     orig_idx += 1
                     context_matched += 1
                     found = True
@@ -142,31 +169,59 @@ def _apply_patch_to_lines(
                     result.append(original_lines[orig_idx])
                     orig_idx += 1
             if not found:
-                # Context line not found in remaining file — diff is misaligned
-                # OT-023: instead of silently continuing, track the failure
+                # Context line not found — tracked for threshold check below
                 pass
         elif op == "+":
             # Added line — append with newline
             result.append(text if text.endswith("\n") else text + "\n")
         elif op == "-":
-            # Removed line — skip next matching original line
+            # Removed line — find and skip it, keeping intervening lines
             found = False
             while orig_idx < n:
                 if original_lines[orig_idx].rstrip("\n") == text.rstrip("\n"):
+                    match_positions.append(orig_idx)
                     orig_idx += 1
                     found = True
                     break
-                orig_idx += 1
+                else:
+                    # Keep non-matching lines between edits
+                    result.append(original_lines[orig_idx])
+                    orig_idx += 1
+            if not found:
+                raise DiffApplicationError(
+                    f"Diff delete line not found in original file: {text.rstrip()!r}. "
+                    f"The diff was generated against a different version of the file."
+                )
 
-    # OT-023 fix: check context match rate — fail if too many mismatches
+    # --- Post-loop validation (on the SAME positions used to build result) ---
+
+    # OT-023 fix: check context match rate
     if context_total > 0:
         match_rate = context_matched / context_total
-        if match_rate < 0.5:
+        if match_rate < context_match_threshold:
             raise DiffApplicationError(
                 f"Diff context mismatch: only {context_matched}/{context_total} "
                 f"context lines matched ({match_rate:.0%}). "
                 f"The diff was likely generated without reading the actual file content. "
                 f"Refusing to apply — this would append code at EOF instead of editing in place."
+            )
+
+    # OT-023 hardening: positional coherence check
+    # match_positions is strictly monotone (single forward scan guarantees this)
+    if len(match_positions) >= 2:
+        gaps = [
+            match_positions[i + 1] - match_positions[i]
+            for i in range(len(match_positions) - 1)
+        ]
+        largest_gap = max(gaps)
+        if largest_gap > effective_max_gap:
+            pos_display = match_positions[:10]
+            suffix = f"... ({len(match_positions)} total)" if len(match_positions) > 10 else ""
+            raise DiffApplicationError(
+                f"Diff context lines matched at non-contiguous positions "
+                f"(max gap: {largest_gap} lines, allowed: {effective_max_gap}). "
+                f"Matched positions: {pos_display}{suffix}. "
+                f"The diff likely matched wrong occurrences of similar lines."
             )
 
     # Append any remaining original lines not covered by the diff

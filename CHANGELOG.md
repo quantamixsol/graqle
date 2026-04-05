@@ -4,6 +4,17 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.42.6 — 2026-04-05
+
+### Fixed
+- **graq_generate parameter name accuracy (OT-056)** — LLM prompt now includes method signatures from KG node properties and AST fallback. System prompt instructs "use EXACT parameter names." Qualified name lookup (`ClassName.method`) with bare-name fallback for dotted labels. Non-Python files and malformed source degrade gracefully.
+- **graq_edit diff application hardening (OT-023)** — single-pass design eliminates dual-scan desync. Configurable `context_match_threshold` (default 0.5). Auto-scaling `max_gap` based on file size. Positional coherence check catches scattered duplicate-line matches. Unmatched delete lines raise `DiffApplicationError` instead of silent skip. Delete loop preserves intervening lines. Input validation on all parameters.
+
+### Tests
+- 38 new tests: 24 unit tests + 14 pre-publish gate tests covering happy paths, edge cases, and exact prior failure modes.
+
+---
+
 ## v0.42.5 — 2026-04-05
 
 ### Fixed
