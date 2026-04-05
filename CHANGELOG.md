@@ -4,6 +4,40 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.43.0 — 2026-04-05
+
+### Added — GNIE (GraQle-Native Inference Enhancement)
+- **Generic local backend detection** — `BaseBackend.is_local` property with 3-layer protocol: explicit property, cost heuristic, hostname inspection. Works with Ollama, custom localhost endpoints, and any future local backend.
+- **Prompt enrichment** — Graph-structural context automatically prepended to per-node agent prompts when a local backend is active. Adapts enrichment intensity per model capability tier (small/medium/large).
+- **Confidence calibration** — Adjusts confidence scores for local models using agent agreement ratio, confidence spread, and learned calibration offset from fold-back history.
+- **Per-model persistent learning** — `.graqle/gnie_state.json` tracks fold-back outcomes per model. Successful predictions boost node scores; low-confidence skips reduce them. Feeds calibration curve.
+- **17+ model registry** — `ModelSelector` auto-recommends the best local model per task type based on installed models and VRAM.
+- **Zero overhead for cloud users** — GNIE is completely dormant when backend is not local. Lazy imports ensure cloud path has no import cost.
+
+### Added — Developer Tools
+- **`graq_github_pr`** — Fetch GitHub pull request metadata via `gh` CLI (title, state, author, body, additions/deletions).
+- **`graq_github_diff`** — Fetch PR diff for code review workflows.
+- **`graq_context deep`** — Source snippet embedding for deep-level context composition.
+- **Tool hints routing** — MCP responses include `tool_hints` with suggested next tools for workflow continuity.
+- **`graq_git_diff`** — Merge commit reliability fix (two-dot syntax).
+
+### Fixed
+- `graq_bash` NoneType crash on edge cases (N1+N3 review feedback).
+- Security test fixture key sanitized (GitHub Push Protection compliance).
+
+### Tests
+- 165 new GNIE tests (unit, route, chain, integration) across 8 test modules.
+- HFCI test suites: 460 context snippet tests + 253 tool hints tests.
+- 3,549 total tests passing. 0 regressions.
+- MCP tool count: 116 -> 120 (+4 GitHub tools).
+
+### Security
+- GraQle-reviewed: `0.0.0.0` removed from local hosts (wildcard bind, not loopback). Cost heuristic guards for non-numeric values. Narrow `ValueError` exception handling.
+- IP Protection Gate: passed. Zero trade secret violations (TS-1 through TS-6).
+- Sigstore signed. CycloneDX SBOM generated.
+
+---
+
 ## v0.42.6 — 2026-04-05
 
 ### Fixed
