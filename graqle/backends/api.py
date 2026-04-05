@@ -579,12 +579,20 @@ class OllamaBackend(BaseBackend):
                 response.raise_for_status()
                 data = response.json()
                 text = data.get("response", "")
-                # Strip <think>...</think> tags from reasoning models (DeepSeek-R1)
+                # Strip <think>...</think> tags from reasoning models (DeepSeek-R1, Gemma4)
+                # Fallback: if stripping produces empty, use last think block content
                 if "<think>" in text:
                     import re
-                    text = re.sub(
-                        r"<think>.*?</think>\s*", "", text, flags=re.DOTALL
+                    think_blocks = re.findall(
+                        r"<think>(.*?)</think>", text, flags=re.DOTALL
                     )
+                    stripped = re.sub(
+                        r"<think>.*?</think>\s*", "", text, flags=re.DOTALL
+                    ).strip()
+                    if stripped:
+                        text = stripped
+                    elif think_blocks:
+                        text = think_blocks[-1].strip()
                 # OT-028: Capture done_reason for truncation detection
                 done_reason = data.get("done_reason", "") or ""
                 truncated = done_reason == "length"

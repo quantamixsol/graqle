@@ -4,6 +4,13 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.43.1 — 2026-04-05
+
+### Fixed
+- **Think-tag fallback for reasoning models** — Models like DeepSeek-R1 and Gemma4 that wrap entire output in `<think>...</think>` tags no longer produce empty responses. When stripping think tags produces empty text, falls back to the last think block's content. Zero regression for models that produce content outside tags.
+
+---
+
 ## v0.43.0 — 2026-04-05
 
 ### Added — GNIE (GraQle-Native Inference Enhancement)
