@@ -25,6 +25,22 @@ def _build_mock_server():
     # Mock graph that supports both areason and areason_stream
     mock_graph = MagicMock()
 
+    # JSON-serializable mock node (MagicMock fails JSON serialization)
+    class _MockNode:
+        def __init__(self, **kw):
+            self.__dict__.update(kw)
+            self.id = kw.get("label", "mock")
+            self.properties = {}
+            self.chunks = [{"content": kw.get("description", "")}]
+            self.file_path = None
+            self.start_line = None
+            self.end_line = None
+
+    mock_graph.nodes = {
+        "FooModule": _MockNode(label="FooModule", entity_type="PythonModule", description="test module"),
+    }
+    mock_graph.edges = {}
+
     # areason returns a structured ReasoningResult-like object
     mock_result = MagicMock()
     mock_result.answer = "--- a/foo.py\n+++ b/foo.py\n@@ -1,1 +1,2 @@\n+# added\n SUMMARY: Added comment"

@@ -35,10 +35,22 @@ class _MockReasoningResult:
         return len(self.active_nodes)
 
 
+class _MockNode:
+    """JSON-serializable mock node (MagicMock fails JSON serialization)."""
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+        self.id = kwargs.get("label", "mock")
+        self.properties = {}
+        self.chunks = [{"content": kwargs.get("description", "")}]
+        self.file_path = None
+        self.start_line = None
+        self.end_line = None
+
+
 def _build_mock_graph() -> MagicMock:
     graph = MagicMock()
     graph.nodes = {
-        "SyncEngine": MagicMock(label="SyncEngine", entity_type="Class", description="Cloud sync"),
+        "SyncEngine": _MockNode(label="SyncEngine", entity_type="Class", description="Cloud sync"),
     }
     graph.edges = {}
     graph.areason = AsyncMock(return_value=_MockReasoningResult())
