@@ -42,6 +42,12 @@ def _build_mock_graph() -> MagicMock:
     }
     graph.edges = {}
     graph.areason = AsyncMock(return_value=_MockReasoningResult())
+    # _get_backend_for_node must return a backend with async generate()
+    mock_backend = MagicMock()
+    mock_backend.generate = AsyncMock(return_value='{"patches": [], "dry_run": true, "confidence": 0.5}')
+    mock_backend.name = "mock"
+    mock_backend.cost_per_1k_tokens = 0.0
+    graph._get_backend_for_node = MagicMock(return_value=mock_backend)
     return graph
 
 
