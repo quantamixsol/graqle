@@ -10,7 +10,7 @@
 | Sprint | Date | Autonomy % | Items Done | Junior Interventions | New Gaps Found |
 |--------|------|-----------|------------|---------------------|----------------|
 | Baseline | 2026-04-05 | **40%** | 0/18 | ~15 per session | 18 total |
-| Sprint 1 | IN PROGRESS | — | 5/11 verified | Logging below | +2 (HFCI-017, 018) |
+| Sprint 1 | IN PROGRESS | — | 6/11 verified | Logging below | +2 (HFCI-017, 018) |
 | Sprint 2 | — | — | — | — | — |
 | Sprint 3 | — | — | — | — | — |
 
@@ -39,7 +39,7 @@ Tools EXIST (116 in TOOL_DEFINITIONS) but aren't ACTIVATED. Three gaps:
 | **HFCI-011a** | `graq_git_status` handler | Verify | DONE | Works WITH explicit cwd param |
 | **HFCI-011b** | `graq_git_log` handler | Verify | DONE | Works WITH explicit cwd param |
 | **HFCI-011c** | `graq_git_diff` handler bug fix | BUG FIX | TODO | NoneType on merge commits |
-| **HFCI-017** | `graq_context` compose graq_read/grep internally | Enhancement | TODO | KEY: single call → rich context with file contents |
+| **HFCI-017** | `graq_context` compose graq_read/grep internally | Enhancement | DONE | KEY: single call → rich context with file contents. 25 tests, 2 rounds graq_review. |
 | **HFCI-018** | `tool_hints` in MCP responses | Enhancement | TODO | Proactive tool suggestion |
 | **HFCI-001** | `graq_github_pr` — fetch PR metadata | New tool | TODO | Unblocks autonomous PR review |
 | **HFCI-002** | `graq_github_diff` — fetch PR diff | New tool | TODO | Unblocks autonomous diff review |

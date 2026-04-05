@@ -2403,6 +2403,63 @@ class KogniDevServer:
         return TOOL_DEFINITIONS
 
     # ------------------------------------------------------------------
+    # HFCI-018: Tool hints routing protocol
+    # ------------------------------------------------------------------
+
+    _TOOL_HINTS: dict[str, list[dict[str, str]]] = {
+        # Mandatory protocol sequence: inspect→context→impact→preflight→reason→generate
+        "graq_inspect": [
+            {"tool": "graq_context", "reason": "Load relevant context before making changes"},
+        ],
+        "graq_context": [
+            {"tool": "graq_impact", "reason": "Assess blast radius across consumers"},
+        ],
+        "graq_impact": [
+            {"tool": "graq_preflight", "reason": "Validate proposed changes against constraints"},
+        ],
+        "graq_preflight": [
+            {"tool": "graq_reason", "reason": "Design the change with graph-of-agents reasoning"},
+        ],
+        "graq_reason": [
+            {"tool": "graq_generate", "reason": "Generate validated code from reasoning output"},
+        ],
+        "graq_generate": [
+            {"tool": "graq_review", "reason": "Review generated code before committing"},
+        ],
+        "graq_review": [],  # Terminal — review is the final gate
+        # Utility tools — contextual hints
+        "graq_read": [
+            {"tool": "graq_inspect", "reason": "Start protocol sequence if planning modifications"},
+        ],
+        "graq_write": [],  # Terminal side-effect
+        "graq_edit": [
+            {"tool": "graq_review", "reason": "Review edited code before committing"},
+        ],
+    }
+
+    def _inject_tool_hints(self, tool_name: str, raw_response: str) -> str:
+        """Inject tool_hints into handler response. Purely additive."""
+        try:
+            payload = json.loads(raw_response)
+            if not isinstance(payload, dict):
+                return raw_response
+
+            # Normalize kogni_* aliases to graq_* for hint lookup
+            lookup = tool_name.replace("kogni_", "graq_", 1) if tool_name.startswith("kogni_") else tool_name
+            # Copy to avoid mutating the class-level list
+            hints = [dict(h) for h in self._TOOL_HINTS.get(lookup, [])]
+
+            # Error responses: prepend retry hint using original tool_name
+            if payload.get("error"):
+                hints = [{"tool": tool_name, "reason": "Retry after fixing the reported error"}, *hints]
+
+            payload["tool_hints"] = hints
+            return json.dumps(payload)
+        except (json.JSONDecodeError, TypeError) as exc:
+            logger.debug("_inject_tool_hints: skipped for %s: %s", tool_name, exc)
+            return raw_response
+
+    # ------------------------------------------------------------------
     # MCP protocol: tool dispatch
     # ------------------------------------------------------------------
 
@@ -2410,10 +2467,11 @@ class KogniDevServer:
         """Route a tool call to the correct handler. Returns JSON string."""
         # Block write tools in read-only mode
         if self.read_only and name in _WRITE_TOOLS:
-            return json.dumps({
+            err = json.dumps({
                 "error": f"Tool '{name}' is blocked in read-only mode. "
                 "The MCP server was started with --read-only.",
             })
+            return self._inject_tool_hints(name, err)
 
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
@@ -2533,7 +2591,8 @@ class KogniDevServer:
 
         handler = handlers.get(name)
         if handler is None:
-            return json.dumps({"error": f"Unknown tool: {name}"})
+            err = json.dumps({"error": f"Unknown tool: {name}"})
+            return self._inject_tool_hints(name, err)
 
         # Track caller in metrics if provided
         caller = arguments.get("caller", "")
@@ -2546,10 +2605,12 @@ class KogniDevServer:
                 pass  # Never fail on metrics tracking
 
         try:
-            return await handler(arguments)
+            result = await handler(arguments)
+            return self._inject_tool_hints(name, result)
         except Exception as exc:
             logger.exception("Tool %s failed", name)
-            return json.dumps({"error": str(exc)})
+            error_resp = json.dumps({"error": str(exc)})
+            return self._inject_tool_hints(name, error_resp)
 
 
     # ==================================================================
