@@ -60,6 +60,11 @@ def _build_mock_graph() -> MagicMock:
     mock_backend.name = "mock"
     mock_backend.cost_per_1k_tokens = 0.0
     graph._get_backend_for_node = MagicMock(return_value=mock_backend)
+    # _activate_subgraph returns a list of node IDs (strings)
+    graph._activate_subgraph = MagicMock(return_value=["SyncEngine"])
+    # config.activation.strategy used in _activate_subgraph call
+    graph.config = MagicMock()
+    graph.config.activation.strategy = "chunk"
     return graph
 
 

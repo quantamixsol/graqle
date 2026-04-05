@@ -68,6 +68,11 @@ def _build_mock_server():
     mock_backend.cost_per_1k_tokens = 0.0
     mock_graph._get_backend_for_node = MagicMock(return_value=mock_backend)
 
+    # _activate_subgraph returns a list of node IDs
+    mock_graph._activate_subgraph = MagicMock(return_value=["FooModule"])
+    mock_graph.config = MagicMock()
+    mock_graph.config.activation.strategy = "chunk"
+
     server._graph = mock_graph
 
     return server
@@ -98,8 +103,9 @@ async def test_stream_false_returns_no_chunks(server):
 
 
 @pytest.mark.asyncio
-async def test_stream_true_populates_chunks(server):
-    """stream=True → metadata.chunks contains the streamed text pieces."""
+async def test_stream_true_ignored_after_ot054(server):
+    """OT-054: stream=True is now ignored — single-shot backend call.
+    metadata.chunks is empty and stream flag is False."""
     with patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_preflight",
                new=AsyncMock(return_value='{"risk_level":"low","warnings":[]}')), \
          patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_safety_check",
@@ -112,13 +118,13 @@ async def test_stream_true_populates_chunks(server):
     if "error" not in data:
         chunks = data["metadata"]["chunks"]
         assert isinstance(chunks, list)
-        assert len(chunks) >= 1
-        assert data["metadata"]["stream"] is True
+        # OT-054: streaming disabled, chunks are empty
+        assert chunks == []
 
 
 @pytest.mark.asyncio
-async def test_stream_true_chunks_join_to_non_empty(server):
-    """stream=True → joining chunks produces non-empty text."""
+async def test_stream_true_still_returns_patches(server):
+    """OT-054: even with stream=True, patches are returned via single-shot."""
     with patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_preflight",
                new=AsyncMock(return_value='{"risk_level":"low","warnings":[]}')), \
          patch("graqle.plugins.mcp_dev_server.KogniDevServer._handle_safety_check",
@@ -129,8 +135,7 @@ async def test_stream_true_chunks_join_to_non_empty(server):
 
     data = json.loads(raw)
     if "error" not in data:
-        chunks = data["metadata"]["chunks"]
-        assert "".join(chunks).strip() != ""
+        assert "patches" in data
 
 
 @pytest.mark.asyncio
