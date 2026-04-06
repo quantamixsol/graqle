@@ -1,12 +1,19 @@
-"""Clearance filter for multi-backend debate (ADR-139).
+"""Clearance filter and taint propagation for multi-backend debate (ADR-139, ADR-145).
 
 Filters KG context based on backend clearance level before prompt
-assembly.  Pure logic — no logging, no LLM calls.
+assembly. Includes anti-laundering taint propagation to prevent
+clearance downgrade through synthesis boundaries.
 """
 
 from __future__ import annotations
 
+import logging
+
+from graqle.core.exceptions import GovernanceViolation
+from graqle.core.results import ToolResult
 from graqle.core.types import ClearanceLevel
+
+logger = logging.getLogger(__name__)
 
 
 class ClearanceFilter:
@@ -58,6 +65,54 @@ class ClearanceFilter:
                 output_level=output_clearance,
             )
 
+    def taint_synthesis_output(
+        self, inputs: list[ToolResult], synthesis_output: str,
+    ) -> ToolResult:
+        """Compute output clearance as MAX of all input clearances.
+
+        Anti-laundering taint propagation: the synthesised output inherits
+        the highest clearance from any contributing input.
+        """
+        if not inputs:
+            max_clearance = ClearanceLevel.PUBLIC
+        else:
+            max_clearance = max(
+                self._parse_clearance(
+                    getattr(inp, "clearance", ClearanceLevel.PUBLIC)
+                )
+                for inp in inputs
+            )
+
+        if max_clearance != ClearanceLevel.PUBLIC:
+            logger.info(
+                "TAINT_AUDIT: synthesis output raised to %s from %d input(s)",
+                max_clearance.name,
+                len(inputs),
+            )
+
+        return ToolResult.success(data=synthesis_output, clearance=max_clearance)
+
+    def validate_no_laundering(
+        self, inputs: list[ToolResult], output: ToolResult,
+    ) -> bool:
+        """Verify output clearance >= MAX(input clearances).
+
+        Returns ``False`` if laundering detected (output has lower
+        clearance than the highest input). ``True`` otherwise.
+        """
+        if not inputs:
+            return True
+        max_input_clearance = max(
+            self._parse_clearance(
+                getattr(inp, "clearance", ClearanceLevel.PUBLIC)
+            )
+            for inp in inputs
+        )
+        output_clearance = self._parse_clearance(
+            getattr(output, "clearance", ClearanceLevel.PUBLIC)
+        )
+        return output_clearance >= max_input_clearance
+
     @staticmethod
     def _parse_clearance(raw: str | None) -> ClearanceLevel:
         """Parse a raw clearance string, defaulting to PUBLIC."""
@@ -69,7 +124,7 @@ class ClearanceFilter:
             return ClearanceLevel.PUBLIC
 
 
-class ClearanceViolationError(Exception):
+class ClearanceViolationError(GovernanceViolation):
     """Raised when synthesis output would launder clearance levels."""
 
     def __init__(
@@ -79,6 +134,9 @@ class ClearanceViolationError(Exception):
         max_seen: ClearanceLevel,
         output_level: ClearanceLevel,
     ) -> None:
-        super().__init__(message)
+        super().__init__(
+            message,
+            input_state={"max_seen": max_seen.name, "output_level": output_level.name},
+        )
         self.max_seen = max_seen
         self.output_level = output_level
