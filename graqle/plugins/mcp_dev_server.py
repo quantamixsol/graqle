@@ -61,6 +61,7 @@ except Exception:
 
 
 # C1: Use shared sensitive keys from redaction module (single source of truth)
+from graqle.cli.commands.auto import _PERMITTED_RUNNERS
 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS as _SENSITIVE_KEYS
 
 _LESSON_ENTITY_TYPES = frozenset({
@@ -6811,6 +6812,15 @@ class KogniDevServer:
         except ValueError as exc:
             return _err(f"Invalid test_command: {exc}")
 
+        # RO-2: Runner allowlist — parity with CLI (research team V4 validated)
+        if not test_cmd_parts:
+            return _err("test_command must not be empty")
+        runner = test_cmd_parts[0]
+        if "/" in runner or "\\" in runner:
+            return _err("test_command runner must not contain path separators")
+        if runner not in _PERMITTED_RUNNERS:
+            return _err(f"Runner '{runner}' not permitted. Allowed: {sorted(_PERMITTED_RUNNERS)}")
+
         # Validate test_paths — must be a list of strings
         test_paths = args.get("test_paths", [])
         if not isinstance(test_paths, list):
@@ -6838,6 +6848,20 @@ class KogniDevServer:
 
         agent = McpActionAgent(self, working_dir)
         executor = AutonomousExecutor(agent, config)
+
+        # V5 defense-in-depth: governance gate before loop entry.
+        # graq_generate fires governance per-iteration internally (V5=YES);
+        # this pre-check catches policy blocks early. gate.blocked is authoritative.
+        if self._gov is not None:
+            try:
+                gate = self._gov.check(
+                    action="autonomous_loop",
+                    risk_level="HIGH",
+                )
+                if gate.blocked:
+                    return _err(f"Governance gate blocked autonomous loop: {gate.reason}")
+            except (ConnectionError, TimeoutError, OSError):
+                logger.warning("Governance pre-check unavailable, proceeding (per-iteration gates active)", exc_info=True)
 
         try:
             result = await asyncio.wait_for(

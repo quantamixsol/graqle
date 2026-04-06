@@ -4,6 +4,9 @@ MCP-backed ActionAgent — bridges AutonomousExecutor to existing MCP tools.
 
 Delegates plan/generate/apply/test/rollback to KogniDevServer handlers
 without subclassing BaseAgent (respects 402-dep blast-radius constraint).
+
+v2 design: apply() uses apply_diff() from core/file_writer.py for existing
+files and atomic write for new files (/dev/null). ADR-112: hard errors only.
 """
 from __future__ import annotations
 
@@ -11,12 +14,15 @@ import asyncio
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from graqle.core.file_writer import apply_diff
 from graqle.workflow.action_agent_protocol import ExecutionResult
 from graqle.workflow.diff_applicator import DiffApplicator
 
@@ -26,6 +32,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger("graqle.workflow.mcp_agent")
 
 _TEST_TIMEOUT_SECONDS: int = 300
+
+# Patent-scan patterns from _handle_write (mcp_dev_server.py:5396-5406)
+_TS_PATTERNS: list[str] = [
+    r"w_J", r"w_A", r"\b0\.16\b", r"theta_fold",
+    r"jaccard.*formula", r"70.*30.*blend", r"AGREEMENT_THRESHOLD",
+]
 
 
 class McpActionAgent:
@@ -39,6 +51,10 @@ class McpActionAgent:
         self._server = server
         self._working_dir = working_dir.resolve()
         self._diff = DiffApplicator(str(self._working_dir))
+
+    # ------------------------------------------------------------------
+    # plan()
+    # ------------------------------------------------------------------
 
     async def plan(self, task: str, context: dict[str, Any]) -> str:
         """Delegate planning to graq_plan, fallback to graq_preflight.
@@ -56,25 +72,22 @@ class McpActionAgent:
                 },
             )
         except Exception as exc:
-            # Tool unavailable — fallback to preflight is appropriate
             logger.warning(
                 "graq_plan unavailable (%s), falling back to preflight",
                 exc,
                 exc_info=True,
             )
         else:
-            # Parse response — propagate domain errors, don't fall through
             try:
                 result = json.loads(result_json) if isinstance(result_json, str) else result_json
             except (json.JSONDecodeError, TypeError) as parse_exc:
                 logger.warning("graq_plan returned unparseable response: %s", parse_exc)
-                return result_json  # propagate raw, do not fall back
+                return result_json
             if "error" not in result:
                 return result_json
             logger.warning("graq_plan returned error: %s", str(result.get("error", ""))[:200])
             return result_json
 
-        # Fallback: use preflight as a lightweight plan (correct param: "action")
         try:
             result_json = await self._server.handle_tool(
                 "graq_preflight",
@@ -85,6 +98,10 @@ class McpActionAgent:
             logger.error("graq_preflight also unavailable: %s", fallback_exc, exc_info=True)
             return json.dumps({"error": f"Both graq_plan and graq_preflight unavailable: {fallback_exc}"})
 
+    # ------------------------------------------------------------------
+    # generate_diff()
+    # ------------------------------------------------------------------
+
     async def generate_diff(
         self,
         task: str,
@@ -92,7 +109,6 @@ class McpActionAgent:
         error_context: str | None = None,
     ) -> str:
         """Delegate code generation to graq_generate."""
-        # graq_generate expects "description" not "task"
         args: dict[str, Any] = {
             "description": task,
             "plan": plan,
@@ -103,116 +119,196 @@ class McpActionAgent:
         result_json = await self._server.handle_tool("graq_generate", args)
         return result_json
 
+    # ------------------------------------------------------------------
+    # apply() — v2: patches[] + apply_diff() + /dev/null two-path
+    # ------------------------------------------------------------------
+
     async def apply(self, diff: str) -> ExecutionResult:
-        """Apply generated code by parsing graq_generate JSON output.
+        """Apply patches from CodeGenerationResult JSON.
 
-        Validates paths against working_dir to prevent CWE-22 traversal.
-        Uses tempfile.mkstemp + os.replace for crash-safe, collision-free writes.
-        Always returns ExecutionResult — never raises.
+        Two-path design (research team V2 validated):
+          - Existing files: apply_diff() from core/file_writer.py
+          - New files (--- /dev/null): extract +lines, patent scan, atomic write
+
+        ADR-112: hard error on any failure, no fallback tiers.
+        CWE-22: abort ALL patches on any path traversal attempt.
         """
-        try:
-            diff_data = json.loads(diff)
-        except (json.JSONDecodeError, TypeError):
-            return ExecutionResult(
-                exit_code=1,
-                stdout="",
-                stderr="Unparseable diff payload — check graq_generate output",
-                modified_files=[],
-            )
-
-        # Validate parsed type is a dict
-        if not isinstance(diff_data, dict):
-            return ExecutionResult(
-                exit_code=1,
-                stdout="",
-                stderr=f"Expected JSON object from graq_generate, got {type(diff_data).__name__}",
-                modified_files=[],
-            )
-
-        # Check for error key in generate output
-        if "error" in diff_data:
-            return ExecutionResult(
-                exit_code=1,
-                stdout="",
-                stderr=f"Generate returned error: {diff_data['error']}",
-                modified_files=[],
-            )
-
+        rollback_token = uuid.uuid4().hex
         modified_files: list[str] = []
+        stdout_parts: list[str] = []
 
-        # Extract files from graq_generate output format
-        files = diff_data.get("files") or []
-        if not isinstance(files, list):
+        # -- Step 1: Parse JSON envelope ---------------------------------
+        try:
+            payload = json.loads(diff)
+        except (json.JSONDecodeError, TypeError) as exc:
             return ExecutionResult(
-                exit_code=1,
-                stdout="",
-                stderr=f"files field must be a list, got {type(files).__name__}",
-                modified_files=[],
+                exit_code=1, stdout="", modified_files=[],
+                stderr=f"ADR-112: diff is not valid JSON: {exc}",
+                rollback_token=rollback_token,
             )
-        if not files and "content" in diff_data:
-            path = diff_data.get("path", "")
-            if path:
-                files = [{"path": path, "content": diff_data["content"]}]
+
+        if not isinstance(payload, dict):
+            return ExecutionResult(
+                exit_code=1, stdout="", modified_files=[],
+                stderr=f"ADR-112: expected JSON object, got {type(payload).__name__}",
+                rollback_token=rollback_token,
+            )
+
+        if "error" in payload:
+            return ExecutionResult(
+                exit_code=1, stdout="", modified_files=[],
+                stderr=f"Generate returned error: {str(payload['error'])[:500]}",
+                rollback_token=rollback_token,
+            )
+
+        # -- Step 2: Validate patches key --------------------------------
+        if "patches" not in payload:
+            return ExecutionResult(
+                exit_code=1, stdout="", modified_files=[],
+                stderr="ADR-112: 'patches' key missing from CodeGenerationResult",
+                rollback_token=rollback_token,
+            )
+
+        patches = payload["patches"]
+        if not isinstance(patches, list):
+            return ExecutionResult(
+                exit_code=1, stdout="", modified_files=[],
+                stderr=f"ADR-112: 'patches' must be list, got {type(patches).__name__}",
+                rollback_token=rollback_token,
+            )
+
+        if not patches:
+            return ExecutionResult(
+                exit_code=0, stdout="No patches to apply.", modified_files=[],
+                stderr="", rollback_token=rollback_token,
+            )
+
+        # Validate each patch has required keys
+        for i, patch in enumerate(patches):
+            if not isinstance(patch, dict):
+                return ExecutionResult(
+                    exit_code=1, stdout="", modified_files=[],
+                    stderr=f"ADR-112: patch[{i}] is not a dict",
+                    rollback_token=rollback_token,
+                )
+            for key in ("file_path", "unified_diff"):
+                if key not in patch:
+                    return ExecutionResult(
+                        exit_code=1, stdout="", modified_files=[],
+                        stderr=f"ADR-112: patch[{i}] missing required key '{key}'",
+                        rollback_token=rollback_token,
+                    )
+
+        # -- Step 3: CWE-22 abort-all on ANY path traversal --------------
+        for patch in patches:
+            file_path = patch["file_path"]
+            resolved = (self._working_dir / file_path).resolve()
+            if not resolved.is_relative_to(self._working_dir):
+                return ExecutionResult(
+                    exit_code=1, stdout="", modified_files=[],
+                    stderr=f"CWE-22 PATH TRAVERSAL BLOCKED: '{file_path}' resolves outside working dir. All patches aborted.",
+                    rollback_token=rollback_token,
+                )
+
+        # -- Step 4: Apply each patch ------------------------------------
+        for patch in patches:
+            file_path = patch["file_path"]
+            unified_diff: str = patch["unified_diff"]
+            resolved = (self._working_dir / file_path).resolve()
+
+            # Detect new file via header lines ONLY (not full-string substring)
+            diff_lines = unified_diff.splitlines()
+            is_new_file = any(
+                line.strip() == "--- /dev/null" for line in diff_lines[:5]
+            )
+
+            # Patent scan on ALL diffs (new + existing) — scan +lines only
+            added_content = "\n".join(
+                line[1:]
+                for line in diff_lines
+                if line.startswith("+") and not line.startswith("+++")
+            )
+            for pat in _TS_PATTERNS:
+                if re.search(pat, added_content):
+                    return ExecutionResult(
+                        exit_code=1, stdout="\n".join(stdout_parts),
+                        modified_files=modified_files,
+                        stderr=f"PATENT_GATE: pattern '{pat}' matched in '{file_path}'. All patches aborted.",
+                        rollback_token=rollback_token,
+                    )
+
+            if is_new_file:
+                # -- New file: extract +lines, atomic write --
+                content = added_content
+                if content and not content.endswith("\n"):
+                    content += "\n"
+
+                # Atomic write: tempfile -> fsync -> os.replace
+                resolved.parent.mkdir(parents=True, exist_ok=True)
+                fd: int | None = None
+                tmp_path: str | None = None
+                try:
+                    fd, tmp_path = tempfile.mkstemp(
+                        dir=str(resolved.parent), suffix=".tmp"
+                    )
+                    with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+                        fd = None  # os.fdopen took ownership
+                        tmp.write(content)
+                        tmp.flush()
+                        os.fsync(tmp.fileno())
+                    os.replace(tmp_path, str(resolved))
+                    tmp_path = None  # replace succeeded
+                except Exception as exc:
+                    if tmp_path is not None:
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
+                    if fd is not None:
+                        try:
+                            os.close(fd)
+                        except OSError:
+                            pass
+                    return ExecutionResult(
+                        exit_code=1, stdout="\n".join(stdout_parts),
+                        modified_files=modified_files,
+                        stderr=f"Atomic write FAILED for '{file_path}': {exc}. Hard error per ADR-112.",
+                        rollback_token=rollback_token,
+                    )
+
+                modified_files.append(file_path)
+                stdout_parts.append(f"Created {file_path} ({len(content.splitlines())} lines)")
+
             else:
-                logger.warning("Single-file fallback: content present but path is empty")
-
-        for file_entry in files:
-            file_path = file_entry.get("path", "")
-            content = file_entry.get("content")
-            if not file_path or content is None:
-                logger.warning("Skipping entry: missing path=%r or content is None", file_path)
-                continue
-
-            # CWE-22: Path traversal guard — abort entire apply on traversal attempt
-            target = (self._working_dir / file_path).resolve()
-            if not target.is_relative_to(self._working_dir):
-                logger.error("Path traversal attempt blocked: %r", file_path)
-                return ExecutionResult(
-                    exit_code=1,
-                    stdout="",
-                    stderr=f"Path traversal attempt blocked: {file_path}",
-                    modified_files=modified_files,
+                # -- Existing file: apply_diff() from core/file_writer ----
+                result = apply_diff(
+                    resolved,
+                    unified_diff,
+                    dry_run=False,
+                    skip_syntax_check=not file_path.endswith(".py"),
                 )
+                if not result.success:
+                    return ExecutionResult(
+                        exit_code=1, stdout="\n".join(stdout_parts),
+                        modified_files=modified_files,
+                        stderr=f"apply_diff FAILED for '{file_path}': {result.error}. Hard error per ADR-112.",
+                        rollback_token=rollback_token,
+                    )
 
-            target.parent.mkdir(parents=True, exist_ok=True)
-
-            # Atomic write: unique temp file + os.replace (no collision)
-            tmp_path: str | None = None
-            try:
-                tmp_fd, tmp_path = tempfile.mkstemp(
-                    dir=str(target.parent), suffix=".tmp"
-                )
-                os.close(tmp_fd)
-                if not isinstance(content, str):
-                    content = json.dumps(content)
-                Path(tmp_path).write_text(content, encoding="utf-8")
-                os.replace(tmp_path, target)
-            except OSError as exc:
-                if tmp_path:
-                    Path(tmp_path).unlink(missing_ok=True)
-                return ExecutionResult(
-                    exit_code=1,
-                    stdout="",
-                    stderr=f"Write failed for {file_path}: {exc}",
-                    modified_files=modified_files,
-                )
-
-            modified_files.append(file_path)
-
-        if not modified_files:
-            return ExecutionResult(
-                exit_code=1,
-                stdout="",
-                stderr="No files extracted from diff payload — check generate output",
-                modified_files=[],
-            )
+                modified_files.append(file_path)
+                stdout_parts.append(f"Patched {file_path}: {result.lines_changed} lines changed")
 
         return ExecutionResult(
             exit_code=0,
-            stdout=f"Applied {len(modified_files)} files",
+            stdout="\n".join(stdout_parts),
             stderr="",
             modified_files=modified_files,
+            rollback_token=rollback_token,
         )
+
+    # ------------------------------------------------------------------
+    # run_tests()
+    # ------------------------------------------------------------------
 
     async def run_tests(
         self, test_paths: list[str] | None = None
@@ -221,29 +317,23 @@ class McpActionAgent:
         cmd = [sys.executable, "-m", "pytest", "-x", "-q"]
         if test_paths:
             for p in test_paths:
-                # Reject flag injection (paths starting with -)
                 if p.startswith("-"):
                     return ExecutionResult(
-                        exit_code=1,
-                        stdout="",
+                        exit_code=1, stdout="",
                         stderr=f"Invalid test path (flag injection): {p}",
                         test_passed=False,
                     )
-                # CWE-22: validate paths stay within working dir
                 resolved = (self._working_dir / p).resolve()
                 if not resolved.is_relative_to(self._working_dir):
                     return ExecutionResult(
-                        exit_code=1,
-                        stdout="",
+                        exit_code=1, stdout="",
                         stderr=f"Invalid test path (traversal): {p}",
                         test_passed=False,
                     )
                 cmd.append(str(resolved))
 
         try:
-            proc = await asyncio.to_thread(
-                self._run_subprocess, cmd
-            )
+            proc = await asyncio.to_thread(self._run_subprocess, cmd)
             return ExecutionResult(
                 exit_code=proc.returncode,
                 stdout=proc.stdout,
@@ -252,21 +342,19 @@ class McpActionAgent:
             )
         except subprocess.TimeoutExpired:
             return ExecutionResult(
-                exit_code=124,
-                stdout="",
+                exit_code=124, stdout="",
                 stderr=f"Test timed out after {_TEST_TIMEOUT_SECONDS}s",
                 test_passed=False,
             )
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             return ExecutionResult(
-                exit_code=1,
-                stdout="",
+                exit_code=1, stdout="",
                 stderr=f"Test execution error: {exc}",
                 test_passed=False,
             )
 
     def _run_subprocess(self, cmd: list[str]) -> subprocess.CompletedProcess[str]:
-        """Run subprocess.run in a thread-safe manner."""
+        """Blocking subprocess call — invoked via asyncio.to_thread."""
         return subprocess.run(
             cmd,
             cwd=str(self._working_dir),
@@ -275,6 +363,10 @@ class McpActionAgent:
             timeout=_TEST_TIMEOUT_SECONDS,
         )
 
+    # ------------------------------------------------------------------
+    # rollback()
+    # ------------------------------------------------------------------
+
     async def rollback(self, token: str) -> ExecutionResult:
         """Rollback via DiffApplicator (run in thread to avoid blocking)."""
         try:
@@ -282,8 +374,7 @@ class McpActionAgent:
         except Exception as exc:
             logger.error("Rollback failed: %s", exc, exc_info=True)
             return ExecutionResult(
-                exit_code=1,
-                stdout="",
+                exit_code=1, stdout="",
                 stderr=f"Rollback failed: {exc}",
                 modified_files=[],
             )
