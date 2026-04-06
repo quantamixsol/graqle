@@ -44,7 +44,11 @@ _VALID_CONFIG = CoordinatorConfig(
 
 @pytest.fixture()
 def mock_llm_backend() -> MagicMock:
-    return MagicMock(name="llm_backend")
+    from unittest.mock import AsyncMock
+    backend = MagicMock(name="llm_backend")
+    # Phase 3: decompose() calls await self._llm_backend.generate()
+    backend.generate = AsyncMock(return_value="[]")
+    return backend
 
 
 @pytest.fixture()
@@ -313,40 +317,49 @@ class TestPydanticModels:
 
 class TestStubMethods:
     @pytest.mark.asyncio
-    async def test_decompose_raises(
+    async def test_decompose_returns_task_decomposition(
         self, coordinator: ReasoningCoordinator,
     ) -> None:
+        """decompose() now returns TaskDecomposition (Phase 3 implemented)."""
         with coordinator:
-            with pytest.raises(NotImplementedError):
-                await coordinator.decompose("query")
+            # LLM returns garbage → fallback triggers → single subtask
+            result = await coordinator.decompose("test query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) >= 1
 
     @pytest.mark.asyncio
-    async def test_dispatch_raises(
+    async def test_dispatch_returns_results(
         self, coordinator: ReasoningCoordinator,
     ) -> None:
+        """dispatch() now returns list of results (Phase 5 implemented)."""
         td = TaskDecomposition(
             original_query="Q",
             subtasks=[SubTask(description="Do X")],
         )
         with coordinator:
-            with pytest.raises(NotImplementedError):
-                await coordinator.dispatch(td)
+            results = await coordinator.dispatch(td)
+        assert isinstance(results, list)
+        assert len(results) >= 1
 
     @pytest.mark.asyncio
-    async def test_synthesize_raises(
+    async def test_synthesize_empty_results(
         self, coordinator: ReasoningCoordinator,
     ) -> None:
+        """synthesize() with empty results returns PUBLIC default (Phase 4 implemented)."""
         with coordinator:
-            with pytest.raises(NotImplementedError):
-                await coordinator.synthesize([])
+            result = await coordinator.synthesize([])
+        assert isinstance(result, SynthesisResult)
+        assert result.clearance == ClearanceLevel.PUBLIC
+        assert result.taint == []
 
     @pytest.mark.asyncio
-    async def test_execute_raises(
+    async def test_execute_returns_synthesis_result(
         self, coordinator: ReasoningCoordinator,
     ) -> None:
+        """execute() now returns SynthesisResult (Phase 5 implemented)."""
         with coordinator:
-            with pytest.raises(NotImplementedError):
-                await coordinator.execute("query")
+            result = await coordinator.execute("test query")
+        assert isinstance(result, SynthesisResult)
 
 
 # ── Phase 2A: AgentProtocol conformance (N1) ──────────────────────────────
@@ -594,6 +607,135 @@ class TestReadGovernanceTopology:
         assert result.edges == sample_topology.edges
 
 
+# ── Phase 3: TestDecompose ────────────────────────────────────────────────
+
+
+class TestDecompose:
+    """Phase 3: Tests for ReasoningCoordinator.decompose()."""
+
+    @pytest.mark.asyncio
+    async def test_happy_path_json_subtasks(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """LLM returns valid JSON array → TaskDecomposition with correct subtasks."""
+        from unittest.mock import AsyncMock
+        valid_json = (
+            '[{"description": "Fetch data", "required_capabilities": []},'
+            ' {"description": "Analyse data", "required_capabilities": []}]'
+        )
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("test query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 2
+        assert result.subtasks[0].description == "Fetch data"
+        assert result.subtasks[1].description == "Analyse data"
+
+    @pytest.mark.asyncio
+    async def test_empty_json_triggers_fallback(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """LLM returns '[]' → fallback returns single subtask."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("empty json query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].description == "empty json query"
+
+    @pytest.mark.asyncio
+    async def test_garbage_response_triggers_fallback(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """LLM returns 'hello world' → fallback returns single subtask."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="hello world")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("garbage response query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].description == "garbage response query"
+
+    @pytest.mark.asyncio
+    async def test_inactive_raises(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Without context manager, decompose raises RuntimeError."""
+        with pytest.raises(RuntimeError, match="context manager"):
+            await coordinator.decompose("should raise")
+
+
+# ── Phase 3: TestParseTaskSpecs ───────────────────────────────────────────
+
+
+class TestParseTaskSpecs:
+    """Phase 3: Tests for ReasoningCoordinator._parse_task_specs()."""
+
+    def test_valid_json_array(self, coordinator: ReasoningCoordinator) -> None:
+        raw = '[{"description": "task1", "required_capabilities": []}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].description == "task1"
+
+    def test_json_in_markdown_fences(self, coordinator: ReasoningCoordinator) -> None:
+        raw = '```json\n[{"description": "fenced task", "required_capabilities": []}]\n```'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].description == "fenced task"
+
+    def test_no_brackets_returns_none(self, coordinator: ReasoningCoordinator) -> None:
+        with coordinator:
+            result = coordinator._parse_task_specs("no json here")
+        assert result is None
+
+    def test_invalid_json_returns_none(self, coordinator: ReasoningCoordinator) -> None:
+        with coordinator:
+            result = coordinator._parse_task_specs("[{broken")
+        assert result is None
+
+    def test_partial_valid_items(self, coordinator: ReasoningCoordinator) -> None:
+        """2 items, 1 valid 1 invalid → returns list with 1 SubTask."""
+        raw = '[{"description": "valid task", "required_capabilities": []}, {"bad_key": "no description"}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].description == "valid task"
+
+
+# ── Phase 3: TestFallbackTasks ────────────────────────────────────────────
+
+
+class TestFallbackTasks:
+    """Phase 3: Tests for ReasoningCoordinator._fallback_tasks()."""
+
+    def test_returns_single_subtask(self, coordinator: ReasoningCoordinator) -> None:
+        with coordinator:
+            result = coordinator._fallback_tasks("my fallback query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].description == "my fallback query"
+
+    def test_clearance_is_public(self, coordinator: ReasoningCoordinator) -> None:
+        with coordinator:
+            result = coordinator._fallback_tasks("clearance check")
+        assert result.subtasks[0].clearance_required == ClearanceLevel.PUBLIC
+
+    def test_original_query_preserved(self, coordinator: ReasoningCoordinator) -> None:
+        query = "preserve this query"
+        with coordinator:
+            result = coordinator._fallback_tasks(query)
+        assert result.original_query == query
+
+
 # ── Phase 2C: _check_memory_for_gates (S5-5) ──────────────────────────────
 
 
@@ -824,3 +966,1163 @@ class TestGovernanceIntegration:
             coordinator._check_memory_for_gates("key", memory={})
         with pytest.raises(RuntimeError, match="context manager"):
             coordinator._compose_governance_gates(memory={})
+
+
+# ── Phase 3: TestDecomposeComprehensive ──────────────────────────────────────
+
+
+class TestDecomposeComprehensive:
+    """Comprehensive edge-case tests for ReasoningCoordinator.decompose()."""
+
+    @pytest.mark.asyncio
+    async def test_clearance_internal_parsed(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """clearance_required=INTERNAL is parsed and stored correctly."""
+        from unittest.mock import AsyncMock
+        valid_json = (
+            '[{"description": "Internal task", "required_capabilities": [],'
+            ' "clearance_required": "INTERNAL"}]'
+        )
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("internal clearance query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].clearance_required == ClearanceLevel.INTERNAL
+
+    @pytest.mark.asyncio
+    async def test_clearance_confidential_parsed(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """clearance_required=CONFIDENTIAL is parsed and stored correctly."""
+        from unittest.mock import AsyncMock
+        valid_json = (
+            '[{"description": "Confidential task", "required_capabilities": [],'
+            ' "clearance_required": "CONFIDENTIAL"}]'
+        )
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("confidential clearance query")
+        assert isinstance(result, TaskDecomposition)
+        assert result.subtasks[0].clearance_required == ClearanceLevel.CONFIDENTIAL
+
+    @pytest.mark.asyncio
+    async def test_clearance_restricted_parsed(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """clearance_required=RESTRICTED is parsed and stored correctly."""
+        from unittest.mock import AsyncMock
+        valid_json = (
+            '[{"description": "Restricted task", "required_capabilities": [],'
+            ' "clearance_required": "RESTRICTED"}]'
+        )
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("restricted clearance query")
+        assert isinstance(result, TaskDecomposition)
+        assert result.subtasks[0].clearance_required == ClearanceLevel.RESTRICTED
+
+    @pytest.mark.asyncio
+    async def test_llm_exception_triggers_fallback(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """generate() raises recoverable exception → fallback TaskDecomposition returned."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("exception query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].description == "exception query"
+        assert result.subtasks[0].clearance_required == ClearanceLevel.PUBLIC
+
+    @pytest.mark.asyncio
+    async def test_memory_cache_hit_skips_llm(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Cached decomposition in memory returns without calling LLM."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        query = "cached query"
+        cache_key = f"decompose:{query[:100]}"
+        cached_subtasks = [{"description": "Cached subtask", "required_capabilities": []}]
+        memory: dict[str, Any] = {cache_key: {"subtasks": cached_subtasks, "_expired": False}}
+        with coord:
+            result = await coord.decompose(query, memory=memory)
+        # LLM should not have been called
+        mock_llm_backend.generate.assert_not_called()
+        assert isinstance(result, TaskDecomposition)
+        assert result.subtasks[0].description == "Cached subtask"
+
+    @pytest.mark.asyncio
+    async def test_expired_cache_calls_llm(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Expired cache entry causes LLM to be called (cache miss)."""
+        from unittest.mock import AsyncMock
+        valid_json = '[{"description": "Fresh task", "required_capabilities": []}]'
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        query = "expired cache query"
+        cache_key = f"decompose:{query[:100]}"
+        memory: dict[str, Any] = {cache_key: {"subtasks": [], "_expired": True}}
+        with coord:
+            result = await coord.decompose(query, memory=memory)
+        mock_llm_backend.generate.assert_called_once()
+        assert result.subtasks[0].description == "Fresh task"
+
+    @pytest.mark.asyncio
+    async def test_unicode_query(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Unicode characters in query are handled without error."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        unicode_query = "分析データ 🔍 résumé naïve café"
+        with coord:
+            result = await coord.decompose(unicode_query)
+        assert isinstance(result, TaskDecomposition)
+        assert result.original_query == unicode_query
+        assert len(result.subtasks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_very_long_query(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Query longer than 5000 chars is handled without error."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        long_query = "x" * 5001
+        with coord:
+            result = await coord.decompose(long_query)
+        assert isinstance(result, TaskDecomposition)
+        assert result.original_query == long_query
+
+    @pytest.mark.asyncio
+    async def test_empty_specialist_list_in_prompt(
+        self, mock_llm_backend: MagicMock,
+    ) -> None:
+        """Empty agent roster does not crash decompose(); fallback still works."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, [], _VALID_CONFIG)
+        with coord:
+            result = await coord.decompose("no specialists query")
+        assert isinstance(result, TaskDecomposition)
+        assert len(result.subtasks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_governance_topology_passed_to_compose_gates(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """GovernanceTopology passed to decompose() flows to _compose_governance_gates."""
+        from unittest.mock import AsyncMock, patch
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        topology = GovernanceTopology(edges=[
+            GovernanceEdge(source="auth/login", target="policy", relation="GOVERNS"),
+        ])
+        with coord:
+            with patch.object(
+                coord,
+                "_compose_governance_gates",
+                wraps=coord._compose_governance_gates,
+            ) as mock_compose:
+                await coord.decompose("topology query", governance_topology=topology)
+        mock_compose.assert_called_once()
+        call_kwargs = mock_compose.call_args.kwargs
+        assert call_kwargs["governance_topology"] is topology
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_decompose(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """decompose() works correctly inside async context manager."""
+        from unittest.mock import AsyncMock
+        valid_json = '[{"description": "Async task", "required_capabilities": []}]'
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        async with coord:
+            result = await coord.decompose("async context query")
+        assert isinstance(result, TaskDecomposition)
+        assert result.subtasks[0].description == "Async task"
+
+    @pytest.mark.asyncio
+    async def test_memory_written_by_compose_gates(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """decompose() writes governance gate results to memory via _compose_governance_gates."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="[]")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        memory: dict[str, Any] = {}
+        with coord:
+            await coord.decompose("memory write test", memory=memory)
+        # Gate keys should have been written (on cache miss path)
+        assert "gate:gate_git_governance" in memory
+        assert "gate:gate_ip_trade_secret" in memory
+        assert "gate:gate_clearance_verification" in memory
+
+    @pytest.mark.asyncio
+    async def test_cache_writeback_on_successful_parse(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """decompose() writes parsed subtasks to memory for future SIG reads."""
+        from unittest.mock import AsyncMock
+        valid_json = '[{"description": "Cached task", "required_capabilities": []}]'
+        mock_llm_backend.generate = AsyncMock(return_value=valid_json)
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        memory: dict[str, Any] = {}
+        query = "cache writeback test"
+        with coord:
+            await coord.decompose(query, memory=memory)
+        cache_key = f"decompose:{query[:100]}"
+        assert cache_key in memory
+        assert "subtasks" in memory[cache_key]
+        assert len(memory[cache_key]["subtasks"]) == 1
+
+
+# ── Phase 3: TestParseTaskSpecsComprehensive ─────────────────────────────────
+
+
+class TestParseTaskSpecsComprehensive:
+    """Comprehensive edge-case tests for ReasoningCoordinator._parse_task_specs()."""
+
+    def test_clearance_internal_value(self, coordinator: ReasoningCoordinator) -> None:
+        """INTERNAL clearance string is parsed to ClearanceLevel.INTERNAL."""
+        raw = '[{"description": "task", "required_capabilities": [], "clearance_required": "INTERNAL"}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].clearance_required == ClearanceLevel.INTERNAL
+
+    def test_clearance_confidential_value(self, coordinator: ReasoningCoordinator) -> None:
+        """CONFIDENTIAL clearance string is parsed to ClearanceLevel.CONFIDENTIAL."""
+        raw = '[{"description": "task", "required_capabilities": [], "clearance_required": "CONFIDENTIAL"}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert result[0].clearance_required == ClearanceLevel.CONFIDENTIAL
+
+    def test_clearance_restricted_value(self, coordinator: ReasoningCoordinator) -> None:
+        """RESTRICTED clearance string is parsed to ClearanceLevel.RESTRICTED."""
+        raw = '[{"description": "task", "required_capabilities": [], "clearance_required": "RESTRICTED"}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert result[0].clearance_required == ClearanceLevel.RESTRICTED
+
+    def test_unknown_clearance_enum_rejected(self, coordinator: ReasoningCoordinator) -> None:
+        """Unknown clearance string causes item to be rejected (invalid SubTask)."""
+        raw = '[{"description": "task", "required_capabilities": [], "clearance_required": "ULTRA_SECRET"}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is None
+
+    def test_missing_clearance_key_defaults_to_public(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Missing clearance_required key defaults to ClearanceLevel.PUBLIC."""
+        raw = '[{"description": "task without clearance", "required_capabilities": []}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].clearance_required == ClearanceLevel.PUBLIC
+
+    def test_multiple_json_arrays_invalid_span(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Two separate JSON arrays: find('[') + rfind(']') spans both → invalid JSON → None."""
+        raw = (
+            '[{"description": "first", "required_capabilities": []}]'
+            ' text '
+            '[{"description": "second", "required_capabilities": []}]'
+        )
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        # The span from first [ to last ] is invalid JSON
+        assert result is None
+
+    def test_nested_array_of_arrays(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """[[{...}]] — inner items are lists not dicts, all skipped → None."""
+        raw = '[[{"description": "nested task", "required_capabilities": []}]]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is None
+
+    def test_dict_wrapper_extracts_inner_array(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """{"tasks": [{...}]} — find('[') finds inner array, parsed correctly."""
+        raw = '{"tasks": [{"description": "wrapped task", "required_capabilities": []}]}'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].description == "wrapped task"
+
+    def test_extra_unknown_fields_ignored(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Extra unknown fields in JSON do not cause rejection of valid items."""
+        raw = (
+            '[{"description": "task with extras", "required_capabilities": [],'
+            ' "unknown_field": "some_value", "another_extra": 42}]'
+        )
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].description == "task with extras"
+
+    def test_all_items_invalid_returns_none(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """All items fail SubTask validation → returns None."""
+        raw = '[{"wrong_key": "no description"}, {"also_wrong": true}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is None
+
+    def test_non_list_json_returns_none(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Top-level dict (no inner array) → returns None."""
+        raw = '{"description": "not an array"}'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is None
+
+    def test_empty_string_returns_none(self, coordinator: ReasoningCoordinator) -> None:
+        """Empty string → no brackets → returns None."""
+        with coordinator:
+            result = coordinator._parse_task_specs("")
+        assert result is None
+
+    def test_list_of_strings_returns_none(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """List of strings instead of dicts → all items skipped → None."""
+        raw = '["task1", "task2", "task3"]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is None
+
+    def test_mixed_valid_and_clearance_levels(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """Multiple subtasks with different clearance levels all parsed correctly."""
+        raw = (
+            '['
+            '{"description": "pub task", "required_capabilities": [], "clearance_required": "PUBLIC"},'
+            '{"description": "int task", "required_capabilities": [], "clearance_required": "INTERNAL"},'
+            '{"description": "conf task", "required_capabilities": [], "clearance_required": "CONFIDENTIAL"}'
+            ']'
+        )
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert len(result) == 3
+        assert result[0].clearance_required == ClearanceLevel.PUBLIC
+        assert result[1].clearance_required == ClearanceLevel.INTERNAL
+        assert result[2].clearance_required == ClearanceLevel.CONFIDENTIAL
+
+    def test_unicode_in_description(self, coordinator: ReasoningCoordinator) -> None:
+        """Unicode characters in description are preserved."""
+        raw = '[{"description": "分析データ résumé 🔍", "required_capabilities": []}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert result[0].description == "分析データ résumé 🔍"
+
+    def test_required_capabilities_preserved(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """required_capabilities list is preserved through parsing."""
+        raw = '[{"description": "task", "required_capabilities": ["summarization", "code_review"]}]'
+        with coordinator:
+            result = coordinator._parse_task_specs(raw)
+        assert result is not None
+        assert result[0].required_capabilities == ["summarization", "code_review"]
+
+
+# ── Phase 3: TestFallbackTasksComprehensive ──────────────────────────────────
+
+
+class TestFallbackTasksComprehensive:
+    """Comprehensive edge-case tests for ReasoningCoordinator._fallback_tasks()."""
+
+    def test_empty_string_query(self, coordinator: ReasoningCoordinator) -> None:
+        """Empty string query — SubTask requires min_length=1, so this should raise."""
+        with coordinator:
+            with pytest.raises(Exception):
+                coordinator._fallback_tasks("")
+
+    def test_whitespace_only_query(self, coordinator: ReasoningCoordinator) -> None:
+        """Whitespace-only query is valid (length > 0) and preserved."""
+        with coordinator:
+            result = coordinator._fallback_tasks("   ")
+        assert isinstance(result, TaskDecomposition)
+        assert result.subtasks[0].description == "   "
+        assert result.original_query == "   "
+
+    def test_very_long_query_preserved(self, coordinator: ReasoningCoordinator) -> None:
+        """Very long query (5000+ chars) is preserved in fallback."""
+        long_query = "z" * 5001
+        with coordinator:
+            result = coordinator._fallback_tasks(long_query)
+        assert result.original_query == long_query
+        assert result.subtasks[0].description == long_query
+
+    def test_unicode_query_preserved(self, coordinator: ReasoningCoordinator) -> None:
+        """Unicode query is preserved in fallback."""
+        unicode_query = "分析 🔍 café"
+        with coordinator:
+            result = coordinator._fallback_tasks(unicode_query)
+        assert result.subtasks[0].description == unicode_query
+
+    def test_capabilities_empty(self, coordinator: ReasoningCoordinator) -> None:
+        """Fallback subtask has empty required_capabilities."""
+        with coordinator:
+            result = coordinator._fallback_tasks("any query")
+        assert result.subtasks[0].required_capabilities == []
+
+    def test_inactive_coordinator_raises(self, coordinator: ReasoningCoordinator) -> None:
+        """_fallback_tasks does not require context manager (no _check_active)."""
+        # _fallback_tasks does NOT call _check_active — verify it works outside CM
+        result = coordinator._fallback_tasks("outside context")
+        assert isinstance(result, TaskDecomposition)
+
+
+# ── Phase 4: TestSynthesize ──────────────────────────────────────────────────
+
+
+class TestSynthesize:
+    """Phase 4: Tests for ReasoningCoordinator.synthesize()."""
+
+    @pytest.mark.asyncio
+    async def test_all_public_results_public_output(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """All PUBLIC results → PUBLIC output clearance."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Answer A", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "Answer B", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert isinstance(result, SynthesisResult)
+        assert result.clearance == ClearanceLevel.PUBLIC
+
+    @pytest.mark.asyncio
+    async def test_mixed_public_internal_yields_internal(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Mixed PUBLIC + INTERNAL → INTERNAL output clearance."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Answer A", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "Answer B", "clearance": ClearanceLevel.INTERNAL, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.clearance == ClearanceLevel.INTERNAL
+
+    @pytest.mark.asyncio
+    async def test_mixed_public_restricted_yields_restricted(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Mixed PUBLIC + RESTRICTED → RESTRICTED output clearance."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Answer A", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "Answer B", "clearance": ClearanceLevel.RESTRICTED, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.clearance == ClearanceLevel.RESTRICTED
+
+    @pytest.mark.asyncio
+    async def test_single_specialist_passthrough(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Single specialist result passes through with correct clearance and taint."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Solo answer", "clearance": ClearanceLevel.INTERNAL, "taint": ["source:internal"]},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.clearance == ClearanceLevel.INTERNAL
+        assert "source:internal" in result.taint
+
+    @pytest.mark.asyncio
+    async def test_missing_clearance_key_fails_closed_to_restricted(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Missing clearance key in result dict → fails closed to RESTRICTED."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Answer without clearance", "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.clearance == ClearanceLevel.RESTRICTED
+
+    @pytest.mark.asyncio
+    async def test_duplicate_taints_deduplicated(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Duplicate taint strings are deduplicated in the output."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": ["pii", "gdpr"]},
+            {"answer": "B", "clearance": ClearanceLevel.PUBLIC, "taint": ["pii", "sox"]},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.taint.count("pii") == 1
+        assert "gdpr" in result.taint
+        assert "sox" in result.taint
+
+    @pytest.mark.asyncio
+    async def test_taint_ordering_preserved(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Taint insertion order is preserved (first-seen ordering)."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": ["alpha", "beta"]},
+            {"answer": "B", "clearance": ClearanceLevel.PUBLIC, "taint": ["beta", "gamma"]},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.taint.index("alpha") < result.taint.index("beta")
+        assert result.taint.index("beta") < result.taint.index("gamma")
+
+    @pytest.mark.asyncio
+    async def test_missing_answer_key_no_crash(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Missing answer key in result dict → empty string fallback (no crash)."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [{"clearance": ClearanceLevel.PUBLIC, "taint": []}]
+        with coord:
+            result = await coord.synthesize(results)
+        assert isinstance(result, SynthesisResult)
+
+    @pytest.mark.asyncio
+    async def test_llm_failure_manual_concatenation(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """LLM generate() raises → fallback to manual concatenation of answers."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "Part one", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "Part two", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert "Part one" in result.merged_answer
+        assert "Part two" in result.merged_answer
+
+    @pytest.mark.asyncio
+    async def test_memory_written_with_synthesis_result(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """synthesize() writes result to memory under 'synthesis:result' key."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [{"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": []}]
+        memory: dict[str, Any] = {}
+        with coord:
+            await coord.synthesize(results, memory=memory)
+        assert "synthesis:result" in memory
+
+    @pytest.mark.asyncio
+    async def test_no_memory_write_when_none(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """synthesize() with memory=None does not raise and returns valid result."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [{"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": []}]
+        with coord:
+            result = await coord.synthesize(results, memory=None)
+        assert isinstance(result, SynthesisResult)
+
+    @pytest.mark.asyncio
+    async def test_inactive_coordinator_raises(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """synthesize() outside context manager raises RuntimeError."""
+        with pytest.raises(RuntimeError, match="context manager"):
+            await coordinator.synthesize([])
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_works(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """synthesize() works correctly inside async context manager."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [{"answer": "Async answer", "clearance": ClearanceLevel.PUBLIC, "taint": []}]
+        async with coord:
+            result = await coord.synthesize(results)
+        assert isinstance(result, SynthesisResult)
+        assert result.clearance == ClearanceLevel.PUBLIC
+
+    @pytest.mark.asyncio
+    async def test_all_answers_empty_no_answer_available(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """All answers empty strings → merged_answer is 'No answer available.'"""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.merged_answer == "No answer available."
+
+    @pytest.mark.asyncio
+    async def test_clearance_escalation_chain(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """PUBLIC < INTERNAL < CONFIDENTIAL < RESTRICTED — max wins."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "B", "clearance": ClearanceLevel.INTERNAL, "taint": []},
+            {"answer": "C", "clearance": ClearanceLevel.CONFIDENTIAL, "taint": []},
+            {"answer": "D", "clearance": ClearanceLevel.RESTRICTED, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.clearance == ClearanceLevel.RESTRICTED
+
+    @pytest.mark.asyncio
+    async def test_memory_synthesis_result_structure(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Memory synthesis:result contains merged_answer, clearance, taint keys."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [{"answer": "A", "clearance": ClearanceLevel.INTERNAL, "taint": ["pii"]}]
+        memory: dict[str, Any] = {}
+        with coord:
+            await coord.synthesize(results, memory=memory)
+        entry = memory["synthesis:result"]
+        assert "merged_answer" in entry
+        assert "clearance" in entry
+        assert "taint" in entry
+        assert entry["clearance"] == ClearanceLevel.INTERNAL
+        assert entry["taint"] == ["pii"]
+
+    @pytest.mark.asyncio
+    async def test_no_taint_returns_empty_list(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """No taints across all results → empty taint list."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="Merged answer")
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        results = [
+            {"answer": "A", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+            {"answer": "B", "clearance": ClearanceLevel.PUBLIC, "taint": []},
+        ]
+        with coord:
+            result = await coord.synthesize(results)
+        assert result.taint == []
+
+
+# ── Phase 5: TestDispatch ────────────────────────────────────────────────────
+
+
+class TestDispatch:
+    """Phase 5: Tests for ReasoningCoordinator.dispatch()."""
+
+    @pytest.mark.asyncio
+    async def test_routes_to_agent_in_roster(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Subtask is routed to agent in roster (clearance PUBLIC matches)."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="llm fallback")
+        mock_agent_roster[0].generate = AsyncMock(return_value="agent answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q", subtasks=[SubTask(description="Do X")],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        assert results[0]["answer"] == "agent answer"
+        mock_agent_roster[0].generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_llm_when_no_agent_qualifies(
+        self, mock_llm_backend: MagicMock,
+    ) -> None:
+        """No agent qualifies (empty roster) → falls back to llm_backend."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="llm fallback answer")
+        coord = ReasoningCoordinator(mock_llm_backend, [], _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q", subtasks=[SubTask(description="Do X")],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        assert results[0]["answer"] == "llm fallback answer"
+        mock_llm_backend.generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_clearance_gate_filters_agent(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Agent with PUBLIC clearance can't handle RESTRICTED subtask → falls back to LLM."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="llm restricted answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q",
+            subtasks=[SubTask(description="restricted task", clearance_required=ClearanceLevel.RESTRICTED)],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        # Should have gone to LLM, not the agent
+        mock_llm_backend.generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_agent_timeout_returns_error(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Agent times out → error result returned."""
+        import asyncio as aio
+        from unittest.mock import AsyncMock
+
+        async def slow_generate(*args: Any, **kwargs: Any) -> str:
+            await aio.sleep(100)
+            return "never"
+
+        mock_agent_roster[0].generate = slow_generate
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        small_config = CoordinatorConfig(
+            COORDINATOR_DECOMPOSITION_PROMPT="dp",
+            COORDINATOR_SYNTHESIS_PROMPT="sp",
+            max_specialists=4,
+            specialist_timeout_seconds=0.01,
+        )
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, small_config)
+        td = TaskDecomposition(
+            original_query="Q", subtasks=[SubTask(description="Do X")],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        assert "timeout" in results[0]["answer"].lower() or "Error" in results[0]["answer"]
+
+    @pytest.mark.asyncio
+    async def test_agent_error_returns_error_result(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Agent raises RuntimeError → error result returned."""
+        from unittest.mock import AsyncMock
+        mock_agent_roster[0].generate = AsyncMock(side_effect=RuntimeError("agent failure"))
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q", subtasks=[SubTask(description="Do X")],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        assert "agent failure" in results[0]["answer"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_subtasks_dispatched(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Multiple subtasks each produce a result."""
+        from unittest.mock import AsyncMock
+        mock_agent_roster[0].generate = AsyncMock(return_value="agent answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q",
+            subtasks=[SubTask(description="A"), SubTask(description="B"), SubTask(description="C")],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 3
+
+    @pytest.mark.asyncio
+    async def test_result_clearance_matches_subtask(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Result clearance matches the subtask's clearance_required."""
+        from unittest.mock import AsyncMock
+        mock_agent_roster[0].generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.CONFIDENTIAL
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q",
+            subtasks=[SubTask(description="task", clearance_required=ClearanceLevel.CONFIDENTIAL)],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert results[0]["clearance"] == ClearanceLevel.CONFIDENTIAL
+
+    @pytest.mark.asyncio
+    async def test_inactive_coordinator_raises(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """dispatch() outside context manager raises RuntimeError."""
+        td = TaskDecomposition(
+            original_query="Q", subtasks=[SubTask(description="Do X")],
+        )
+        with pytest.raises(RuntimeError, match="context manager"):
+            await coordinator.dispatch(td)
+
+
+# ── Phase 5: TestExecute ────────────────────────────────────────────────────
+
+
+class TestExecute:
+    """Phase 5: Tests for ReasoningCoordinator.execute() full pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_execute_returns_synthesis_result(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """execute() returns SynthesisResult via full pipeline."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="synthesized answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.execute("test query")
+        assert isinstance(result, SynthesisResult)
+        assert len(result.merged_answer) > 0
+
+    @pytest.mark.asyncio
+    async def test_execute_passes_governance_topology(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """GovernanceTopology is passed through the full pipeline."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        topology = GovernanceTopology(edges=[
+            GovernanceEdge(source="auth", target="policy", relation="GOVERNS"),
+        ])
+        with coord:
+            result = await coord.execute("topology test", governance_topology=topology)
+        assert isinstance(result, SynthesisResult)
+
+    @pytest.mark.asyncio
+    async def test_execute_writes_to_memory(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """execute() writes gate results and synthesis to memory."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        memory: dict[str, Any] = {}
+        with coord:
+            await coord.execute("memory test", memory=memory)
+        assert "synthesis:result" in memory
+        assert "gate:gate_git_governance" in memory
+
+    @pytest.mark.asyncio
+    async def test_execute_inactive_raises(
+        self, coordinator: ReasoningCoordinator,
+    ) -> None:
+        """execute() outside context manager raises RuntimeError."""
+        with pytest.raises(RuntimeError, match="context manager"):
+            await coordinator.execute("should fail")
+
+    @pytest.mark.asyncio
+    async def test_execute_async_context_manager(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """execute() works inside async context manager."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        async with coord:
+            result = await coord.execute("async query")
+        assert isinstance(result, SynthesisResult)
+
+
+# ── Phase 6: End-to-end integration tests ────────────────────────────────────
+
+
+class TestEndToEndIntegration:
+    """Phase 6: End-to-end integration tests exercising the full coordinator pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_full_pipeline_with_valid_decomposition(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Full pipeline: LLM decomposes → agents dispatch → LLM synthesizes."""
+        from unittest.mock import AsyncMock
+
+        # LLM returns valid decomposition, then synthesis
+        decompose_json = '[{"description": "Fetch data", "required_capabilities": []}]'
+        call_count = 0
+
+        async def multi_response(*args: Any, **kwargs: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return decompose_json
+            return "Synthesized final answer"
+
+        mock_llm_backend.generate = multi_response
+        mock_agent_roster[0].generate = AsyncMock(return_value="Agent fetched data")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.execute("analyse dependencies")
+        assert isinstance(result, SynthesisResult)
+        assert result.clearance == ClearanceLevel.PUBLIC
+        assert len(result.merged_answer) > 0
+
+    @pytest.mark.asyncio
+    async def test_pipeline_with_memory_roundtrip(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Memory accumulates gate results + synthesis through full pipeline."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        memory: dict[str, Any] = {}
+        with coord:
+            await coord.execute("memory roundtrip test", memory=memory)
+        # Gates written by decompose's _compose_governance_gates
+        assert "gate:gate_git_governance" in memory
+        assert "gate:gate_ip_trade_secret" in memory
+        assert "gate:gate_clearance_verification" in memory
+        # Synthesis result written by synthesize
+        assert "synthesis:result" in memory
+        assert "merged_answer" in memory["synthesis:result"]
+
+    @pytest.mark.asyncio
+    async def test_pipeline_clearance_propagation_end_to_end(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Clearance propagation: INTERNAL subtask → INTERNAL synthesis result."""
+        from unittest.mock import AsyncMock
+
+        decompose_json = (
+            '[{"description": "Internal analysis", "required_capabilities": [],'
+            ' "clearance_required": "INTERNAL"}]'
+        )
+        call_count = 0
+
+        async def multi_response(*args: Any, **kwargs: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return decompose_json
+            return "Synthesized"
+
+        mock_llm_backend.generate = multi_response
+        mock_agent_roster[0].generate = AsyncMock(return_value="Internal analysis done")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.INTERNAL
+        mock_agent_roster[0].capability_tags = ()
+
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.execute("internal query")
+        assert result.clearance == ClearanceLevel.INTERNAL
+
+    @pytest.mark.asyncio
+    async def test_pipeline_with_governance_topology(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """GovernanceTopology flows through all 3 phases of the pipeline."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        topology = GovernanceTopology(edges=[
+            GovernanceEdge(source="auth/login", target="policy", relation="GOVERNS"),
+            GovernanceEdge(source="billing/pay", target="audit", relation="COMPLIES_WITH"),
+        ])
+        memory: dict[str, Any] = {}
+        with coord:
+            result = await coord.execute("auth query", governance_topology=topology, memory=memory)
+        assert isinstance(result, SynthesisResult)
+        # Gates should reflect filtered topology (auth edges only = 1)
+        gate = memory.get("gate:gate_git_governance", {})
+        assert gate.get("topology_edges_count", -1) == 1
+
+    @pytest.mark.asyncio
+    async def test_pipeline_llm_failure_graceful_degradation(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """LLM failure at every stage → graceful degradation through fallbacks."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        # Agent also fails
+        mock_agent_roster[0].generate = AsyncMock(side_effect=RuntimeError("Agent down"))
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.execute("failure test")
+        # Should still return a SynthesisResult via fallbacks
+        assert isinstance(result, SynthesisResult)
+        assert result.clearance == ClearanceLevel.PUBLIC
+
+    @pytest.mark.asyncio
+    async def test_pipeline_multi_subtask_mixed_clearance(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Multiple subtasks with mixed clearances → highest clearance wins in synthesis."""
+        from unittest.mock import AsyncMock
+
+        decompose_json = (
+            '['
+            '{"description": "Public task", "required_capabilities": [], "clearance_required": "PUBLIC"},'
+            '{"description": "Confidential task", "required_capabilities": [], "clearance_required": "CONFIDENTIAL"}'
+            ']'
+        )
+        call_count = 0
+
+        async def multi_response(*args: Any, **kwargs: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return decompose_json
+            return "Merged"
+
+        mock_llm_backend.generate = multi_response
+        mock_agent_roster[0].generate = AsyncMock(return_value="result")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.CONFIDENTIAL
+        mock_agent_roster[0].capability_tags = ()
+
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+        with coord:
+            result = await coord.execute("mixed clearance query")
+        assert result.clearance == ClearanceLevel.CONFIDENTIAL
+
+    @pytest.mark.asyncio
+    async def test_pipeline_ephemeral_lifecycle(
+        self, mock_llm_backend: MagicMock, mock_agent_roster: list[MagicMock],
+    ) -> None:
+        """Two consecutive pipeline runs — second run starts clean (ephemeral)."""
+        from unittest.mock import AsyncMock
+        mock_llm_backend.generate = AsyncMock(return_value="answer")
+        mock_agent_roster[0].clearance_level = ClearanceLevel.PUBLIC
+        mock_agent_roster[0].capability_tags = ()
+        coord = ReasoningCoordinator(mock_llm_backend, mock_agent_roster, _VALID_CONFIG)
+
+        # First run
+        with coord:
+            coord.register_specialist(Specialist(name="s1", model_id="m1"))
+            result1 = await coord.execute("run 1")
+        assert isinstance(result1, SynthesisResult)
+
+        # Second run — specialists cleared
+        with coord:
+            assert coord.list_specialists() == []
+            result2 = await coord.execute("run 2")
+        assert isinstance(result2, SynthesisResult)
+
+    @pytest.mark.asyncio
+    async def test_pipeline_capability_tag_matching(
+        self, mock_llm_backend: MagicMock,
+    ) -> None:
+        """Agent with matching capability_tags is preferred over agent without."""
+        from unittest.mock import AsyncMock
+
+        agent1 = MagicMock(name="generic-agent")
+        agent1.name = "generic"
+        agent1.model_id = "model"
+        agent1.generate = AsyncMock(return_value="generic answer")
+        agent1.clearance_level = ClearanceLevel.PUBLIC
+        agent1.capability_tags = ()
+
+        agent2 = MagicMock(name="specialist-agent")
+        agent2.name = "code-reviewer"
+        agent2.model_id = "model"
+        agent2.generate = AsyncMock(return_value="specialist answer")
+        agent2.clearance_level = ClearanceLevel.PUBLIC
+        agent2.capability_tags = ("code_review",)
+
+        mock_llm_backend.generate = AsyncMock(return_value="synthesized")
+        coord = ReasoningCoordinator(mock_llm_backend, [agent1, agent2], _VALID_CONFIG)
+        td = TaskDecomposition(
+            original_query="Q",
+            subtasks=[SubTask(description="review", required_capabilities=["code_review"])],
+        )
+        with coord:
+            results = await coord.dispatch(td)
+        assert len(results) == 1
+        assert results[0]["answer"] == "specialist answer"
+        agent2.generate.assert_called_once()
+        agent1.generate.assert_not_called()
