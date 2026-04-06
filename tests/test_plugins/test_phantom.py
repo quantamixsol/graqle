@@ -608,7 +608,7 @@ class TestZeroRegression:
         # graq_reload + graq_audit are graq_* only (no kogni_* alias) → 49 graq + 49 kogni = 98
         assert len(graq_tools) >= 38, f"graq_* tools must not decrease, got {len(graq_tools)}"
         assert len(kogni_tools) >= 36, f"kogni_* tools must not decrease, got {len(kogni_tools)}"
-        assert len(TOOL_DEFINITIONS) == 120, f"Expected 120 total tools, got {len(TOOL_DEFINITIONS)}"  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) == 122, f"Expected 122 total tools, got {len(TOOL_DEFINITIONS)}"  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
 
     def test_existing_tool_schemas_unchanged(self):
         """Spot-check that existing tool schemas were not modified."""
