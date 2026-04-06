@@ -1872,6 +1872,44 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    {
+        "name": "graq_auto",
+        "description": (
+            "Run the autonomous loop: plan, generate code, write files, run tests, "
+            "diagnose failures, fix, and retry until GREEN or max retries. "
+            "Use for tasks like 'write tests for module X' or 'fix the CORS bug'. "
+            "Governed: max_retries cap, protected file gate, cost tracking."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Task description — what to build, fix, or test",
+                },
+                "max_retries": {
+                    "type": "integer",
+                    "description": "Max fix-retry cycles (default: 3)",
+                    "default": 3,
+                },
+                "test_command": {
+                    "type": "string",
+                    "description": "Test command (default: python -m pytest -x -q)",
+                },
+                "test_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific test paths to run",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Plan + generate without writing files (default: true for safety)",
+                    "default": True,
+                },
+            },
+            "required": ["task"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1907,6 +1945,8 @@ _WRITE_TOOLS = frozenset({
     "graq_test", "kogni_test",
     # Phase 10: graq_gov_gate writes GOVERNANCE_BYPASS KG nodes — blocked in read-only mode
     "graq_gov_gate", "kogni_gov_gate",
+    # v0.44.1: autonomous loop — writes files, runs tests
+    "graq_auto", "kogni_auto",
 })
 
 
@@ -2642,6 +2682,9 @@ class KogniDevServer:
             # v0.38.0 Phase 7: performance profiler
             "graq_profile": self._handle_profile,
             "kogni_profile": self._handle_profile,
+            # v0.44.1: autonomous loop
+            "graq_auto": self._handle_auto,
+            "kogni_auto": self._handle_auto,
         }
 
         handler = handlers.get(name)
@@ -6720,6 +6763,96 @@ class KogniDevServer:
         if reason_error:
             result["reason_error"] = reason_error
         return json.dumps(result)
+
+    # ── v0.44.1: graq_auto — autonomous loop ────────────────────────
+
+    async def _handle_auto(self, args: dict[str, Any]) -> str:
+        """Run the autonomous loop: plan -> generate -> test -> fix -> retry.
+
+        Args:
+            task (str): Task description — what to build, fix, or test (required).
+            max_retries (int): Max fix-retry cycles, capped at 10 (default: 3).
+            test_command (str): Test command (default: python -m pytest -x -q).
+            test_paths (list[str]): Specific test paths to run.
+            dry_run (bool): Plan + generate without writing files (default: True).
+
+        Returns:
+            JSON string with ExecutorResult fields (success, state, attempts, etc.)
+        """
+        import re
+        import shlex
+
+        from graqle.workflow.autonomous_executor import AutonomousExecutor, ExecutorConfig
+        from graqle.workflow.mcp_agent import McpActionAgent
+
+        _err = lambda msg: json.dumps({"error": msg, "tool": "graq_auto"})
+
+        # Validate and sanitize task
+        task = args.get("task", "").strip()
+        # Strip control characters (prevent injection)
+        task = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", task)
+        if not task:
+            return _err("graq_auto requires 'task'")
+
+        # Validate max_retries
+        try:
+            max_retries = min(int(args.get("max_retries", 3)), 10)
+            if max_retries < 0:
+                max_retries = 0
+        except (ValueError, TypeError):
+            return _err("max_retries must be an integer")
+
+        # Validate test_command — use shlex for safe splitting
+        raw_test_cmd = args.get("test_command", "python -m pytest -x -q")
+        if not isinstance(raw_test_cmd, str):
+            return _err("test_command must be a string")
+        try:
+            test_cmd_parts = shlex.split(raw_test_cmd)
+        except ValueError as exc:
+            return _err(f"Invalid test_command: {exc}")
+
+        # Validate test_paths — must be a list of strings
+        test_paths = args.get("test_paths", [])
+        if not isinstance(test_paths, list):
+            return _err("test_paths must be a list of strings")
+        test_paths = [str(p) for p in test_paths]
+
+        # Derive working directory from graph file location
+        graph_path = self._graph_file
+        if graph_path:
+            working_dir = Path(graph_path).parent.resolve()
+        else:
+            logger.warning("No graph file loaded — using cwd as working directory")
+            working_dir = Path.cwd().resolve()
+
+        # dry_run defaults to True for safety (convention: write tools default safe)
+        dry_run = bool(args.get("dry_run", True))
+
+        config = ExecutorConfig(
+            max_retries=max_retries,
+            test_command=test_cmd_parts,
+            test_paths=test_paths,
+            working_dir=str(working_dir),
+            dry_run=dry_run,
+        )
+
+        agent = McpActionAgent(self, working_dir)
+        executor = AutonomousExecutor(agent, config)
+
+        try:
+            result = await asyncio.wait_for(
+                executor.execute(task),
+                timeout=config.timeout_seconds * (max_retries + 1),
+            )
+        except asyncio.TimeoutError:
+            return _err(f"Autonomous loop timed out after {config.timeout_seconds * (max_retries + 1)}s")
+        except asyncio.CancelledError:
+            raise  # propagate cooperative cancellation
+        except Exception as exc:
+            logger.exception("graq_auto executor failed")
+            return _err(f"Executor error: {exc}")
+
+        return json.dumps(result.to_dict(), default=str)
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""
