@@ -180,4 +180,4 @@ markers = [
 ]
 # xdist: keep each file's tests on a single worker to prevent chdir() conflicts
 # Use: pytest -n auto -m "not serial"  for fast parallel run
-addopts = "--dist=loadfile"
+addopts = "-p no:xdist"  # MEMORY SAFETY: xdist spawns 16 workers x 350MB = OOM on 32GB
