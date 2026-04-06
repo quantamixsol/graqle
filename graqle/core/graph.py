@@ -1075,6 +1075,86 @@ class Graqle:
 
         return result
 
+    # ------------------------------------------------------------------
+    # S6: ReasoningCoordinator integration helpers
+    # ------------------------------------------------------------------
+
+    async def _areason_coordinated(
+        self,
+        query: str,
+        *,
+        max_rounds: int,
+        strategy: str,
+        node_ids: list[str],
+        context: Any,
+        task_type: str | None,
+    ) -> ReasoningResult:
+        """Run reasoning via ReasoningCoordinator (S6 multi-agent coordination).
+
+        Lazy-imports coordinator components to avoid circular imports.
+        S7 will populate agent_roster from graph nodes; for now it is an
+        empty placeholder so the coordinator skeleton can be exercised.
+        """
+        from graqle.reasoning.coordinator import (
+            CoordinatorConfig as _CoordConfig,
+            ReasoningCoordinator,
+        )
+
+        cfg = self.config.coordinator
+        coord_config = _CoordConfig(
+            COORDINATOR_DECOMPOSITION_PROMPT=cfg.decomposition_prompt or "Decompose the query.",
+            COORDINATOR_SYNTHESIS_PROMPT=cfg.synthesis_prompt or "Synthesize the results.",
+            max_specialists=cfg.max_specialists,
+            specialist_timeout_seconds=cfg.specialist_timeout_seconds,
+        )
+
+        llm_backend = self._get_backend_for_node(
+            node_ids[0] if node_ids else next(iter(self.nodes), ""),
+            task_type=task_type,
+        )
+
+        # Placeholder agent roster — S7 will populate from graph nodes
+        agent_roster: list[Any] = []
+
+        if not agent_roster:
+            raise NotImplementedError(
+                "ReasoningCoordinator agent_roster not populated until S7"
+            )
+
+        async with ReasoningCoordinator(
+            llm_backend=llm_backend,
+            agent_roster=agent_roster,
+            config=coord_config,
+        ) as coordinator:
+            decomposition = await coordinator.decompose(query)
+            results = await coordinator.dispatch(decomposition)
+            synthesis = await coordinator.synthesize(results)
+
+        return self._synthesis_to_reasoning_result(synthesis, query, node_ids)
+
+    def _synthesis_to_reasoning_result(
+        self,
+        synthesis: Any,
+        query: str,
+        node_ids: list[str],
+    ) -> ReasoningResult:
+        """Map SynthesisResult to ReasoningResult.
+
+        Uses getattr with defaults for forward compatibility.
+        """
+        return ReasoningResult(
+            query=query,
+            answer=getattr(synthesis, "merged_answer", ""),
+            confidence=0.0,
+            rounds_completed=1,
+            active_nodes=list(node_ids),
+            message_trace=[],
+            cost_usd=0.0,
+            latency_ms=0.0,
+            reasoning_mode="coordinator",
+            metadata={"coordinator": True, "clearance": str(getattr(synthesis, "clearance", ""))},
+        )
+
     # --- Model Assignment ---
 
     def set_default_backend(self, backend: ModelBackend) -> None:
@@ -1371,6 +1451,33 @@ class Graqle:
         for nid in node_ids:
             backend = self._get_backend_for_node(nid, task_type=task_type)
             self.nodes[nid].activate(backend)
+
+        # S6: Coordinator feature-flag branch
+        if self.config.coordinator.enabled:
+            try:
+                coord_result = await self._areason_coordinated(
+                    query,
+                    max_rounds=max_rounds,
+                    strategy=strategy,
+                    node_ids=node_ids,
+                    context=context,
+                    task_type=task_type,
+                )
+            except Exception as _coord_exc:  # noqa: BLE001
+                logger.warning(
+                    "Coordinator path failed (%s), falling back to orchestrator.",
+                    _coord_exc,
+                )
+                coord_result = None
+
+            if coord_result is not None:
+                # Deactivate nodes, restore originals, record metrics, return early
+                for nid in node_ids:
+                    self.nodes[nid].deactivate()
+                for nid, orig in _original_nodes.items():
+                    self.nodes[nid] = orig
+                coord_result.metadata["coordinator_path"] = True
+                return coord_result
 
         # 3. Run orchestrator (with MasterObserver if configured)
         if self._orchestrator is None:
