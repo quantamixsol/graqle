@@ -273,6 +273,9 @@ def run(
         False, "--explain", "-e", help="Output full explanation trace with provenance",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    coordinator: bool = typer.Option(
+        False, "--coordinator", help="Use ReasoningCoordinator (S6 multi-agent path)",
+    ),
 ) -> None:
     """Run a reasoning query on the GraQle.
 
@@ -322,6 +325,10 @@ def run(
     # Create real backend from config (Anthropic, Bedrock, OpenAI, Ollama)
     backend = _create_backend_from_config(cfg, verbose=verbose)
     graph.set_default_backend(backend)
+
+    # S9: Enable coordinator if --coordinator flag is set
+    if coordinator:
+        graph.config.coordinator.enabled = True
 
     # Run reasoning with selected protocol
     result = asyncio.run(
