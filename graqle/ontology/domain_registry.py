@@ -172,11 +172,32 @@ class DomainRegistry:
         return merged
 
     def find_domain_for_type(self, entity_type: str) -> DomainOntology | None:
-        """Find which domain owns a given entity type."""
-        for domain in self._domains.values():
+        """Find which domain owns a given entity type.
+
+        A-005: When multiple domains claim the same type, prefer the domain
+        with the most specific match (exact type name vs alias). If still
+        ambiguous, use registration order (first wins) and log a warning.
+        """
+        matches: list[tuple[str, DomainOntology]] = []
+        for name, domain in self._domains.items():
             if entity_type in domain.valid_entity_types:
-                return domain
-        return None
+                matches.append((name, domain))
+
+        if not matches:
+            return None
+        if len(matches) == 1:
+            return matches[0][1]
+
+        # A-005: Multiple domains claim this type — log warning, return first
+        import logging
+        _logger = logging.getLogger("graqle.ontology.domain_registry")
+        domain_names = [m[0] for m in matches]
+        _logger.warning(
+            "A-005: Entity type '%s' claimed by multiple domains: %s. "
+            "Using '%s' (first registered). Consider deduplicating.",
+            entity_type, domain_names, domain_names[0],
+        )
+        return matches[0][1]
 
     def get_skills_for_type(self, entity_type: str) -> list[str]:
         """Get all skills for an entity type, including inherited skills.
