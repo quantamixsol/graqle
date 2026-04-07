@@ -5147,17 +5147,51 @@ class KogniDevServer:
             pass  # governance module optional in stripped builds
 
         # Step 2: Read actual file content (OT-023 fix — LLM must see real code, not KG summaries)
+        # S-009: For files >200 lines, include focused context (surrounding lines)
+        # to avoid exceeding local backend context windows
         file_content = ""
         if file_path:
             try:
                 from pathlib import Path as _GenPath
                 _gen_fp = _GenPath(file_path)
                 if _gen_fp.exists():
-                    file_content = _gen_fp.read_text(encoding="utf-8", errors="replace")
-                    # Truncate very large files to avoid exceeding LLM context
+                    _raw_content = _gen_fp.read_text(encoding="utf-8", errors="replace")
+                    _lines = _raw_content.splitlines()
                     _max_file_chars = 50_000  # ~12K tokens — leaves room for reasoning
-                    if len(file_content) > _max_file_chars:
-                        file_content = file_content[:_max_file_chars] + "\n\n[... truncated at 50K chars ...]\n"
+
+                    if len(_lines) > 200 and len(_raw_content) > _max_file_chars:
+                        # S-009: Smart truncation — keep first 50 lines (imports/classes),
+                        # last 20 lines (closing), and search for description keywords
+                        _head = "\n".join(_lines[:50])
+                        _tail = "\n".join(_lines[-20:])
+                        # Try to find relevant section by searching for keywords from description
+                        _mid_lines: list[str] = []
+                        if description:
+                            _keywords = [w.lower() for w in description.split() if len(w) > 3][:5]
+                            for i, line in enumerate(_lines[50:-20]):
+                                if any(kw in line.lower() for kw in _keywords):
+                                    # Include 10 lines before and after each match
+                                    _start = max(0, i + 50 - 10)
+                                    _end = min(len(_lines) - 20, i + 50 + 10)
+                                    _mid_lines.extend(_lines[_start:_end])
+                                    if len(_mid_lines) > 100:
+                                        break
+                        _mid = "\n".join(dict.fromkeys(_mid_lines))  # deduplicate preserving order
+                        file_content = (
+                            f"{_head}\n\n"
+                            f"[... lines 51-{len(_lines)-20} omitted, showing relevant sections ...]\n\n"
+                            f"{_mid}\n\n"
+                            f"[... end of file ...]\n\n"
+                            f"{_tail}"
+                        )
+                        logger.info(
+                            "S-009: File %s has %d lines — using focused context (%d chars)",
+                            file_path, len(_lines), len(file_content),
+                        )
+                    else:
+                        file_content = _raw_content
+                        if len(file_content) > _max_file_chars:
+                            file_content = file_content[:_max_file_chars] + "\n\n[... truncated at 50K chars ...]\n"
             except Exception:
                 pass  # If file can't be read, proceed with KG context only
 
