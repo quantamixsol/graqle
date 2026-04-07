@@ -2268,13 +2268,20 @@ class KogniDevServer:
                 return str(fp.resolve())  # No graph = no root to enforce
             raise FileNotFoundError(f"Cannot resolve: {file_path}")
 
-        # 1. Graph-root-relative (preferred)
-        if graph_path is not None:
+        # 1. CWD-relative (preferred when CWD differs from graph root — worktree support)
+        cwd = Path.cwd().resolve()
+        if cwd != project_root:
+            cwd_candidate = (cwd / file_path).resolve()
+            if cwd_candidate.exists():
+                return _assert_contained(cwd_candidate)
+
+        # 2. Graph-root-relative
+        if graph_path is not None and project_root != cwd:
             candidate = (project_root / file_path).resolve()
             if candidate.exists():
                 return _assert_contained(candidate)
 
-        # 2. CWD-relative
+        # 3. CWD-relative fallback (when CWD == graph root)
         resolved_fp = fp.resolve()
         if resolved_fp.exists():
             return _assert_contained(resolved_fp)
@@ -5001,6 +5008,37 @@ class KogniDevServer:
             dry_run=dry_run,
             skip_syntax_check=bool(args.get("skip_syntax_check", False)),
         )
+
+        # AL-11: When description-generated diff fails due to context mismatch,
+        # retry with explicit file content in the generation prompt
+        if not apply_result.success and not provided_diff and description:
+            logger.warning(
+                "AL-11: apply_diff failed for description-generated diff on %s, "
+                "retrying with explicit file content. Error: %s",
+                file_path, apply_result.error,
+            )
+            try:
+                _retry_content = _Path(file_path).read_text(encoding="utf-8", errors="replace")
+                _retry_raw = json.loads(await self._handle_generate({
+                    "description": f"RETRY (previous diff had wrong context lines): {description}",
+                    "file_path": file_path,
+                    "context": f"EXACT current file content (use these lines for diff context):\n```\n{_retry_content[:8000]}\n```",
+                    "max_rounds": 1,
+                    "dry_run": True,
+                }))
+                _retry_patches = _retry_raw.get("patches", [])
+                if _retry_patches:
+                    _retry_diff = _retry_patches[0].get("unified_diff", "")
+                    if _retry_diff:
+                        apply_result = apply_diff(
+                            _Path(file_path), _retry_diff,
+                            dry_run=dry_run,
+                            skip_syntax_check=bool(args.get("skip_syntax_check", False)),
+                        )
+                        if apply_result.success:
+                            logger.info("AL-11: retry succeeded for %s", file_path)
+            except Exception as _retry_exc:
+                logger.debug("AL-11: retry failed: %s", _retry_exc)
 
         # OT-031 (ADR-134): Auto-sync written file into KG after successful edit
         kg_synced = False
