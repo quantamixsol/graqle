@@ -1,0 +1,212 @@
+/* ── Spec 6: PULSE + SHIELD Visual Layer Styles ──
+ * Loaded alongside studio.css in all Studio templates.
+ * Dark theme: bg #0f172a, text #f1f5f9, borders #1e293b
+ * Font: Inter / JetBrains Mono
+ * Version: 1.0.0
+ */
+
+/* ── graqle:intelligence ──
+   module: graqle.studio.static.css.pulse
+   risk: LOW (impact radius: 0 modules)
+   constraints: append-only, no modifications to studio.css
+   ── /graqle:intelligence ── */
+
+#cy {
+  width: 100%;
+  min-height: 500px;
+  background: #0f172a;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 24px rgba(251,191,36,0.5); }
+}
+
+@keyframes edge-flash {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.pulse-status-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(15,23,42,0.95);
+  border-bottom: 1px solid #1e293b;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.pulse-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pulse-status-badge.active {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+}
+
+.pulse-status-badge.done {
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+}
+
+.pulse-status-badge.error {
+  background: rgba(248,113,113,0.15);
+  color: #f87171;
+}
+
+.confidence-display {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.confidence-display.high {
+  color: #34d399;
+}
+
+.confidence-display.medium {
+  color: #fbbf24;
+}
+
+.confidence-display.low {
+  color: #f87171;
+}
+
+.cost-display {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.shield-gauge {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    #fbbf24 calc(var(--gauge-value, 0) * 1%),
+    #1e293b calc(var(--gauge-value, 0) * 1%)
+  );
+}
+
+.shield-gauge::after {
+  content: "";
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #0f172a;
+}
+
+.shield-gauge::before {
+  content: attr(data-value);
+  font-size: 28px;
+  font-weight: 700;
+  color: #f1f5f9;
+  z-index: 1;
+  position: relative;
+}
+
+.budget-bar {
+  height: 8px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.budget-bar .fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #34d399, #fbbf24);
+  transition: width 0.3s ease;
+}
+
+.event-badge-low {
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.event-badge-medium {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.event-badge-high {
+  background: rgba(248,113,113,0.15);
+  color: #f87171;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.pulse-graph-upgrade-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15,23,42,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+  animation: fade-in 0.3s ease;
+}
+
+.governance-panel {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.governance-panel h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 8px;
+}
+
+.violation-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.violation-dot.warn {
+  background: #fbbf24;
+}
+
+.violation-dot.error {
+  background: #fb923c;
+}
+
+.violation-dot.critical {
+  background: #f87171;
+}
