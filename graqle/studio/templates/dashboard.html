@@ -34,6 +34,73 @@
     </div>
 </div>
 
+<!-- SHIELD Governance Panel -->
+<div class="governance-panel"
+     x-data="{ stats: { governance_score: 0, budget_remaining: 0, violation_count: 0, auto_correction_rate: 0, protected_files: 0 } }"
+     x-init="setInterval(() => fetch('/studio/api/governance/stats').then(r => r.json()).then(d => { stats = d }).catch(() => {}), 3000)"
+     hx-get="/studio/api/governance/stats"
+     hx-trigger="load, every 3s"
+     hx-swap="none">
+    <h3>&#128737; SHIELD Governance</h3>
+    <div class="grid-4" style="margin-top: 16px;">
+        <!-- Shield Gauge -->
+        <div class="panel" style="text-align: center;">
+            <div class="label" style="margin-bottom: 8px;">Governance Score</div>
+            <div class="shield-gauge"
+                 :style="'--gauge-value: ' + stats.governance_score"
+                 x-text="stats.governance_score + '%'">
+                0%
+            </div>
+        </div>
+
+        <!-- Budget Bar -->
+        <div class="panel">
+            <div class="label" style="margin-bottom: 8px;">Budget Remaining</div>
+            <div class="budget-bar">
+                <div class="fill"
+                     :style="'width: ' + Math.min(100, Math.max(0, stats.budget_remaining)) + '%'">
+                </div>
+            </div>
+            <div class="text-muted" style="font-size: 12px; margin-top: 6px;"
+                 x-text="stats.budget_remaining + '% remaining'">
+                0% remaining
+            </div>
+        </div>
+
+        <!-- Violations & Auto-correction -->
+        <div class="panel">
+            <div class="label" style="margin-bottom: 8px;">Violations</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="violation-dot"></span>
+                <span class="value" x-text="stats.violation_count">0</span>
+            </div>
+            <div class="label" style="margin-top: 12px; margin-bottom: 4px;">Auto-correction Rate</div>
+            <div class="confidence-display" x-text="stats.auto_correction_rate + '%'">0%</div>
+        </div>
+
+        <!-- Protected Files -->
+        <div class="panel" style="text-align: center;">
+            <div class="label" style="margin-bottom: 8px;">Protected Files</div>
+            <div class="value" x-text="stats.protected_files">0</div>
+        </div>
+    </div>
+
+    <!-- Event Feed -->
+    <div class="panel" style="margin-top: 16px;">
+        <h3>&#128196; Governance Events</h3>
+        <div id="governance-event-feed"
+             hx-ext="sse"
+             sse-connect="/studio/api/governance/events"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             style="max-height: 240px; overflow-y: auto; margin-top: 12px;">
+            <div class="text-muted" style="font-size: 12px; padding: 8px 0;">
+                Connecting to event stream&hellip;
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="grid-2">
     <!-- Node Types -->
     <div class="panel">
@@ -96,6 +163,7 @@
 
 {% block head %}
 <script src="/studio/static/vendor/d3.min.js"></script>
+<link rel="stylesheet" href="/studio/static/css/pulse.css">
 {% endblock %}
 
 {% block scripts %}

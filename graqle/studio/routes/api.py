@@ -731,6 +731,96 @@ async def reason_stream(request: Request):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
+# ---------- Governance Stats ----------
+
+
+@router.get("/governance/stats")
+async def governance_stats(request: Request):
+    """Return governance metrics for the Studio dashboard.
+
+    Aggregates 7 metrics from ClearanceFilter, BudgetAwareSemaphore, and
+    LoopObserver. All fields degrade gracefully to null if the underlying
+    component is unavailable or not yet instantiated.
+    """
+    state = request.app.state.studio_state
+
+    clearance_distribution = None
+    try:
+        from graqle.intelligence.governance.debate_clearance import (
+            ClearanceFilter,
+            ClearanceLevel,
+        )
+        clearance_filter = state.get("clearance_filter")
+        if clearance_filter is None:
+            clearance_filter = ClearanceFilter()
+        if hasattr(clearance_filter, "distribution"):
+            raw = clearance_filter.distribution()
+            clearance_distribution = {
+                k.value if isinstance(k, ClearanceLevel) else str(k): v
+                for k, v in raw.items()
+            }
+        elif hasattr(clearance_filter, "_distribution"):
+            clearance_distribution = dict(clearance_filter._distribution)
+    except Exception:
+        clearance_distribution = None
+
+    budget_remaining = None
+    semaphore_active = None
+    try:
+        from graqle.reasoning.semaphore import BudgetAwareSemaphore
+        semaphore = state.get("semaphore")
+        if semaphore is None:
+            semaphore = BudgetAwareSemaphore()
+        if hasattr(semaphore, "budget_remaining"):
+            budget_remaining = semaphore.budget_remaining
+        if hasattr(semaphore, "active"):
+            semaphore_active = semaphore.active
+    except Exception:
+        budget_remaining = None
+        semaphore_active = None
+
+    governance_score = None
+    violation_count = None
+    auto_correction_rate = None
+    try:
+        from graqle.workflow.loop_observer import LoopObserver
+        loop_observer = state.get("loop_observer")
+        if loop_observer is None:
+            loop_observer = LoopObserver()
+        if hasattr(loop_observer, "governance_score"):
+            governance_score = loop_observer.governance_score
+        if hasattr(loop_observer, "violation_count"):
+            violation_count = loop_observer.violation_count
+        if hasattr(loop_observer, "auto_correction_rate"):
+            auto_correction_rate = loop_observer.auto_correction_rate
+    except Exception:
+        governance_score = None
+        violation_count = None
+        auto_correction_rate = None
+
+    graph = state.get("graph")
+    protected_files_count = None
+    try:
+        if graph is not None and hasattr(graph, "nodes"):
+            protected_files_count = sum(
+                1
+                for node in graph.nodes.values()
+                if node.properties.get("protected", False)
+            )
+    except Exception:
+        protected_files_count = None
+
+    return JSONResponse({
+        "clearance_distribution": clearance_distribution,
+        "budget_remaining": budget_remaining,
+        "semaphore_active": semaphore_active,
+        "governance_score": governance_score,
+        "violation_count": violation_count,
+        "auto_correction_rate": auto_correction_rate,
+        "protected_files_count": protected_files_count,
+    })
+
+
 # ---------- HTMX Partials ----------
 
 

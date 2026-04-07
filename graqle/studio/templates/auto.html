@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Auto Loop — GraQle Studio{% endblock %}
+{% block nav_auto %}active{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/studio/static/css/pulse.css">
+<script src="/studio/static/js/protocol-viz.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Autonomous Execution</h1>
+    <p class="subtitle">LOOP layer — self-directed task execution with governance guardrails</p>
+</div>
+
+<div x-data="autoMonitor()" x-init="init()">
+
+    <!-- Control Bar -->
+    <div class="governance-panel" style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+        <input type="text" class="query-input" style="flex:1;" placeholder="Describe the task..."
+               x-model="taskInput" :disabled="isRunning" @keydown.enter="startLoop()">
+        <input type="number" min="1" max="10" x-model.number="maxRetries" style="width:60px;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#f1f5f9;" :disabled="isRunning">
+        <button class="btn primary" @click="startLoop()" :disabled="isRunning || !taskInput.trim()">
+            <span x-text="isRunning ? 'Running...' : '&#9654; Start'"></span>
+        </button>
+        <button class="btn" style="background:#f87171;color:#fff;" @click="stopLoop()" :disabled="!isRunning">&#9632; Stop</button>
+    </div>
+
+    <!-- Status Panel -->
+    <div class="pulse-status-bar" style="margin-bottom:16px;">
+        <span class="pulse-status-badge" :class="isRunning ? 'active' : status === 'error' ? 'error' : 'done'"
+              x-text="statusText"></span>
+        <span x-show="attempt > 0" x-text="'Attempt ' + attempt + '/' + maxRetries"></span>
+        <span class="cost-display" x-show="budgetUsed > 0" x-text="'Budget: $' + budgetUsed.toFixed(4)"></span>
+        <span x-show="lastDecay" x-text="'Last decay: ' + lastDecay" style="color:#64748b;font-size:12px;"></span>
+        <span style="margin-left:auto;color:#64748b;font-size:12px;" x-text="elapsed"></span>
+    </div>
+
+    <!-- Protocol Flow -->
+    <div class="governance-panel" style="margin-bottom:16px;">
+        <h3>Protocol Flow</h3>
+        <div id="protocol-flow" style="min-height:140px;"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <!-- Event Log -->
+        <div class="governance-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3>Event Log</h3>
+                <button class="btn" style="padding:4px 8px;font-size:11px;background:#334155;" @click="events=[]">Clear</button>
+            </div>
+            <div style="max-height:300px;overflow-y:auto;margin-top:8px;" id="event-scroll">
+                <template x-if="events.length === 0">
+                    <div style="color:#64748b;font-size:12px;padding:12px 0;">No events yet — start a task to begin.</div>
+                </template>
+                <template x-for="(ev, i) in events" :key="i">
+                    <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #1e293b;font-size:12px;font-family:monospace;">
+                        <span style="color:#4b5563;flex-shrink:0;" x-text="ev.ts"></span>
+                        <span :class="ev.level === 'error' ? 'event-badge-high' : ev.level === 'warn' ? 'event-badge-medium' : 'event-badge-low'"
+                              style="padding:1px 4px;border-radius:3px;font-size:10px;" x-text="ev.level"></span>
+                        <span style="color:#cbd5e1;" x-text="ev.msg"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Right column: Files + Tests -->
+        <div>
+            <!-- Modified Files -->
+            <div class="governance-panel" style="margin-bottom:16px;">
+                <h3>Modified Files</h3>
+                <template x-if="modifiedFiles.length === 0">
+                    <div style="color:#64748b;font-size:12px;padding:8px 0;">No files modified yet.</div>
+                </template>
+                <template x-for="(f, i) in modifiedFiles" :key="i">
+                    <div style="padding:4px 0;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8;">
+                        &#128196; <span x-text="f"></span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Test Results -->
+            <div class="governance-panel">
+                <h3>Test Results</h3>
+                <div style="display:flex;gap:24px;margin-top:8px;">
+                    <div>
+                        <div style="font-size:28px;font-weight:700;color:#34d399;" x-text="testPass"></div>
+                        <div style="font-size:11px;color:#64748b;">Passed</div>
+                    </div>
+                    <div>
+                        <div style="font-size:28px;font-weight:700;color:#f87171;" x-text="testFail"></div>
+                        <div style="font-size:11px;color:#64748b;">Failed</div>
+                    </div>
+                </div>
+                <div x-show="testError" style="margin-top:8px;padding:8px;background:rgba(248,113,113,0.1);border-radius:6px;color:#f87171;font-size:12px;" x-text="testError"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof ProtocolFlow !== 'undefined') {
+            window._protocolFlow = new ProtocolFlow('protocol-flow');
+        }
+    });
+
+    function autoMonitor() {
+        return {
+            taskInput: '', maxRetries: 3, isRunning: false,
+            statusText: 'Idle', status: 'idle',
+            attempt: 0, budgetUsed: 0, lastDecay: null,
+            elapsed: '0s', events: [], modifiedFiles: [],
+            testPass: 0, testFail: 0, testError: null,
+            _pollTimer: null, _elapsedTimer: null, _startTs: null,
+
+            init() { this._poll(); this._pollTimer = setInterval(() => this._poll(), 2000); },
+
+            async startLoop() {
+                if (!this.taskInput.trim() || this.isRunning) return;
+                this.isRunning = true; this.statusText = 'Starting...';
+                this.events = []; this.modifiedFiles = [];
+                this.testPass = 0; this.testFail = 0; this.testError = null;
+                this._startTs = Date.now();
+                this._elapsedTimer = setInterval(() => {
+                    var s = Math.floor((Date.now() - this._startTs) / 1000);
+                    this.elapsed = s < 60 ? s + 's' : Math.floor(s/60) + 'm ' + (s%60) + 's';
+                }, 1000);
+                try {
+                    var r = await fetch('/studio/auto/api/auto/start', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({task: this.taskInput, max_retries: this.maxRetries})
+                    });
+                    if (r.ok) {
+                        this._addEvent('ok', 'Task started');
+                        this.statusText = 'Running';
+                    } else {
+                        this._addEvent('error', 'Start failed: HTTP ' + r.status);
+                        this.isRunning = false; this.statusText = 'Error';
+                    }
+                } catch (e) {
+                    this._addEvent('error', 'Start failed: ' + e.message);
+                    this.isRunning = false; this.statusText = 'Error';
+                }
+            },
+
+            async stopLoop() {
+                try {
+                    await fetch('/studio/auto/api/auto/stop', {method: 'POST'});
+                    this.isRunning = false; this.statusText = 'Stopped';
+                    this._addEvent('warn', 'Stopped by user');
+                    this._cleanup();
+                } catch (e) { this._addEvent('error', 'Stop failed: ' + e.message); }
+            },
+
+            async _poll() {
+                try {
+                    var r = await fetch('/studio/auto/api/auto/status');
+                    if (!r.ok) return;
+                    var d = await r.json();
+                    this.status = d.state || 'idle';
+                    this.statusText = this.status.charAt(0).toUpperCase() + this.status.slice(1);
+                    this.attempt = d.attempt || 0;
+                    this.budgetUsed = d.budget_used_usd || 0;
+                    this.lastDecay = d.last_decay_at || null;
+                    this.modifiedFiles = d.modified_files || [];
+                    if (d.test_result) {
+                        this.testPass = d.test_result.pass_count || 0;
+                        this.testFail = d.test_result.fail_count || 0;
+                        this.testError = d.test_result.error || null;
+                    }
+                    this.isRunning = (d.state === 'running' || d.state === 'planning' || d.state === 'executing');
+                    if (!this.isRunning && this._elapsedTimer) this._cleanup();
+                } catch (e) {}
+            },
+
+            _addEvent(level, msg) {
+                this.events.push({ts: new Date().toLocaleTimeString(), level: level, msg: msg});
+                this.$nextTick(() => { var el = document.getElementById('event-scroll'); if (el) el.scrollTop = el.scrollHeight; });
+            },
+
+            _cleanup() {
+                clearInterval(this._elapsedTimer); this._elapsedTimer = null;
+            }
+        };
+    }
+</script>
+{% endblock %}

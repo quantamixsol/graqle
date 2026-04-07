@@ -38,6 +38,7 @@ def mount_studio(app: Any, state: dict) -> None:
     from graqle.studio.routes.intelligence import router as intelligence_router
     from graqle.studio.routes.learning import router as learning_router
     from graqle.studio.routes.traversal import router as traversal_router
+    from graqle.studio.routes.auto import router as auto_router
 
     # Mount static files
     app.mount("/studio/static", StaticFiles(directory=str(STATIC_DIR)), name="studio-static")
@@ -55,6 +56,7 @@ def mount_studio(app: Any, state: dict) -> None:
     app.include_router(traversal_router, prefix="/studio/api/traversal")
     app.include_router(control_router, prefix="/studio/api/control")
     app.include_router(learning_router, prefix="/studio/api/learning")
+    app.include_router(auto_router, prefix="/studio")
 
     # Ring-fence guard: Studio routes are read-only on the knowledge graph.
     # No /learn or /reload endpoints are mounted in Studio — this is the
