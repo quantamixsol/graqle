@@ -61,7 +61,6 @@ except Exception:
 
 
 # C1: Use shared sensitive keys from redaction module (single source of truth)
-from graqle.cli.commands.auto import _PERMITTED_RUNNERS
 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS as _SENSITIVE_KEYS
 
 _LESSON_ENTITY_TYPES = frozenset({
@@ -1873,44 +1872,6 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
-    {
-        "name": "graq_auto",
-        "description": (
-            "Run the autonomous loop: plan, generate code, write files, run tests, "
-            "diagnose failures, fix, and retry until GREEN or max retries. "
-            "Use for tasks like 'write tests for module X' or 'fix the CORS bug'. "
-            "Governed: max_retries cap, protected file gate, cost tracking."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "task": {
-                    "type": "string",
-                    "description": "Task description — what to build, fix, or test",
-                },
-                "max_retries": {
-                    "type": "integer",
-                    "description": "Max fix-retry cycles (default: 3)",
-                    "default": 3,
-                },
-                "test_command": {
-                    "type": "string",
-                    "description": "Test command (default: python -m pytest -x -q)",
-                },
-                "test_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Specific test paths to run",
-                },
-                "dry_run": {
-                    "type": "boolean",
-                    "description": "Plan + generate without writing files (default: true for safety)",
-                    "default": True,
-                },
-            },
-            "required": ["task"],
-        },
-    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1946,8 +1907,6 @@ _WRITE_TOOLS = frozenset({
     "graq_test", "kogni_test",
     # Phase 10: graq_gov_gate writes GOVERNANCE_BYPASS KG nodes — blocked in read-only mode
     "graq_gov_gate", "kogni_gov_gate",
-    # v0.44.1: autonomous loop — writes files, runs tests
-    "graq_auto", "kogni_auto",
 })
 
 
@@ -2069,12 +2028,16 @@ class KogniDevServer:
                     logger.warning("Neo4j load failed (%s), falling back to JSON", neo4j_exc)
 
             # Auto-discover graph file (JSON/NetworkX fallback)
+            # OT-057: Resolve against GRAQLE_SERVE_CWD (set by mcp_serve/serve)
+            # to ensure discovery uses project root, not IDE spawn directory.
+            _serve_cwd = os.environ.get("GRAQLE_SERVE_CWD", "")
+            _discovery_root = Path(_serve_cwd) if _serve_cwd else Path.cwd()
             for candidate in [
                 "graqle.json",
                 "knowledge_graph.json",
                 "graph.json",
             ]:
-                p = Path(candidate)
+                p = _discovery_root / candidate
                 if p.exists():
                     self._graph = Graqle.from_json(str(p), config=self._config)
                     self._graph_file = str(p.resolve())
@@ -2242,16 +2205,112 @@ class KogniDevServer:
             "Quick fix: export ANTHROPIC_API_KEY=sk-ant-..."
         )
 
+    # ── Zero-graph first-run experience ────────────────────────────────
+
+    _TOOLS_AVAILABLE_WITHOUT_GRAPH = [
+        "graq_bash", "graq_read", "graq_write", "graq_grep", "graq_glob",
+        "graq_git_status", "graq_git_diff", "graq_git_log",
+        "graq_context", "graq_preflight", "graq_route",
+    ]
+
+    def _detect_available_backend(self) -> str | None:
+        """Check if an LLM backend is available (env vars, yaml, Ollama)."""
+        import os
+        # Priority 1: API keys in env
+        for env_var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"):
+            if os.environ.get(env_var):
+                return env_var.split("_")[0].lower()  # "anthropic", "openai", "groq"
+        # Priority 2: AWS Bedrock (IAM, no key needed)
+        if os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION"):
+            return "bedrock"
+        # Priority 3: Ollama (local)
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://localhost:11434/api/tags", timeout=1)
+            return "ollama"
+        except Exception:
+            pass
+        return None
+
+    def _profile_project_sync(self) -> dict:
+        """Quick filesystem fingerprint — no LLM, no graph required."""
+        from pathlib import Path
+        cwd = Path.cwd()
+        lang_map = {".py": "Python", ".ts": "TypeScript", ".js": "JavaScript",
+                    ".go": "Go", ".java": "Java", ".rs": "Rust"}
+        framework_signals = {"package.json": "Node.js", "requirements.txt": "Python",
+                             "pyproject.toml": "Python", "go.mod": "Go", "Cargo.toml": "Rust"}
+        exclude = {"node_modules", ".git", "__pycache__", "dist", ".venv", "build"}
+        languages, frameworks = set(), []
+        total_files = 0
+        for ext, lang in lang_map.items():
+            count = sum(1 for f in cwd.rglob(f"*{ext}")
+                        if not any(p in f.parts for p in exclude))
+            if count:
+                languages.add(lang)
+                total_files += count
+        for signal, fw in framework_signals.items():
+            if (cwd / signal).exists():
+                frameworks.append(fw)
+        return {
+            "languages": sorted(languages),
+            "frameworks": frameworks,
+            "total_files": total_files,
+            "project_root": str(cwd),
+        }
+
+    def _build_first_run_response(self, original_query: str = "") -> str:
+        """Intelligent first-run response that detects backend and project context."""
+        backend = self._detect_available_backend()
+        profile = self._profile_project_sync()
+
+        if not backend:
+            # No backend, no graph — static instructions
+            return json.dumps({
+                "status": "FIRST_RUN",
+                "error": "NO_GRAPH",
+                "message": (
+                    "No knowledge graph found and no LLM backend detected.\n\n"
+                    "Quick start:\n"
+                    "  1. Set ANTHROPIC_API_KEY in your environment, OR\n"
+                    "     configure model.backend in graqle.yaml\n"
+                    "  2. Run: graq scan --repo .\n"
+                    "  3. Retry your question"
+                ),
+                "project_detected": profile,
+                "tools_available_now": self._TOOLS_AVAILABLE_WITHOUT_GRAPH,
+            })
+
+        # Backend available — intelligent onboarding
+        lang_str = ", ".join(profile["languages"]) if profile["languages"] else "unknown"
+        fw_str = ", ".join(profile["frameworks"]) if profile["frameworks"] else "none detected"
+
+        return json.dumps({
+            "status": "FIRST_RUN_INTERACTIVE",
+            "error": "NO_GRAPH",
+            "backend_detected": backend,
+            "project_detected": profile,
+            "original_query": original_query,
+            "message": (
+                f"👋 No knowledge graph found — but your {backend} backend is ready!\n\n"
+                f"I detected {profile['total_files']} source files ({lang_str}).\n"
+                f"Frameworks: {fw_str}\n\n"
+                "To build your knowledge graph, answer these 3 questions:\n"
+                "1. What does this project do? (one sentence)\n"
+                "2. Which directories contain the core code? (e.g. src/, app/)\n"
+                "3. Any directories to exclude? (e.g. node_modules/, dist/)\n\n"
+                "Or simply run: **graq scan --repo .** to scan everything.\n\n"
+                f"Your original question '{original_query}' will be answered "
+                "automatically after the graph is built."
+            ),
+            "next_action": "SCAN_OR_ANSWER_QUESTIONS",
+            "scan_command": "graq scan --repo .",
+            "tools_available_now": self._TOOLS_AVAILABLE_WITHOUT_GRAPH,
+        })
+
     def _require_graph(self) -> Any:
-        """Load graph or raise with a helpful message."""
-        graph = self._load_graph()
-        if graph is None:
-            raise RuntimeError(
-                "No knowledge graph loaded. "
-                "Place a graqle.json, knowledge_graph.json, or graph.json "
-                "in the working directory, or run 'graq scan --repo .' first."
-            )
-        return graph
+        """Load graph or return None (callers must check)."""
+        return self._load_graph()
 
     # ------------------------------------------------------------------
     # Node search helpers
@@ -2260,6 +2319,8 @@ class KogniDevServer:
     def _find_node(self, name: str) -> Any | None:
         """Find node by exact ID, label, or fuzzy substring match."""
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         if not name:
             return None
 
@@ -2283,6 +2344,8 @@ class KogniDevServer:
     def _find_nodes_matching(self, text: str, *, limit: int = 20) -> list[Any]:
         """Find all nodes whose label/id/description fuzzy-match *text*."""
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         text_lower = text.lower()
         tokens = text_lower.split()
 
@@ -2313,6 +2376,8 @@ class KogniDevServer:
 
         # Fallback: Python iteration
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         neighbors: list[dict[str, str]] = []
         seen: set[str] = set()
 
@@ -2683,9 +2748,6 @@ class KogniDevServer:
             # v0.38.0 Phase 7: performance profiler
             "graq_profile": self._handle_profile,
             "kogni_profile": self._handle_profile,
-            # v0.44.1: autonomous loop
-            "graq_auto": self._handle_auto,
-            "kogni_auto": self._handle_auto,
         }
 
         handler = handlers.get(name)
@@ -2793,6 +2855,8 @@ class KogniDevServer:
         show_stats = args.get("stats", False)
 
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
 
         # Single node inspection
         if node_id:
@@ -2863,6 +2927,8 @@ class KogniDevServer:
 
         t0 = _time.monotonic()
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
 
         # Detect backend status BEFORE attempting reasoning
         backend_status = self._check_backend_status(graph)
@@ -3005,6 +3071,8 @@ class KogniDevServer:
 
         # Standard mode — existing behaviour unchanged
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         results = await graph.areason_batch(
             questions, max_rounds=max_rounds, max_concurrent=max_concurrent,
         )
@@ -3141,6 +3209,8 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'component' is required."})
 
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         start_node = self._find_node(component)
 
         if start_node is None:
@@ -3220,6 +3290,8 @@ class KogniDevServer:
 
         # Fallback: Python BFS over in-memory graph
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
         visited: set[str] = {start_id}
         queue: deque[tuple[str, int, str]] = deque()  # (node_id, depth, relationship)
 
@@ -3337,9 +3409,12 @@ class KogniDevServer:
         if self._graph is None:
             self._load_graph()  # make sure dev server graph is loaded first
         cfg = MCPConfig(graph_path="graqle.json")
+        # FRAGILE(B7): sync with MCPServer.__init__ — S1 will replace with from_graph() classmethod
         proxy = MCPServer(cfg)
         proxy._graph = self._graph        # inject already-loaded graph — skips _ensure_graph
         proxy._embedder = getattr(self, "_embedder", None)
+        if proxy._graph is None:
+            logger.warning("B7 guard: proxy._graph is None after injection — predict may use stale state")
         result = await proxy._handle_predict(args)
         # MCPToolResult.content is already a JSON string — return it directly
         content = getattr(result, "content", None)
@@ -4724,6 +4799,99 @@ class KogniDevServer:
 
         return json.dumps(result)
 
+    # ── Self-validating pipeline (AUTONOMY-100-BLUEPRINT) ────────────
+    # GAP 1: AST validation, GAP 2: context re-anchoring, GAP 3: loop
+
+    _MAX_VALIDATION_ITERATIONS = 3  # TODO: Wire retry loop in next PR (GAP 3 full implementation)
+
+    def _extract_code_from_response(self, raw: str, mode: str) -> str:
+        """Strip markdown fences and normalize LLM output."""
+        lines = raw.strip().splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        return "\n".join(lines)
+
+    def _validate_syntax(self, code: str, file_path: str | None = None) -> dict:
+        """GAP 1: AST validation on generated Python code."""
+        import ast
+        if file_path and not str(file_path).endswith(".py"):
+            return {"valid": True, "errors": []}
+        try:
+            ast.parse(code)
+            return {"valid": True, "errors": []}
+        except SyntaxError as e:
+            return {"valid": False, "errors": [f"SyntaxError at line {e.lineno}: {e.msg}"]}
+
+    def _validate_diff_context(self, diff_text: str, file_path: str) -> dict:
+        """GAP 2: Verify diff context lines match actual file content."""
+        import difflib
+        from pathlib import Path
+        # RF-1 (CWE-22): containment check before reading any file
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (ValueError, OSError, AttributeError):
+            # New file or path outside graph root — nothing to validate
+            from pathlib import Path as _P
+            if not _P(file_path).exists():
+                return {"valid": True, "errors": []}
+            return {"valid": False, "errors": ["Path containment check failed"]}
+        path = Path(file_path)
+        if not path.exists():
+            return {"valid": True, "errors": []}
+        actual_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        context_lines = [
+            (i, line[1:]) for i, line in enumerate(diff_text.splitlines())
+            if line.startswith(" ") and len(line) > 1
+        ]
+        if not context_lines:
+            return {"valid": True, "errors": []}
+        errors = []
+        for diff_lineno, ctx in context_lines:
+            matches = difflib.get_close_matches(ctx, actual_lines, n=1, cutoff=0.8)
+            if not matches:
+                errors.append(f"Diff line {diff_lineno}: context '{ctx[:60]}' not found")
+        mismatch_ratio = len(errors) / len(context_lines) if context_lines else 0
+        return {"valid": mismatch_ratio <= 0.3, "errors": errors}
+
+    def _reanchor_diff(self, diff_text: str, file_path: str) -> str:
+        """GAP 2: Auto-fix drifted context lines via fuzzy matching."""
+        import difflib
+        from pathlib import Path
+        # RF-1 (CWE-22): containment check before reading any file
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (ValueError, OSError, AttributeError):
+            return diff_text
+        path = Path(file_path)
+        if not path.exists():
+            return diff_text
+        actual_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        fixed = []
+        for line in diff_text.splitlines():
+            if line.startswith(" ") and len(line) > 1:
+                ctx = line[1:]
+                matches = difflib.get_close_matches(ctx, actual_lines, n=1, cutoff=0.6)
+                if matches and matches[0] != ctx:
+                    # RF-2: Log every reanchored line for auditability
+                    logger.info("Reanchored: '%s' -> '%s'", ctx[:60], matches[0][:60])
+                    fixed.append(" " + matches[0])
+                    continue
+            fixed.append(line)
+        return "\n".join(fixed)
+
+    def _build_correction_prompt(self, original: str, code: str, errors: list, attempt: int) -> str:
+        """GAP 3: Structured error feedback for LLM retry."""
+        error_block = "\n".join(f"  - {e}" for e in errors)
+        return (
+            f"Your previous output had validation errors (attempt {attempt}/3).\n\n"
+            f"ERRORS:\n{error_block}\n\n"
+            f"ORIGINAL REQUEST:\n{original}\n\n"
+            f"YOUR PREVIOUS OUTPUT:\n{code[:2000]}\n\n"
+            f"Fix ALL errors above. Return ONLY the corrected code."
+        )
+
     # ── graq_generate (TEAM/ENTERPRISE) ──────────────────────────────
     # v0.38.0 — governed code generation
     # Phase 1 of feature-coding-assistant plan
@@ -4817,6 +4985,8 @@ class KogniDevServer:
 
         t0 = _time.monotonic()
         graph = self._require_graph()
+        if graph is None:
+            return self._build_first_run_response()
 
         # Step 1: Preflight — surface risks before generating
         preflight_raw = json.loads(await self._handle_preflight({
@@ -5095,6 +5265,33 @@ class KogniDevServer:
             )
         graph_context = "\n".join(graph_context_lines) if graph_context_lines else ""
 
+        # AL-10 fix: Extract type names from description, find matching Class/Function
+        # nodes in KG, and include their signatures in context even if not activated.
+        # This prevents LLM from hallucinating constructor APIs.
+        import re as _re_al10
+        _type_candidates = set(_re_al10.findall(r'\b[A-Z][a-zA-Z0-9]+(?:Config|Result|Budget|Memory|Level|Protocol|Agent)\b', description))
+        _al10_extra: list[str] = []
+        _activated_labels = {getattr(graph.nodes.get(nid), "label", "") for nid in activated_nids[:_MAX_CONTEXT_NODES]}
+        for _tname in _type_candidates:
+            if _tname in _activated_labels:
+                continue  # already in context
+            # Search KG for matching class node
+            for _knid, _knode in graph.nodes.items():
+                _klabel = getattr(_knode, "label", "")
+                _ketype = getattr(_knode, "entity_type", "")
+                if _klabel == _tname and _ketype in ("Class", "Function"):
+                    _kprops = getattr(_knode, "properties", None) or {}
+                    _ksig = (_kprops.get("signature", "") or "")[:_MAX_SIG_CHARS]
+                    _kdesc = (getattr(_knode, "description", "") or "")[:_MAX_DESC_CHARS]
+                    if _ksig:
+                        _al10_extra.append(f"- [{_ketype}] {_klabel}: {_kdesc}\n  Signature: {_ksig}")
+                    else:
+                        _al10_extra.append(f"- [{_ketype}] {_klabel}: {_kdesc}")
+                    break  # first match only
+        if _al10_extra:
+            graph_context += "\n\n## Referenced Types (AL-10)\n" + "\n".join(_al10_extra)
+            logger.info("AL-10: injected %d type signatures into LLM context", len(_al10_extra))
+
         # (c) Build single-shot prompt (system + user separation)
         # BLOCKER-2: inputs sanitized and capped to prevent prompt injection
         _MAX_DESC_INPUT = 4000
@@ -5164,7 +5361,7 @@ class KogniDevServer:
             # (e) Single LLM call — direct backend, no multi-agent pipeline
             gen_result = await backend.generate(
                 system_prompt + "\n\n" + user_prompt,
-                max_tokens=4096,
+                max_tokens=8192,  # AL-9 fix: 4096 truncated full-file rewrites
                 temperature=0.2,
             )
             # GenerateResult is str-compatible but may have .text attribute
@@ -5282,6 +5479,35 @@ class KogniDevServer:
                 )
         except Exception as e:
             logger.debug("format_validation skipped: %s", e)  # advisory — never block
+
+        # Step 4c-pre: Self-validation (AUTONOMY-100-BLUEPRINT)
+        # Validate diff context lines match actual file before applying
+        if file_path and diff_text:
+            ctx_check = self._validate_diff_context(diff_text, file_path)
+            if not ctx_check["valid"]:
+                logger.info("Self-validation: %d context mismatches, re-anchoring", len(ctx_check["errors"]))
+                diff_text = self._reanchor_diff(diff_text, file_path)
+
+        # Step 4c (AL-1 fix): Apply diff to filesystem when dry_run=False
+        if not dry_run and file_path and diff_text:
+            try:
+                from graqle.core.file_writer import apply_diff
+                from pathlib import Path as _ApplyPath
+                _apply_result = apply_diff(
+                    _ApplyPath(file_path),
+                    diff_text,
+                    dry_run=False,
+                    skip_syntax_check=False,
+                )
+                if _apply_result.success:
+                    logger.info("graq_generate: wrote %s (AL-1 fix)", file_path)
+                else:
+                    logger.warning(
+                        "graq_generate: apply_diff failed for %s: %s",
+                        file_path, _apply_result.error,
+                    )
+            except Exception as _apply_exc:
+                logger.warning("graq_generate: file write failed for %s: %s", file_path, _apply_exc)
 
         # Step 5: OT-050 — sync written file into KG (mirrors _handle_edit per ADR-134)
         if not dry_run and file_path:
@@ -6716,7 +6942,8 @@ class KogniDevServer:
         if reason_result is not None:
             # Estimate token usage from cost (rough: $3/1M tokens for claude-sonnet)
             cost_usd = getattr(reason_result, "cost_usd", 0.0)
-            tokens_used = int(cost_usd / 0.000003) if cost_usd > 0 else 0
+            _COST_PER_TOKEN_USD = 0.000003  # Approximate: $3/1M tokens (Claude Sonnet)
+            tokens_used = int(cost_usd / _COST_PER_TOKEN_USD) if cost_usd is not None and cost_usd > 0 else 0
             confidence = float(getattr(reason_result, "confidence", 0.0))
             model_used = str(getattr(reason_result, "model", ""))
             if not model_used:
@@ -6764,119 +6991,6 @@ class KogniDevServer:
         if reason_error:
             result["reason_error"] = reason_error
         return json.dumps(result)
-
-    # ── v0.44.1: graq_auto — autonomous loop ────────────────────────
-
-    async def _handle_auto(self, args: dict[str, Any]) -> str:
-        """Run the autonomous loop: plan -> generate -> test -> fix -> retry.
-
-        Args:
-            task (str): Task description — what to build, fix, or test (required).
-            max_retries (int): Max fix-retry cycles, capped at 10 (default: 3).
-            test_command (str): Test command (default: python -m pytest -x -q).
-            test_paths (list[str]): Specific test paths to run.
-            dry_run (bool): Plan + generate without writing files (default: True).
-
-        Returns:
-            JSON string with ExecutorResult fields (success, state, attempts, etc.)
-        """
-        import re
-        import shlex
-
-        from graqle.workflow.autonomous_executor import AutonomousExecutor, ExecutorConfig
-        from graqle.workflow.mcp_agent import McpActionAgent
-
-        _err = lambda msg: json.dumps({"error": msg, "tool": "graq_auto"})
-
-        # Validate and sanitize task
-        task = args.get("task", "").strip()
-        # Strip control characters (prevent injection)
-        task = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", task)
-        if not task:
-            return _err("graq_auto requires 'task'")
-
-        # Validate max_retries
-        try:
-            max_retries = min(int(args.get("max_retries", 3)), 10)
-            if max_retries < 0:
-                max_retries = 0
-        except (ValueError, TypeError):
-            return _err("max_retries must be an integer")
-
-        # Validate test_command — use shlex for safe splitting
-        raw_test_cmd = args.get("test_command", "python -m pytest -x -q")
-        if not isinstance(raw_test_cmd, str):
-            return _err("test_command must be a string")
-        try:
-            test_cmd_parts = shlex.split(raw_test_cmd)
-        except ValueError as exc:
-            return _err(f"Invalid test_command: {exc}")
-
-        # RO-2: Runner allowlist — parity with CLI (research team V4 validated)
-        if not test_cmd_parts:
-            return _err("test_command must not be empty")
-        runner = test_cmd_parts[0]
-        if "/" in runner or "\\" in runner:
-            return _err("test_command runner must not contain path separators")
-        if runner not in _PERMITTED_RUNNERS:
-            return _err(f"Runner '{runner}' not permitted. Allowed: {sorted(_PERMITTED_RUNNERS)}")
-
-        # Validate test_paths — must be a list of strings
-        test_paths = args.get("test_paths", [])
-        if not isinstance(test_paths, list):
-            return _err("test_paths must be a list of strings")
-        test_paths = [str(p) for p in test_paths]
-
-        # Derive working directory from graph file location
-        graph_path = self._graph_file
-        if graph_path:
-            working_dir = Path(graph_path).parent.resolve()
-        else:
-            logger.warning("No graph file loaded — using cwd as working directory")
-            working_dir = Path.cwd().resolve()
-
-        # dry_run defaults to True for safety (convention: write tools default safe)
-        dry_run = bool(args.get("dry_run", True))
-
-        config = ExecutorConfig(
-            max_retries=max_retries,
-            test_command=test_cmd_parts,
-            test_paths=test_paths,
-            working_dir=str(working_dir),
-            dry_run=dry_run,
-        )
-
-        agent = McpActionAgent(self, working_dir)
-        executor = AutonomousExecutor(agent, config)
-
-        # V5 defense-in-depth: governance gate before loop entry.
-        # graq_generate fires governance per-iteration internally (V5=YES);
-        # this pre-check catches policy blocks early. gate.blocked is authoritative.
-        if self._gov is not None:
-            try:
-                gate = self._gov.check(
-                    action="autonomous_loop",
-                    risk_level="HIGH",
-                )
-                if gate.blocked:
-                    return _err(f"Governance gate blocked autonomous loop: {gate.reason}")
-            except (ConnectionError, TimeoutError, OSError):
-                logger.warning("Governance pre-check unavailable, proceeding (per-iteration gates active)", exc_info=True)
-
-        try:
-            result = await asyncio.wait_for(
-                executor.execute(task),
-                timeout=config.timeout_seconds * (max_retries + 1),
-            )
-        except asyncio.TimeoutError:
-            return _err(f"Autonomous loop timed out after {config.timeout_seconds * (max_retries + 1)}s")
-        except asyncio.CancelledError:
-            raise  # propagate cooperative cancellation
-        except Exception as exc:
-            logger.exception("graq_auto executor failed")
-            return _err(f"Executor error: {exc}")
-
-        return json.dumps(result.to_dict(), default=str)
 
     def _read_active_branch(self) -> str | None:
         """Read .gcc/registry.md to find the active branch, if present."""
@@ -6927,7 +7041,7 @@ class KogniDevServer:
             _proj = _detect_project_name(_Path(self._graph_file).parent)
             schedule_push(self._graph_file, _proj)
         except Exception as _push_exc:
-            logger.debug("KG background push skipped: %s", _push_exc)
+            logger.warning("KG background push failed: %s", _push_exc)
 
     # ==================================================================
     # MCP JSON-RPC stdio transport

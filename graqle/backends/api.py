@@ -528,6 +528,10 @@ class BedrockBackend(BaseBackend):
 class OllamaBackend(BaseBackend):
     """Ollama local model backend with retry + validation."""
 
+    # Reasoning models spend tokens on internal chain-of-thought (<think> tags)
+    # before producing visible output. They need a larger num_predict budget.
+    _REASONING_MODEL_PREFIXES = ("deepseek-r1", "qwq", "qwen3")
+
     def __init__(
         self,
         model: str = "qwen2.5:0.5b",
@@ -541,6 +545,19 @@ class OllamaBackend(BaseBackend):
         self._timeout = timeout
         self._max_retries = max_retries
         self._num_ctx = num_ctx  # context window size (e.g., 8192 for DeepSeek-R1)
+
+    def _effective_num_predict(self, max_tokens: int) -> int:
+        """Return an appropriate num_predict for the model.
+
+        Reasoning models spend tokens on internal chain-of-thought before
+        producing visible output, so they need a larger token budget.
+        Non-reasoning models use caller's max_tokens unchanged.
+        """
+        model_lower = (self._model or "").lower()
+        effective = max_tokens or 512  # null-coalesce for defensive safety
+        if any(model_lower.startswith(p) for p in self._REASONING_MODEL_PREFIXES):
+            return max(effective, 4096)
+        return effective
 
     async def generate(
         self,
@@ -565,7 +582,7 @@ class OllamaBackend(BaseBackend):
                         "model": self._model,
                         "prompt": prompt,
                         "options": {
-                            "num_predict": max_tokens,
+                            "num_predict": self._effective_num_predict(max_tokens),
                             "temperature": temperature,
                             **({"num_ctx": self._num_ctx} if self._num_ctx else {}),
                         },
@@ -575,15 +592,29 @@ class OllamaBackend(BaseBackend):
                 response.raise_for_status()
                 data = response.json()
                 text = data.get("response", "")
-                # Strip <think>...</think> tags from reasoning models (DeepSeek-R1)
+                # Strip <think>...</think> tags from reasoning models (DeepSeek-R1, Gemma4)
+                # Fallback: if stripping produces empty, use last think block content
                 if "<think>" in text:
                     import re
-                    text = re.sub(
-                        r"<think>.*?</think>\s*", "", text, flags=re.DOTALL
+                    think_blocks = re.findall(
+                        r"<think>(.*?)</think>", text, flags=re.DOTALL
                     )
+                    stripped = re.sub(
+                        r"<think>.*?</think>\s*", "", text, flags=re.DOTALL
+                    ).strip()
+                    if stripped:
+                        text = stripped
+                    elif think_blocks:
+                        text = think_blocks[-1].strip()
                 # OT-028: Capture done_reason for truncation detection
                 done_reason = data.get("done_reason", "") or ""
                 truncated = done_reason == "length"
+                if truncated:
+                    logger.warning(
+                        "[%s] Response truncated (done_reason='length', %d chars). "
+                        "Consider increasing num_predict or num_ctx.",
+                        self.name, len(text or ""),
+                    )
                 tokens_used = data.get("eval_count")  # Ollama output token count
                 return GenerateResult(
                     text=text.strip(),

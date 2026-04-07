@@ -1075,6 +1075,108 @@ class Graqle:
 
         return result
 
+    # ------------------------------------------------------------------
+    # S6: ReasoningCoordinator integration helpers
+    # ------------------------------------------------------------------
+
+    async def _areason_coordinated(
+        self,
+        query: str,
+        *,
+        max_rounds: int,
+        strategy: str,
+        node_ids: list[str],
+        context: Any,
+        task_type: str | None,
+    ) -> ReasoningResult:
+        """Run reasoning via ReasoningCoordinator (S6 multi-agent coordination).
+
+        Lazy-imports coordinator components to avoid circular imports.
+        S7 will populate agent_roster from graph nodes; for now it is an
+        empty placeholder so the coordinator skeleton can be exercised.
+        """
+        from graqle.reasoning.coordinator import (
+            CoordinatorConfig as _CoordConfig,
+            ReasoningCoordinator,
+        )
+
+        cfg = self.config.coordinator
+        coord_config = _CoordConfig(
+            COORDINATOR_DECOMPOSITION_PROMPT=cfg.decomposition_prompt or "Decompose the query.",
+            COORDINATOR_SYNTHESIS_PROMPT=cfg.synthesis_prompt or "Synthesize the results.",
+            max_specialists=cfg.max_specialists,
+            specialist_timeout_seconds=cfg.specialist_timeout_seconds,
+        )
+
+        llm_backend = self._get_backend_for_node(
+            node_ids[0] if node_ids else next(iter(self.nodes), ""),
+            task_type=task_type,
+        )
+
+        # S7: Populate agent roster from activated graph nodes
+        from graqle.core.agent_adapter import CogniNodeAgent
+
+        agent_roster: list[Any] = []
+        for nid in node_ids:
+            node = self.nodes.get(nid)
+            if node is not None:
+                nid_backend = self._get_backend_for_node(nid, task_type=task_type)
+                if nid_backend is not None:
+                    agent_roster.append(CogniNodeAgent(node=node, backend=nid_backend))
+
+        async with ReasoningCoordinator(
+            llm_backend=llm_backend,
+            agent_roster=agent_roster,
+            config=coord_config,
+        ) as coordinator:
+            decomposition = await coordinator.decompose(query)
+            results = await coordinator.dispatch(decomposition)
+            synthesis = await coordinator.synthesize(results)
+
+        # S7: Governance gate on coordinator synthesis output
+        # TS-BLOCK is unconditional — never overridable (CC7.4)
+        synthesis_text = getattr(synthesis, "merged_answer", "")
+        governance_cfg = getattr(self.config, "governance", None)
+        if governance_cfg is not None:
+            try:
+                from graqle.core.governance import GovernanceMiddleware
+                gw = GovernanceMiddleware(governance_cfg)
+                gate_result = gw.check(
+                    content=synthesis_text,
+                    action="reason",
+                    risk_level="LOW",
+                )
+                if gate_result.blocked:
+                    logger.warning("Coordinator synthesis blocked by governance: %s", gate_result.reason)
+                    raise RuntimeError(f"Governance blocked coordinator output: {gate_result.reason}")
+            except ImportError:
+                pass  # governance module not available
+
+        return self._synthesis_to_reasoning_result(synthesis, query, node_ids)
+
+    def _synthesis_to_reasoning_result(
+        self,
+        synthesis: Any,
+        query: str,
+        node_ids: list[str],
+    ) -> ReasoningResult:
+        """Map SynthesisResult to ReasoningResult.
+
+        Uses getattr with defaults for forward compatibility.
+        """
+        return ReasoningResult(
+            query=query,
+            answer=getattr(synthesis, "merged_answer", ""),
+            confidence=0.0,
+            rounds_completed=1,
+            active_nodes=list(node_ids),
+            message_trace=[],
+            cost_usd=0.0,
+            latency_ms=0.0,
+            reasoning_mode="coordinator",
+            metadata={"coordinator": True, "clearance": str(getattr(synthesis, "clearance", ""))},
+        )
+
     # --- Model Assignment ---
 
     def set_default_backend(self, backend: ModelBackend) -> None:
@@ -1372,6 +1474,43 @@ class Graqle:
             backend = self._get_backend_for_node(nid, task_type=task_type)
             self.nodes[nid].activate(backend)
 
+        # S6: Coordinator feature-flag branch
+        if self.config.coordinator.enabled:
+            try:
+                coord_result = await self._areason_coordinated(
+                    query,
+                    max_rounds=max_rounds,
+                    strategy=strategy,
+                    node_ids=node_ids,
+                    context=context,
+                    task_type=task_type,
+                )
+            except Exception as _coord_exc:  # noqa: BLE001
+                # M2: Structured fallback logging for diagnostics
+                import hashlib as _hl
+                _qhash = _hl.md5(query.encode()).hexdigest()[:8]
+                logger.warning(
+                    "Coordinator path failed, falling back to orchestrator. "
+                    "error=%s query_hash=%s node_count=%d coordinator_enabled=%s "
+                    "max_specialists=%s timeout=%s",
+                    _coord_exc,
+                    _qhash,
+                    len(node_ids) if node_ids else 0,
+                    getattr(self.config.coordinator, "enabled", "?"),
+                    getattr(self.config.coordinator, "max_specialists", "?"),
+                    getattr(self.config.coordinator, "specialist_timeout_seconds", "?"),
+                )
+                coord_result = None
+
+            if coord_result is not None:
+                # Deactivate nodes, restore originals, record metrics, return early
+                for nid in node_ids:
+                    self.nodes[nid].deactivate()
+                for nid, orig in _original_nodes.items():
+                    self.nodes[nid] = orig
+                coord_result.metadata["coordinator_path"] = True
+                return coord_result
+
         # 3. Run orchestrator (with MasterObserver if configured)
         if self._orchestrator is None:
             # Create unified SkillPipeline (type-first, semantic fallback)
@@ -1602,7 +1741,7 @@ class Graqle:
                 f"nodes={len(node_ids)}, lessons={len(lesson_refs)}"
             )
         except Exception as e:
-            logger.debug(f"Metrics recording skipped: {e}")
+            logger.warning("Metrics recording failed: %s", e)
 
     def _record_activation_memory(
         self, query: str, node_ids: list[str], result: ReasoningResult,
@@ -1617,7 +1756,7 @@ class Graqle:
 
             self._activation_memory.record(query, node_ids, result)
         except Exception as e:
-            logger.debug(f"Activation memory recording skipped: {e}")
+            logger.warning("Activation memory recording failed: %s", e)
 
     def _reformulate_query(self, query: str, *, context: Any = None) -> str:
         """Apply query reformulation if configured (ADR-104).

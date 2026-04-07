@@ -24,7 +24,6 @@ from graqle.workflow.loop_observer import (
     Violation,
     ViolationType,
 )
-from graqle.workflow.mcp_agent import McpActionAgent
 
 __all__ = [
     "ActionAgentProtocol",
@@ -43,5 +42,4 @@ __all__ = [
     "LoopObserver",
     "Violation",
     "ViolationType",
-    "McpActionAgent",
 ]

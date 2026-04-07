@@ -312,6 +312,21 @@ class CalibrationConfig(BaseModel):
     benchmark_path: str | None = None
     persist_path: str = ".graqle/calibration/"
 
+
+class CoordinatorConfig(BaseModel):
+    """ReasoningCoordinator configuration (S6 MAG integration).
+
+    Feature flag to enable ReasoningCoordinator in graph.areason().
+    Disabled by default — opt-in via ``coordinator.enabled: true``.
+    """
+
+    enabled: bool = False
+    max_specialists: int = 5
+    specialist_timeout_seconds: float = 30.0
+    decomposition_prompt: str = ""
+    synthesis_prompt: str = ""
+
+
 class RedactionConfig(BaseModel):
     """Privacy redaction configuration for document scanning."""
 
@@ -469,6 +484,7 @@ class GraqleConfig(BaseModel):
     debate: DebateConfig = Field(default_factory=DebateConfig)
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
     llm_redaction: LLMRedactionConfig = Field(default_factory=LLMRedactionConfig)
+    coordinator: CoordinatorConfig = Field(default_factory=CoordinatorConfig)
 
     @model_validator(mode="after")
     def _validate_debate_panelists(self) -> "GraqleConfig":

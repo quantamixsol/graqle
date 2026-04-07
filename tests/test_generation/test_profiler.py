@@ -311,7 +311,7 @@ class TestGraqProfileToolDefinition:
     def test_tool_count_is_112(self) -> None:
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
         # Phase 7 adds graq_profile + kogni_profile: 110 → 112
-        assert len(TOOL_DEFINITIONS) == 122  # +2: graq_auto + kogni_auto
+        assert len(TOOL_DEFINITIONS) == 120  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
 
 
 # ---------------------------------------------------------------------------

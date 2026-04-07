@@ -121,11 +121,15 @@ RECLASSIFICATION_RULES: tuple[dict[str, Any], ...] = (
     },
 )
 
-# Enforce confidence-descending ordering at module load
-assert all(
+# Enforce confidence-descending ordering at module load (raise, not assert — safe under -O)
+if not all(
     RECLASSIFICATION_RULES[i]["confidence"] >= RECLASSIFICATION_RULES[i + 1]["confidence"]
     for i in range(len(RECLASSIFICATION_RULES) - 1)
-), "Rules must be ordered by confidence descending"
+):
+    raise RuntimeError(
+        "RECLASSIFICATION_RULES must be ordered by confidence descending. "
+        "This invariant is required for first-match semantics."
+    )
 
 
 def _match_rule(node_data: dict[str, Any]) -> dict[str, Any] | None:

@@ -120,7 +120,7 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002) +2: graq_auto + kogni_auto
+        assert len(TOOL_DEFINITIONS) == 120  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -194,8 +194,6 @@ class TestToolDefinitions:
             "graq_gov_gate",
             # R6: correction tool
             "graq_correct",
-            # v0.44.1: autonomous loop
-            "graq_auto",
         }
         expected_kogni = {
             "kogni_context",
@@ -265,10 +263,8 @@ class TestToolDefinitions:
             "kogni_gov_gate",
             # R6: correction tool
             "kogni_correct",
-            # v0.44.1: autonomous loop
-            "kogni_auto",
         }
-        # 61 graq_* + 61 kogni_* = 114 total (v0.38.0 Phase 10)
+        # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -298,7 +294,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002) +2: graq_auto + kogni_auto
+        assert len(tools) == 120  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
 
 
 # ---------------------------------------------------------------------------

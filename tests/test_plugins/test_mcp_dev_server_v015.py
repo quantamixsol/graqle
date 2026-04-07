@@ -86,7 +86,7 @@ def server():
 
 class TestToolDefinitionsV015:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002) +2: graq_auto + kogni_auto
+        assert len(TOOL_DEFINITIONS) == 120  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

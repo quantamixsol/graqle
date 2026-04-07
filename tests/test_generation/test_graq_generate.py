@@ -35,36 +35,23 @@ class _MockReasoningResult:
         return len(self.active_nodes)
 
 
-class _MockNode:
-    """JSON-serializable mock node (MagicMock fails JSON serialization)."""
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-        self.id = kwargs.get("label", "mock")
-        self.properties = {}
-        self.chunks = [{"content": kwargs.get("description", "")}]
-        self.file_path = None
-        self.start_line = None
-        self.end_line = None
-
-
 def _build_mock_graph() -> MagicMock:
     graph = MagicMock()
     graph.nodes = {
-        "SyncEngine": _MockNode(label="SyncEngine", entity_type="Class", description="Cloud sync"),
+        "SyncEngine": MagicMock(label="SyncEngine", entity_type="Class", description="Cloud sync"),
     }
     graph.edges = {}
     graph.areason = AsyncMock(return_value=_MockReasoningResult())
-    # _get_backend_for_node must return a backend with async generate()
-    mock_backend = MagicMock()
-    mock_backend.generate = AsyncMock(return_value='{"patches": [], "dry_run": true, "confidence": 0.5}')
-    mock_backend.name = "mock"
-    mock_backend.cost_per_1k_tokens = 0.0
-    graph._get_backend_for_node = MagicMock(return_value=mock_backend)
-    # _activate_subgraph returns a list of node IDs (strings)
+    # OT-054: _handle_generate uses direct backend call, not areason
+    _mock_backend = MagicMock()
+    _mock_backend.generate = AsyncMock(return_value=_MockReasoningResult().answer)
+    _mock_backend.name = "mock-backend"
+    _mock_backend.cost_per_1k_tokens = 0.003
+    graph._get_backend_for_node = MagicMock(return_value=_mock_backend)
     graph._activate_subgraph = MagicMock(return_value=["SyncEngine"])
-    # config.activation.strategy used in _activate_subgraph call
     graph.config = MagicMock()
-    graph.config.activation.strategy = "chunk"
+    graph.config.activation = MagicMock()
+    graph.config.activation.strategy = "top_k"
     return graph
 
 
