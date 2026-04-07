@@ -5642,7 +5642,28 @@ class KogniDevServer:
                     "message": f"Content matches trade secret pattern '{pat}'. Write blocked.",
                 })
 
-        fp = Path(file_path)
+        # S-010: resolve relative to graph root, not CWD
+        _raw = getattr(self, "_graph_file", None)
+        if _raw is not None and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        # Reject absolute paths — only accept relative paths anchored to graph root
+        if Path(file_path).is_absolute():
+            return json.dumps({
+                "error": "Invalid file_path: absolute paths not allowed. Use relative path from project root.",
+            })
+
+        fp = (project_root / file_path).resolve()
+
+        # CWE-22 containment check (sole authoritative gate)
+        if not fp.is_relative_to(project_root):
+            return json.dumps({"error": "Invalid file_path: path escapes project root"})
+
         if dry_run:
             return json.dumps({
                 "file_path": str(fp),
