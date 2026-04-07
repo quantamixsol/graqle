@@ -3,7 +3,12 @@
 {% block nav_reasoning %}active{% endblock %}
 
 {% block head %}
+<link rel="stylesheet" href="/studio/static/css/pulse.css">
 <script src="/studio/static/vendor/d3.min.js"></script>
+<script src="/studio/static/vendor/cytoscape.min.js"></script>
+<script src="/studio/static/vendor/cytoscape-fcose.min.js"></script>
+<script src="/studio/static/vendor/marked.min.js"></script>
+<script src="/studio/static/vendor/dompurify.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -15,14 +20,26 @@
 <div class="reasoning-input" x-data="reasoningUI()">
     <div class="query-bar">
         <input type="text" class="query-input" placeholder="Ask your knowledge graph..."
-               x-model="query" @keydown.enter="startReasoning()">
-        <button class="btn primary" @click="startReasoning()" :disabled="running">
+               x-model="query" @keydown.enter="startReasoning()" :disabled="running">
+        <button class="btn primary" @click="startReasoning()" :disabled="running || !query.trim()">
             <span x-text="running ? 'Reasoning...' : 'Ask'"></span>
         </button>
     </div>
 
+    <div class="pulse-status-bar" x-show="running || answer">
+        <span class="pulse-status-badge" :class="running ? 'active' : 'done'" x-text="status"></span>
+        <span x-show="pulseNodeCount > 0">Nodes: <strong x-text="pulseNodeCount"></strong></span>
+        <span x-show="confidence > 0" class="confidence-display"
+              :class="confidence > 0.8 ? 'high' : confidence > 0.5 ? 'medium' : 'low'"
+              x-text="(confidence * 100).toFixed(1) + '%'"></span>
+        <span class="cost-display" x-show="resultMeta.cost_usd != null"
+              x-text="'$' + Number(resultMeta.cost_usd || 0).toFixed(4)"></span>
+        <span x-show="resultMeta.latency_ms != null"
+              x-text="Math.round(resultMeta.latency_ms || 0) + 'ms'"></span>
+    </div>
+
     <div class="reasoning-layout">
-        <div id="reasoning-graph" class="reasoning-canvas"></div>
+        <div id="cy" class="reasoning-canvas" style="min-height:500px;"></div>
         <div class="reasoning-feed">
             <div class="feed-header">
                 <span x-text="status"></span>
@@ -31,20 +48,23 @@
             </div>
             <div id="activity-feed" class="activity-feed">
                 <template x-for="item in feed" :key="item.id">
-                    <div class="feed-item" :class="item.type">
+                    <div class="feed-item" :class="['activation','final_answer','error'].includes(item.type) ? item.type : 'unknown'">
                         <span class="feed-type" x-text="item.type"></span>
                         <span class="feed-content" x-text="item.content"></span>
                     </div>
                 </template>
+                <div x-show="feed.length === 0 && running" style="color:#64748b;font-size:13px;">
+                    Waiting for events...
+                </div>
             </div>
             <div class="result-panel" x-show="answer">
                 <h3>Answer</h3>
-                <div class="answer-text" x-html="answer"></div>
-                <div class="result-meta" x-show="resultMeta">
-                    <span x-text="'Rounds: ' + (resultMeta?.rounds || '-')"></span> &middot;
-                    <span x-text="'Nodes: ' + (resultMeta?.node_count || '-')"></span> &middot;
-                    <span x-text="'Cost: $' + (resultMeta?.cost_usd?.toFixed(4) || '-')"></span> &middot;
-                    <span x-text="'Latency: ' + Math.round(resultMeta?.latency_ms || 0) + 'ms'"></span>
+                <div class="answer-text" x-html="renderMarkdown(answer)"></div>
+                <div class="result-meta" x-show="resultMeta.rounds != null">
+                    <span x-text="'Rounds: ' + (resultMeta.rounds || '-')"></span> &middot;
+                    <span x-text="'Nodes: ' + (resultMeta.node_count || '-')"></span> &middot;
+                    <span x-text="'Cost: $' + (resultMeta.cost_usd != null ? Number(resultMeta.cost_usd).toFixed(4) : '-')"></span> &middot;
+                    <span x-text="'Latency: ' + (resultMeta.latency_ms != null ? Math.round(resultMeta.latency_ms) + 'ms' : '-')"></span>
                 </div>
             </div>
         </div>
@@ -54,96 +74,133 @@
 
 {% block scripts %}
 <script src="/studio/static/js/graph-viz.js"></script>
+<script src="/studio/static/js/pulse-graph.js"></script>
+<script src="/studio/static/js/pulse-sse.js"></script>
 <script>
-    let reasoningGraph = null;
+    var pulseGraph = null;
 
-    // Load graph for visualization backdrop
-    fetch('/studio/api/graph/visualization')
-        .then(r => r.json())
-        .then(data => {
-            if (data.nodes && data.nodes.length > 0) {
-                reasoningGraph = new GraqleViz('#reasoning-graph', data, { mini: false, reasoning: true });
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            if (typeof PulseGraph !== 'undefined' && typeof cytoscape !== 'undefined') {
+                pulseGraph = new PulseGraph('cy', { tierLimit: 500 });
             }
-        });
+        } catch (e) {
+            console.error('PulseGraph init failed:', e);
+        }
+    });
 
     function reasoningUI() {
         return {
-            query: '',
-            running: false,
-            status: 'Ready',
-            confidence: 0,
-            answer: '',
-            resultMeta: null,
-            feed: [],
-            feedId: 0,
+            query: '', running: false, status: 'Ready', confidence: 0,
+            answer: '', resultMeta: {}, feed: [], feedId: 0, pulseNodeCount: 0, graphLoaded: false,
 
-            async startReasoning() {
+            renderMarkdown: function(text) {
+                if (!text) return '';
+                // Fail closed: if DOMPurify is missing, escape all HTML
+                // Gate BOTH libraries: if either is missing, escape all HTML
+                if (typeof DOMPurify === 'undefined' || typeof marked === 'undefined' || !marked.parse) {
+                    var el = document.createElement('span');
+                    el.textContent = text;
+                    if (typeof DOMPurify === 'undefined') console.error('DOMPurify not loaded — markdown disabled');
+                    if (typeof marked === 'undefined') console.error('marked not loaded — markdown disabled');
+                    return el.innerHTML;
+                }
+                var html = marked.parse(text, { breaks: true, gfm: true });
+                return DOMPurify.sanitize(html, {
+                    ALLOWED_TAGS: ['h1','h2','h3','h4','p','br','strong','em','code','pre',
+                                   'ul','ol','li','a','blockquote','table','thead','tbody',
+                                   'tr','th','td','hr','span','div'],
+                    ALLOWED_ATTR: ['href','class'],
+                    ALLOW_DATA_ATTR: false
+                });
+            },
+
+            handleEvent: function(event) {
+                var t = event.type || '';
+                if (t === 'activation') {
+                    this.pulseNodeCount = event.count || 0;
+                    this.status = 'Activated ' + (event.count || 0) + ' nodes';
+                    this.feed.push({ id: this.feedId++, type: 'activation',
+                        content: (event.count || 0) + ' nodes in ' + Math.round(event.latency_ms || 0) + 'ms' });
+                    if (pulseGraph && event.nodes) {
+                        if (!this.graphLoaded) {
+                            var graphData = {
+                                nodes: event.nodes.map(function(n) {
+                                    return { id: n.id, label: n.label, type: n.type, degree: n.degree != null ? n.degree : 5 };
+                                }),
+                                edges: []
+                            };
+                            pulseGraph.load(graphData);
+                            this.graphLoaded = true;
+                        }
+                        event.nodes.forEach(function(n) { pulseGraph.activateNode(n.id); });
+                    }
+                } else if (t === 'final_answer') {
+                    this.answer = event.answer || '';
+                    this.confidence = typeof event.confidence === 'number' ? event.confidence : 0;
+                    this.status = 'Complete';
+                    this.resultMeta = {
+                        rounds: event.rounds != null ? event.rounds : null, node_count: event.node_count != null ? event.node_count : null,
+                        cost_usd: event.cost_usd != null ? event.cost_usd : null,
+                        latency_ms: event.latency_ms != null ? event.latency_ms : null,
+                    };
+                    this.feed.push({ id: this.feedId++, type: 'final_answer',
+                        content: Math.round((event.confidence || 0) * 100) + '% confidence' });
+                    if (pulseGraph && event.active_nodes) {
+                        event.active_nodes.forEach(function(id) {
+                            pulseGraph.completeNode(id, event.confidence);
+                        });
+                    }
+                } else if (t === 'error') {
+                    var msg = event.message || 'Unknown error';
+                    this.status = 'Error: ' + msg;
+                    this.feed.push({ id: this.feedId++, type: 'error', content: msg });
+                }
+            },
+
+            startReasoning: async function() {
                 if (!this.query.trim() || this.running) return;
-                this.running = true;
-                this.status = 'Activating nodes...';
-                this.answer = '';
-                this.resultMeta = null;
-                this.feed = [];
-                this.confidence = 0;
-
+                this.running = true; this.status = 'Connecting...';
+                this.answer = ''; this.resultMeta = {}; this.feed = [];
+                this.confidence = 0; this.pulseNodeCount = 0; this.graphLoaded = false;
+                var self = this;
+                var reader = null;
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 120000);
                 try {
-                    const response = await fetch('/studio/api/reason', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ query: this.query, max_rounds: 5 })
+                    var response = await fetch('/studio/api/reason', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: self.query, mode: 'deep', max_rounds: 3 }),
+                        signal: controller.signal
                     });
-
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-
-                        for (const line of lines) {
+                    if (!response.ok || !response.body) throw new Error('HTTP ' + response.status);
+                    reader = response.body.getReader();
+                    var decoder = new TextDecoder(); var buffer = '';
+                    outer: while (true) {
+                        var chunk = await reader.read();
+                        if (chunk.done) break;
+                        buffer += decoder.decode(chunk.value, { stream: true });
+                        var lines = buffer.split('\n'); buffer = lines.pop() || '';
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i].trim();
                             if (!line.startsWith('data: ')) continue;
-                            const payload = line.slice(6).trim();
-                            if (payload === '[DONE]') continue;
-
-                            try {
-                                const event = JSON.parse(payload);
-                                this.handleEvent(event);
-                            } catch (e) {}
+                            var payload = line.slice(6).trim();
+                            if (payload === '[DONE]') break outer;
+                            try { self.handleEvent(JSON.parse(payload)); }
+                            catch (e) { console.warn('SSE parse:', e); }
                         }
                     }
                 } catch (e) {
-                    this.status = 'Error: ' + e.message;
-                }
-
-                this.running = false;
-            },
-
-            handleEvent(event) {
-                if (event.type === 'final_answer') {
-                    this.answer = event.answer;
-                    this.confidence = event.confidence;
-                    this.resultMeta = event;
-                    this.status = 'Complete';
-
-                    // Highlight active nodes
-                    if (reasoningGraph && event.active_nodes) {
-                        reasoningGraph.highlightNodes(event.active_nodes);
-                    }
-                } else if (event.type === 'error') {
-                    this.status = 'Error: ' + event.message;
-                    this.feed.push({
-                        id: this.feedId++,
-                        type: 'error',
-                        content: event.message
-                    });
+                    var errMsg = controller.signal.aborted ? 'Request timed out' : (e.message || String(e));
+                    self.status = 'Error: ' + errMsg;
+                    self.feed.push({ id: self.feedId++, type: 'error', content: errMsg });
+                } finally {
+                    clearTimeout(timeoutId);
+                    if (reader) { try { reader.cancel(); } catch(_) {} }
+                    self.running = false;
                 }
             }
-        }
+        };
     }
 </script>
 {% endblock %}

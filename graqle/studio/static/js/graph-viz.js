@@ -65,7 +65,7 @@ const ENTITY_COLORS = {
   CONTEXT:         '#5eead4',
   GROUNDING:       '#99f6e4',
   // Catch-all
-  UNKNOWN:         '#cbd5e1',
+  UNKNOWN:         '#64748b',
   // CogniGraph-specific types
   CONCEPT:         '#818cf8',
   LESSON:          '#fbbf24',
@@ -74,6 +74,23 @@ const ENTITY_COLORS = {
   PATTERN:         '#c084fc',
   AGENT:           '#a78bfa',
   CHUNK:           '#94a3b8',
+  // KG code entity types (Python scanner outputs these)
+  FUNCTION:        '#38bdf8',
+  CLASS:           '#4ade80',
+  PYTHONMODULE:    '#facc15',
+  MODULE:          '#e2e8f0',
+  TESTFILE:        '#f472b6',
+  DIRECTORY:       '#94a3b8',
+  CONFIG:          '#fb923c',
+  ENVVAR:          '#fbbf24',
+  APIENDPOINT:     '#60a5fa',
+  DATABASEMODEL:   '#e879f9',
+  DEPENDENCY:      '#cbd5e1',
+  CIPIPELINE:      '#6366f1',
+  DOCKERSERVICE:   '#22d3ee',
+  JAVASCRIPTMODULE:'#a3e635',
+  JSMODULE:        '#a3e635',
+  KNOWLEDGE:       '#34d399',
 };
 
 function getNodeColor(type) {
