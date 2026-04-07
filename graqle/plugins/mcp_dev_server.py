@@ -175,6 +175,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "default": False,
                     "description": "Show full graph statistics",
                 },
+                "file_audit": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Verify KG node file paths exist on disk. Returns missing_files list.",
+                },
             },
         },
     },
@@ -2893,10 +2898,55 @@ class KogniDevServer:
     async def _handle_inspect(self, args: dict[str, Any]) -> str:
         node_id = args.get("node_id")
         show_stats = args.get("stats", False)
+        file_audit = args.get("file_audit", False)
 
         graph = self._require_graph()
         if graph is None:
             return self._build_first_run_response()
+
+        # S-002: File audit — verify KG nodes reference files that exist on disk
+        if file_audit:
+            import os
+            _raw = getattr(self, "_graph_file", None)
+            if _raw and isinstance(_raw, (str, Path)):
+                try:
+                    project_root = Path(str(_raw)).resolve().parent
+                except OSError:
+                    project_root = Path.cwd().resolve()
+            else:
+                project_root = Path.cwd().resolve()
+
+            audit_results: dict[str, dict[str, Any]] = {}
+            for nid, node in graph.nodes.items():
+                fp = (
+                    node.properties.get("file_path")
+                    or node.properties.get("source_file")
+                )
+                if not fp or not isinstance(fp, str):
+                    continue
+                # Resolve relative paths against project root
+                p = Path(fp)
+                if not p.is_absolute():
+                    p = project_root / fp
+                exists = p.exists()
+                if not exists:
+                    audit_results[nid] = {
+                        "path": fp,
+                        "exists": False,
+                        "type": node.entity_type,
+                    }
+
+            return json.dumps({
+                "file_audit": True,
+                "total_nodes": len(graph.nodes),
+                "nodes_with_files": sum(
+                    1 for n in graph.nodes.values()
+                    if n.properties.get("file_path") or n.properties.get("source_file")
+                ),
+                "missing_files": list(audit_results.keys()),
+                "missing_count": len(audit_results),
+                "details": dict(list(audit_results.items())[:50]),
+            })
 
         # Single node inspection
         if node_id:
