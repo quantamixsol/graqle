@@ -69,9 +69,9 @@ class PulseGraph {
           'text-outline-width':  1,
           'width':               'data(size)',
           'height':              'data(size)',
-          'background-color':    '#64748b',
+          'background-color':    '#94a3b8',
           'border-width':        2,
-          'border-color':        '#1e293b',
+          'border-color':        '#475569',
           'border-style':        'solid',
           'opacity':             1,
           'transition-property': 'border-color, border-width, opacity, width, height',
@@ -86,7 +86,7 @@ class PulseGraph {
       {
         selector: 'node[state="idle"]',
         style: {
-          'border-color': '#1e293b',
+          'border-color': '#475569',
           'border-width': 2,
           'border-style': 'solid',
           'opacity':      1,
