@@ -5239,6 +5239,27 @@ class KogniDevServer:
         except Exception as e:
             logger.debug("format_validation skipped: %s", e)  # advisory — never block
 
+        # Step 4c (AL-1 fix): Apply diff to filesystem when dry_run=False
+        if not dry_run and file_path and diff_text:
+            try:
+                from graqle.core.file_writer import apply_diff
+                from pathlib import Path as _ApplyPath
+                _apply_result = apply_diff(
+                    _ApplyPath(file_path),
+                    diff_text,
+                    dry_run=False,
+                    skip_syntax_check=False,
+                )
+                if _apply_result.success:
+                    logger.info("graq_generate: wrote %s (AL-1 fix)", file_path)
+                else:
+                    logger.warning(
+                        "graq_generate: apply_diff failed for %s: %s",
+                        file_path, _apply_result.error,
+                    )
+            except Exception as _apply_exc:
+                logger.warning("graq_generate: file write failed for %s: %s", file_path, _apply_exc)
+
         # Step 5: OT-050 — sync written file into KG (mirrors _handle_edit per ADR-134)
         if not dry_run and file_path:
             try:
