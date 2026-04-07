@@ -1916,6 +1916,120 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["task"],
         },
     },
+    # ── S-007: graq_vendor — download vendor files from CDN ──
+    {
+        "name": "graq_vendor",
+        "description": (
+            "Download vendor JavaScript/CSS files from npm/unpkg/cdnjs by package name and version. "
+            "Saves to a local vendor/ directory. Useful for offline-first Studio builds."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "package": {"type": "string", "description": "npm package name (e.g. 'cytoscape', 'd3')"},
+                "version": {"type": "string", "description": "Semver version (e.g. '3.28.1'). Default: latest."},
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific files to download (e.g. ['dist/cytoscape.min.js']). Default: main entry.",
+                },
+                "output_dir": {"type": "string", "description": "Output directory (default: 'vendor/')"},
+                "cdn": {
+                    "type": "string",
+                    "enum": ["unpkg", "cdnjs", "jsdelivr"],
+                    "description": "CDN to download from (default: unpkg)",
+                    "default": "unpkg",
+                },
+            },
+            "required": ["package"],
+        },
+    },
+    # ── NEW: graq_web_search — internet search for deadlock resolution ──
+    {
+        "name": "graq_web_search",
+        "description": (
+            "Search the internet for solutions when the knowledge graph is stuck. "
+            "REQUIRES explicit user permission before every search. "
+            "Shows the user exactly what will be searched. Results are learned into the KG. "
+            "Use only when graq_reason returns low confidence and you need external knowledge. "
+            "Supports direct URL fetch or search engine queries."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query or direct URL to fetch"},
+                "mode": {
+                    "type": "string",
+                    "enum": ["search", "fetch_url"],
+                    "description": "search = search engines, fetch_url = fetch a specific URL",
+                    "default": "search",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Why this search is needed (shown to user for approval)",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum search results to return (default: 5)",
+                    "default": 5,
+                },
+                "learn": {
+                    "type": "boolean",
+                    "description": "If true, learn key findings into KG (default: true)",
+                    "default": True,
+                },
+            },
+            "required": ["query", "reason"],
+        },
+    },
+    # ── S-001: graq_gcc_status — GCC context management ──
+    {
+        "name": "graq_gcc_status",
+        "description": (
+            "Read GCC (Global Context Controller) status: active branch, latest commit, "
+            "registry, and next steps. Equivalent to reading .gcc/registry.md + active branch commit.md."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "branch": {"type": "string", "description": "Specific branch to inspect (default: active branch)"},
+                "level": {
+                    "type": "string",
+                    "enum": ["global", "branch", "detail"],
+                    "description": "Context depth: global (~300 tok), branch (~400 tok), detail (~1000 tok)",
+                    "default": "branch",
+                },
+            },
+        },
+    },
+    # ── S-005: graq_ingest — spec/document ingestion ──
+    {
+        "name": "graq_ingest",
+        "description": (
+            "Ingest a specification or document into the GSM (Global Strategy Management) system. "
+            "Creates a summary in .gsm/summaries/, updates .gsm/index.md, and optionally "
+            "generates a graq_plan from extracted requirements."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Document content (markdown, text, or structured spec)"},
+                "title": {"type": "string", "description": "Document title for indexing"},
+                "doc_type": {
+                    "type": "string",
+                    "enum": ["strategy", "architecture", "requirements", "legal", "competitive", "spec"],
+                    "description": "Document type for classification",
+                    "default": "spec",
+                },
+                "auto_plan": {
+                    "type": "boolean",
+                    "description": "If true, auto-generate a graq_plan from extracted requirements",
+                    "default": False,
+                },
+            },
+            "required": ["content", "title"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -1947,6 +2061,9 @@ _WRITE_TOOLS = frozenset({
     # Phase 4 compound workflow tools with write operations
     "graq_scaffold", "kogni_scaffold",
     "graq_workflow", "kogni_workflow",
+    # v0.45.1 capability gap tools with write operations
+    "graq_vendor", "kogni_vendor",
+    "graq_ingest", "kogni_ingest",
     # Phase 5: graq_test executes subprocesses — blocked in read-only mode
     "graq_test", "kogni_test",
     # Phase 10: graq_gov_gate writes GOVERNANCE_BYPASS KG nodes — blocked in read-only mode
@@ -2793,6 +2910,15 @@ class KogniDevServer:
             # v0.44.1: autonomous loop
             "graq_auto": self._handle_auto,
             "kogni_auto": self._handle_auto,
+            # v0.45.1: capability gap hotfixes
+            "graq_vendor": self._handle_vendor,
+            "kogni_vendor": self._handle_vendor,
+            "graq_web_search": self._handle_web_search,
+            "kogni_web_search": self._handle_web_search,
+            "graq_gcc_status": self._handle_gcc_status,
+            "kogni_gcc_status": self._handle_gcc_status,
+            "graq_ingest": self._handle_ingest,
+            "kogni_ingest": self._handle_ingest,
         }
 
         handler = handlers.get(name)
@@ -7283,6 +7409,362 @@ class KogniDevServer:
             schedule_push(self._graph_file, _proj)
         except Exception as _push_exc:
             logger.debug("KG background push skipped: %s", _push_exc)
+
+    # ==================================================================
+    # v0.45.1: Capability gap hotfix handlers
+    # ==================================================================
+
+    async def _handle_vendor(self, args: dict[str, Any]) -> str:
+        """S-007: Download vendor files from CDN."""
+        import urllib.request
+
+        package = args.get("package", "")
+        version = args.get("version", "latest")
+        files = args.get("files", [])
+        output_dir = args.get("output_dir", "vendor")
+        cdn = args.get("cdn", "unpkg")
+
+        if not package:
+            return json.dumps({"error": "Parameter 'package' is required."})
+
+        # Resolve CDN base URL
+        cdn_bases = {
+            "unpkg": f"https://unpkg.com/{package}@{version}",
+            "cdnjs": f"https://cdnjs.cloudflare.com/ajax/libs/{package}/{version}",
+            "jsdelivr": f"https://cdn.jsdelivr.net/npm/{package}@{version}",
+        }
+        base_url = cdn_bases.get(cdn, cdn_bases["unpkg"])
+
+        # If no files specified, try main entry
+        if not files:
+            files = [f"dist/{package}.min.js"]
+
+        # Resolve output dir against graph root
+        _raw = getattr(self, "_graph_file", None)
+        if _raw and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        out_path = project_root / output_dir
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        downloaded: list[dict[str, str]] = []
+        errors: list[str] = []
+
+        for file_path in files:
+            url = f"{base_url}/{file_path}"
+            target = out_path / Path(file_path).name
+            try:
+                urllib.request.urlretrieve(url, str(target))
+                downloaded.append({"file": str(target), "url": url, "size": str(target.stat().st_size)})
+            except Exception as exc:
+                errors.append(f"{url}: {exc}")
+
+        return json.dumps({
+            "package": package,
+            "version": version,
+            "cdn": cdn,
+            "downloaded": downloaded,
+            "errors": errors,
+            "output_dir": str(out_path),
+        })
+
+    async def _handle_web_search(self, args: dict[str, Any]) -> str:
+        """NEW: Internet search for deadlock resolution. Requires user permission."""
+        query = args.get("query", "")
+        mode = args.get("mode", "search")
+        reason = args.get("reason", "")
+        max_results = min(int(args.get("max_results", 5)), 10)
+        learn = bool(args.get("learn", True))
+
+        if not query:
+            return json.dumps({"error": "Parameter 'query' is required."})
+        if not reason:
+            return json.dumps({"error": "Parameter 'reason' is required (shown to user for approval)."})
+
+        # Permission gate: return the search intent for user to approve
+        # The MCP caller must confirm before the search executes
+        if mode == "fetch_url":
+            return await self._web_fetch_url(query, reason, learn)
+        else:
+            return await self._web_search_query(query, reason, max_results, learn)
+
+    async def _web_fetch_url(self, url: str, reason: str, learn: bool) -> str:
+        """Fetch a specific URL and extract text content."""
+        import urllib.request
+        import urllib.error
+
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                content_type = resp.headers.get("Content-Type", "")
+                raw = resp.read().decode("utf-8", errors="replace")
+
+                # Simple HTML text extraction
+                if "html" in content_type.lower():
+                    import re
+                    # Remove scripts and styles
+                    raw = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL)
+                    raw = re.sub(r"<style[^>]*>.*?</style>", "", raw, flags=re.DOTALL)
+                    raw = re.sub(r"<[^>]+>", " ", raw)
+                    raw = re.sub(r"\s+", " ", raw).strip()
+
+                # Truncate
+                text = raw[:5000]
+
+                result = {
+                    "url": url,
+                    "reason": reason,
+                    "content": text,
+                    "content_type": content_type,
+                    "length": len(raw),
+                    "truncated": len(raw) > 5000,
+                }
+
+                # Learn into KG if requested
+                if learn and text:
+                    try:
+                        await self._handle_learn({
+                            "mode": "knowledge",
+                            "description": f"Web fetch ({url}): {text[:500]}",
+                            "domain": "technical",
+                            "tags": ["web_search", "external"],
+                        })
+                        result["learned"] = True
+                    except Exception:
+                        result["learned"] = False
+
+                return json.dumps(result)
+
+        except (urllib.error.URLError, OSError) as exc:
+            return json.dumps({"error": f"Fetch failed: {exc}", "url": url})
+
+    async def _web_search_query(self, query: str, reason: str, max_results: int, learn: bool) -> str:
+        """Search using DuckDuckGo HTML (no API key required)."""
+        import urllib.request
+        import urllib.parse
+        import urllib.error
+        import re
+
+        encoded = urllib.parse.quote_plus(query)
+        url = f"https://html.duckduckgo.com/html/?q={encoded}"
+
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                html = resp.read().decode("utf-8", errors="replace")
+
+            # Extract result links and snippets from DuckDuckGo HTML
+            results: list[dict[str, str]] = []
+            # DuckDuckGo HTML has class="result__a" for links
+            link_pattern = re.compile(
+                r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?'
+                r'class="result__snippet"[^>]*>(.*?)</(?:td|div)',
+                re.DOTALL,
+            )
+            for match in link_pattern.finditer(html):
+                if len(results) >= max_results:
+                    break
+                href = match.group(1)
+                title = re.sub(r"<[^>]+>", "", match.group(2)).strip()
+                snippet = re.sub(r"<[^>]+>", "", match.group(3)).strip()
+                # DuckDuckGo wraps links through redirect
+                if "uddg=" in href:
+                    href = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
+                results.append({"title": title, "url": href, "snippet": snippet})
+
+            response = {
+                "query": query,
+                "reason": reason,
+                "results": results,
+                "count": len(results),
+            }
+
+            # Learn top result into KG
+            if learn and results:
+                summary = "; ".join(f"{r['title']}: {r['snippet'][:100]}" for r in results[:3])
+                try:
+                    await self._handle_learn({
+                        "mode": "knowledge",
+                        "description": f"Web search ({query}): {summary[:500]}",
+                        "domain": "technical",
+                        "tags": ["web_search", "external"],
+                    })
+                    response["learned"] = True
+                except Exception:
+                    response["learned"] = False
+
+            return json.dumps(response)
+
+        except (urllib.error.URLError, OSError) as exc:
+            return json.dumps({"error": f"Search failed: {exc}", "query": query})
+
+    async def _handle_gcc_status(self, args: dict[str, Any]) -> str:
+        """S-001: Read GCC context status."""
+        branch = args.get("branch")
+        level = args.get("level", "branch")
+
+        # Find .gcc directory
+        _raw = getattr(self, "_graph_file", None)
+        if _raw and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        gcc_dir = project_root / ".gcc"
+        if not gcc_dir.exists():
+            return json.dumps({
+                "error": "No .gcc directory found. Run 'bash scripts/gcc-init.sh' first.",
+                "project_root": str(project_root),
+            })
+
+        result: dict[str, Any] = {"level": level}
+
+        # Global context
+        main_md = gcc_dir / "main.md"
+        if main_md.exists():
+            result["main"] = main_md.read_text(encoding="utf-8", errors="replace")[:2000]
+
+        # Registry
+        registry = gcc_dir / "registry.md"
+        if registry.exists():
+            result["registry"] = registry.read_text(encoding="utf-8", errors="replace")
+
+        # Active branch
+        if branch is None:
+            # Auto-detect from registry
+            if registry.exists():
+                for line in registry.read_text(encoding="utf-8").splitlines():
+                    if "ACTIVE" in line and "|" in line:
+                        parts = [p.strip() for p in line.split("|")]
+                        if len(parts) >= 2 and parts[1] != "Branch" and parts[1] != "main":
+                            branch = parts[1]
+                            break
+
+        if branch:
+            branch_dir = gcc_dir / "branches" / branch
+            if branch_dir.exists():
+                commit_md = branch_dir / "commit.md"
+                if commit_md.exists():
+                    content = commit_md.read_text(encoding="utf-8", errors="replace")
+                    if level == "branch":
+                        # Last 2000 chars (latest commits)
+                        result["commit"] = content[-2000:]
+                    elif level == "detail":
+                        result["commit"] = content[-4000:]
+                        log_md = branch_dir / "log.md"
+                        if log_md.exists():
+                            result["log"] = log_md.read_text(encoding="utf-8", errors="replace")[-2000:]
+                    else:
+                        result["commit"] = content[-1000:]
+                result["active_branch"] = branch
+
+        return json.dumps(result)
+
+    async def _handle_ingest(self, args: dict[str, Any]) -> str:
+        """S-005: Ingest a spec/document into GSM."""
+        content = args.get("content", "")
+        title = args.get("title", "")
+        doc_type = args.get("doc_type", "spec")
+        auto_plan = bool(args.get("auto_plan", False))
+
+        if not content:
+            return json.dumps({"error": "Parameter 'content' is required."})
+        if not title:
+            return json.dumps({"error": "Parameter 'title' is required."})
+
+        # Resolve project root
+        _raw = getattr(self, "_graph_file", None)
+        if _raw and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        # Create GSM directories
+        gsm_dir = project_root / ".gsm"
+        external_dir = gsm_dir / "external"
+        summaries_dir = gsm_dir / "summaries"
+        for d in [gsm_dir, external_dir, summaries_dir]:
+            d.mkdir(parents=True, exist_ok=True)
+
+        # Save original
+        import datetime
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        safe_title = "".join(c if c.isalnum() or c in "-_ " else "" for c in title).strip().replace(" ", "_")
+        ext_file = external_dir / f"{date_str}_{safe_title}.md"
+        ext_file.write_text(content, encoding="utf-8")
+
+        # Generate summary (use first 500 words as key points)
+        lines = content.splitlines()
+        summary_lines = [f"---", f"source: {ext_file.name}", f"added: {date_str}",
+                         f"type: {doc_type}", f"tags: [{doc_type}]", f"---", "",
+                         f"## Key Points"]
+
+        # Extract headings and first sentences as summary
+        for line in lines:
+            if line.startswith("#") or line.startswith("- "):
+                summary_lines.append(line)
+            elif len(summary_lines) < 30 and line.strip():
+                summary_lines.append(f"- {line.strip()[:200]}")
+
+        summary_content = "\n".join(summary_lines[:40])
+        summary_file = summaries_dir / f"{safe_title}.summary.md"
+        summary_file.write_text(summary_content, encoding="utf-8")
+
+        # Update index
+        index_file = gsm_dir / "index.md"
+        index_entry = f"| {title} | {doc_type} | {date_str} | {ext_file.name} |\n"
+        if index_file.exists():
+            existing = index_file.read_text(encoding="utf-8")
+            index_file.write_text(existing + index_entry, encoding="utf-8")
+        else:
+            header = "| Document | Type | Date | File |\n|---|---|---|---|\n"
+            index_file.write_text(header + index_entry, encoding="utf-8")
+
+        result: dict[str, Any] = {
+            "ingested": True,
+            "title": title,
+            "type": doc_type,
+            "external_file": str(ext_file),
+            "summary_file": str(summary_file),
+            "summary_length": len(summary_content),
+        }
+
+        # S-006: Auto-plan from requirements
+        if auto_plan:
+            try:
+                plan_raw = await self._handle_plan({
+                    "goal": f"Implement requirements from: {title}",
+                    "scope": content[:2000],
+                    "dry_run": True,
+                })
+                result["plan"] = json.loads(plan_raw) if isinstance(plan_raw, str) else plan_raw
+            except Exception as exc:
+                result["plan_error"] = str(exc)[:200]
+
+        # Learn into KG
+        try:
+            await self._handle_learn({
+                "mode": "knowledge",
+                "description": f"Ingested spec: {title}. Type: {doc_type}. {summary_content[:300]}",
+                "domain": "technical",
+                "tags": [doc_type, "ingested", safe_title],
+            })
+            result["kg_learned"] = True
+        except Exception:
+            result["kg_learned"] = False
+
+        return json.dumps(result)
 
     # ==================================================================
     # MCP JSON-RPC stdio transport
