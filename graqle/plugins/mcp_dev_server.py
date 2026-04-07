@@ -2205,16 +2205,25 @@ class KogniDevServer:
             "Quick fix: export ANTHROPIC_API_KEY=sk-ant-..."
         )
 
+    _NO_GRAPH_RESPONSE = json.dumps({
+        "error": "NO_GRAPH",
+        "message": "No knowledge graph found for this project.",
+        "quick_start": [
+            "1. Open a terminal in your project directory",
+            "2. Run: graq scan --repo .",
+            "3. Retry your question — it will be answered automatically",
+        ],
+        "tools_available_now": [
+            "graq_bash", "graq_read", "graq_write", "graq_grep", "graq_glob",
+            "graq_git_status", "graq_git_diff", "graq_git_log",
+            "graq_context", "graq_preflight", "graq_route",
+        ],
+        "hint": "Most file and git tools work without a graph. Run 'graq scan' to enable reasoning.",
+    })
+
     def _require_graph(self) -> Any:
-        """Load graph or raise with a helpful message."""
-        graph = self._load_graph()
-        if graph is None:
-            raise RuntimeError(
-                "No knowledge graph loaded. "
-                "Place a graqle.json, knowledge_graph.json, or graph.json "
-                "in the working directory, or run 'graq scan --repo .' first."
-            )
-        return graph
+        """Load graph or return None (callers must check)."""
+        return self._load_graph()
 
     # ------------------------------------------------------------------
     # Node search helpers
@@ -2223,6 +2232,8 @@ class KogniDevServer:
     def _find_node(self, name: str) -> Any | None:
         """Find node by exact ID, label, or fuzzy substring match."""
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         if not name:
             return None
 
@@ -2246,6 +2257,8 @@ class KogniDevServer:
     def _find_nodes_matching(self, text: str, *, limit: int = 20) -> list[Any]:
         """Find all nodes whose label/id/description fuzzy-match *text*."""
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         text_lower = text.lower()
         tokens = text_lower.split()
 
@@ -2276,6 +2289,8 @@ class KogniDevServer:
 
         # Fallback: Python iteration
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         neighbors: list[dict[str, str]] = []
         seen: set[str] = set()
 
@@ -2753,6 +2768,8 @@ class KogniDevServer:
         show_stats = args.get("stats", False)
 
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
 
         # Single node inspection
         if node_id:
@@ -2823,6 +2840,8 @@ class KogniDevServer:
 
         t0 = _time.monotonic()
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
 
         # Detect backend status BEFORE attempting reasoning
         backend_status = self._check_backend_status(graph)
@@ -2965,6 +2984,8 @@ class KogniDevServer:
 
         # Standard mode — existing behaviour unchanged
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         results = await graph.areason_batch(
             questions, max_rounds=max_rounds, max_concurrent=max_concurrent,
         )
@@ -3101,6 +3122,8 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'component' is required."})
 
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         start_node = self._find_node(component)
 
         if start_node is None:
@@ -3180,6 +3203,8 @@ class KogniDevServer:
 
         # Fallback: Python BFS over in-memory graph
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
         visited: set[str] = {start_id}
         queue: deque[tuple[str, int, str]] = deque()  # (node_id, depth, relationship)
 
@@ -4873,6 +4898,8 @@ class KogniDevServer:
 
         t0 = _time.monotonic()
         graph = self._require_graph()
+        if graph is None:
+            return self._NO_GRAPH_RESPONSE
 
         # Step 1: Preflight — surface risks before generating
         preflight_raw = json.loads(await self._handle_preflight({
