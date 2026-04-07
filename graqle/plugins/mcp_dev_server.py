@@ -5909,6 +5909,22 @@ class KogniDevServer:
                 tmp_path = tmp.name
             _os.replace(tmp_path, fp)
 
+            # S-015: post-write verification — detect phantom writes
+            try:
+                actual_size = fp.stat().st_size
+            except OSError:
+                actual_size = -1
+            expected_size = len(content.encode("utf-8"))
+            if actual_size < 0 or (actual_size == 0 and expected_size > 0):
+                return json.dumps({
+                    "written": False,
+                    "error": (
+                        f"S-015: Post-write verification failed — file missing or empty "
+                        f"after os.replace. expected={expected_size}B, actual={actual_size}B, "
+                        f"resolved_path={str(fp)}"
+                    ),
+                })
+
             # ADR-134: auto-sync written file into KG so graq_reason sees it
             kg_synced = self._post_write_kg_sync(str(fp))
 
@@ -6204,13 +6220,18 @@ class KogniDevServer:
         dry_run = bool(args.get("dry_run", True))
         cwd = args.get("cwd", ".")
 
-        # Patent scan on staged diff
+        # Patent scan on staged diff — only scan ADDED lines (+)
+        # Removing a pattern is safe; adding one is the risk
         diff_raw = json.loads(await self._handle_git_diff({"staged": True, "cwd": cwd}))
         diff_text = diff_raw.get("stdout", "")
+        _added_lines = "\n".join(
+            line[1:] for line in diff_text.splitlines()
+            if line.startswith("+") and not line.startswith("+++")
+        )
         import re
         _TS_PATTERNS = ["w_J", "w_A", r"\b0\.16\b", "theta_fold", "AGREEMENT_THRESHOLD"]
         for pat in _TS_PATTERNS:
-            if re.search(pat, diff_text):
+            if re.search(pat, _added_lines):
                 return json.dumps({
                     "error": "PATENT_GATE",
                     "message": f"Staged diff matches trade secret pattern '{pat}'. Commit blocked.",
