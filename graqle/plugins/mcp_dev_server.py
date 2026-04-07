@@ -4687,6 +4687,99 @@ class KogniDevServer:
 
         return json.dumps(result)
 
+    # ── Self-validating pipeline (AUTONOMY-100-BLUEPRINT) ────────────
+    # GAP 1: AST validation, GAP 2: context re-anchoring, GAP 3: loop
+
+    _MAX_VALIDATION_ITERATIONS = 3  # TODO: Wire retry loop in next PR (GAP 3 full implementation)
+
+    def _extract_code_from_response(self, raw: str, mode: str) -> str:
+        """Strip markdown fences and normalize LLM output."""
+        lines = raw.strip().splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        return "\n".join(lines)
+
+    def _validate_syntax(self, code: str, file_path: str | None = None) -> dict:
+        """GAP 1: AST validation on generated Python code."""
+        import ast
+        if file_path and not str(file_path).endswith(".py"):
+            return {"valid": True, "errors": []}
+        try:
+            ast.parse(code)
+            return {"valid": True, "errors": []}
+        except SyntaxError as e:
+            return {"valid": False, "errors": [f"SyntaxError at line {e.lineno}: {e.msg}"]}
+
+    def _validate_diff_context(self, diff_text: str, file_path: str) -> dict:
+        """GAP 2: Verify diff context lines match actual file content."""
+        import difflib
+        from pathlib import Path
+        # RF-1 (CWE-22): containment check before reading any file
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (ValueError, OSError, AttributeError):
+            # New file or path outside graph root — nothing to validate
+            from pathlib import Path as _P
+            if not _P(file_path).exists():
+                return {"valid": True, "errors": []}
+            return {"valid": False, "errors": ["Path containment check failed"]}
+        path = Path(file_path)
+        if not path.exists():
+            return {"valid": True, "errors": []}
+        actual_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        context_lines = [
+            (i, line[1:]) for i, line in enumerate(diff_text.splitlines())
+            if line.startswith(" ") and len(line) > 1
+        ]
+        if not context_lines:
+            return {"valid": True, "errors": []}
+        errors = []
+        for diff_lineno, ctx in context_lines:
+            matches = difflib.get_close_matches(ctx, actual_lines, n=1, cutoff=0.8)
+            if not matches:
+                errors.append(f"Diff line {diff_lineno}: context '{ctx[:60]}' not found")
+        mismatch_ratio = len(errors) / len(context_lines) if context_lines else 0
+        return {"valid": mismatch_ratio <= 0.3, "errors": errors}
+
+    def _reanchor_diff(self, diff_text: str, file_path: str) -> str:
+        """GAP 2: Auto-fix drifted context lines via fuzzy matching."""
+        import difflib
+        from pathlib import Path
+        # RF-1 (CWE-22): containment check before reading any file
+        try:
+            file_path = self._resolve_file_path(file_path)
+        except (ValueError, OSError, AttributeError):
+            return diff_text
+        path = Path(file_path)
+        if not path.exists():
+            return diff_text
+        actual_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        fixed = []
+        for line in diff_text.splitlines():
+            if line.startswith(" ") and len(line) > 1:
+                ctx = line[1:]
+                matches = difflib.get_close_matches(ctx, actual_lines, n=1, cutoff=0.6)
+                if matches and matches[0] != ctx:
+                    # RF-2: Log every reanchored line for auditability
+                    logger.info("Reanchored: '%s' -> '%s'", ctx[:60], matches[0][:60])
+                    fixed.append(" " + matches[0])
+                    continue
+            fixed.append(line)
+        return "\n".join(fixed)
+
+    def _build_correction_prompt(self, original: str, code: str, errors: list, attempt: int) -> str:
+        """GAP 3: Structured error feedback for LLM retry."""
+        error_block = "\n".join(f"  - {e}" for e in errors)
+        return (
+            f"Your previous output had validation errors (attempt {attempt}/3).\n\n"
+            f"ERRORS:\n{error_block}\n\n"
+            f"ORIGINAL REQUEST:\n{original}\n\n"
+            f"YOUR PREVIOUS OUTPUT:\n{code[:2000]}\n\n"
+            f"Fix ALL errors above. Return ONLY the corrected code."
+        )
+
     # ── graq_generate (TEAM/ENTERPRISE) ──────────────────────────────
     # v0.38.0 — governed code generation
     # Phase 1 of feature-coding-assistant plan
@@ -5272,6 +5365,14 @@ class KogniDevServer:
                 )
         except Exception as e:
             logger.debug("format_validation skipped: %s", e)  # advisory — never block
+
+        # Step 4c-pre: Self-validation (AUTONOMY-100-BLUEPRINT)
+        # Validate diff context lines match actual file before applying
+        if file_path and diff_text:
+            ctx_check = self._validate_diff_context(diff_text, file_path)
+            if not ctx_check["valid"]:
+                logger.info("Self-validation: %d context mismatches, re-anchoring", len(ctx_check["errors"]))
+                diff_text = self._reanchor_diff(diff_text, file_path)
 
         # Step 4c (AL-1 fix): Apply diff to filesystem when dry_run=False
         if not dry_run and file_path and diff_text:
