@@ -4,6 +4,26 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## [0.46.0] — 2026-04-07
+
+### Added
+
+- **PULSE** — Live reasoning graph powered by Cytoscape.js (15K+ node support); 8 governance-aware node states (`active`, `done`, `error`, `isolated`, `redacted`, `decayed`, `budget_rejected`); SSE streaming from `/reason`; tier gating (Free tier ≤500 nodes with upgrade prompt) — `pulse-graph.js` (547 lines), `pulse-sse.js` (177 lines), `pulse.css` (212 lines)
+- **SHIELD** — Governance dashboard with circular score gauge (conic-gradient CSS), budget progress bar, violation timeline with severity badges, auto-correction rate, clearance distribution, SSE event feed from `/governance/events`
+- **FLOW** — 7-step protocol sequence SVG visualizer (`inspect→context→impact→preflight→reason→generate→review`) with `active`/`done`/`error` states, cost labels, badges, and 50-event ring buffer — `protocol-viz.js` (159 lines)
+- **LOOP** — Autonomous execution monitor with `LoopController`/`LoopObserver` integration; start/stop controls, attempt counter, budget gauge, modified files panel, test results (pass/fail), SSE stream from `/auto/events` — `auto.py` (200 lines), `auto.html` (190 lines)
+- New API endpoints: `GET /governance/stats`, `GET /governance/events` (SSE), `GET /protocol/stream` (SSE), `GET /auto`, `POST /auto` (5 endpoints total)
+- Vendor bundles: `cytoscape.min.js`, `cytoscape-fcose.min.js`
+
+### Changed
+
+- `reasoning.html` — integrated Cytoscape.js, `PulseGraph`, and `PulseSSE` for live graph rendering
+- `dashboard.html` — added SHIELD governance panel
+- `api.py` — registered `/governance/stats`, `/governance/events`, `/protocol/stream`, and `/auto` routes
+- `app.py` — wired `LoopController`/`LoopObserver` and governance SSE broadcaster
+
+---
+
 ## [0.45.1] — 2026-04-07
 
 ### Added
