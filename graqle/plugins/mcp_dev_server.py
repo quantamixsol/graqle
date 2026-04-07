@@ -4793,10 +4793,23 @@ class KogniDevServer:
                 "preflight": preflight_raw,
             })
 
-        # Step 3: Safety check on the diff
-        secret_patterns = ["password", "secret", "api_key", "token", "aws_access", "aws_secret"]
+        # Step 3: Safety check on the diff (S-012: word-boundary patterns)
+        import re as _re
+        _SECRET_PATTERNS = [
+            (r"\bpassword\b", "password"),
+            (r"\bsecret\b", "secret"),
+            (r"\bapi_key\b", "api_key"),
+            (r"\baws_access\b", "aws_access"),
+            (r"\baws_secret\b", "aws_secret"),
+            # S-012: "token" only as standalone word, not in compound identifiers
+            # like max_completion_tokens, token_count, access_token, tokenize
+            (r"(?<![_\w])token(?![s_\w])", "token"),
+        ]
         diff_lower = unified_diff.lower()
-        exposed = [p for p in secret_patterns if p in diff_lower]
+        exposed = [
+            label for pat, label in _SECRET_PATTERNS
+            if _re.search(pat, diff_lower)
+        ]
         if exposed:
             return json.dumps({
                 "error": "SAFETY_GATE",
