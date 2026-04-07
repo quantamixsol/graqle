@@ -2205,21 +2205,108 @@ class KogniDevServer:
             "Quick fix: export ANTHROPIC_API_KEY=sk-ant-..."
         )
 
-    _NO_GRAPH_RESPONSE = json.dumps({
-        "error": "NO_GRAPH",
-        "message": "No knowledge graph found for this project.",
-        "quick_start": [
-            "1. Open a terminal in your project directory",
-            "2. Run: graq scan --repo .",
-            "3. Retry your question — it will be answered automatically",
-        ],
-        "tools_available_now": [
-            "graq_bash", "graq_read", "graq_write", "graq_grep", "graq_glob",
-            "graq_git_status", "graq_git_diff", "graq_git_log",
-            "graq_context", "graq_preflight", "graq_route",
-        ],
-        "hint": "Most file and git tools work without a graph. Run 'graq scan' to enable reasoning.",
-    })
+    # ── Zero-graph first-run experience ────────────────────────────────
+
+    _TOOLS_AVAILABLE_WITHOUT_GRAPH = [
+        "graq_bash", "graq_read", "graq_write", "graq_grep", "graq_glob",
+        "graq_git_status", "graq_git_diff", "graq_git_log",
+        "graq_context", "graq_preflight", "graq_route",
+    ]
+
+    def _detect_available_backend(self) -> str | None:
+        """Check if an LLM backend is available (env vars, yaml, Ollama)."""
+        import os
+        # Priority 1: API keys in env
+        for env_var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"):
+            if os.environ.get(env_var):
+                return env_var.split("_")[0].lower()  # "anthropic", "openai", "groq"
+        # Priority 2: AWS Bedrock (IAM, no key needed)
+        if os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION"):
+            return "bedrock"
+        # Priority 3: Ollama (local)
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://localhost:11434/api/tags", timeout=1)
+            return "ollama"
+        except Exception:
+            pass
+        return None
+
+    def _profile_project_sync(self) -> dict:
+        """Quick filesystem fingerprint — no LLM, no graph required."""
+        from pathlib import Path
+        cwd = Path.cwd()
+        lang_map = {".py": "Python", ".ts": "TypeScript", ".js": "JavaScript",
+                    ".go": "Go", ".java": "Java", ".rs": "Rust"}
+        framework_signals = {"package.json": "Node.js", "requirements.txt": "Python",
+                             "pyproject.toml": "Python", "go.mod": "Go", "Cargo.toml": "Rust"}
+        exclude = {"node_modules", ".git", "__pycache__", "dist", ".venv", "build"}
+        languages, frameworks = set(), []
+        total_files = 0
+        for ext, lang in lang_map.items():
+            count = sum(1 for f in cwd.rglob(f"*{ext}")
+                        if not any(p in f.parts for p in exclude))
+            if count:
+                languages.add(lang)
+                total_files += count
+        for signal, fw in framework_signals.items():
+            if (cwd / signal).exists():
+                frameworks.append(fw)
+        return {
+            "languages": sorted(languages),
+            "frameworks": frameworks,
+            "total_files": total_files,
+            "project_root": str(cwd),
+        }
+
+    def _build_first_run_response(self, original_query: str = "") -> str:
+        """Intelligent first-run response that detects backend and project context."""
+        backend = self._detect_available_backend()
+        profile = self._profile_project_sync()
+
+        if not backend:
+            # No backend, no graph — static instructions
+            return json.dumps({
+                "status": "FIRST_RUN",
+                "error": "NO_GRAPH",
+                "message": (
+                    "No knowledge graph found and no LLM backend detected.\n\n"
+                    "Quick start:\n"
+                    "  1. Set ANTHROPIC_API_KEY in your environment, OR\n"
+                    "     configure model.backend in graqle.yaml\n"
+                    "  2. Run: graq scan --repo .\n"
+                    "  3. Retry your question"
+                ),
+                "project_detected": profile,
+                "tools_available_now": self._TOOLS_AVAILABLE_WITHOUT_GRAPH,
+            })
+
+        # Backend available — intelligent onboarding
+        lang_str = ", ".join(profile["languages"]) if profile["languages"] else "unknown"
+        fw_str = ", ".join(profile["frameworks"]) if profile["frameworks"] else "none detected"
+
+        return json.dumps({
+            "status": "FIRST_RUN_INTERACTIVE",
+            "error": "NO_GRAPH",
+            "backend_detected": backend,
+            "project_detected": profile,
+            "original_query": original_query,
+            "message": (
+                f"👋 No knowledge graph found — but your {backend} backend is ready!\n\n"
+                f"I detected {profile['total_files']} source files ({lang_str}).\n"
+                f"Frameworks: {fw_str}\n\n"
+                "To build your knowledge graph, answer these 3 questions:\n"
+                "1. What does this project do? (one sentence)\n"
+                "2. Which directories contain the core code? (e.g. src/, app/)\n"
+                "3. Any directories to exclude? (e.g. node_modules/, dist/)\n\n"
+                "Or simply run: **graq scan --repo .** to scan everything.\n\n"
+                f"Your original question '{original_query}' will be answered "
+                "automatically after the graph is built."
+            ),
+            "next_action": "SCAN_OR_ANSWER_QUESTIONS",
+            "scan_command": "graq scan --repo .",
+            "tools_available_now": self._TOOLS_AVAILABLE_WITHOUT_GRAPH,
+        })
 
     def _require_graph(self) -> Any:
         """Load graph or return None (callers must check)."""
@@ -2233,7 +2320,7 @@ class KogniDevServer:
         """Find node by exact ID, label, or fuzzy substring match."""
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         if not name:
             return None
 
@@ -2258,7 +2345,7 @@ class KogniDevServer:
         """Find all nodes whose label/id/description fuzzy-match *text*."""
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         text_lower = text.lower()
         tokens = text_lower.split()
 
@@ -2290,7 +2377,7 @@ class KogniDevServer:
         # Fallback: Python iteration
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         neighbors: list[dict[str, str]] = []
         seen: set[str] = set()
 
@@ -2769,7 +2856,7 @@ class KogniDevServer:
 
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
 
         # Single node inspection
         if node_id:
@@ -2841,7 +2928,7 @@ class KogniDevServer:
         t0 = _time.monotonic()
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
 
         # Detect backend status BEFORE attempting reasoning
         backend_status = self._check_backend_status(graph)
@@ -2985,7 +3072,7 @@ class KogniDevServer:
         # Standard mode — existing behaviour unchanged
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         results = await graph.areason_batch(
             questions, max_rounds=max_rounds, max_concurrent=max_concurrent,
         )
@@ -3123,7 +3210,7 @@ class KogniDevServer:
 
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         start_node = self._find_node(component)
 
         if start_node is None:
@@ -3204,7 +3291,7 @@ class KogniDevServer:
         # Fallback: Python BFS over in-memory graph
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
         visited: set[str] = {start_id}
         queue: deque[tuple[str, int, str]] = deque()  # (node_id, depth, relationship)
 
@@ -4899,7 +4986,7 @@ class KogniDevServer:
         t0 = _time.monotonic()
         graph = self._require_graph()
         if graph is None:
-            return self._NO_GRAPH_RESPONSE
+            return self._build_first_run_response()
 
         # Step 1: Preflight — surface risks before generating
         preflight_raw = json.loads(await self._handle_preflight({

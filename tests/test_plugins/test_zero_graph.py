@@ -33,7 +33,8 @@ class TestZeroGraphGracefulDegradation:
     async def test_inspect_no_graph(self, server_no_graph):
         result = json.loads(await server_no_graph._handle_inspect({}))
         assert result["error"] == "NO_GRAPH"
-        assert "no knowledge graph" in result["message"].lower()
+        assert "status" in result
+        assert result["status"] in ("FIRST_RUN", "FIRST_RUN_INTERACTIVE")
 
     @pytest.mark.asyncio
     async def test_reason_no_graph(self, server_no_graph):
@@ -46,13 +47,6 @@ class TestZeroGraphGracefulDegradation:
         assert result["error"] == "NO_GRAPH"
 
     @pytest.mark.asyncio
-    async def test_no_graph_includes_quick_start(self, server_no_graph):
-        result = json.loads(await server_no_graph._handle_inspect({}))
-        assert "quick_start" in result
-        assert isinstance(result["quick_start"], list)
-        assert len(result["quick_start"]) >= 1
-
-    @pytest.mark.asyncio
     async def test_no_graph_includes_available_tools(self, server_no_graph):
         result = json.loads(await server_no_graph._handle_inspect({}))
         assert "tools_available_now" in result
@@ -60,15 +54,33 @@ class TestZeroGraphGracefulDegradation:
         assert "graq_read" in result["tools_available_now"]
 
     @pytest.mark.asyncio
+    async def test_no_graph_includes_project_detection(self, server_no_graph):
+        result = json.loads(await server_no_graph._handle_inspect({}))
+        assert "project_detected" in result
+        assert "languages" in result["project_detected"]
+        assert "total_files" in result["project_detected"]
+
+    @pytest.mark.asyncio
+    async def test_no_graph_detects_backend_if_available(self, server_no_graph):
+        """If an LLM backend is available, response should be INTERACTIVE."""
+        import os
+        if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"):
+            result = json.loads(await server_no_graph._handle_inspect({}))
+            assert result["status"] == "FIRST_RUN_INTERACTIVE"
+            assert "backend_detected" in result
+
+    @pytest.mark.asyncio
     async def test_no_graph_never_raises(self, server_no_graph):
         """No tool should raise an exception on zero graph."""
-        handlers = [
-            server_no_graph._handle_inspect,
-        ]
-        for handler in handlers:
+        for handler in [server_no_graph._handle_inspect]:
             try:
                 result = await handler({})
                 data = json.loads(result)
                 assert "error" in data
             except Exception as e:
                 pytest.fail(f"{handler.__name__} raised {type(e).__name__}: {e}")
+
+    @pytest.mark.asyncio
+    async def test_no_graph_message_mentions_scan(self, server_no_graph):
+        result = json.loads(await server_no_graph._handle_inspect({}))
+        assert "scan" in result["message"].lower() or "scan" in json.dumps(result).lower()
