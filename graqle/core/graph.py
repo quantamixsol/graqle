@@ -1486,9 +1486,19 @@ class Graqle:
                     task_type=task_type,
                 )
             except Exception as _coord_exc:  # noqa: BLE001
+                # M2: Structured fallback logging for diagnostics
+                import hashlib as _hl
+                _qhash = _hl.md5(query.encode()).hexdigest()[:8]
                 logger.warning(
-                    "Coordinator path failed (%s), falling back to orchestrator.",
+                    "Coordinator path failed, falling back to orchestrator. "
+                    "error=%s query_hash=%s node_count=%d coordinator_enabled=%s "
+                    "max_specialists=%s timeout=%s",
                     _coord_exc,
+                    _qhash,
+                    len(node_ids) if node_ids else 0,
+                    getattr(self.config.coordinator, "enabled", "?"),
+                    getattr(self.config.coordinator, "max_specialists", "?"),
+                    getattr(self.config.coordinator, "specialist_timeout_seconds", "?"),
                 )
                 coord_result = None
 
