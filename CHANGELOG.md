@@ -4,6 +4,34 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## [0.45.1] — 2026-04-07
+
+### Added
+- 4 new MCP tools: `graq_gcc_status`, `graq_ingest`, `graq_vendor`, `graq_web_search` (tool count: 122 → 130)
+- OpenAI GPT-5.x support with 3-way backend routing: Codex completions API, GPT-5.x `max_completion_tokens`, legacy `max_tokens`
+- `graq_inspect --file-audit` flag for filesystem verification
+- MCP self-healing crash handler
+- Post-write file verification (S-015)
+- Embedding dimension mismatch auto-detection
+- Login tier sync from cloud
+- Tests: 4,150+ passing on Python 3.10 / 3.11 / 3.12
+
+### Fixed
+- `pathlib.Path` MCP crash (`cli/main.py:188`)
+- `graq auto`: `file_path` extraction from plan steps (A-004 critical fix)
+- `graq auto`: git repo detection with clear error message
+- `graq auto`: KG file stash exclusion
+- `graq auto`: test scope scoped to generated files only
+- `graq_write` path resolution now relative to graph root (not CWD)
+- Domain registry deduplication
+
+### Changed
+- `graq_edit` safety gate whitelist expanded for technical terms
+- `graq_edit` smart truncation for large files (>200 lines)
+- Patent gate now scans only added lines (not full diff)
+
+---
+
 ## v0.40.7 — 2026-04-02
 
 ### Fixed
