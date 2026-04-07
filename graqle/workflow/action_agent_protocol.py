@@ -59,7 +59,7 @@ class ActionAgentProtocol(Protocol):
     async def generate_diff(
         self,
         task: str,
-        plan: str,
+        plan: str | dict[str, Any],
         error_context: str | None = None,
     ) -> str:
         """Return a unified diff string implementing the plan."""

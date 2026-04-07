@@ -13,7 +13,7 @@ from graqle.plugins.mcp_dev_server import KogniDevServer
 
 
 @pytest.fixture
-def server_no_graph():
+def server_no_graph(monkeypatch):
     """Server with NO graph loaded — simulates first-run."""
     srv = KogniDevServer.__new__(KogniDevServer)
     srv._graph = None
@@ -23,6 +23,8 @@ def server_no_graph():
     srv._session_cache = {}
     srv.config_path = "graqle.yaml"
     srv.read_only = False
+    # Prevent _load_graph from auto-discovering graqle.json in cwd
+    monkeypatch.setattr(srv, "_load_graph", lambda: None)
     return srv
 
 

@@ -2,24 +2,26 @@
 
 <img alt="GraQle — AI writes code. GraQle makes it safe." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark-hq.png" width="800">
 
-# AI writes code. Gra**Q**le makes it safe.
+# Your codebase is a graph. Every node reasons. Every change is governed.
 
-> **We ran Graqle on a 6-file "vibe coded" app. 90 seconds. 8 bugs. 4 of them invisible to pylint, mypy, flake8, and Copilot combined. One was a HIPAA violation. All fixed. Cost: $0.001.**
+> **One command. 90 seconds. Your AI writes code with architectural awareness, governance gates, and multi-agent reasoning. Not a linter. Not a copilot. A knowledge graph where every module is an autonomous agent.**
 
-**The mandatory infrastructure layer between your AI code generators and production.**
+**The world's first governance-led multi-agent reasoning system for code.**
 Scan any codebase into a persistent knowledge graph. Every module becomes a reasoning agent.
+Multiple agents decompose, debate, and synthesize answers with clearance-level governance.
 Every change is impact-analysed, gate-checked, and taught back — automatically.
 
-> *"Bugs don't live in files. They live between files. Every other tool sees one file at a time. Graqle sees the relationships."*
+> *"AI assistants see files. GraQle sees architecture. That's why it catches the bugs they can't."*
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Downloads](https://img.shields.io/pypi/dw/graqle?color=%2306b6d4&label=downloads%2Fweek)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 1,569+](https://img.shields.io/badge/tests-1%2C569%2B%20passing-06b6d4.svg)]()
+[![Tests: 4,150+](https://img.shields.io/badge/tests-4%2C150%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
-[![MCP Tools: 74](https://img.shields.io/badge/MCP%20tools-74-06b6d4.svg)]()
+[![MCP Tools: 122](https://img.shields.io/badge/MCP%20tools-122-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
-[![VS Code Extension](https://img.shields.io/badge/VS%20Code-v0.3.0-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
+[![Governed Reasoning](https://img.shields.io/badge/governed-reasoning-06b6d4.svg)]()
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
 
 ```bash
 pip install graqle && graq scan repo . && graq run "find every security bug in this codebase"
@@ -33,24 +35,66 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
-## What's New
+## What's New in v0.45.0
 
-### SDK v0.40.7
+### Multi-Agent Governed Reasoning
 
-- **R15 Multi-Backend Debate** — optional multi-LLM debate mode: propose/challenge/synthesize across providers. 4 patent claims. Governance-first design.
-- **graq_review dogfooding** — GraQle's own code review tool found 4 BLOCKERs + 3 MAJORs in the debate module that unit tests missed. All fixed.
-- **OT-018 file reader fix** — `graq_read` no longer truncates files on Windows. Environment variable fallback for Windows Store Python.
-- **3 live OpenAI debates** — full evidence report demonstrating cross-provider reasoning with GPT-5.4 vs Claude Sonnet 4.6.
-- **14,959 node KG** — largest production graph to date.
+> **Your codebase is not a collection of files. It's a network of reasoning agents.**
 
-### VS Code Extension v0.3.0
+- **ReasoningCoordinator** — decompose complex queries into specialist subtasks, dispatch to multiple graph nodes simultaneously, synthesize answers with clearance-level governance. Not a chatbot. An architecture-aware reasoning network.
+- **Governed synthesis** — every answer passes through GovernanceMiddleware. Trade secret patterns are unconditionally blocked. Clearance levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) propagate through the reasoning chain.
+- **BudgetAwareSemaphore** — cost-conscious concurrency. The graph reasons within your budget, decays costs across rounds, and stops before overspending.
+- **Feature-flagged** — `coordinator.enabled=false` by default. Zero disruption. Enable when ready: `graq run "your question" --coordinator`
 
-- **Credential Forwarding** — AWS, Anthropic, and OpenAI credentials forwarded securely via allowlist-only environment
-- **Project-Scoping** — each workspace loads its own knowledge graph; workspace changes restart MCP with correct config
-- **Error Surfacing** — backend errors surface as actionable messages instead of silent swallowing
-- **Security Hardening** — `shell:false` on all subprocess spawns, CSP nonce on WebView, secret redaction in logs
+### Self-Validating Code Generation
 
-[Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | See the full [Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
+- **The AI validates its own output before writing.** `ast.parse()` catches syntax errors. `difflib` catches drifted context lines. Auto-reanchoring fixes minor drift without burning an LLM call. CWE-22 containment on all file reads.
+- **`graq auto`** — autonomous loop: plan, generate, write, test, diagnose, fix, retry. All governed.
+
+### Intelligent First-Run
+
+- **No knowledge graph? No crash.** GraQle detects your LLM backend, profiles your project (languages, frameworks, file count), and guides you through 3 questions to build your first graph. Your original question is auto-answered after the scan completes.
+
+### 14 LLM Backends. 122 MCP Tools. 4,150+ Tests.
+
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Now with think-tag fallback and num_predict auto-scale for local reasoning models.
+
+[Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
+
+---
+
+## Why GraQle is different from everything else
+
+<table>
+<tr>
+<th width="50%">AI Assistants (Copilot, Cursor, Claude Code)</th>
+<th width="50%">GraQle</th>
+</tr>
+<tr>
+<td>See one file at a time</td>
+<td><strong>Sees the entire architecture as a graph</strong></td>
+</tr>
+<tr>
+<td>Generate code, hope it works</td>
+<td><strong>Generate, validate, self-correct, then write</strong></td>
+</tr>
+<tr>
+<td>No memory between sessions</td>
+<td><strong>Persistent knowledge graph that learns and grows</strong></td>
+</tr>
+<tr>
+<td>No governance on output</td>
+<td><strong>Every answer passes governance gates</strong></td>
+</tr>
+<tr>
+<td>Single model, single perspective</td>
+<td><strong>Multi-agent reasoning: decompose, debate, synthesize</strong></td>
+</tr>
+<tr>
+<td>Can't tell you what a change breaks</td>
+<td><strong>Impact analysis across the full dependency graph</strong></td>
+</tr>
+</table>
 
 ---
 
@@ -370,10 +414,10 @@ catch governance issues before review.
 
 ---
 
-## 74 MCP tools — your AI uses them automatically
+## 75 MCP tools — your AI uses them automatically
 
 ```bash
-graq init          # Claude Code — auto-wires all 74 tools
+graq init          # Claude Code — auto-wires all 75 tools
 graq init --ide cursor
 graq init --ide vscode
 graq init --ide windsurf
@@ -392,6 +436,7 @@ graq init --ide windsurf
 | `graq_predict` | Confidence-gated prediction — writes back if threshold met |
 | `graq_gate` | Binary governance gate — PASS / FAIL with evidence |
 | `graq_inspect` | Graph stats, node details, health status |
+| `graq_auto` | Autonomous loop — plan, generate, write, test, fix, retry until GREEN |
 
 **SCORCH — UX audit engine (12 dimensions):**
 
@@ -419,7 +464,7 @@ graq init --ide windsurf
 | `graq_phantom_screenshot` | Capture + optional Claude Vision analysis |
 | `graq_phantom_session` | Session + auth profile management |
 
-`graq_*` tools have `kogni_*` aliases for backwards compatibility. All 74 tools, zero license checks.
+`graq_*` tools have `kogni_*` aliases for backwards compatibility. All 75 tools, zero license checks.
 
 ---
 
@@ -481,6 +526,7 @@ This is not a demo feature. This is proof the tool works at the scale and comple
 
 | Command | Description |
 |---------|-------------|
+| `graq auto "task"` | Autonomous loop — plan, generate, write, test, fix, retry |
 | `graq run "question"` | Natural language query — auto-routed to best tool |
 | `graq reason "question"` | Multi-agent graph reasoning — confidence + evidence |
 | `graq context module` | 500-token focused context for any module |

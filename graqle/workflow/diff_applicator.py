@@ -132,8 +132,13 @@ class DiffApplicator:
             safe_message = self._sanitize_message(message)
             # Stage all changes first to include untracked files
             self._run_git("add", "-A", check=False)
+            # A-003: exclude KG files from stash to prevent conflicts on pop
             result = self._run_git(
                 "stash", "push", "--include-untracked", "-m", safe_message,
+                "--",
+                ":(exclude)graqle.json",
+                ":(exclude).graqle/",
+                ":(exclude)*.json.bak*",
                 check=False,
             )
             if "No local changes" in result.stdout or result.returncode != 0:

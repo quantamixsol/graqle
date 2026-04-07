@@ -45,9 +45,26 @@ def selfupdate_command(
     \b
     Examples:
         graq self-update
-        graq self-update --version 0.16.2
+        graq self-update --version 0.45.1
         graq self-update --no-restart-mcp
     """
+    # S-004: Check PyPI for latest version before upgrading
+    if version is None:
+        try:
+            import urllib.request
+            import json as _json
+            from graqle.__version__ import __version__ as _current
+            with urllib.request.urlopen("https://pypi.org/pypi/graqle/json", timeout=5) as resp:
+                _latest = _json.loads(resp.read())["info"]["version"]
+            if _latest == _current:
+                console.print(f"[green]Already up to date: v{_current}[/green]")
+                raise typer.Exit(0)
+            console.print(f"[cyan]Update available: v{_current} → v{_latest}[/cyan]")
+        except typer.Exit:
+            raise  # Re-raise Exit (already up to date)
+        except (ImportError, OSError, KeyError):
+            pass  # Network error — proceed with upgrade attempt
+
     # Step 1: detect and stop running graq processes (Windows file lock issue)
     stopped_pids: list[int] = []
     mcp_was_running = False
