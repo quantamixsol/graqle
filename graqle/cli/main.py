@@ -185,7 +185,7 @@ def mcp_serve(
     # Anchor CWD so _graph_file resolves against project root, not IDE spawn dir.
     # serve() already does this via GRAQLE_SERVE_CWD — mcp_serve must match.
     # Use setdefault to preserve user/container overrides.
-    os.environ.setdefault("GRAQLE_SERVE_CWD", str(pathlib.Path.cwd()))
+    os.environ.setdefault("GRAQLE_SERVE_CWD", str(Path.cwd()))
 
     # Write PID + version so self-update and other tools can detect running server
     graqle_dir = Path(".graqle")
@@ -208,7 +208,27 @@ def mcp_serve(
     # (This helps catch the case where pip upgrade happened but MCP wasn't restarted)
 
     server = KogniDevServer(config_path=config, read_only=read_only)
-    asyncio.run(server.run_stdio())
+    # S-003: Self-healing crash wrapper — structured error + diagnosis
+    try:
+        asyncio.run(server.run_stdio())
+    except KeyboardInterrupt:
+        pass  # clean shutdown
+    except Exception as exc:
+        import sys
+        import traceback
+        err_msg = f"MCP server crashed: {type(exc).__name__}: {exc}"
+        console.print(f"[red]{err_msg}[/red]", file=sys.stderr)
+        console.print("[dim]Stack trace:[/dim]", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        # Self-diagnosis hints
+        console.print("\n[yellow]Diagnosis:[/yellow]", file=sys.stderr)
+        if "Address already in use" in str(exc):
+            console.print("  → Another MCP server is running. Use 'graq mcp restart'.", file=sys.stderr)
+        elif "ModuleNotFoundError" in type(exc).__name__ or "ImportError" in type(exc).__name__:
+            console.print("  → Missing dependency. Run 'pip install graqle[api]'.", file=sys.stderr)
+        else:
+            console.print("  → Run 'graq doctor' to diagnose. Check graqle.yaml config.", file=sys.stderr)
+        raise SystemExit(1)
 
 
 @mcp_app.command("restart")

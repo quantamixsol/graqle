@@ -120,7 +120,7 @@ def server(mock_graph):
 
 class TestToolDefinitions:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor, web_search, gcc_status, ingest + kogni (HFCI-001+002 + capability-gaps)/diff + kogni aliases (HFCI-001+002)
 
     def test_expected_tool_names(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
@@ -196,6 +196,11 @@ class TestToolDefinitions:
             "graq_correct",
             # v0.44.1: autonomous loop
             "graq_auto",
+            # v0.45.1: capability gap hotfixes
+            "graq_vendor",
+            "graq_web_search",
+            "graq_gcc_status",
+            "graq_ingest",
         }
         expected_kogni = {
             "kogni_context",
@@ -267,6 +272,11 @@ class TestToolDefinitions:
             "kogni_correct",
             # v0.44.1: autonomous loop
             "kogni_auto",
+            # v0.45.1: capability gap hotfixes
+            "kogni_vendor",
+            "kogni_web_search",
+            "kogni_gcc_status",
+            "kogni_ingest",
         }
         # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
@@ -298,7 +308,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(tools) == 130  # +8: vendor, web_search, gcc_status, ingest + kogni (HFCI-001+002 + capability-gaps)/diff + kogni aliases (HFCI-001+002)
 
 
 # ---------------------------------------------------------------------------

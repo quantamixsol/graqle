@@ -33,6 +33,9 @@ logger = logging.getLogger("graqle.workflow.mcp_agent")
 
 _TEST_TIMEOUT_SECONDS: int = 300
 
+# A-004: Tools whose plan steps carry a file_path to forward to graq_generate
+_GENERATE_TOOLS: frozenset[str] = frozenset({"graq_generate"})
+
 # Patent-scan patterns from _handle_write (mcp_dev_server.py:5396-5406)
 _TS_PATTERNS: list[str] = [
     r"w_J", r"w_A", r"\b0\.16\b", r"theta_fold",
@@ -105,14 +108,57 @@ class McpActionAgent:
     async def generate_diff(
         self,
         task: str,
-        plan: str,
+        plan: str | dict[str, Any],
         error_context: str | None = None,
     ) -> str:
-        """Delegate code generation to graq_generate."""
+        """Delegate code generation to graq_generate.
+
+        Accepts plan as JSON string or dict. Extracts file_path from
+        the first graq_generate step in plan.steps (A-004 fix).
+        """
+        # Parse plan into dict for file_path extraction
+        plan_obj: dict[str, Any] | None = None
+        if isinstance(plan, dict):
+            plan_obj = plan
+        elif isinstance(plan, str):
+            try:
+                parsed = json.loads(plan)
+                if isinstance(parsed, dict):
+                    plan_obj = parsed
+            except json.JSONDecodeError:
+                logger.debug("plan is not valid JSON, skipping file_path extraction")
+
+        # Serialize for the tool boundary
+        if plan_obj is not None:
+            try:
+                plan_str = json.dumps(plan_obj)
+            except TypeError:
+                plan_str = str(plan)
+        else:
+            plan_str = plan if isinstance(plan, str) else str(plan)
+
         args: dict[str, Any] = {
             "description": task,
-            "plan": plan,
+            "plan": plan_str,
         }
+
+        # A-004 fix: extract file_path from plan steps so graq_generate
+        # targets the correct file instead of "(inferred from graph)"
+        if plan_obj is not None:
+            steps = plan_obj.get("steps", [])
+            if not isinstance(steps, list):
+                steps = []
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                if step.get("tool") in _GENERATE_TOOLS:
+                    step_args = step.get("args")
+                    if isinstance(step_args, dict):
+                        file_path = step_args.get("file_path")
+                        if isinstance(file_path, str) and file_path:
+                            args["file_path"] = file_path
+                            break
+
         if error_context is not None:
             args["error_context"] = error_context
 

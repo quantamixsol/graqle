@@ -167,7 +167,7 @@ class TestCodingOntologyPhase4:
 class TestPhase4ToolDefinitions:
     def test_total_tool_count(self):
         """v0.38.0 Phase 7: 56 graq_* + 56 kogni_* = 112."""
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor,web_search,gcc_status,ingest + kogni aliases (capability-gaps-v0451)
 
     def test_compound_tools_defined(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}

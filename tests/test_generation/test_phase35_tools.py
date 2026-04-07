@@ -277,4 +277,4 @@ class TestPhase35ToolDefinitions:
     def test_total_tool_count_is_98(self):
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
         # v0.38.0 Phase 7: 57 graq_* + 57 kogni_* = 114
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor,web_search,gcc_status,ingest + kogni aliases (capability-gaps-v0451)

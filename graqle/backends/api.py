@@ -259,19 +259,55 @@ class OpenAIBackend(BaseBackend):
     ) -> GenerateResult:
         async def _call():
             client = self._get_client()
-            response = await client.chat.completions.create(
-                model=self._model,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                messages=[{"role": "user", "content": prompt}],
-                stop=stop,
+            is_codex = "codex" in self._model.lower()
+            _needs_new_param = (
+                self._model.startswith("gpt-5")
+                or self._model.startswith("o3")
+                or self._model.startswith("o4")
             )
-            # Defensive response validation
-            if not response.choices:
-                logger.warning(f"[{self.name}] No choices in response")
-                return GenerateResult(text="", model=self._model)
-            choice = response.choices[0]
-            content = choice.message.content or ""
+
+            if is_codex:
+                # Codex models use completions API, not chat
+                response = await client.completions.create(
+                    model=self._model,
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    stop=stop,
+                )
+                if not response.choices:
+                    logger.warning(f"[{self.name}] No choices in response")
+                    return GenerateResult(text="", model=self._model)
+                choice = response.choices[0]
+                content = choice.text or ""
+            elif _needs_new_param:
+                # GPT-5.x / o3 / o4 require max_completion_tokens
+                response = await client.chat.completions.create(
+                    model=self._model,
+                    max_completion_tokens=max_tokens,
+                    temperature=temperature,
+                    messages=[{"role": "user", "content": prompt}],
+                    stop=stop,
+                )
+                if not response.choices:
+                    logger.warning(f"[{self.name}] No choices in response")
+                    return GenerateResult(text="", model=self._model)
+                choice = response.choices[0]
+                content = choice.message.content or ""
+            else:
+                # Legacy models (gpt-4.1, gpt-4o, etc.)
+                response = await client.chat.completions.create(
+                    model=self._model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    messages=[{"role": "user", "content": prompt}],
+                    stop=stop,
+                )
+                if not response.choices:
+                    logger.warning(f"[{self.name}] No choices in response")
+                    return GenerateResult(text="", model=self._model)
+                choice = response.choices[0]
+                content = choice.message.content or ""
             # OT-028: Capture finish_reason for truncation detection
             finish_reason = getattr(choice, "finish_reason", "") or ""
             truncated = finish_reason == "length"

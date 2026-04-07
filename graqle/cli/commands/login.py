@@ -100,9 +100,14 @@ def login_command(
         console.print("Get a key at [cyan]https://graqle.com/dashboard/account[/cyan]")
         raise typer.Exit(1)
 
-    # Validate key against cloud API
+    # A-001: Validate key against cloud API and sync plan tier
     validated_email = email
-    validated_plan = "free"
+    # Preserve existing plan tier if re-login fails to reach cloud
+    try:
+        _existing = load_credentials()
+        validated_plan = _existing.plan if _existing.plan else "free"
+    except Exception:
+        validated_plan = "free"
 
     try:
         import httpx
@@ -117,6 +122,7 @@ def login_command(
                 validated_email = data.get("email", email)
                 validated_plan = data.get("plan", "free")
                 console.print("[green]API key validated![/green]")
+                console.print(f"  Plan synced: [cyan]{validated_plan.title()}[/cyan]")
             else:
                 console.print("[red]Invalid API key. Generate a new one at graqle.com/dashboard/account[/red]")
                 raise typer.Exit(1)

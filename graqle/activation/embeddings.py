@@ -354,6 +354,59 @@ def create_embedding_engine(
     return EmbeddingEngine(model_name=effective_model)
 
 
+def get_engine_dimension(engine: object) -> int:
+    """A-007: Get the embedding dimension produced by an engine.
+
+    Probes the engine to determine its output dimension without
+    relying on undocumented private attributes.
+    """
+    # Try known attributes first
+    for attr in ("_dim", "_dimension", "dimension", "embedding_dim"):
+        val = getattr(engine, attr, None)
+        if isinstance(val, int) and val > 0:
+            return val
+
+    # Probe by generating a test embedding
+    try:
+        if hasattr(engine, "embed"):
+            test = engine.embed("dimension probe")
+            if hasattr(test, "__len__"):
+                return len(test)
+    except Exception:
+        pass
+
+    # Known defaults by engine type
+    if isinstance(engine, TitanV2Engine):
+        return 1024
+    if isinstance(engine, SimpleEmbeddingEngine):
+        return getattr(engine, "_dim", 128)
+    # Default MiniLM
+    return 384
+
+
+def validate_engine_dimension(
+    engine: object, graph_dim: int, graph_model: str = "unknown"
+) -> None:
+    """A-007: Validate embedding engine dimension matches graph at startup.
+
+    Raises EmbeddingDimensionMismatchError if dimensions don't match.
+    Called after create_embedding_engine when loading a graph.
+    """
+    if graph_dim <= 0:
+        return  # No dimension stored in graph — skip validation
+
+    engine_dim = get_engine_dimension(engine)
+    if engine_dim != graph_dim:
+        from graqle.core.exceptions import EmbeddingDimensionMismatchError
+        engine_model = getattr(engine, "model_name", None) or type(engine).__name__
+        raise EmbeddingDimensionMismatchError(
+            active_model=str(engine_model),
+            active_dim=engine_dim,
+            stored_model=graph_model,
+            stored_dim=graph_dim,
+        )
+
+
 def get_engine_info(engine: object) -> dict[str, str]:
     """Return human-readable info about an embedding engine."""
     if isinstance(engine, TitanV2Engine):

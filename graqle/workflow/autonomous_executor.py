@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -163,10 +164,26 @@ class AutonomousExecutor:
         else:
             before = {}
 
-        # Run the test command
+        # Run the test command — A-006: scope tests to generated files
         test_cmd = list(self._config.test_command)
-        if ctx.modified_files and self._config.test_paths:
+        if self._config.test_paths:
+            # Explicit test paths configured — use those
             test_cmd.extend(self._config.test_paths)
+        elif ctx.modified_files:
+            # Auto-detect test files for modified source files
+            for mf in ctx.modified_files:
+                mf_path = Path(mf)
+                # Check for corresponding test file
+                test_file = mf_path.parent / f"test_{mf_path.name}"
+                if test_file.exists():
+                    test_cmd.append(str(test_file))
+                # Also check tests/ directory mirroring source structure
+                parts = list(mf_path.parts)
+                if parts and parts[0] != "tests":
+                    test_candidate = Path("tests") / "/".join(parts)
+                    test_dir = test_candidate.parent / f"test_{test_candidate.name}"
+                    if test_dir.exists():
+                        test_cmd.append(str(test_dir))
 
         try:
             proc = subprocess.run(
@@ -244,6 +261,19 @@ class AutonomousExecutor:
             Final result with success/failure status, files modified, etc.
         """
         self._memory.clear()
+
+        # A-002: verify git is available before entering the loop
+        if not shutil.which("git"):
+            return ExecutorResult(
+                success=False,
+                state=LoopState.FAILED.value,
+                attempts=0,
+                error=(
+                    "git not found in PATH. The autonomous executor requires git "
+                    "for stash-based rollback. Install git and ensure it's in PATH."
+                ),
+            )
+
         ctx = self._loop.initial_context(task)
 
         logger.info(

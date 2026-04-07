@@ -203,7 +203,7 @@ class TestGraqPlanToolDefinition:
 
     def test_tool_count_is_110(self) -> None:
         # Phase 7: +graq_profile + kogni_profile = 110 → 112
-        assert len(TOOL_DEFINITIONS) == 122  # +4: graq_github_pr/diff + kogni aliases (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor,web_search,gcc_status,ingest + kogni aliases (capability-gaps-v0451)
 
     def test_graq_plan_not_in_write_tools(self) -> None:
         """graq_plan is read-only — must NOT be in _WRITE_TOOLS."""
