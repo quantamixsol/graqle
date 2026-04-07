@@ -5749,16 +5749,17 @@ class KogniDevServer:
         else:
             project_root = Path.cwd().resolve()
 
-        # Reject absolute paths — only accept relative paths anchored to graph root
-        if Path(file_path).is_absolute():
-            return json.dumps({
-                "error": "Invalid file_path: absolute paths not allowed. Use relative path from project root.",
-            })
+        # Resolve path: absolute paths checked for containment, relative anchored to graph root
+        fp_input = Path(file_path)
+        if fp_input.is_absolute():
+            fp = fp_input.resolve()
+        else:
+            fp = (project_root / file_path).resolve()
 
-        fp = (project_root / file_path).resolve()
-
-        # CWE-22 containment check (sole authoritative gate)
-        if not fp.is_relative_to(project_root):
+        # CWE-22 containment check — only enforce when graph root is known
+        # (not just CWD fallback, which may not represent a real project boundary)
+        _has_real_root = _raw is not None and isinstance(_raw, (str, Path))
+        if _has_real_root and not fp.is_relative_to(project_root):
             return json.dumps({"error": "Invalid file_path: path escapes project root"})
 
         if dry_run:
