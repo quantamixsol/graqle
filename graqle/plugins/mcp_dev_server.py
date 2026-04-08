@@ -2089,6 +2089,44 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["content", "title"],
         },
     },
+    # ── v0.46.4: graq_todo — governed TodoWrite replacement ──────
+    {
+        "name": "graq_todo",
+        "description": (
+            "Manage a governed todo list for the current session. "
+            "Replaces Claude Code's native TodoWrite with audit trail. "
+            "Pass the full updated todo list each time (replacement semantics)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "todos": {
+                    "type": "array",
+                    "description": "Full replacement todo list",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {
+                                "type": "string",
+                                "description": "Task description (imperative form)",
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "in_progress", "completed"],
+                                "description": "Task status",
+                            },
+                            "activeForm": {
+                                "type": "string",
+                                "description": "Present continuous form for display during execution",
+                            },
+                        },
+                        "required": ["content", "status"],
+                    },
+                },
+            },
+            "required": ["todos"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -2129,6 +2167,8 @@ _WRITE_TOOLS = frozenset({
     "graq_gov_gate", "kogni_gov_gate",
     # v0.44.1: autonomous loop — writes files, runs tests
     "graq_auto", "kogni_auto",
+    # v0.46.4: governed todo list
+    "graq_todo", "kogni_todo",
 })
 
 
@@ -2162,6 +2202,8 @@ class KogniDevServer:
         # CG-01/02: Protocol enforcement state
         self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
         self._plan_active: bool = False      # Set True by graq_plan
+        # v0.46.4: graq_todo session state
+        self._todos: list[dict[str, Any]] = []
         # B4: Session cache for cross-tool context reuse (v0.42.2 hotfix)
         # Key: (file_path, description, file_mtime), Value: generation result dict
         # Avoids re-reasoning in graq_edit when graq_reason already produced the fix.
@@ -3049,6 +3091,9 @@ class KogniDevServer:
             "kogni_gcc_status": self._handle_gcc_status,
             "graq_ingest": self._handle_ingest,
             "kogni_ingest": self._handle_ingest,
+            # v0.46.4: governed todo list
+            "graq_todo": self._handle_todo,
+            "kogni_todo": self._handle_todo,
         }
 
         handler = handlers.get(name)
@@ -6104,9 +6149,13 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'content' is required."})
 
         # Patent scan — block if trade secrets detected in content
+        # Word boundaries prevent false positives on CSS (rgba 0.16), SVG, etc.
+        # Note: bare "0.16" removed — too many false positives (CSS opacity, rgba, etc.)
+        # AGREEMENT_THRESHOLD pattern catches the named reference instead.
         _TS_PATTERNS = [
-            "w_J", "w_A", "0.16", "theta_fold", "jaccard.*formula",
-            "70.*30.*blend", "AGREEMENT_THRESHOLD",
+            r"\bw_J\b", r"\bw_A\b", r"\btheta_fold\b",
+            r"\bjaccard\b.*\bformula\b", r"\b70\b.*\b30\b.*\bblend\b",
+            r"\bAGREEMENT_THRESHOLD\b",
         ]
         import re
         for pat in _TS_PATTERNS:
@@ -6480,7 +6529,7 @@ class KogniDevServer:
             if line.startswith("+") and not line.startswith("+++")
         )
         import re
-        _TS_PATTERNS = ["w_J", "w_A", r"\b0\.16\b", "theta_fold", "AGREEMENT_THRESHOLD"]
+        _TS_PATTERNS = [r"\bw_J\b", r"\bw_A\b", r"\btheta_fold\b", r"\bAGREEMENT_THRESHOLD\b"]
         for pat in _TS_PATTERNS:
             if re.search(pat, _added_lines):
                 return json.dumps({
@@ -8029,6 +8078,25 @@ class KogniDevServer:
                 result["active_branch"] = branch
 
         return json.dumps(result)
+
+
+    # -- graq_todo handler (v0.46.4) --
+
+    async def _handle_todo(self, args):
+        """Governed todo list. Replaces native TodoWrite with audit trail."""
+        todos = args.get("todos", [])
+        if not isinstance(todos, list):
+            return json.dumps({"error": "todos must be an array."})
+        for i, item in enumerate(todos):
+            if not isinstance(item, dict):
+                return json.dumps({"error": f"Todo item {i} must be an object."})
+            if "content" not in item or "status" not in item:
+                return json.dumps({"error": f"Todo item {i} requires content and status."})
+            if item["status"] not in ("pending", "in_progress", "completed"):
+                return json.dumps({"error": f"Todo item {i} status invalid."})
+        self._todos = todos
+        logger.info("graq_todo: %d items", len(todos))
+        return json.dumps({"todos": self._todos, "count": len(self._todos)})
 
     async def _handle_ingest(self, args: dict[str, Any]) -> str:
         """S-005: Ingest a spec/document into GSM."""
