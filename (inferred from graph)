@@ -1,25 +1,17 @@
+"""Build module entry point for GraQle."""
+
 from __future__ import annotations
 
-from pathlib import Path
 
-
-def buildmodule(source_path: str, output_path: str) -> None:
-    source_file = Path(source_path)
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(source_file.read_text())
+def buildmodule() -> None:
+    """Placeholder build hook for packaging workflows."""
+    return None
 
 
 def main() -> None:
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Build a module by copying source to output.")
-    parser.add_argument("source_path")
-    parser.add_argument("output_path")
-    args = parser.parse_args()
-    buildmodule(args.source_path, args.output_path)
+    """CLI-compatible entry point."""
+    buildmodule()
 
 
 if __name__ == "__main__":
     main()
-SUMMARY: Added a simple buildmodule utility that copies a source file to an output path and provides a CLI entry point.

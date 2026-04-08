@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/graqle-gate.sh",
+            "command": "python .claude/hooks/graqle-gate.py",
             "timeout": 5
           }
         ]
