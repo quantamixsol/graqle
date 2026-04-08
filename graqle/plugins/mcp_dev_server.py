@@ -2858,7 +2858,7 @@ class KogniDevServer:
             return self._inject_tool_hints(name, err)
 
         # CG-01/02/03: Protocol enforcement gates — HARD BLOCKS when enabled
-        _governance = getattr(getattr(self, "_settings", None), "governance", None)
+        _governance = getattr(getattr(self, "_config", None), "governance", None)
         if _governance:
             # CG-01: Session gate — BLOCK all tools until session_start
             # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
@@ -4972,7 +4972,7 @@ class KogniDevServer:
         # CG-04: Batch mode — process multiple files sequentially
         batch_files = args.get("files", [])
         if batch_files and isinstance(batch_files, list):
-            _governance = getattr(getattr(self, "_settings", None), "governance", None)
+            _governance = getattr(getattr(self, "_config", None), "governance", None)
             _max = getattr(_governance, "edit_batch_max", 10)
             if len(batch_files) > _max:
                 return json.dumps({
@@ -6511,7 +6511,7 @@ class KogniDevServer:
         except (json.JSONDecodeError, TypeError):
             _commit_data = {}
 
-        _governance = getattr(getattr(self, "_settings", None), "governance", None)
+        _governance = getattr(getattr(self, "_config", None), "governance", None)
         if _commit_data.get("exit_code") == 0 and getattr(_governance, "gcc_auto_commit", False):
             try:
                 from datetime import datetime, timezone
