@@ -43,6 +43,7 @@ class ApplyResult:
     error: str                  # non-empty on failure
     file_path: str
     dry_run: bool = False
+    created: bool = False       # GH-67: True when a new file was created from /dev/null diff
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,6 +53,7 @@ class ApplyResult:
             "error": self.error,
             "file_path": self.file_path,
             "dry_run": self.dry_run,
+            "created": self.created,
         }
 
 
@@ -275,6 +277,81 @@ def apply_diff(
     fp = Path(file_path)
 
     if not fp.exists():
+        # GH-67 Fix 1: Support creating new files from /dev/null diffs
+        # Only check header lines (before first @@) to avoid false positives
+        _diff_lines = unified_diff.splitlines()
+        _header_lines = []
+        for _hl in _diff_lines:
+            if _hl.startswith("@@"):
+                break
+            _header_lines.append(_hl)
+        _is_new_file = any(line.strip() == "--- /dev/null" for line in _header_lines)
+
+        if _is_new_file:
+            # CWE-22: Path traversal containment — reject paths outside CWD
+            _resolved = fp.resolve()
+            _project_root = Path.cwd().resolve()
+            try:
+                _resolved.relative_to(_project_root)
+            except ValueError:
+                return ApplyResult(
+                    success=False,
+                    lines_changed=0,
+                    backup_path="",
+                    error=f"Path traversal rejected: {_resolved} is outside {_project_root}",
+                    file_path=str(fp),
+                    dry_run=dry_run,
+                )
+
+            # Parse added lines — handle CRLF, skip no-newline markers
+            _no_newline_at_eof = any(
+                line.startswith("\\ No newline") for line in _diff_lines
+            )
+            added_lines = [
+                line[1:].rstrip("\r")
+                for line in _diff_lines
+                if line.startswith("+") and not line.startswith("+++")
+            ]
+            lines_changed = len(added_lines)
+            if dry_run:
+                return ApplyResult(
+                    success=True,
+                    lines_changed=lines_changed,
+                    backup_path="",
+                    error="",
+                    file_path=str(fp),
+                    dry_run=True,
+                    created=True,
+                )
+            # Create parent dirs + atomic write
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            new_content = "\n".join(added_lines)
+            if added_lines and not _no_newline_at_eof:
+                new_content += "\n"
+            try:
+                _tmp = tempfile.NamedTemporaryFile(
+                    dir=fp.parent, delete=False, suffix=".tmp", mode="w",
+                    encoding="utf-8",
+                )
+                _tmp.write(new_content)
+                _tmp.close()
+                os.replace(_tmp.name, str(fp))  # atomic on POSIX; best-effort same-volume Windows
+            except Exception:
+                try:
+                    os.unlink(_tmp.name)
+                except OSError:
+                    pass
+                raise
+            return ApplyResult(
+                success=True,
+                lines_changed=lines_changed,
+                backup_path="",
+                error="",
+                file_path=str(fp),
+                dry_run=False,
+                created=True,
+            )
+
         return ApplyResult(
             success=False,
             lines_changed=0,

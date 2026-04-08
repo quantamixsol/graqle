@@ -55,6 +55,39 @@ try:
 except Exception:
     _version = "0.0.0"
 
+
+# ---------------------------------------------------------------------------
+# GH-67 Fix 3: Safe bool coercion for MCP arguments
+# ---------------------------------------------------------------------------
+
+_TRUTHY_STRINGS = frozenset({"true", "1", "yes", "on", "y"})
+_FALSY_STRINGS = frozenset({"false", "0", "no", "off", "n"})
+
+
+def _coerce_bool(value: Any, default: bool) -> bool:
+    """Coerce MCP argument to bool. Handles JSON bool, int, and string.
+
+    Fixes GH-67: ``bool("false")`` evaluates to ``True`` in Python.
+    This helper correctly handles string representations from MCP frameworks.
+    Uses allowlist pattern — unrecognised strings return ``default`` (safe).
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):  # Must precede int check (bool subclasses int)
+        return value
+    if isinstance(value, int):
+        return bool(value)
+    if isinstance(value, str):
+        lower = value.lower()
+        if lower in _TRUTHY_STRINGS:
+            return True
+        if lower in _FALSY_STRINGS:
+            return False
+        logger.warning("_coerce_bool: unrecognised value %r, using default=%r", value, default)
+        return default
+    return bool(value)
+
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -4848,7 +4881,7 @@ class KogniDevServer:
         file_path = args.get("file_path", "")
         description = args.get("description", "")
         provided_diff = args.get("diff", "")
-        dry_run = bool(args.get("dry_run", True))  # DEFAULT TRUE — never write without explicit False
+        dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67: safe string coercion
 
         if not file_path:
             return json.dumps({"error": "Parameter 'file_path' is required."})
@@ -5183,8 +5216,8 @@ class KogniDevServer:
         description = args.get("description", "")
         file_path = args.get("file_path", "")
         max_rounds = min(max(int(args.get("max_rounds", 2)), 1), 5)
-        dry_run = bool(args.get("dry_run", True))  # Phase 1: always dry_run
-        stream = bool(args.get("stream", False))  # T3.4: backend streaming support
+        dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67 Fix 3: safe string coercion
+        stream = _coerce_bool(args.get("stream"), default=False)  # T3.4: backend streaming support
         _raw_context = args.get("context", "")  # OT-049: graq_reason output as constraints
         # Sanitize + cap length (prompt-injection mitigation per graq_review BLOCKER)
         _MAX_CONTEXT_CHARS = 4096
@@ -5760,6 +5793,8 @@ class KogniDevServer:
                 diff_text = self._reanchor_diff(diff_text, file_path)
 
         # Step 4c (AL-1 fix): Apply diff to filesystem when dry_run=False
+        # GH-67 Fix 2: Track write errors and surface in MCP response
+        _write_error: str | None = None
         if not dry_run and file_path and diff_text:
             try:
                 from graqle.core.file_writer import apply_diff
@@ -5773,12 +5808,14 @@ class KogniDevServer:
                 if _apply_result.success:
                     logger.info("graq_generate: wrote %s (AL-1 fix)", file_path)
                 else:
-                    logger.warning(
+                    _write_error = _apply_result.error
+                    logger.error(
                         "graq_generate: apply_diff failed for %s: %s",
-                        file_path, _apply_result.error,
+                        file_path, _write_error,
                     )
             except Exception as _apply_exc:
-                logger.warning("graq_generate: file write failed for %s: %s", file_path, _apply_exc)
+                _write_error = str(_apply_exc)
+                logger.error("graq_generate: file write failed for %s: %s", file_path, _write_error)
 
         # Step 5: OT-050 — sync written file into KG (mirrors _handle_edit per ADR-134)
         if not dry_run and file_path:
@@ -5809,6 +5846,7 @@ class KogniDevServer:
                 "preflight_warnings": preflight_raw.get("warnings", [])[:3],
                 "stream": stream,
                 "chunks": [],  # OT-054: streaming removed, direct backend call
+                **({"write_error": _write_error} if _write_error else {}),  # GH-67 Fix 2
                 **({"format_validation": format_validation_data} if format_validation_data else {}),
             },
         )
