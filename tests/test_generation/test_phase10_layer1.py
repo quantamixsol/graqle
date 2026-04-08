@@ -155,7 +155,7 @@ class TestGraqGovGateTool:
 
     def test_total_tool_count_updated(self) -> None:
         from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
-        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor,web_search,gcc_status,ingest + kogni aliases (capability-gaps-v0451)
+        assert len(TOOL_DEFINITIONS) >= 130  # floor check — additive tool growth (CG-04 phase 0)
 
     def test_graq_gov_gate_in_write_tools(self) -> None:
         from graqle.plugins.mcp_dev_server import _WRITE_TOOLS
