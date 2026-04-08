@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Write|Edit|Bash|Grep|Glob|Agent|TodoWrite|WebSearch|WebFetch|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/graqle-gate.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
