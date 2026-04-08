@@ -6579,8 +6579,8 @@ class KogniDevServer:
         spec = args.get("spec", "").strip()
         scaffold_type = args.get("scaffold_type", "module")
         output_dir = args.get("output_dir", ".").strip()
-        dry_run = bool(args.get("dry_run", True))
-        with_tests = bool(args.get("with_tests", True))
+        dry_run = _coerce_bool(args.get("dry_run"), default=True)
+        with_tests = _coerce_bool(args.get("with_tests"), default=True)
 
         if not spec:
             return json.dumps({"error": "Parameter 'spec' is required."})
@@ -6595,6 +6595,15 @@ class KogniDevServer:
             graph_context = f"\nExisting project patterns:\n{json.dumps(pattern_result, indent=2)}"
         except Exception:
             pass
+
+        # C4 fix: Redact graph context before sending to LLM for scaffolding
+        if graph_context:
+            from graqle.security.content_gate import ContentSecurityGate
+            _scaffold_gate = ContentSecurityGate()
+            graph_context, _scaffold_record = _scaffold_gate.prepare_content_for_send(
+                graph_context, destination="llm_scaffold", gate_id="G6",
+            )
+            ContentSecurityGate.persist_audit_record(_scaffold_record)
 
         test_instruction = (
             "\n\nAlso generate a corresponding pytest test file."
