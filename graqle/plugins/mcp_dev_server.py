@@ -2857,28 +2857,66 @@ class KogniDevServer:
             })
             return self._inject_tool_hints(name, err)
 
-        # CG-01/02/03: Protocol enforcement gates (warn_only when flag is False)
+        # CG-01/02/03: Protocol enforcement gates — HARD BLOCKS when enabled
         _governance = getattr(getattr(self, "_settings", None), "governance", None)
         if _governance:
-            # CG-01: Session gate — warn if no session lifecycle started
+            # CG-01: Session gate — BLOCK all tools until session_start
+            # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
+            _CG01_EXEMPT = {"graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect"}
             if getattr(_governance, "session_gate_enabled", False):
-                if not getattr(self, "_session_started", False) and name != "graq_lifecycle":
-                    _msg = f"CG-01 GATE: Tool '{name}' called before graq_lifecycle(event='session_start'). "
-                    logger.warning(_msg)
-                    # warn_only: log but don't block
+                if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT:
+                    logger.warning("CG-01 BLOCKED: '%s' before session_start", name)
+                    err = json.dumps({
+                        "error": "CG-01_SESSION_GATE",
+                        "tool": name,
+                        "message": (
+                            f"Tool '{name}' blocked — no active session. "
+                            "Call graq_lifecycle(event='session_start') first."
+                        ),
+                        "remediation": "graq_lifecycle",
+                    })
+                    return self._inject_tool_hints(name, err)
 
-            # CG-02: Plan mandatory — warn if write tool called without prior graq_plan
+            # CG-02: Plan mandatory — BLOCK write tools until graq_plan called
+            # Exempt: graq_plan itself, graq_learn (outcome recording), graq_lifecycle
+            _CG02_EXEMPT = {
+                "graq_plan", "kogni_plan", "graq_learn", "kogni_learn",
+                "graq_lifecycle", "kogni_lifecycle",
+            }
             if getattr(_governance, "plan_mandatory", False):
-                if name in _WRITE_TOOLS and not getattr(self, "_plan_active", False):
-                    _msg = f"CG-02 GATE: Write tool '{name}' called without prior graq_plan. "
-                    logger.warning(_msg)
-                    # warn_only: log but don't block
+                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False):
+                    logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
+                    err = json.dumps({
+                        "error": "CG-02_PLAN_GATE",
+                        "tool": name,
+                        "message": (
+                            f"Write tool '{name}' blocked — no active plan. "
+                            "Call graq_plan(goal='...') before modifying files."
+                        ),
+                        "remediation": "graq_plan",
+                    })
+                    return self._inject_tool_hints(name, err)
 
-            # CG-03: Edit enforcement — warn if native Edit pattern detected
-            # (This gate is informational — MCP server can't detect Claude's native Edit,
-            #  but it CAN enforce that graq_edit is the only edit path within MCP.)
+            # CG-03: Edit enforcement — BLOCK graq_write for files that should use graq_edit
+            # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
+            # Use graq_edit instead — it runs preflight + governance + diff application.
             if getattr(_governance, "edit_enforcement", False):
-                pass  # Enforcement handled at caller level (CLAUDE.md mandate)
+                if name in ("graq_write", "kogni_write"):
+                    _target = arguments.get("file_path", "")
+                    _CODE_EXTS = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java"}
+                    if any(_target.endswith(ext) for ext in _CODE_EXTS):
+                        logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
+                        err = json.dumps({
+                            "error": "CG-03_EDIT_GATE",
+                            "tool": name,
+                            "file_path": _target,
+                            "message": (
+                                f"graq_write blocked for code file '{_target}'. "
+                                "Use graq_edit instead — it runs preflight, governance, and diff application."
+                            ),
+                            "remediation": "graq_edit",
+                        })
+                        return self._inject_tool_hints(name, err)
 
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,

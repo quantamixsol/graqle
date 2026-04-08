@@ -272,9 +272,9 @@ class GovernancePolicyConfig(BaseModel):
     workflow_require_learn: bool = True     # Require graq_learn at end of governed workflows
 
     # —— Capability-gap controls (CG-01 … CG-05) ——————————————————————————————
-    session_gate_enabled: bool = False      # CG-01: block tools until session start confirmed
-    plan_mandatory: bool = False            # CG-02: require graq_plan before file modifications
-    edit_enforcement: bool = False          # CG-03: require graq_edit instead of native Edit
+    session_gate_enabled: bool = True       # CG-01: HARD BLOCK tools until session start confirmed
+    plan_mandatory: bool = True             # CG-02: HARD BLOCK write tools until graq_plan called
+    edit_enforcement: bool = True           # CG-03: HARD BLOCK graq_write on code files → use graq_edit
     edit_batch_max: int = Field(default=10, ge=1)  # CG-04: max files per batch graq_edit call
     gcc_auto_commit: bool = False           # CG-05: auto-write GCC COMMIT after git commit
 
