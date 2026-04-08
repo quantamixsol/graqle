@@ -1507,7 +1507,7 @@ def gate_install_command(
 ) -> None:
     """Install the GraQle governance gate for Claude Code.
 
-    Creates .claude/hooks/graqle-gate.sh and .claude/settings.json so that
+    Creates .claude/hooks/graqle-gate.py and .claude/settings.json so that
     Claude Code native tools (Read, Write, Edit, Bash, etc.) are blocked in
     favour of governed graq_* equivalents.
 
@@ -1531,12 +1531,12 @@ def gate_install_command(
 
     claude_dir = root / ".claude"
     hooks_dir = claude_dir / "hooks"
-    gate_dst = hooks_dir / "graqle-gate.sh"
+    gate_dst = hooks_dir / "graqle-gate.py"
     settings_dst = claude_dir / "settings.json"
 
     # Locate package data
     pkg_data = Path(__file__).parent.parent / "data" / "claude_gate"
-    gate_src = pkg_data / "graqle-gate.sh"
+    gate_src = pkg_data / "graqle-gate.py"
     settings_src = pkg_data / "settings.json"
 
     if not gate_src.exists():
@@ -1571,7 +1571,7 @@ def gate_install_command(
         if not isinstance(hook_entry, dict):
             return False
         for h in hook_entry.get("hooks", []):
-            if isinstance(h, dict) and "graqle-gate.sh" in (h.get("command") or ""):
+            if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
                 return True
         return False
 
@@ -1585,7 +1585,7 @@ def gate_install_command(
         actions.append(f"SKIP {gate_dst.relative_to(root)} (exists, use --force)")
     else:
         verb = "OVERWRITE" if gate_dst.exists() else "CREATE"
-        actions.append(f"{verb} {hooks_dir.relative_to(root)}/graqle-gate.sh")
+        actions.append(f"{verb} {hooks_dir.relative_to(root)}/graqle-gate.py")
 
     if corrupt_existing:
         actions.append(f"BACKUP {settings_dst.relative_to(root)} (corrupt JSON)")
@@ -1665,7 +1665,7 @@ def gate_install_command(
         "\n[bold green]Governance gate installed.[/bold green] "
         "Claude Code native tools are now routed through GraQle.\n"
         "[dim]Run 'graq gate-install --dry-run' to verify. "
-        "Remove .claude/hooks/graqle-gate.sh to disable.[/dim]"
+        "Remove .claude/hooks/graqle-gate.py to disable.[/dim]"
     )
 
 
