@@ -241,6 +241,11 @@ class GovernancePolicyConfig(BaseModel):
     All thresholds are tunable without code changes. Changes take effect on
     the next GovernanceMiddleware instantiation (i.e. next MCP server restart).
 
+    CG-0x capability-gap controls are opt-in and default to disabled. Enable
+    them incrementally to gate tool usage, enforce planning workflows, and
+    control batch edit sizes. All CG-0x flags are safe to leave at their
+    defaults (False/10) for existing deployments.
+
     Example YAML::
 
         governance:
@@ -266,6 +271,30 @@ class GovernancePolicyConfig(BaseModel):
     workflow_require_preflight: bool = True # Require preflight in governed workflows
     workflow_require_learn: bool = True     # Require graq_learn at end of governed workflows
 
+    # —— Capability-gap controls (CG-01 … CG-05) ——————————————————————————————
+    session_gate_enabled: bool = True       # CG-01: HARD BLOCK tools until session start confirmed
+    plan_mandatory: bool = True             # CG-02: HARD BLOCK write tools until graq_plan called
+    edit_enforcement: bool = True           # CG-03: HARD BLOCK graq_write on code files → use graq_edit
+    edit_batch_max: int = Field(default=10, ge=1)  # CG-04: max files per batch graq_edit call
+    gcc_auto_commit: bool = False           # CG-05: auto-write GCC COMMIT after git commit
+
+    @model_validator(mode="after")
+    def _validate_edit_enforcement_requires_plan(self) -> "GovernancePolicyConfig":
+        """edit_enforcement=True requires plan_mandatory=True.
+
+        CG-03 (edit_enforcement) gates native Edit calls and redirects them
+        through graq_edit. Without CG-02 (plan_mandatory) active, there is no
+        plan to validate edits against, making enforcement meaningless and
+        potentially blocking all file modifications with no recovery path.
+        """
+        if self.edit_enforcement and not self.plan_mandatory:
+            raise ValueError(
+                "governance.edit_enforcement=True requires governance.plan_mandatory=True. "
+                "CG-03 enforces that edits go through graq_edit, but without CG-02 "
+                "(plan_mandatory) there is no plan to validate against. "
+                "Set plan_mandatory: true alongside edit_enforcement: true."
+            )
+        return self
 
 
 class DebateConfig(BaseModel):

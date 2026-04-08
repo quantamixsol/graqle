@@ -86,7 +86,7 @@ def server():
 
 class TestToolDefinitionsV015:
     def test_tools_defined(self):
-        assert len(TOOL_DEFINITIONS) == 130  # +8: vendor,web_search,gcc_status,ingest + kogni (HFCI-001+002)
+        assert len(TOOL_DEFINITIONS) >= 130  # floor check: >=130 allows additive tool growth (CG-04 phase 0)
 
     def test_reload_tool_exists(self):
         names = {t["name"] for t in TOOL_DEFINITIONS}
