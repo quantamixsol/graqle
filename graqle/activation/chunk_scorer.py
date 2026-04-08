@@ -173,6 +173,28 @@ class ChunkScorer:
         chunk_texts = _redacted_chunk_texts
         desc_texts = [_g4_gate.redact_for_embedding(t) for t in desc_texts]
 
+        # H3 fix: Log G4 embedding gate audit summary
+        _g4_redacted_count = sum(1 for t in chunk_texts if t == "[CONTENT_REDACTED]")
+        try:
+            from graqle.security.content_gate import ContentAuditRecord
+            from datetime import datetime, timezone
+            import hashlib
+            _g4_summary = ContentAuditRecord(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                destination="embedding_api",
+                gate_id="G4",
+                sensitivity_level=SensitivityLevel.INTERNAL,
+                redactions_applied=_g4_redacted_count,
+                original_length=sum(len(t) for t in chunk_texts),
+                redacted_length=sum(len(t) for t in chunk_texts),
+                content_hash_pre="batch",
+                content_hash_post="batch",
+                blocked=False,
+            )
+            ContentSecurityGate.persist_audit_record(_g4_summary)
+        except Exception:
+            pass  # Audit persistence must never block embedding
+
         # Batch embed
         chunk_embeddings = []
         for text in chunk_texts:

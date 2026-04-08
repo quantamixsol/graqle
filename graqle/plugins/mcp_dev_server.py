@@ -5400,6 +5400,8 @@ class KogniDevServer:
             file_content, _g5_record = _g5_gate.prepare_content_for_send(
                 file_content, destination="llm_generate", gate_id="G5",
             )
+            # H3 fix: persist audit record to JSONL governance log
+            ContentSecurityGate.persist_audit_record(_g5_record)
 
         # OT-056: Extract function/class signatures from source as AST fallback
         # when graph node properties lack 'signature' (e.g., newly created files
