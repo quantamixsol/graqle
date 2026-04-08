@@ -308,7 +308,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 130  # +8: vendor, web_search, gcc_status, ingest + kogni (HFCI-001+002 + capability-gaps)/diff + kogni aliases (HFCI-001+002)
+        assert len(tools) == 132  # +2: graq_todo + kogni_todo (v0.46.4)
 
 
 # ---------------------------------------------------------------------------
