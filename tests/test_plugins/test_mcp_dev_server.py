@@ -201,6 +201,8 @@ class TestToolDefinitions:
             "graq_web_search",
             "graq_gcc_status",
             "graq_ingest",
+            # v0.46.4: governed todo list
+            "graq_todo",
         }
         expected_kogni = {
             "kogni_context",
@@ -277,6 +279,8 @@ class TestToolDefinitions:
             "kogni_web_search",
             "kogni_gcc_status",
             "kogni_ingest",
+            # v0.46.4: governed todo list
+            "kogni_todo",
         }
         # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
