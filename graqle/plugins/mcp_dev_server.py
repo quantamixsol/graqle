@@ -1428,6 +1428,18 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "LLM rounds for diff generation if description is given (default 2)",
                     "default": 2,
                 },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File path to edit"},
+                            "description": {"type": "string", "description": "What to change in this file"},
+                        },
+                        "required": ["path", "description"],
+                    },
+                    "description": "CG-04: Batch mode — list of {path, description} for coordinated multi-file edits. Overrides file_path/description.",
+                },
             },
             "required": ["file_path"],
         },
@@ -1478,6 +1490,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "generation. LLM compliance is best-effort."
                     ),
                     "maxLength": 4096,
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["code", "test"],
+                    "description": (
+                        "Generation mode. 'code' (default) generates implementation. "
+                        "'test' generates pytest test cases for the target file/description, "
+                        "including edge cases and failure scenarios from KG lessons."
+                    ),
+                    "default": "code",
                 },
             },
             "required": ["description"],
@@ -1676,6 +1698,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "integer",
                     "description": "Number of graph hops to include for context (1-3)",
                     "default": 1,
+                },
+                "spec": {
+                    "type": "string",
+                    "description": "Design spec or plan to review pre-implementation (alternative to file_path/diff). When provided, performs a blueprint review against KG context instead of code review.",
                 },
             },
             "required": [],
@@ -2133,6 +2159,9 @@ class KogniDevServer:
         self._neo4j_traversal: Any = None  # Neo4jTraversal, set when Neo4j active
         self._intent_learner: Any = None  # OnlineLearner, loaded lazily
         self._intent_ring_buffer: Any = None  # RingBuffer for dedup
+        # CG-01/02: Protocol enforcement state
+        self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
+        self._plan_active: bool = False      # Set True by graq_plan
         # B4: Session cache for cross-tool context reuse (v0.42.2 hotfix)
         # Key: (file_path, description, file_mtime), Value: generation result dict
         # Avoids re-reasoning in graq_edit when graq_reason already produced the fix.
@@ -2827,6 +2856,67 @@ class KogniDevServer:
                 "The MCP server was started with --read-only.",
             })
             return self._inject_tool_hints(name, err)
+
+        # CG-01/02/03: Protocol enforcement gates — HARD BLOCKS when enabled
+        _governance = getattr(getattr(self, "_settings", None), "governance", None)
+        if _governance:
+            # CG-01: Session gate — BLOCK all tools until session_start
+            # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
+            _CG01_EXEMPT = {"graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect"}
+            if getattr(_governance, "session_gate_enabled", False):
+                if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT:
+                    logger.warning("CG-01 BLOCKED: '%s' before session_start", name)
+                    err = json.dumps({
+                        "error": "CG-01_SESSION_GATE",
+                        "tool": name,
+                        "message": (
+                            f"Tool '{name}' blocked — no active session. "
+                            "Call graq_lifecycle(event='session_start') first."
+                        ),
+                        "remediation": "graq_lifecycle",
+                    })
+                    return self._inject_tool_hints(name, err)
+
+            # CG-02: Plan mandatory — BLOCK write tools until graq_plan called
+            # Exempt: graq_plan itself, graq_learn (outcome recording), graq_lifecycle
+            _CG02_EXEMPT = {
+                "graq_plan", "kogni_plan", "graq_learn", "kogni_learn",
+                "graq_lifecycle", "kogni_lifecycle",
+            }
+            if getattr(_governance, "plan_mandatory", False):
+                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False):
+                    logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
+                    err = json.dumps({
+                        "error": "CG-02_PLAN_GATE",
+                        "tool": name,
+                        "message": (
+                            f"Write tool '{name}' blocked — no active plan. "
+                            "Call graq_plan(goal='...') before modifying files."
+                        ),
+                        "remediation": "graq_plan",
+                    })
+                    return self._inject_tool_hints(name, err)
+
+            # CG-03: Edit enforcement — BLOCK graq_write for files that should use graq_edit
+            # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
+            # Use graq_edit instead — it runs preflight + governance + diff application.
+            if getattr(_governance, "edit_enforcement", False):
+                if name in ("graq_write", "kogni_write"):
+                    _target = arguments.get("file_path", "")
+                    _CODE_EXTS = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java"}
+                    if any(_target.endswith(ext) for ext in _CODE_EXTS):
+                        logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
+                        err = json.dumps({
+                            "error": "CG-03_EDIT_GATE",
+                            "tool": name,
+                            "file_path": _target,
+                            "message": (
+                                f"graq_write blocked for code file '{_target}'. "
+                                "Use graq_edit instead — it runs preflight, governance, and diff application."
+                            ),
+                            "remediation": "graq_edit",
+                        })
+                        return self._inject_tool_hints(name, err)
 
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
@@ -4197,6 +4287,7 @@ class KogniDevServer:
         }
 
         if event == "session_start":
+            self._session_started = True  # CG-01: mark session as active
             # Return graph stats + backend status + recent lessons
             if graph is not None:
                 stats = graph.stats
@@ -4878,6 +4969,45 @@ class KogniDevServer:
         from graqle.core.file_writer import apply_diff
         from graqle.cloud.credentials import load_credentials
 
+        # CG-04: Batch mode — process multiple files sequentially
+        batch_files = args.get("files", [])
+        if batch_files and isinstance(batch_files, list):
+            _governance = getattr(getattr(self, "_settings", None), "governance", None)
+            _max = getattr(_governance, "edit_batch_max", 10)
+            if len(batch_files) > _max:
+                return json.dumps({
+                    "error": f"Batch exceeds edit_batch_max ({_max}). Reduce file count or increase governance.edit_batch_max.",
+                })
+            results = []
+            all_success = True
+            for entry in batch_files:
+                _path = entry.get("path", "")
+                _desc = entry.get("description", "")
+                if not _path or not _desc:
+                    results.append({"file_path": _path, "success": False, "error": "path and description required"})
+                    all_success = False
+                    continue
+                single_result = await self._handle_edit({
+                    "file_path": _path,
+                    "description": _desc,
+                    "dry_run": args.get("dry_run", True),
+                    "max_rounds": args.get("max_rounds", 2),
+                })
+                try:
+                    parsed = json.loads(single_result)
+                    results.append(parsed)
+                    if not parsed.get("success", False):
+                        all_success = False
+                except (json.JSONDecodeError, TypeError):
+                    results.append({"file_path": _path, "success": False, "error": "parse_error"})
+                    all_success = False
+            return json.dumps({
+                "batch": True,
+                "total": len(batch_files),
+                "all_success": all_success,
+                "results": results,
+            })
+
         file_path = args.get("file_path", "")
         description = args.get("description", "")
         provided_diff = args.get("diff", "")
@@ -5222,6 +5352,29 @@ class KogniDevServer:
         # Sanitize + cap length (prompt-injection mitigation per graq_review BLOCKER)
         _MAX_CONTEXT_CHARS = 4096
         context = _raw_context[:_MAX_CONTEXT_CHARS].strip() if _raw_context else ""
+        mode = args.get("mode", "code")  # CG-07: "code" (default) or "test"
+
+        # CG-08: Fixture detection for test mode — discover conftest.py fixtures
+        _fixture_context = ""
+        if mode == "test" and file_path:
+            from pathlib import Path as _P
+            _target = _P(file_path)
+            _conftest_candidates = []
+            # Walk up directories looking for conftest.py files
+            for _parent in [_target.parent] + list(_target.parents)[:3]:
+                _cf = _parent / "conftest.py"
+                if _cf.exists():
+                    _conftest_candidates.append(_cf)
+            if _conftest_candidates:
+                _fixture_lines = []
+                for _cf in _conftest_candidates[:2]:  # max 2 conftest files
+                    try:
+                        _cf_content = _cf.read_text(encoding="utf-8")[:5000]
+                        _fixture_lines.append(f"# Fixtures from {_cf.name} ({_cf.parent.name}/):\n{_cf_content}")
+                    except OSError:
+                        pass
+                if _fixture_lines:
+                    _fixture_context = "\n\nAVAILABLE TEST FIXTURES:\n" + "\n---\n".join(_fixture_lines) + "\n"
 
         # TODO(OT-048): remove FileNotFoundError pass once _resolve_file_path
         # handles non-existent paths natively (B3 merge from public master).
@@ -5474,19 +5627,38 @@ class KogniDevServer:
                 f"Line numbers and context lines MUST match the actual file.\n"
             )
 
-        generation_prompt = (
-            f"CODE GENERATION TASK{file_context}:\n"
-            f"{description}\n"
-            f"{context_block}"
-            f"{file_content_block}"
-            f"Instructions:\n"
-            f"1. Produce ONLY a valid unified diff in standard format (--- a/... +++ b/... @@ hunks)\n"
-            f"2. Keep changes minimal and focused on the described task\n"
-            f"3. Preserve existing code style and conventions\n"
-            f"4. Context lines in the diff MUST match the actual file content exactly\n"
-            f"5. Never include secrets, credentials, or internal threshold values\n"
-            f"6. After the diff, add one line: SUMMARY: <one sentence>\n"
-        )
+        # CG-07: Test generation mode — override prompt for pytest output
+        if mode == "test":
+            generation_prompt = (
+                f"TEST GENERATION TASK{file_context}:\n"
+                f"Generate pytest test cases for: {description}\n"
+                f"{context_block}"
+                f"{file_content_block}"
+                f"{_fixture_context}"
+                f"Instructions:\n"
+                f"1. Produce ONLY a valid unified diff creating/extending a test file\n"
+                f"2. Use pytest conventions (test_ prefix, descriptive names)\n"
+                f"3. Include edge cases: empty inputs, None values, boundary conditions\n"
+                f"4. Include failure scenarios from KG lessons if available\n"
+                f"5. Use unittest.mock for external dependencies\n"
+                f"6. Each test should test ONE behavior (single assertion preferred)\n"
+                f"7. Never include secrets, credentials, or internal threshold values\n"
+                f"8. After the diff, add one line: SUMMARY: <one sentence>\n"
+            )
+        else:
+            generation_prompt = (
+                f"CODE GENERATION TASK{file_context}:\n"
+                f"{description}\n"
+                f"{context_block}"
+                f"{file_content_block}"
+                f"Instructions:\n"
+                f"1. Produce ONLY a valid unified diff in standard format (--- a/... +++ b/... @@ hunks)\n"
+                f"2. Keep changes minimal and focused on the described task\n"
+                f"3. Preserve existing code style and conventions\n"
+                f"4. Context lines in the diff MUST match the actual file content exactly\n"
+                f"5. Never include secrets, credentials, or internal threshold values\n"
+                f"6. After the diff, add one line: SUMMARY: <one sentence>\n"
+            )
 
         # P0-A: Path-locality seeding — exact parent match, platform-aware.
         # Uses _original_file_path (relative) to match graph node IDs (also relative).
@@ -5846,6 +6018,7 @@ class KogniDevServer:
                 "preflight_risk": preflight_risk,
                 "safety_warnings": safety_warnings,
                 "preflight_warnings": preflight_raw.get("warnings", [])[:3],
+                "mode": mode,  # CG-07: "code" or "test"
                 "stream": stream,
                 "chunks": [],  # OT-054: streaming removed, direct backend call
                 **({"write_error": _write_error} if _write_error else {}),  # GH-67 Fix 2
@@ -6324,12 +6497,76 @@ class KogniDevServer:
             await self._handle_bash({"command": stage_cmd, "cwd": cwd, "dry_run": False, "timeout": 10})
 
         escaped = message.replace('"', '\\"')
-        return await self._handle_bash({
+        commit_result = await self._handle_bash({
             "command": f'git commit -m "{escaped}"',
             "cwd": cwd,
             "dry_run": False,
             "timeout": 30,
         })
+
+        # CG-05: GCC auto-commit hook — write COMMIT block after successful git commit
+        gcc_commit_written = False
+        try:
+            _commit_data = json.loads(commit_result)
+        except (json.JSONDecodeError, TypeError):
+            _commit_data = {}
+
+        _governance = getattr(getattr(self, "_settings", None), "governance", None)
+        if _commit_data.get("exit_code") == 0 and getattr(_governance, "gcc_auto_commit", False):
+            try:
+                from datetime import datetime, timezone
+                from pathlib import Path as _P
+
+                # Get active branch
+                _br = json.loads(await self._handle_bash(
+                    {"command": "git rev-parse --abbrev-ref HEAD", "cwd": cwd, "dry_run": False, "timeout": 5}
+                ))
+                _branch = _br.get("stdout", "").strip() or "unknown"
+
+                # Get short hash
+                _hr = json.loads(await self._handle_bash(
+                    {"command": "git rev-parse --short HEAD", "cwd": cwd, "dry_run": False, "timeout": 5}
+                ))
+                _hash = _hr.get("stdout", "").strip() or "unknown"
+
+                # Get changed files
+                _fr = json.loads(await self._handle_bash(
+                    {"command": "git diff-tree --no-commit-id --name-status -r HEAD", "cwd": cwd, "dry_run": False, "timeout": 5}
+                ))
+                _files_raw = _fr.get("stdout", "").strip()
+                _files_fmt = "\n".join(
+                    f"- {line.strip()}" for line in _files_raw.splitlines() if line.strip()
+                ) or "- (none)"
+
+                # Format GCC COMMIT block
+                _now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                _gcc_block = (
+                    f"\n### COMMIT {_hash} — {_now}\n"
+                    f"**Milestone:** {message}\n"
+                    f"**State:** WORKING\n"
+                    f"**Files Changed:**\n{_files_fmt}\n"
+                    f"**Next:**\n- [ ] (update manually)\n"
+                    f"**Blockers:** None\n\n"
+                )
+
+                # Append to .gcc/branches/{branch}/commit.md
+                _gcc_path = _P(cwd) / ".gcc" / "branches" / _branch / "commit.md"
+                _gcc_path.parent.mkdir(parents=True, exist_ok=True)
+                with _gcc_path.open("a", encoding="utf-8") as _fh:
+                    _fh.write(_gcc_block)
+
+                gcc_commit_written = True
+                logger.info("CG-05: GCC auto-commit written to %s", _gcc_path)
+            except Exception as _gcc_exc:
+                logger.error("CG-05: GCC auto-commit hook failed (non-blocking): %s", _gcc_exc)
+
+        # Merge gcc_commit_written into response
+        try:
+            _response = json.loads(commit_result)
+            _response["gcc_commit_written"] = gcc_commit_written
+            return json.dumps(_response)
+        except (json.JSONDecodeError, TypeError):
+            return commit_result
 
     async def _handle_git_branch(self, args: dict[str, Any]) -> str:
         """Create or switch git branches."""
@@ -6412,9 +6649,10 @@ class KogniDevServer:
         diff = args.get("diff", "").strip()
         focus = args.get("focus", "all")
         context_depth = int(args.get("context_depth", 1))
+        spec = args.get("spec", "").strip()
 
-        if not file_path and not diff:
-            return json.dumps({"error": "Provide either 'file_path' or 'diff' to review."})
+        if not file_path and not diff and not spec:
+            return json.dumps({"error": "Provide 'file_path', 'diff', or 'spec' to review."})
 
         # Gather content
         content = diff
@@ -6431,6 +6669,15 @@ class KogniDevServer:
                 return json.dumps(read_result)
             content = read_result.get("content", "")
 
+        # CG-06: Design spec review mode (pre-implementation)
+        if spec and not content:
+            content = spec
+            focus_instructions_override = (
+                "Review this design spec/plan BEFORE implementation. "
+                "Check for: architectural violations, missing error handling paths, "
+                "security risks, incomplete dependency analysis, and gaps in test strategy. "
+            )
+
         # Build focused review prompt
         focus_instructions = {
             "security": "Focus ONLY on OWASP Top 10 vulnerabilities, secret exposure, unsafe subprocess calls.",
@@ -6441,6 +6688,10 @@ class KogniDevServer:
             "all": "Review all dimensions: security, correctness, style, complexity, test coverage.",
         }
         focus_text = focus_instructions.get(focus, focus_instructions["all"])
+
+        # CG-06: Override focus text for design spec review mode
+        if spec and not diff and not file_path:
+            focus_text = focus_instructions_override + focus_text
 
         graph = self._load_graph()
         graph_context = ""
@@ -6494,6 +6745,7 @@ class KogniDevServer:
             response: dict[str, Any] = {
                 "tool": "graq_review",
                 "focus": focus,
+                "mode": "design" if (spec and not diff and not file_path) else "code",
                 "file_path": file_path or "(diff)",
                 "review": result.answer if hasattr(result, "answer") else str(result),
             }
@@ -6940,6 +7192,8 @@ class KogniDevServer:
         goal: str = args.get("goal", "").strip()
         if not goal:
             return json.dumps({"error": "graq_plan requires 'goal'", "tool": "graq_plan"})
+
+        self._plan_active = True  # CG-02: mark plan as active for write tool gate
 
         scope: str = args.get("scope", "")
         max_steps: int = int(args.get("max_steps", 15))
