@@ -289,6 +289,30 @@ class ContentSecurityGate:
         # This prevents accidental secret exposure if dry_run is enabled in prod.
         return redacted, record
 
+    @staticmethod
+    def persist_audit_record(record: ContentAuditRecord) -> None:
+        """Write a ContentAuditRecord to the JSONL governance audit log.
+
+        H3 fix: ensures every LLM-bound content transmission is logged to
+        the append-only audit trail for SOC2/ISO27001 compliance.
+        """
+        import json as _json
+        from dataclasses import asdict
+        try:
+            from graqle.core.governance import GovernanceAuditLog
+            _audit_log = GovernanceAuditLog()
+            entry = {
+                "type": "content_gate",
+                **{k: (v.name if hasattr(v, "name") else v)
+                   for k, v in asdict(record).items()},
+            }
+            line = _json.dumps(entry, separators=(",", ":")) + "\n"
+            _audit_log._path.parent.mkdir(parents=True, exist_ok=True)
+            with open(_audit_log._path, "a", encoding="utf-8") as fh:
+                fh.write(line)
+        except Exception as exc:
+            logger.warning("H3: audit record persistence failed: %s", exc)
+
     def gate_check(self, content: str, destination: str) -> GateResult:
         """Pre-send check returning a GateResult.
 
