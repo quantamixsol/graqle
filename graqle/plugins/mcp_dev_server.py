@@ -6104,9 +6104,13 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'content' is required."})
 
         # Patent scan — block if trade secrets detected in content
+        # Word boundaries prevent false positives on CSS (rgba 0.16), SVG, etc.
+        # Note: bare "0.16" removed — too many false positives (CSS opacity, rgba, etc.)
+        # AGREEMENT_THRESHOLD pattern catches the named reference instead.
         _TS_PATTERNS = [
-            "w_J", "w_A", "0.16", "theta_fold", "jaccard.*formula",
-            "70.*30.*blend", "AGREEMENT_THRESHOLD",
+            r"\bw_J\b", r"\bw_A\b", r"\btheta_fold\b",
+            r"\bjaccard\b.*\bformula\b", r"\b70\b.*\b30\b.*\bblend\b",
+            r"\bAGREEMENT_THRESHOLD\b",
         ]
         import re
         for pat in _TS_PATTERNS:
@@ -6480,7 +6484,7 @@ class KogniDevServer:
             if line.startswith("+") and not line.startswith("+++")
         )
         import re
-        _TS_PATTERNS = ["w_J", "w_A", r"\b0\.16\b", "theta_fold", "AGREEMENT_THRESHOLD"]
+        _TS_PATTERNS = [r"\bw_J\b", r"\bw_A\b", r"\btheta_fold\b", r"\bAGREEMENT_THRESHOLD\b"]
         for pat in _TS_PATTERNS:
             if re.search(pat, _added_lines):
                 return json.dumps({
