@@ -1498,6 +1498,177 @@ def gate_command(
         raise typer.Exit(code=1)
 
 
+@app.command("gate-install")
+def gate_install_command(
+    path: str = typer.Argument(".", help="Project root directory"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing gate files"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Install the GraQle governance gate for Claude Code.
+
+    Creates .claude/hooks/graqle-gate.py and .claude/settings.json so that
+    Claude Code native tools (Read, Write, Edit, Bash, etc.) are blocked in
+    favour of governed graq_* equivalents.
+
+    Safe to re-run: existing settings.json hooks are merged, not overwritten.
+    The GraQle VS Code extension is never blocked (GRAQLE_CLIENT_MODE=vscode).
+
+    \b
+    Examples:
+        graq gate-install              # install in current directory
+        graq gate-install /path/to/project --force
+        graq gate-install --dry-run    # preview only
+    """
+    import json as _json_mod
+    import shutil
+    from pathlib import Path
+
+    root = Path(path).resolve()
+    if not root.exists():
+        console.print(f"[red]Path not found: {root}[/red]")
+        raise typer.Exit(1)
+
+    claude_dir = root / ".claude"
+    hooks_dir = claude_dir / "hooks"
+    gate_dst = hooks_dir / "graqle-gate.py"
+    settings_dst = claude_dir / "settings.json"
+
+    # Locate package data
+    pkg_data = Path(__file__).parent.parent / "data" / "claude_gate"
+    gate_src = pkg_data / "graqle-gate.py"
+    settings_src = pkg_data / "settings.json"
+
+    if not gate_src.exists():
+        console.print("[red]Gate script not found in SDK package data.[/red]")
+        console.print(f"[dim]Expected: {gate_src}[/dim]")
+        raise typer.Exit(1)
+
+    if not settings_src.exists():
+        console.print("[red]Settings template not found in SDK package data.[/red]")
+        console.print(f"[dim]Expected: {settings_src}[/dim]")
+        raise typer.Exit(1)
+
+    # ── Read all inputs once (no TOCTOU) ──────────────────────────
+    try:
+        new_hook_config = _json_mod.loads(settings_src.read_text(encoding="utf-8"))
+    except _json_mod.JSONDecodeError:
+        console.print("[red]Corrupt settings template in SDK package data.[/red]")
+        raise typer.Exit(1)
+
+    existing_settings: dict = {}
+    corrupt_existing = False
+    if settings_dst.exists():
+        try:
+            existing_settings = _json_mod.loads(
+                settings_dst.read_text(encoding="utf-8")
+            )
+        except _json_mod.JSONDecodeError:
+            corrupt_existing = True
+
+    # Structured field check (not fragile JSON-dump substring search)
+    def _has_graqle_gate(hook_entry: object) -> bool:
+        if not isinstance(hook_entry, dict):
+            return False
+        for h in hook_entry.get("hooks", []):
+            if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                return True
+        return False
+
+    existing_pre = existing_settings.get("hooks", {}).get("PreToolUse", [])
+    already_installed = any(_has_graqle_gate(h) for h in existing_pre)
+
+    # ── Compute actions ───────────────────────────────────────────
+    actions: list[str] = []
+
+    if gate_dst.exists() and not force:
+        actions.append(f"SKIP {gate_dst.relative_to(root)} (exists, use --force)")
+    else:
+        verb = "OVERWRITE" if gate_dst.exists() else "CREATE"
+        actions.append(f"{verb} {hooks_dir.relative_to(root)}/graqle-gate.py")
+
+    if corrupt_existing:
+        actions.append(f"BACKUP {settings_dst.relative_to(root)} (corrupt JSON)")
+
+    if already_installed and not force:
+        actions.append(f"SKIP {settings_dst.relative_to(root)} (gate already registered)")
+    else:
+        actions.append(f"MERGE {settings_dst.relative_to(root)} (add PreToolUse hook)")
+
+    # ── Output (unified dry-run guard) ────────────────────────────
+    if json_output:
+        console.print(_json_mod.dumps({"actions": actions, "dry_run": dry_run}, indent=2))
+    else:
+        if dry_run:
+            console.print("[bold yellow]DRY RUN[/bold yellow] — no files written\n")
+        for a in actions:
+            if a.startswith("CREATE") or a.startswith("MERGE"):
+                icon = "[green]+[/green]"
+            elif a.startswith("OVERWRITE"):
+                icon = "[yellow]~[/yellow]"
+            else:
+                icon = "[dim]-[/dim]"
+            console.print(f"  {icon} {a}")
+
+    if dry_run:
+        return
+
+    # ── Write gate script ─────────────────────────────────────────
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    if not gate_dst.exists() or force:
+        shutil.copy2(gate_src, gate_dst)
+        try:
+            gate_dst.chmod(0o755)
+        except NotImplementedError:
+            pass  # Windows
+        except Exception as exc:
+            console.print(
+                f"[yellow]Warning: could not set executable bit: {exc}. "
+                "The hook may not execute on Unix systems.[/yellow]"
+            )
+
+    # ── Write settings.json (atomic) ──────────────────────────────
+    if not already_installed or force:
+        # Backup valid existing file before overwrite
+        if settings_dst.exists() and not corrupt_existing:
+            backup = settings_dst.with_suffix(".json.bak")
+            shutil.copy2(settings_dst, backup)
+
+        if corrupt_existing:
+            backup = settings_dst.with_suffix(".json.bak")
+            shutil.copy2(settings_dst, backup)
+            existing_settings = {}
+
+        # Deep merge: preserve existing hooks, append ours
+        existing_settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
+
+        # Remove old graqle-gate entries (for --force upgrades)
+        existing_settings["hooks"]["PreToolUse"] = [
+            h for h in existing_settings["hooks"]["PreToolUse"]
+            if not _has_graqle_gate(h)
+        ]
+
+        # Append new config
+        new_pre = new_hook_config.get("hooks", {}).get("PreToolUse", [])
+        existing_settings["hooks"]["PreToolUse"].extend(new_pre)
+
+        # Atomic write via temp file + os.replace
+        tmp_path = settings_dst.with_suffix(".json.tmp")
+        tmp_path.write_text(
+            _json_mod.dumps(existing_settings, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(str(tmp_path), str(settings_dst))
+
+    console.print(
+        "\n[bold green]Governance gate installed.[/bold green] "
+        "Claude Code native tools are now routed through GraQle.\n"
+        "[dim]Run 'graq gate-install --dry-run' to verify. "
+        "Remove .claude/hooks/graqle-gate.py to disable.[/dim]"
+    )
+
+
 @app.command("safety-check")
 def safety_check_command(
     component: str = typer.Argument(..., help="Component or file to safety-check"),

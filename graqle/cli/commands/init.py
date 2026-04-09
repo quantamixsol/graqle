@@ -53,8 +53,10 @@ BACKENDS: dict[str, dict[str, Any]] = {
     "openai": {
         "name": "OpenAI",
         "models": [
-            ("gpt-4o-mini", "GPT-4o-mini — Fast + cheap ($0.002/query)", True),
+            ("gpt-5.4-mini", "GPT-5.4 Mini — Fast + high quality ($0.002/query)", True),
+            ("gpt-4o-mini", "GPT-4o-mini — Fast + cheap ($0.002/query)", False),
             ("gpt-4o", "GPT-4o — Balanced ($0.01/query)", False),
+            ("gpt-5.4", "GPT-5.4 — Most capable ($0.01/query)", False),
         ],
         "api_key_env": "OPENAI_API_KEY",
     },

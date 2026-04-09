@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.46.4"
+version = "0.46.7"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
@@ -153,6 +153,7 @@ exclude = ["graqle/benchmarks/data/*"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "examples" = "graqle/examples"
+"graqle/data/claude_gate" = "graqle/data/claude_gate"
 
 [tool.ruff]
 target-version = "py310"

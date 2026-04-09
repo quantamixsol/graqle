@@ -35,7 +35,29 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
-## What's New in v0.45.0
+## Governance Gate — Activate Full GraQle Autonomy
+
+> **Optional. One command. Fully reversible.** Turn any Claude Code session into a governed, architecture-aware reasoning pipeline.
+
+```bash
+pip install graqle
+graq gate-install
+```
+
+That's it. Claude Code now routes every tool call through GraQle's governed equivalents — impact analysis, preflight checks, lesson memory, and architectural reasoning activate automatically. No workflow change. No configuration. Just governance.
+
+- **What it does:** Installs `.claude/hooks/graqle-gate.py` and `.claude/settings.json` in your project
+- **What changes:** Claude Code's native tools (Read, Write, Edit, Bash) are routed through GraQle's graph-aware equivalents (`graq_read`, `graq_edit`, `graq_generate`, `graq_bash`)
+- **Why:** Every file read gets architectural context. Every edit gets preflight governance. Every change gets impact analysis. Your AI stops guessing and starts *knowing*.
+- **Reversible:** Delete `.claude/hooks/graqle-gate.py` to disable. Your project is unchanged.
+
+**Works with the free tier.** No signup required. No API key needed if you use Ollama (fully local).
+
+[Learn more about Governance Gate](https://graqle.com/governance) · [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
+
+---
+
+## What's New in v0.46.7
 
 ### Multi-Agent Governed Reasoning
 
