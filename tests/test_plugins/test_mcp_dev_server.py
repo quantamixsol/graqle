@@ -207,6 +207,8 @@ class TestToolDefinitions:
             "graq_web_search",
             "graq_gcc_status",
             "graq_ingest",
+            # v0.46.4: governed todo
+            "graq_todo",
         }
         expected_kogni = {
             "kogni_context",
@@ -283,6 +285,8 @@ class TestToolDefinitions:
             "kogni_web_search",
             "kogni_gcc_status",
             "kogni_ingest",
+            # v0.46.4: governed todo
+            "kogni_todo",
         }
         # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
@@ -314,7 +318,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 130  # +8: vendor, web_search, gcc_status, ingest + kogni (HFCI-001+002 + capability-gaps)/diff + kogni aliases (HFCI-001+002)
+        assert len(tools) == 132  # +2: graq_todo + kogni_todo (v0.46.4)
 
 
 # ---------------------------------------------------------------------------
