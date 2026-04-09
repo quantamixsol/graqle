@@ -43,6 +43,7 @@ import asyncio
 import json
 import logging
 import sys
+import threading
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -2210,11 +2211,55 @@ class KogniDevServer:
         from collections import OrderedDict
         self._session_cache: OrderedDict = OrderedDict()
 
+        # Lazy KG loading state (v0.46.8 hotfix: background thread + Event)
+        self._kg_load_lock = threading.Lock()
+        self._kg_loaded = threading.Event()
+        self._kg_load_error: Exception | None = None
+        self._kg_load_state = "IDLE"  # IDLE -> LOADING -> LOADED | FAILED
+
     # ------------------------------------------------------------------
     # Graph lifecycle
     # ------------------------------------------------------------------
 
-    def _load_graph(self) -> Any | None:
+    def _start_kg_load_background(self) -> None:
+        """Kick off KG loading in a background daemon thread.
+
+        Called from the MCP 'initialize' handler so the handshake can
+        return immediately while the 534 MB graph file loads in parallel.
+        Idempotent — safe to call multiple times.
+        """
+        # Backwards compat: tests that use __new__ may lack lazy-load attrs
+        _state = getattr(self, "_kg_load_state", "IDLE")
+
+        with self._kg_load_lock:
+            if self._kg_load_state != "IDLE":
+                return  # already loading or loaded
+            self._kg_load_state = "LOADING"
+        t = threading.Thread(
+            target=self._do_background_load, daemon=True, name="kg-loader",
+        )
+        t.start()
+
+    def _do_background_load(self) -> None:
+        """Background thread target — loads the KG and signals completion."""
+        try:
+            result = self._load_graph_impl()
+            with self._kg_load_lock:
+                if result is not None:
+                    self._kg_load_state = "LOADED"
+                else:
+                    self._kg_load_error = RuntimeError("KG load returned None (no graph file found)")
+                    self._kg_load_state = "FAILED"
+                    logger.warning("Background KG load completed but no graph was found")
+        except Exception as exc:
+            logger.error("Background KG load failed: %s", exc)
+            with self._kg_load_lock:
+                self._kg_load_error = exc
+                self._kg_load_state = "FAILED"
+        finally:
+            self._kg_loaded.set()
+
+    def _load_graph_impl(self) -> Any | None:
         """Lazy-load the knowledge graph. Reloads automatically if file changed on disk."""
         # ADR-123 Phase 1: Pull from S3 if cloud version is newer (pull-before-read).
         # Only runs on first load (self._graph is None) to avoid latency on hot-reload.
@@ -2321,6 +2366,41 @@ class KogniDevServer:
         except Exception as exc:
             logger.error("Failed to load graph: %s", exc)
             return None
+
+    def _load_graph(self) -> Any | None:
+        """Thread-safe wrapper: waits for background load or loads synchronously.
+
+        All 26+ tool handlers call this method.  Behaviour:
+        - LOADED + graph cached  -> fast-path return (+ hot-reload mtime check)
+        - LOADING (bg thread)    -> block until Event is set (timeout 120 s)
+        - IDLE / FAILED          -> load synchronously (legacy path / retry)
+        """
+        # Backwards compat: tests that use __new__ may lack lazy-load attrs
+        _state = getattr(self, "_kg_load_state", "IDLE")
+
+        # Fast path: already loaded — delegate to impl for hot-reload check
+        if self._graph is not None and _state == "LOADED":
+            return self._load_graph_impl()
+
+        # Background load in progress — wait for it
+        if _state == "LOADING":
+            if not getattr(self, "_kg_loaded", threading.Event()).wait(timeout=120):
+                logger.error("KG load timed out after 120 s")
+                with self._kg_load_lock:
+                    self._kg_load_state = "FAILED"
+                    self._kg_load_error = TimeoutError("KG load timed out after 120 s")
+                return None
+            _err = getattr(self, "_kg_load_error", None)
+            if _err is not None:
+                logger.warning("Background KG load failed: %s", _err)
+                return None
+            if self._graph is not None:
+                return self._graph
+            # Background load returned None — fall through to synchronous
+            logger.warning("Background KG load completed but graph is None — retrying synchronously")
+
+        # IDLE, FAILED, or fallback — load synchronously (legacy path / retry)
+        return self._load_graph_impl()
 
     def _resolve_file_path(self, file_path: str) -> str:
         """Resolve a relative file path against the graph's project root.
@@ -8209,13 +8289,9 @@ class KogniDevServer:
         # ---- MCP lifecycle methods ------------------------------------
 
         if method == "initialize":
-            _project_ctx: dict = {}
-            try:
-                _g = self._load_graph()
-                if _g is not None:
-                    _project_ctx = _g.project_context()
-            except Exception:
-                pass
+            # v0.46.8: Start background KG loading — do NOT block the handshake.
+            # The 534 MB graph loads in a daemon thread; tool calls wait if needed.
+            self._start_kg_load_background()
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -8228,7 +8304,6 @@ class KogniDevServer:
                         "name": "graq",
                         "version": _version,
                     },
-                    "projectContext": _project_ctx,
                 },
             }
 
