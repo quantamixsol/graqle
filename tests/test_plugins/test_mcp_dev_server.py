@@ -104,6 +104,7 @@ def mock_graph():
 @pytest.fixture
 def server(mock_graph):
     """KogniDevServer with graph pre-injected."""
+    import threading
     srv = KogniDevServer.__new__(KogniDevServer)
     srv.config_path = "graqle.yaml"
     srv.read_only = False
@@ -111,6 +112,11 @@ def server(mock_graph):
     srv._config = None
     srv._graph_file = "graqle.json"
     srv._graph_mtime = 9999999999.0  # Far future — prevent hot-reload in tests
+    # v0.46.8: lazy KG load state (bypassed by __new__)
+    srv._kg_load_lock = threading.Lock()
+    srv._kg_loaded = threading.Event()
+    srv._kg_load_error = None
+    srv._kg_load_state = "LOADED"  # Pre-injected graph = already loaded
     return srv
 
 
