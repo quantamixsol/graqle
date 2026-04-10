@@ -209,6 +209,8 @@ class TestToolDefinitions:
             "graq_ingest",
             # v0.46.4: governed todo list
             "graq_todo",
+            # v0.47.0: deterministic insertion engine (CG-DIF-02)
+            "graq_apply",
         }
         expected_kogni = {
             "kogni_context",
@@ -287,6 +289,8 @@ class TestToolDefinitions:
             "kogni_ingest",
             # v0.46.4: governed todo list
             "kogni_todo",
+            # v0.47.0: deterministic insertion engine (CG-DIF-02)
+            "kogni_apply",
         }
         # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
         assert expected_graq | expected_kogni == names
@@ -318,7 +322,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 132  # +2: graq_todo + kogni_todo (v0.46.4)
+        assert len(tools) == 134  # +2: graq_apply + kogni_apply (v0.47.0)
 
 
 # ---------------------------------------------------------------------------

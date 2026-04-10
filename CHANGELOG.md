@@ -4,6 +4,22 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## [0.47.0] — 2026-04-10
+
+### Added
+- **`graq_apply` MCP tool (CG-DIF-02)** — first-class deterministic insertion engine. A governed alternative to `graq_edit` for files where LLM-generated diffs are unreliable: CRITICAL hub modules (impact_radius > 20), large files (> 1500 lines), files with multiple lookalike methods. The tool eliminates the LLM from the diff loop — callers provide exact byte-string anchors and replacements, the engine performs Python's deterministic `bytes.replace()` and atomic write. Anchor uniqueness is enforced (each anchor must occur exactly `expected_count` times, default 1). Atomic write via tempfile + fsync + os.replace. Backup to `.graqle/edit-backup/` before write. ~50x faster than `graq_edit` on hub files (no LLM round-trip). Implements all 9 rails of the Deterministic Insertion Pattern (baseline, validation, uniqueness, replace, post-replacement invariants, atomic write, post-write verify, backup, rollback).
+- **8 stable error codes** for `graq_apply`: `GRAQ_APPLY_FILE_NOT_FOUND`, `GRAQ_APPLY_SHA_MISMATCH`, `GRAQ_APPLY_ANCHOR_NOT_FOUND`, `GRAQ_APPLY_ANCHOR_NOT_UNIQUE`, `GRAQ_APPLY_BYTE_DELTA_OUT_OF_BAND`, `GRAQ_APPLY_MARKER_COUNT_MISMATCH`, `GRAQ_APPLY_POST_WRITE_VERIFY`, `GRAQ_APPLY_INVALID_INSERTION`. Callers know exactly what failed and can recover.
+- **27 pytest tests** for `graq_apply` covering all 9 rails, every error code, multi-insertion sequencing, and byte-for-byte unchanged-region preservation.
+- **`kogni_apply` alias** for `graq_apply` (backward-compat with the kogni_* naming).
+
+### Notes
+- This release fixes the underlying root cause of the multiple `graq_edit` failures observed during the v0.46.9 hotfix on `graqle/core/graph.py`. Other projects (Studio, CrawlQ) hitting the same pattern can now use `graq_apply` directly.
+- `graq_apply` was used to register itself in `graqle/plugins/mcp_dev_server.py` and to update the `test_expected_tool_names` test — full dogfooding before ship.
+- Test suite: 73 passed in 0.47s combined (`test_graq_apply.py` 27 + `test_mcp_dev_server.py` 46).
+- This entry was inserted via `graq_apply` itself — dogfooding #3 (after self-registration and test-update). The tool resolved its own cherry-pick conflict.
+
+---
+
 ## [0.46.9] — 2026-04-10
 
 ### Fixed
