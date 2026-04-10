@@ -33,6 +33,45 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
+# OT-060: Process-scoped Neo4j escape hatch via NEO4J_DISABLED env var.
+# Purpose: let hosts with tight handshake deadlines (VS Code MCP server,
+# CI jobs, Lambda) tell graQle to skip bolt:// dials entirely for this
+# process. Neo4j remains a first-class power-user storage + reasoning
+# backend — this is a per-process override, not a feature removal.
+_neo4j_disabled_warned: bool = False
+
+
+def _neo4j_disabled() -> bool:
+    """Return True iff the NEO4J_DISABLED env var is set to a truthy value.
+
+    Truthy values: "1", "true", "yes", "on" (case-insensitive, whitespace-trimmed).
+    All other values (unset, empty, "0", "false", "no", "off", etc.) return False.
+
+    Evaluated on every call — not cached — so tests can monkeypatch the env
+    var between assertions and the SDK honors runtime env changes.
+    """
+    import os
+    return os.environ.get("NEO4J_DISABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _emit_neo4j_disabled_warning() -> None:
+    """Log a single WARNING per process when the NEO4J_DISABLED gate fires.
+
+    Best-effort single-emission semantics using a module-level bool. In CPython
+    the GIL makes the check-and-set atomic enough for a logging purpose; we
+    accept the theoretical possibility of a duplicate warning under extreme
+    concurrent first-fire conditions.
+    """
+    global _neo4j_disabled_warned
+    if not _neo4j_disabled_warned:
+        logger.warning(
+            "Neo4j backend disabled for this process via NEO4J_DISABLED=true. "
+            "Graph loaded from JSON fallback. This is a process-scoped override; "
+            "Neo4j remains fully supported. See `graq upgrade neo4j`."
+        )
+        _neo4j_disabled_warned = True
+
+
 def _acquire_lock(lock_path: str):
     """Acquire a cross-platform file lock. Returns the lock file descriptor.
 
@@ -526,6 +565,21 @@ class Graqle:
         Loads nodes and edges via Cypher, attaches chunks as node properties,
         and stores the connector for runtime Cypher vector search.
         """
+        # OT-060: Process-scoped escape hatch. When NEO4J_DISABLED=true,
+        # raise before importing Neo4jConnector or dialing bolt://.
+        # Zero dials, zero retries. Callers already wrap this in try/except
+        # and fall back to JSON, so the existing graceful-degradation
+        # contract is preserved.
+        if _neo4j_disabled():
+            _emit_neo4j_disabled_warning()
+            raise RuntimeError(
+                "Neo4j backend is disabled for this process (NEO4J_DISABLED=true). "
+                "Your graph is still available via the local graqle.json file. "
+                "To re-enable Neo4j, unset NEO4J_DISABLED in your environment. "
+                "Neo4j remains fully supported for users who want a local graph DB — "
+                "see `graq upgrade neo4j`."
+            )
+
         from graqle.connectors.neo4j import Neo4jConnector
 
         cfg = config or GraqleConfig.default()
@@ -598,6 +652,19 @@ class Graqle:
             embed_fn: Optional callable(text) -> list[float] for chunk embeddings.
                       If None, chunks are written without embeddings.
         """
+        # OT-060: Process-scoped escape hatch. When NEO4J_DISABLED=true,
+        # raise before importing Neo4jConnector or dialing bolt://.
+        # Use Graqle.to_json() to export locally instead.
+        if _neo4j_disabled():
+            _emit_neo4j_disabled_warning()
+            raise RuntimeError(
+                "Neo4j backend is disabled for this process (NEO4J_DISABLED=true). "
+                "Your graph is still available via the local graqle.json file. "
+                "To re-enable Neo4j, unset NEO4J_DISABLED in your environment. "
+                "Use Graqle.to_json() to export locally, or see `graq upgrade neo4j` "
+                "to set up a local Neo4j instance."
+            )
+
         from graqle.connectors.neo4j import Neo4jConnector
 
         connector = Neo4jConnector(

@@ -690,3 +690,113 @@ class TestOfflineModeNoErrors:
         monkeypatch.setenv("GRAQLE_OFFLINE", "1")
         success, _, _ = download_graph(tmp_path / "g.json", "proj", "hash")
         assert success is False  # graceful failure, no exception
+
+
+class TestAccessDeniedDedupe:
+    """OT-061: AccessDenied dedupe — logged ONCE per process at WARNING.
+
+    Non-AccessDenied S3 errors continue to be logged at ERROR per occurrence.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_dedupe(self):
+        """Reset the module-level dedupe sentinel before AND after each test."""
+        from graqle.core.kg_sync import _reset_access_denied_dedupe
+        _reset_access_denied_dedupe()
+        yield
+        _reset_access_denied_dedupe()
+
+    def _make_access_denied_error(self):
+        """Build a botocore ClientError with AccessDenied code."""
+        try:
+            import botocore.exceptions
+        except ImportError:
+            pytest.skip("botocore not installed")
+        return botocore.exceptions.ClientError(
+            error_response={"Error": {"Code": "AccessDenied", "Message": "denied"}},
+            operation_name="PutObject",
+        )
+
+    def _make_other_error(self):
+        """Build a botocore ClientError with a non-AccessDenied code."""
+        try:
+            import botocore.exceptions
+        except ImportError:
+            pytest.skip("botocore not installed")
+        return botocore.exceptions.ClientError(
+            error_response={"Error": {"Code": "InternalError", "Message": "boom"}},
+            operation_name="PutObject",
+        )
+
+    def test_is_access_denied_recognizes_AccessDenied_code(self):
+        """_is_access_denied returns True for ClientError with AccessDenied code."""
+        from graqle.core.kg_sync import _is_access_denied
+        assert _is_access_denied(self._make_access_denied_error()) is True
+
+    def test_is_access_denied_returns_False_for_other_codes(self):
+        """_is_access_denied returns False for non-AccessDenied ClientError and other exceptions."""
+        from graqle.core.kg_sync import _is_access_denied
+        assert _is_access_denied(self._make_other_error()) is False
+        assert _is_access_denied(ValueError("boom")) is False
+        assert _is_access_denied(RuntimeError("nope")) is False
+
+    def test_ten_access_denied_errors_produce_one_log_line(self, caplog):
+        """Session prompt requirement: 10 synthetic AccessDenied errors → 1 log line total."""
+        import logging
+        from graqle.core.kg_sync import _log_s3_error
+        err = self._make_access_denied_error()
+
+        with caplog.at_level(logging.WARNING, logger="graqle.core.kg_sync"):
+            for _ in range(10):
+                _log_s3_error("push", err)
+
+        warning_records = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING
+            and "AccessDenied" in r.getMessage()
+        ]
+        assert len(warning_records) == 1, (
+            f"Expected exactly 1 warning across 10 AccessDenied errors, "
+            f"got {len(warning_records)}"
+        )
+
+    def test_non_access_denied_errors_logged_per_occurrence_at_error(self, caplog):
+        """Non-AccessDenied errors fire ERROR every time, not deduped."""
+        import logging
+        from graqle.core.kg_sync import _log_s3_error
+        err = self._make_other_error()
+
+        with caplog.at_level(logging.ERROR, logger="graqle.core.kg_sync"):
+            for _ in range(5):
+                _log_s3_error("push", err)
+
+        error_records = [
+            r for r in caplog.records
+            if r.levelno == logging.ERROR
+            and "InternalError" in r.getMessage()
+        ]
+        assert len(error_records) == 5, (
+            f"Expected 5 error logs (one per occurrence), got {len(error_records)}"
+        )
+
+    def test_dedupe_state_is_reset_by_helper(self, caplog):
+        """After _reset_access_denied_dedupe(), the next AccessDenied logs again."""
+        import logging
+        from graqle.core.kg_sync import _log_s3_error, _reset_access_denied_dedupe
+        err = self._make_access_denied_error()
+
+        with caplog.at_level(logging.WARNING, logger="graqle.core.kg_sync"):
+            _log_s3_error("push", err)
+            _log_s3_error("push", err)  # silenced (same process)
+            _reset_access_denied_dedupe()
+            _log_s3_error("push", err)  # logs again after reset
+
+        warning_records = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING
+            and "AccessDenied" in r.getMessage()
+        ]
+        assert len(warning_records) == 2, (
+            f"Expected 2 warnings (one before reset, one after), got {len(warning_records)}"
+        )
+
