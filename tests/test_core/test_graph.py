@@ -164,3 +164,148 @@ def test_cache_key_includes_model_name(sample_graph, tmp_path):
         "Repeated to_json calls must produce consistent embedding_model in _meta"
     )
     assert meta1.get("embedding_dim") == meta2.get("embedding_dim")
+
+
+class TestNeo4jDisabledEnvVar:
+    """OT-060: NEO4J_DISABLED env var process-scoped escape hatch.
+
+    Tests the gate added in graqle/core/graph.py:
+      - _neo4j_disabled() helper (truthy/falsey env var parsing)
+      - Graqle.from_neo4j() raises RuntimeError when env=true
+      - Graqle.to_neo4j() raises RuntimeError when env=true
+      - Backward compat when env unset (gate does NOT fire)
+      - Once-per-process WARNING sentinel
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_warning_sentinel(self):
+        """Reset the once-per-process sentinel before AND after each test."""
+        from graqle.core import graph as graph_module
+        graph_module._neo4j_disabled_warned = False
+        yield
+        graph_module._neo4j_disabled_warned = False
+
+    def test_from_neo4j_raises_when_NEO4J_DISABLED_set(self, monkeypatch):
+        """Gate fires: from_neo4j raises BEFORE any Neo4jConnector instantiation."""
+        monkeypatch.setenv("NEO4J_DISABLED", "true")
+
+        connector_calls = []
+
+        def _spy_init(self, *args, **kwargs):
+            connector_calls.append((args, kwargs))
+
+        try:
+            from graqle.connectors import neo4j as neo4j_mod
+            monkeypatch.setattr(neo4j_mod.Neo4jConnector, "__init__", _spy_init)
+        except ImportError:
+            pass
+
+        with pytest.raises(RuntimeError) as excinfo:
+            Graqle.from_neo4j(uri="bolt://should-never-be-dialed:7687")
+
+        assert "NEO4J_DISABLED" in str(excinfo.value)
+        assert "process" in str(excinfo.value).lower()
+        assert len(connector_calls) == 0, (
+            f"Neo4jConnector was instantiated {len(connector_calls)} times — "
+            "the gate did not fire BEFORE the connector"
+        )
+
+    def test_to_neo4j_raises_when_NEO4J_DISABLED_set(self, monkeypatch):
+        """Gate fires: to_neo4j raises BEFORE any Neo4jConnector instantiation."""
+        monkeypatch.setenv("NEO4J_DISABLED", "true")
+
+        connector_calls = []
+
+        def _spy_init(self, *args, **kwargs):
+            connector_calls.append((args, kwargs))
+
+        try:
+            from graqle.connectors import neo4j as neo4j_mod
+            monkeypatch.setattr(neo4j_mod.Neo4jConnector, "__init__", _spy_init)
+        except ImportError:
+            pass
+
+        g = Graqle.from_networkx(nx.Graph())
+        with pytest.raises(RuntimeError) as excinfo:
+            g.to_neo4j(uri="bolt://should-never-be-dialed:7687")
+
+        assert "NEO4J_DISABLED" in str(excinfo.value)
+        assert len(connector_calls) == 0, (
+            f"Neo4jConnector was instantiated {len(connector_calls)} times — "
+            "the gate did not fire BEFORE the connector"
+        )
+
+    def test_neo4j_path_untouched_when_NEO4J_DISABLED_absent(self, monkeypatch):
+        """Backward compat: with env unset, the real Neo4jConnector path IS reached."""
+        monkeypatch.delenv("NEO4J_DISABLED", raising=False)
+
+        connector_calls = []
+
+        def _spy_init(self, *args, **kwargs):
+            connector_calls.append((args, kwargs))
+            raise RuntimeError("MARKER_REAL_CONNECTOR_REACHED")
+
+        try:
+            from graqle.connectors import neo4j as neo4j_mod
+            monkeypatch.setattr(neo4j_mod.Neo4jConnector, "__init__", _spy_init)
+
+            with pytest.raises(RuntimeError) as excinfo:
+                Graqle.from_neo4j(uri="bolt://127.0.0.1:9")
+
+            assert len(connector_calls) == 1, (
+                f"Expected exactly 1 Neo4jConnector instantiation when env unset, "
+                f"got {len(connector_calls)}"
+            )
+            assert "MARKER_REAL_CONNECTOR_REACHED" in str(excinfo.value)
+            assert "NEO4J_DISABLED" not in str(excinfo.value)
+        except ImportError:
+            with pytest.raises(Exception) as excinfo:
+                Graqle.from_neo4j(uri="bolt://127.0.0.1:9")
+            assert "NEO4J_DISABLED" not in str(excinfo.value)
+
+    def test_neo4j_disabled_truthy_values(self, monkeypatch):
+        """All documented truthy values trigger the gate."""
+        from graqle.core.graph import _neo4j_disabled
+        truthy = [
+            "1", "true", "TRUE", "True",
+            "yes", "YES", "on", "ON",
+            "  true  ",
+            "\tYES\n",
+        ]
+        for val in truthy:
+            monkeypatch.setenv("NEO4J_DISABLED", val)
+            assert _neo4j_disabled() is True, f"{val!r} should be truthy"
+
+    def test_neo4j_disabled_falsey_values(self, monkeypatch):
+        """All non-truthy values leave the gate disabled."""
+        from graqle.core.graph import _neo4j_disabled
+        falsey = [
+            "", "0", "false", "FALSE",
+            "no", "off", "  ", "garbage",
+            " FaLsE ",
+        ]
+        for val in falsey:
+            monkeypatch.setenv("NEO4J_DISABLED", val)
+            assert _neo4j_disabled() is False, f"{val!r} should be falsey"
+        monkeypatch.delenv("NEO4J_DISABLED", raising=False)
+        assert _neo4j_disabled() is False
+
+    def test_warning_sentinel_emits_only_once_per_process(self, monkeypatch, caplog):
+        """Once-per-process WARNING fires exactly one time across multiple gate hits."""
+        import logging
+        monkeypatch.setenv("NEO4J_DISABLED", "true")
+
+        with caplog.at_level(logging.WARNING, logger="graqle"):
+            for _ in range(3):
+                with pytest.raises(RuntimeError):
+                    Graqle.from_neo4j(uri="bolt://should-never-be-dialed:7687")
+
+        warning_records = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING
+            and "NEO4J_DISABLED=true" in r.getMessage()
+        ]
+        assert len(warning_records) == 1, (
+            f"Expected exactly 1 warning across 3 gate fires, got {len(warning_records)}"
+        )
+

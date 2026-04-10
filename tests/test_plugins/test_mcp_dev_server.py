@@ -751,3 +751,120 @@ class TestReasonBatchPredictiveMode:
         statuses_returned = [r.get("prediction", {}).get("status") for r in data["results"]]
         assert "WRITTEN" in statuses_returned
         assert "SKIPPED_LOW_CONFIDENCE" in statuses_returned
+
+
+class TestInitializeClientInfoBypass:
+    """OT-062: Initialize handler detects clientInfo.name == "graqle-vscode"
+    and sets per-MCP-session bypass flags for CG-01/02/03 gates.
+    Default is fail-closed: missing or unrecognized clientInfo → gates ON.
+    """
+
+    def _make_server(self):
+        """Build a fresh KogniDevServer without invoking __init__ heavy load."""
+        from graqle.plugins.mcp_dev_server import KogniDevServer
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._mcp_client_name = None
+        srv._cg01_bypass = False
+        srv._cg02_bypass = False
+        srv._cg03_bypass = False
+        srv._session_started = False
+        srv._plan_active = False
+        srv._start_kg_load_background = lambda: None
+        return srv
+
+    @pytest.mark.asyncio
+    async def test_initialize_with_graqle_vscode_client_sets_all_bypasses(self):
+        """When clientInfo.name == "graqle-vscode", all three CG bypasses are set."""
+        srv = self._make_server()
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "clientInfo": {"name": "graqle-vscode", "version": "0.1.0"},
+                "capabilities": {},
+            },
+        }
+        response = await srv._handle_jsonrpc(request)
+        assert response["result"]["protocolVersion"] == "2024-11-05"
+        assert srv._mcp_client_name == "graqle-vscode"
+        assert srv._cg01_bypass is True
+        assert srv._cg02_bypass is True
+        assert srv._cg03_bypass is True
+
+    @pytest.mark.asyncio
+    async def test_initialize_with_unknown_client_keeps_gates_on(self):
+        """Unknown clientInfo.name leaves all bypasses False (fail-closed)."""
+        srv = self._make_server()
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "clientInfo": {"name": "claude-code", "version": "2.0"},
+            },
+        }
+        await srv._handle_jsonrpc(request)
+        assert srv._mcp_client_name == "claude-code"
+        assert srv._cg01_bypass is False
+        assert srv._cg02_bypass is False
+        assert srv._cg03_bypass is False
+
+    @pytest.mark.asyncio
+    async def test_initialize_with_missing_clientInfo_keeps_gates_on(self):
+        """Missing clientInfo entirely → fail-closed (gates remain on)."""
+        srv = self._make_server()
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {},
+        }
+        await srv._handle_jsonrpc(request)
+        assert srv._mcp_client_name is None
+        assert srv._cg01_bypass is False
+        assert srv._cg02_bypass is False
+        assert srv._cg03_bypass is False
+
+    @pytest.mark.asyncio
+    async def test_initialize_with_malformed_clientInfo_keeps_gates_on(self):
+        """Malformed clientInfo (string instead of dict) → fail-closed."""
+        srv = self._make_server()
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"clientInfo": "not-a-dict"},
+        }
+        await srv._handle_jsonrpc(request)
+        assert srv._cg01_bypass is False
+        assert srv._cg02_bypass is False
+        assert srv._cg03_bypass is False
+
+    @pytest.mark.asyncio
+    async def test_two_independent_servers_have_independent_bypass_state(self):
+        """Two KogniDevServer instances on the same process have independent state.
+        Proves the bypass flags are session-scoped, not global.
+        """
+        srv_vscode = self._make_server()
+        srv_other = self._make_server()
+
+        vscode_req = {
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"clientInfo": {"name": "graqle-vscode"}},
+        }
+        other_req = {
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"clientInfo": {"name": "other-client"}},
+        }
+        await srv_vscode._handle_jsonrpc(vscode_req)
+        await srv_other._handle_jsonrpc(other_req)
+
+        assert srv_vscode._cg01_bypass is True
+        assert srv_vscode._cg02_bypass is True
+        assert srv_vscode._cg03_bypass is True
+        assert srv_other._cg01_bypass is False
+        assert srv_other._cg02_bypass is False
+        assert srv_other._cg03_bypass is False
+
