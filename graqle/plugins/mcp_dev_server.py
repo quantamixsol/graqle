@@ -2203,6 +2203,16 @@ class KogniDevServer:
         # CG-01/02: Protocol enforcement state
         self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
         self._plan_active: bool = False      # Set True by graq_plan
+        # OT-062: Per-MCP-session gate bypasses for VS Code extension.
+        # Set by the initialize handler when clientInfo.name == "graqle-vscode".
+        # Fail-closed default: bypasses are False. Each KogniDevServer instance
+        # is one MCP session (one stdio process), so this state is naturally
+        # session-scoped — concurrent non-graqle-vscode clients run in their
+        # own KogniDevServer instances and are unaffected.
+        self._mcp_client_name: str | None = None
+        self._cg01_bypass: bool = False  # Skip session_started check
+        self._cg02_bypass: bool = False  # Skip plan_active check
+        self._cg03_bypass: bool = False  # Skip edit_enforcement on .py files
         # v0.46.4: graq_todo session state
         self._todos: list[dict[str, Any]] = []
         # B4: Session cache for cross-tool context reuse (v0.42.2 hotfix)
@@ -2986,7 +2996,8 @@ class KogniDevServer:
             # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
             _CG01_EXEMPT = {"graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect"}
             if getattr(_governance, "session_gate_enabled", False):
-                if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT:
+                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg01_bypass
+                if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT and not getattr(self, "_cg01_bypass", False):
                     logger.warning("CG-01 BLOCKED: '%s' before session_start", name)
                     err = json.dumps({
                         "error": "CG-01_SESSION_GATE",
@@ -3006,7 +3017,8 @@ class KogniDevServer:
                 "graq_lifecycle", "kogni_lifecycle",
             }
             if getattr(_governance, "plan_mandatory", False):
-                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False):
+                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg02_bypass
+                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False):
                     logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
                     err = json.dumps({
                         "error": "CG-02_PLAN_GATE",
@@ -3023,7 +3035,8 @@ class KogniDevServer:
             # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
             # Use graq_edit instead — it runs preflight + governance + diff application.
             if getattr(_governance, "edit_enforcement", False):
-                if name in ("graq_write", "kogni_write"):
+                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg03_bypass
+                if name in ("graq_write", "kogni_write") and not getattr(self, "_cg03_bypass", False):
                     _target = arguments.get("file_path", "")
                     _CODE_EXTS = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java"}
                     if any(_target.endswith(ext) for ext in _CODE_EXTS):
@@ -8289,6 +8302,32 @@ class KogniDevServer:
         # ---- MCP lifecycle methods ------------------------------------
 
         if method == "initialize":
+            # OT-062: Detect graqle-vscode client and set per-session gate bypasses.
+            # The VS Code extension manages its own governance flow and needs to
+            # bypass CG-01 (session_started), CG-02 (plan_active), and CG-03
+            # (edit_enforcement) to deliver a smooth UX without round-tripping
+            # graq_lifecycle/graq_plan from the extension layer.
+            # Fail-closed: missing or unrecognized clientInfo → gates ON.
+            try:
+                _client_info = params.get("clientInfo", {}) if isinstance(params, dict) else {}
+                _client_name = _client_info.get("name", "") if isinstance(_client_info, dict) else ""
+                self._mcp_client_name = _client_name or None
+                if _client_name == "graqle-vscode":
+                    self._cg01_bypass = True
+                    self._cg02_bypass = True
+                    self._cg03_bypass = True
+                    logger.info("OT-062: graqle-vscode clientInfo detected — CG-01/02/03 gates bypassed for this MCP session")
+                else:
+                    # Fail-closed default for any other client (or missing clientInfo)
+                    self._cg01_bypass = False
+                    self._cg02_bypass = False
+                    self._cg03_bypass = False
+            except Exception as _e:
+                logger.warning("OT-062: failed to parse clientInfo: %s — gates remain ON", _e)
+                self._cg01_bypass = False
+                self._cg02_bypass = False
+                self._cg03_bypass = False
+
             # v0.46.8: Start background KG loading — do NOT block the handshake.
             # The 534 MB graph loads in a daemon thread; tool calls wait if needed.
             self._start_kg_load_background()

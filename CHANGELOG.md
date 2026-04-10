@@ -4,6 +4,18 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## [0.46.9] — 2026-04-10
+
+### Fixed
+- **OT-060: NEO4J_DISABLED env var gate** in `graqle/core/graph.py` — `Graqle.from_neo4j()` and `Graqle.to_neo4j()` now respect the `NEO4J_DISABLED` env var (truthy: `1`, `true`, `yes`, `on`). When set, both methods raise `RuntimeError` BEFORE importing `Neo4jConnector` or dialing `bolt://`. Zero dials, zero retries. Existing caller `try/except → JSON fallback` contract preserved. Unblocks VS Code MCP server, CI jobs, and Lambda hosts that cannot tolerate slow bolt handshakes. **Neo4j remains a first-class power-user feature** — this is a per-process override, not a feature removal. Once-per-process WARNING via module-level sentinel. 6 new tests in `TestNeo4jDisabledEnvVar`.
+- **OT-062: Session-scoped MCP gate bypasses for graqle-vscode** in `graqle/plugins/mcp_dev_server.py` — the `initialize` JSON-RPC handler now reads `clientInfo.name` and, when it equals `"graqle-vscode"`, sets per-instance `_cg01_bypass`, `_cg02_bypass`, `_cg03_bypass` flags. The CG-01 (session_started), CG-02 (plan_active), and CG-03 (edit_enforcement) gates honor these flags. State is naturally session-scoped because each `KogniDevServer` instance is one MCP stdio process; concurrent non-graqle-vscode clients run in their own instances and are unaffected. **Fail-closed default**: missing or unrecognized `clientInfo` → gates remain ON. 5 new tests in `TestInitializeClientInfoBypass`.
+- **OT-061: S3 AccessDenied dedupe** in `graqle/core/kg_sync.py` — added `_is_access_denied()`, `_log_s3_error()`, `_reset_access_denied_dedupe()` helpers and a module-level `_access_denied_logged` sentinel. AccessDenied errors are now logged ONCE per process at WARNING; non-AccessDenied S3 errors continue to log at ERROR per occurrence. Replaces 3 noisy `logger.warning` sites in `pull_if_newer` and `_push_worker`. 5 new tests in `TestAccessDeniedDedupe`, including the headline test "10 AccessDenied errors → 1 log line".
+
+### Notes
+- 16 new tests added across `test_graph.py`, `test_mcp_dev_server.py`, and `test_kg_sync.py`. All 91 pre-existing tests continue to pass (107 total green, zero regressions).
+
+---
+
 ## [0.46.0] — 2026-04-07
 
 ### Added

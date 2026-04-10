@@ -41,6 +41,47 @@ PUSH_DEBOUNCE_SECS: float = 5.0   # max one push per path per N seconds
 PULL_TIMEOUT_SECS: float = 3.0    # max seconds to wait for S3 on startup
 S3_BUCKET = "graqle-graphs-eu"
 
+# OT-061: Session-scoped AccessDenied dedupe.
+# Goal: log AccessDenied ONCE per process at WARNING, not per occurrence.
+# Other S3 errors continue to be logged at ERROR per occurrence.
+_access_denied_logged: bool = False
+
+
+def _is_access_denied(exc: BaseException) -> bool:
+    """Return True iff exc is a botocore ClientError with AccessDenied code."""
+    try:
+        import botocore.exceptions
+        if not isinstance(exc, botocore.exceptions.ClientError):
+            return False
+        code = exc.response.get("Error", {}).get("Code", "")
+        return code in ("AccessDenied", "AccessDeniedException", "403")
+    except Exception:
+        return False
+
+
+def _log_s3_error(operation: str, exc: BaseException) -> None:
+    """Log an S3 error with AccessDenied dedupe.
+
+    AccessDenied: WARNING once per process, then silenced.
+    Other errors: ERROR per occurrence.
+    """
+    global _access_denied_logged
+    if _is_access_denied(exc):
+        if not _access_denied_logged:
+            logger.warning(
+                "KG %s: S3 AccessDenied. Check IAM permissions for bucket %s. Further AccessDenied warnings suppressed for this process. Error: %s",
+                operation, S3_BUCKET, exc,
+            )
+            _access_denied_logged = True
+    else:
+        logger.error("KG %s failed: %s", operation, exc)
+
+
+def _reset_access_denied_dedupe() -> None:
+    """Reset the dedupe sentinel. For tests only."""
+    global _access_denied_logged
+    _access_denied_logged = False
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -253,7 +294,8 @@ def pull_if_newer(
     except ImportError:
         return PullResult(reason="boto3 not available")
     except Exception as exc:
-        logger.warning("KG pull failed (non-fatal): %s", exc)
+        # OT-061: dedupe AccessDenied at WARNING, log other errors at ERROR
+        _log_s3_error("pull", exc)
         return PullResult(reason=f"error: {exc}")
 
 
@@ -333,12 +375,13 @@ def _push_worker(local_path: Path, project: str | None, retry_on_error: bool = T
         except ImportError:
             return  # boto3 not available — skip silently
         except Exception as exc:
+            # OT-061: dedupe AccessDenied at WARNING, log other errors at ERROR
             if attempt == 1 and retry_on_error:
-                logger.warning("KG push attempt 1 failed: %s — retrying", exc)
+                _log_s3_error("push (retrying)", exc)
                 time.sleep(1.0)
             else:
-                logger.warning("KG push failed%s: %s",
-                               " after 2 attempts" if retry_on_error else "", exc)
+                _suffix = " after 2 attempts" if retry_on_error else ""
+                _log_s3_error("push" + _suffix, exc)
 
 
 # ---------------------------------------------------------------------------
