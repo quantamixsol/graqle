@@ -1524,6 +1524,44 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_apply",
+        "description": (
+            "Deterministic exact-string insertion engine (CG-DIF-02). Use this INSTEAD of "
+            "graq_edit when the target file is a CRITICAL hub (impact_radius > 20), large "
+            "(>1500 lines), or has multiple lookalike methods. Provides byte-perfect replacement "
+            "via Python bytes.replace() — no LLM in the loop. Each insertion has a unique anchor "
+            "string and a replacement string. Anchor uniqueness is enforced (each anchor must "
+            "occur exactly expected_count times). Atomic write via tempfile + fsync + os.replace. "
+            "Backup to .graqle/edit-backup/ before write. dry_run=True (default) validates "
+            "without writing. ~50x faster than graq_edit on hub files."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Target file path (relative or absolute)"},
+                "insertions": {
+                    "type": "array",
+                    "description": "List of {anchor, replacement, expected_count} dicts",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "anchor": {"type": "string", "description": "Exact existing text to find"},
+                            "replacement": {"type": "string", "description": "Replacement text"},
+                            "expected_count": {"type": "integer", "description": "Anchor uniqueness requirement (default 1)", "default": 1},
+                        },
+                        "required": ["anchor", "replacement"],
+                    },
+                },
+                "expected_input_sha256": {"type": "string", "description": "Optional SHA-256 baseline pin"},
+                "expected_byte_delta_min": {"type": "integer", "description": "Optional min byte delta"},
+                "expected_byte_delta_max": {"type": "integer", "description": "Optional max byte delta"},
+                "expected_markers": {"type": "object", "description": "Optional dict of marker -> expected count"},
+                "dry_run": {"type": "boolean", "description": "Preview only, do not write (default true)", "default": True},
+            },
+            "required": ["file_path", "insertions"],
+        },
+    },
+    {
         "name": "graq_write",
         "description": (
             "Atomically write or overwrite a file. Uses NamedTemporaryFile→fsync→os.replace. "
@@ -3099,6 +3137,9 @@ class KogniDevServer:
             # v0.38.0: governed code generation + editing
             "graq_edit": self._handle_edit,
             "kogni_edit": self._handle_edit,
+            # v0.47.0 (CG-DIF-02): deterministic insertion engine
+            "graq_apply": self._handle_apply,
+            "kogni_apply": self._handle_apply,
             "graq_generate": self._handle_generate,
             "kogni_generate": self._handle_generate,
             # Backward-compat aliases (kogni_* → graq_*)
@@ -5460,6 +5501,46 @@ class KogniDevServer:
     # ── graq_generate (TEAM/ENTERPRISE) ──────────────────────────────
     # v0.38.0 — governed code generation
     # Phase 1 of feature-coding-assistant plan
+
+    async def _handle_apply(self, args: dict[str, Any]) -> str:
+        """v0.47.0 CG-DIF-02 — deterministic insertion engine.
+
+        Wraps graqle.plugins.graq_apply.apply_insertions() and returns a JSON
+        response matching graq_edit\'s shape.
+        """
+        from graqle.plugins.graq_apply import apply_insertions
+
+        file_path = args.get("file_path", "")
+        insertions = args.get("insertions", [])
+        expected_input_sha256 = args.get("expected_input_sha256")
+        expected_markers = args.get("expected_markers")
+        dry_run = bool(args.get("dry_run", True))
+
+        # Reconstruct optional band tuple from min/max
+        band_min = args.get("expected_byte_delta_min")
+        band_max = args.get("expected_byte_delta_max")
+        expected_byte_delta_band = None
+        if band_min is not None and band_max is not None:
+            expected_byte_delta_band = (int(band_min), int(band_max))
+
+        try:
+            result = apply_insertions(
+                file_path=file_path,
+                insertions=insertions,
+                expected_input_sha256=expected_input_sha256,
+                expected_byte_delta_band=expected_byte_delta_band,
+                expected_markers=expected_markers,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            logger.exception("graq_apply: unexpected error")
+            return json.dumps({
+                "success": False,
+                "error": f"graq_apply internal error: {exc}",
+                "error_code": "GRAQ_APPLY_INTERNAL_ERROR",
+            })
+
+        return json.dumps(result.to_dict())
 
     async def _handle_generate(self, args: dict[str, Any]) -> str:
         """Generate a unified diff patch using graph context + LLM backend.
