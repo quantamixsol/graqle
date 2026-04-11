@@ -414,7 +414,7 @@ questions:
   cross_kg: false
   source: GraQle SDK activation/pcst.py
   notes: GraQle uses PCST-based activation but the specific Lagrange multiplier value is an internal hyperparameter not documented
-    in the KG and classified as a trade secret boundary (TS-1 adjacent). Even if it existed, it would be UNANSWERABLE from
+    in the KG and classified as a protected internal boundary. Even if it existed, it would be UNANSWERABLE from
     the KG.
   is_answerable: false
 - id: R11-BQ-025

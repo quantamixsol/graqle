@@ -4,12 +4,12 @@
 # module: graqle.core.governance
 # risk: LOW (impact radius: 0 modules — new file, zero blast radius)
 # dependencies: __future__, dataclasses, datetime, typing
-# constraints: TS-1..TS-4 hard-block is NEVER threshold-based and NEVER bypassable
+# constraints: pattern hard-block is NEVER threshold-based and NEVER bypassable
 # ── /graqle:intelligence ──
 
-3-Tier Gate Model (ADR-119):
+3-Tier Gate Model:
 
-    TS-BLOCK  Any TS-1..TS-4 pattern in diff/content → unconditional hard block
+    TS-BLOCK  Any protected pattern in diff/content → unconditional hard block
     T1        risk_level=LOW  AND impact_radius ≤ 2   → auto-pass, logged only
     T2        risk_level=MEDIUM OR impact_radius 3–8   → threshold-gated, bypass recorded
     T3        risk_level=HIGH  OR impact_radius > 8    → explicit approved_by required
@@ -52,19 +52,18 @@ _logger = logging.getLogger("graqle.core.governance")
 
 
 # ---------------------------------------------------------------------------
-# TS-BLOCK: Trade Secret Patterns (binary pre-gate — never threshold-based)
+# TS-BLOCK: protected internal patterns (binary pre-gate — never threshold-based)
 # ---------------------------------------------------------------------------
 
-# Default built-in patterns — used when no external pattern file is loaded.
-# These patterns detect potential exposure of TS-1..TS-4 internals.
-_TS_BLOCK_PATTERNS_DEFAULT: list[re.Pattern[str]] = [
-    # TS-1: Q-function weight values
+# Internal pattern detectors — concrete patterns loaded from .graqle/ip_patterns.yml at runtime when available; built-in fallbacks used otherwise.
+_BUILTIN_PATTERNS_DEFAULT: list[re.Pattern[str]] = [
+    # Internal pattern A
     re.compile(r"\bw_J\b|\bw_A\b", re.IGNORECASE),
-    # TS-2: Jaccard formula internals
+    # Internal pattern B
     re.compile(r"jaccard.*formula|token.set.*intersection.*arithmetic", re.IGNORECASE),
-    # TS-3: STG production rules
+    # Internal pattern C
     re.compile(r"production.rule|stg.*rule|grammar.*rule.*node.type", re.IGNORECASE),
-    # TS-4: theta_fold derivation
+    # Internal pattern D
     re.compile(r"\btheta_fold\b|\bθ_fold\b", re.IGNORECASE),
     # AGREEMENT_THRESHOLD specific value
     re.compile(r"AGREEMENT_THRESHOLD\s*=\s*0\.16", re.IGNORECASE),
@@ -72,24 +71,24 @@ _TS_BLOCK_PATTERNS_DEFAULT: list[re.Pattern[str]] = [
     re.compile(r"70.*30.*blend|_compute_answer_confidence.*formula", re.IGNORECASE),
 ]
 
-# Module-level caches for externalized TS patterns (ADR-140)
-_ts_patterns_cache: list[dict[str, Any]] | None = None
-_ts_exclude_paths: list[re.Pattern[str]] = []
-_ts_declassified: dict[str, list[re.Pattern[str]]] = {}
+# Module-level caches for externalized patterns
+_pattern_cache: list[dict[str, Any]] | None = None
+_pattern_exclude_paths: list[re.Pattern[str]] = []
+_pattern_declassified: dict[str, list[re.Pattern[str]]] = {}
 
 
-def _load_ts_patterns(path: str | None = None) -> list[dict[str, Any]]:
-    """Load externalized TS patterns from env var or YAML file.
+def _load_patterns(path: str | None = None) -> list[dict[str, Any]]:
+    """Load externalized patterns from env var or YAML file.
 
     Resolution order:
-      1. GRAQLE_TS_PATTERNS env var (base64-encoded JSON array)
+      1. GRAQLE_PATTERNS env var (base64-encoded JSON array)
       2. ``path`` argument (YAML file, typically .graqle/ip_patterns.yml)
-      3. Fall back to built-in ``_TS_BLOCK_PATTERNS_DEFAULT``
+      3. Fall back to built-in ``_BUILTIN_PATTERNS_DEFAULT``
 
     Fail-closed: any parse error logs a warning and returns the built-in
-    defaults so that TS protection is NEVER silently disabled.
+    defaults so that Pattern protection is NEVER silently disabled.
     """
-    global _ts_patterns_cache, _ts_exclude_paths, _ts_declassified  # noqa: PLW0603
+    global _pattern_cache, _pattern_exclude_paths, _pattern_declassified  # noqa: PLW0603
 
     # 1. Environment variable (base64 JSON)
     env_val = os.environ.get("GRAQLE_TS_PATTERNS", "").strip()
@@ -97,11 +96,11 @@ def _load_ts_patterns(path: str | None = None) -> list[dict[str, Any]]:
         try:
             raw = json.loads(base64.b64decode(env_val))
             if isinstance(raw, list) and len(raw) > 0:
-                _ts_patterns_cache = raw
-                _logger.debug("Loaded %d TS patterns from GRAQLE_TS_PATTERNS env", len(raw))
+                _pattern_cache = raw
+                _logger.debug("Loaded %d protected patterns from GRAQLE_PATTERNS env", len(raw))
                 return raw
         except Exception as exc:
-            _logger.warning("GRAQLE_TS_PATTERNS env parse failed (fail-closed): %s", exc)
+            _logger.warning("GRAQLE_PATTERNS env parse failed (fail-closed): %s", exc)
 
     # 2. YAML file
     if path and yaml is not None:
@@ -112,37 +111,37 @@ def _load_ts_patterns(path: str | None = None) -> list[dict[str, Any]]:
                 if isinstance(data, dict):
                     patterns = data.get("patterns", [])
                     if isinstance(patterns, list) and len(patterns) > 0:
-                        _ts_patterns_cache = patterns
+                        _pattern_cache = patterns
                         # Load exclude paths
                         excludes = data.get("exclude_paths", [])
-                        _ts_exclude_paths = [re.compile(e) for e in excludes if isinstance(e, str)]
+                        _pattern_exclude_paths = [re.compile(e) for e in excludes if isinstance(e, str)]
                         # Load declassified overrides
                         decl = data.get("declassified", {})
                         if isinstance(decl, dict):
                             for pid, globs in decl.items():
                                 if isinstance(globs, list):
-                                    _ts_declassified[pid] = [re.compile(g) for g in globs]
-                        _logger.debug("Loaded %d TS patterns from %s", len(patterns), path)
+                                    _pattern_declassified[pid] = [re.compile(g) for g in globs]
+                        _logger.debug("Loaded %d protected patterns from %s", len(patterns), path)
                         return patterns
         except Exception as exc:
-            _logger.warning("TS pattern file %s parse failed (fail-closed): %s", path, exc)
+            _logger.warning("Pattern file %s parse failed (fail-closed): %s", path, exc)
 
     # 3. Fall back to built-in defaults (fail-closed — never returns empty)
-    _ts_patterns_cache = None  # signal: using defaults
+    _pattern_cache = None  # signal: using defaults
     return []
 
 
-def invalidate_ts_patterns_cache() -> None:
+def invalidate_pattern_cache() -> None:
     """Clear the TS patterns cache — forces reload on next check."""
-    global _ts_patterns_cache, _ts_exclude_paths, _ts_declassified  # noqa: PLW0603
-    _ts_patterns_cache = None
-    _ts_exclude_paths = []
-    _ts_declassified = {}
+    global _pattern_cache, _pattern_exclude_paths, _pattern_declassified  # noqa: PLW0603
+    _pattern_cache = None
+    _pattern_exclude_paths = []
+    _pattern_declassified = {}
 
 
 def _is_path_excluded(file_path: str) -> bool:
     """Return True if file_path matches any exclude pattern."""
-    for pat in _ts_exclude_paths:
+    for pat in _pattern_exclude_paths:
         if pat.search(file_path):
             return True
     return False
@@ -150,7 +149,7 @@ def _is_path_excluded(file_path: str) -> bool:
 
 def _is_declassified(pattern_id: str, file_path: str) -> bool:
     """Return True if pattern_id is declassified for the given file_path."""
-    globs = _ts_declassified.get(pattern_id, [])
+    globs = _pattern_declassified.get(pattern_id, [])
     for g in globs:
         if g.search(file_path):
             return True
@@ -166,8 +165,8 @@ from graqle.core.secret_patterns import check_secrets_full as _check_secrets_ful
 _SECRET_PATTERNS: list = []  # Deprecated — use check_secrets_full instead
 
 
-def _check_ts_leakage(content: str, file_path: str = "") -> tuple[bool, str]:
-    """Check for TS-1..TS-4 trade secret exposure.
+def _check_pattern_leakage(content: str, file_path: str = "") -> tuple[bool, str]:
+    """Check for protected internal pattern exposure.
 
     Returns (blocked: bool, matched_pattern: str).
     This is the only UNCONDITIONAL block — no bypass, no threshold, no override.
@@ -180,8 +179,8 @@ def _check_ts_leakage(content: str, file_path: str = "") -> tuple[bool, str]:
         return False, ""
 
     # Use externalized patterns if loaded
-    if _ts_patterns_cache is not None:
-        for entry in _ts_patterns_cache:
+    if _pattern_cache is not None:
+        for entry in _pattern_cache:
             pid = entry.get("id", "")
             regex = entry.get("regex", "")
             if not regex:
@@ -196,14 +195,14 @@ def _check_ts_leakage(content: str, file_path: str = "") -> tuple[bool, str]:
                 continue
             if m:
                 label = entry.get("label", pid or regex)
-                return True, f"Trade secret pattern detected: {label!r} ({m.group()!r})"
+                return True, f"Protected pattern detected: {label!r} ({m.group()!r})"
         return False, ""
 
     # Built-in defaults
-    for pattern in _TS_BLOCK_PATTERNS_DEFAULT:
+    for pattern in _BUILTIN_PATTERNS_DEFAULT:
         m = pattern.search(content)
         if m:
-            return True, f"Trade secret pattern detected: {m.group()!r}"
+            return True, f"Protected pattern detected: {m.group()!r}"
     return False, ""
 
 
@@ -228,11 +227,11 @@ class GovernanceConfig:
     """Governance threshold configuration — stored in graqle.yaml under 'governance:'.
 
     Thresholds are calibrated automatically from GOVERNANCE_BYPASS outcome data.
-    TS patterns are NEVER threshold-based and NEVER relaxed by calibration.
+    Protected patterns are NEVER threshold-based and NEVER relaxed by calibration.
     """
-    # TS protection — cannot be disabled
+    # Pattern protection — cannot be disabled
     ts_hard_block: bool = True              # NEVER set to False in production
-    ts_patterns_file: Optional[str] = None  # Path to ip_patterns.yml (ADR-140)
+    ts_patterns_file: Optional[str] = None  # Path to ip_patterns.yml
 
     # T1 auto-pass boundaries
     auto_pass_max_radius: int = 2           # impact_radius ≤ this → T1
@@ -616,17 +615,17 @@ class GovernanceMiddleware:
 
         # ── TS-BLOCK: unconditional, no threshold, no bypass ──────────────
         # TS-BLOCK is NOT subject to dry_run — always hard-blocks.
-        if cfg.ts_patterns_file and _ts_patterns_cache is None:
-            _load_ts_patterns(path=cfg.ts_patterns_file)
+        if cfg.ts_patterns_file and _pattern_cache is None:
+            _load_patterns(path=cfg.ts_patterns_file)
         if cfg.ts_hard_block:
-            ts_blocked, ts_reason = _check_ts_leakage(combined, file_path=file_path)
-            if ts_blocked:
+            pattern_blocked, pattern_reason = _check_pattern_leakage(combined, file_path=file_path)
+            if pattern_blocked:
                 _r = GateResult(
                     tier="TS-BLOCK",
                     blocked=True,
                     requires_approval=False,
                     gate_score=1.0,
-                    reason=f"TS-BLOCK: {ts_reason}. This cannot be overridden.",
+                    reason=f"TS-BLOCK: {pattern_reason}. This cannot be overridden.",
                     risk_level=risk_level,
                     impact_radius=impact_radius,
                     file_path=file_path,
@@ -896,3 +895,14 @@ try:
     )
 except ImportError:
     pass  # governance_policy.py not yet available — safe to ignore
+
+
+# ---------------------------------------------------------------------------
+# Backward-compat aliases for internal test imports.
+# These aliases are NOT part of the public API and may be removed in a future
+# release. The public pattern-check entry point is GovernanceMiddleware.check().
+# ---------------------------------------------------------------------------
+_check_ts_leakage = _check_pattern_leakage  # noqa: E305
+_load_ts_patterns = _load_patterns
+invalidate_ts_patterns_cache = invalidate_pattern_cache
+_TS_BLOCK_PATTERNS_DEFAULT = _BUILTIN_PATTERNS_DEFAULT
