@@ -4,6 +4,49 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.50.1 (2026-04-12)
+
+### Fixed
+- Hardened the Windows installer for the governance gate. `graq gate-install`
+  now probes for a working Python 3 interpreter (trying `sys.executable`,
+  `python3`, `python`, `py -3`), skips the Windows Store Python stub, and
+  substitutes the resolved interpreter into the generated `settings.json`.
+  Also adds a `--fix-interpreter` flag to rewrite only the hook command
+  string on existing installs.
+- `graq gate-install` now runs a post-install self-test with a synthetic
+  Bash tool payload and requires the hook to return exit 2 with
+  "GATE BLOCKED" on stderr. A broken install can no longer silently
+  complete; the command fails with a remediation hint instead.
+- Governance gate hook now fails closed on unknown write-class tools.
+  Previously, any Claude Code tool not in the explicit allowlist or
+  blocklist fell through to exit 0. A regex heuristic
+  (`^(Write|Edit|Delete|Exec|Run|Create|Update|Put|Post)`) now blocks
+  such tools by default; unknown read-class tools still pass.
+- `graq init` now auto-installs the Claude Code governance gate when
+  Claude Code is detected (`.claude/` in project or home directory).
+  Opt out with `--no-gate` or `GRAQLE_SKIP_GATE_INSTALL=1`. Operators
+  no longer need to remember a second `graq gate-install` step.
+- Fixed `from graqle import *` raising `AttributeError` because the
+  package `__all__` listed `"GraQle"` while the class is `Graqle`.
+- Sanitized internal references out of the shipped ChatAgentLoop v4
+  built-in floor template and the TCG (Tool Capability Graph) seed
+  for public distribution. User-visible tier names and public APIs
+  are unchanged.
+
+### Internal
+- New `tests/test_distribution/test_no_internal_strings.py` — a
+  public-disclosure regression lint that hard-fails on the v0.50.1
+  sanitization targets and tracks a high-water advisory baseline for
+  the rest of the package.
+- Added `/GRAQ.md` at the SDK repo root as a walk-up extension for
+  SDK-local developer rules. The file is not shipped in the wheel.
+- Governance module internal helper renames: `_check_ts_leakage` →
+  `_check_pattern_leakage`, `_TS_BLOCK_PATTERNS_DEFAULT` →
+  `_BUILTIN_PATTERNS_DEFAULT`, and related. Backward-compat aliases
+  preserve existing internal test imports.
+
+---
+
 ### Round-2 remediation (2026-04-11) — research team review PR #49 (follow-up)
 
 Addresses the 1 new BLOCKER (RO2-6) + 3 new MAJORs (RO2-1, RO2-3, RO2-4)
