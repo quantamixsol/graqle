@@ -47,7 +47,15 @@ jobs:
           echo "files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$FILES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
-          echo "count=$(echo "$FILES" | grep -c . || echo 0)" >> "$GITHUB_OUTPUT"
+          # Handle the empty-files case cleanly. The previous
+          # `grep -c . || echo 0` idiom produced "Invalid format '0'"
+          # because grep exits non-zero on no match AND still prints 0,
+          # so the `|| echo 0` fallback fired and appended a stray 0.
+          if [ -z "$FILES" ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "count=$(printf '%s\n' "$FILES" | sed '/^$/d' | wc -l)" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run governance gate on changed files
         id: gate
