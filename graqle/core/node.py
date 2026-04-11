@@ -170,6 +170,170 @@ def _deduplicate_seam(
     return previous.rstrip() + "\n" + merged_continuation
 
 
+# ── SDK-HF-02 (v0.47.2): reusable continuation helper ──────────────────────
+#
+# Extracts the OT-028 truncation-recovery loop into a callable that any caller
+# (synthesis aggregator, future tool layers, etc.) can use against any
+# BaseBackend without re-implementing the contract. CogniNode.reason() keeps
+# its own inline copy of the loop (untouched in this hotfix to eliminate
+# OT-028 metadata regression risk on the per-node path).
+#
+# Exception contract:
+#   - The FIRST backend.generate() call is OUTSIDE the try/except, so its
+#     exceptions propagate unchanged to the caller (matches reason()).
+#   - Only continuation-round exceptions are caught and surface as
+#     metadata["continuation_error"] = True with the accumulated response
+#     returned (fail-open semantics).
+#
+# Metadata contract (every exit path):
+#   clean (no truncation):
+#     continuation_count=0, was_continued=False, still_truncated=False,
+#     stop_reason="", continuation_error=False
+#   recovery (truncated → continued → finished):
+#     count=N, was_continued=True, still_truncated=False, error=False
+#   empty-anchor abort (initial truncation but anchor extraction yielded ""):
+#     count=0, was_continued=False, still_truncated=True, error=False
+#   zero-progress abort (continuation produced no new content):
+#     count=N, was_continued=True, still_truncated=<last>, error=False
+#   max_continuations exhaustion:
+#     count=max, was_continued=True, still_truncated=True, error=False
+#   mid-loop exception (fail-open):
+#     count=N, was_continued=True, still_truncated=True, error=True
+
+
+def _normalize_response(raw: Any) -> tuple[str, bool, str]:
+    """Normalize a backend.generate() return value to (text, truncated, stop_reason).
+
+    Handles three shapes:
+      - GenerateResult (OT-028 type): pulls .text/.truncated/.stop_reason
+      - raw str: text=raw, truncated=False, stop_reason="" (str backends
+        cannot report truncation)
+      - anything else: defensive str(raw) fallback with a warning log so
+        backend contract regressions stay visible
+
+    Defensive guards:
+      - If a structured response has .text == None, coerce to ""
+      - If a structured response has .truncated == None, coerce to False
+      - If a structured response has .stop_reason == None, coerce to ""
+    """
+    if hasattr(raw, "text") and hasattr(raw, "truncated"):
+        text_val = getattr(raw, "text", None)
+        if text_val is None:
+            text_val = ""
+        return (
+            str(text_val),
+            bool(getattr(raw, "truncated", False)),
+            str(getattr(raw, "stop_reason", "") or ""),
+        )
+    if isinstance(raw, str):
+        return (raw, False, "")
+    logger.warning(
+        "OT-028: backend returned unexpected response shape %s — coercing via str()",
+        type(raw).__name__,
+    )
+    return (str(raw), False, "")
+
+
+async def generate_with_continuation(
+    backend: ModelBackend,
+    prompt: str,
+    *,
+    max_tokens: int = 4096,
+    temperature: float = 0.2,
+    stop: list[str] | None = None,
+    max_continuations: int = 3,
+    overlap_lines: int = 15,
+) -> tuple[str, dict]:
+    """Call backend.generate, then continue if truncated, until clean.
+
+    Used by orchestration/aggregation.py:_weighted_synthesis to fix
+    SDK-HF-02 (synthesis truncation regression). Re-uses the existing
+    OT-028 helpers (_extract_overlap_anchor, _build_continuation_prompt,
+    _deduplicate_seam) so the continuation contract is identical to the
+    one in CogniNode.reason().
+
+    Args:
+        backend: any ModelBackend (BaseBackend subclass or duck-typed)
+        prompt: initial prompt
+        max_tokens: per-call generation budget (4096 default — synthesis
+            keeps this; raising to 8192 is a separate tuning decision per
+            lesson_20260407T065640)
+        temperature: passed through to backend.generate
+        stop: passed through to backend.generate
+        max_continuations: hard cap on continuation rounds (default 3)
+        overlap_lines: anchor size for the continuation prompt
+
+    Returns:
+        (final_text, metadata) where metadata is a dict with five keys:
+        continuation_count, was_continued, still_truncated, stop_reason,
+        continuation_error. See the metadata contract block above for the
+        exact value of each key on every exit path.
+
+    Raises:
+        Whatever backend.generate raises on the FIRST call. In-loop
+        continuation exceptions are caught and surface via
+        metadata["continuation_error"] = True (fail-open).
+    """
+    # First call — exceptions propagate unchanged.
+    raw_first = await backend.generate(
+        prompt, max_tokens=max_tokens, temperature=temperature, stop=stop,
+    )
+    response, is_truncated, stop_reason = _normalize_response(raw_first)
+
+    continuation_count = 0
+    continuation_error = False
+
+    while is_truncated and continuation_count < max_continuations:
+        overlap_anchor = _extract_overlap_anchor(response, n_lines=overlap_lines)
+        if not overlap_anchor:
+            logger.warning(
+                "OT-028: generate_with_continuation empty overlap anchor — aborting"
+            )
+            break
+
+        cont_prompt = _build_continuation_prompt(overlap_anchor)
+        try:
+            raw_cont = await backend.generate(
+                cont_prompt, max_tokens=max_tokens,
+                temperature=temperature, stop=stop,
+            )
+            cont_text, cont_truncated, cont_stop = _normalize_response(raw_cont)
+            if not cont_text.strip():
+                logger.warning(
+                    "OT-028: generate_with_continuation empty continuation — aborting"
+                )
+                break
+            new_response = _deduplicate_seam(
+                response, cont_text, overlap_lines=overlap_lines,
+            )
+            if new_response.strip() == response.strip():
+                logger.warning(
+                    "OT-028: generate_with_continuation zero-progress — aborting"
+                )
+                break
+            response = new_response
+            is_truncated = cont_truncated
+            stop_reason = cont_stop
+            continuation_count += 1
+        except Exception as exc:  # noqa: BLE001 — fail-open is intentional
+            logger.warning(
+                "OT-028: generate_with_continuation continuation %d failed: %s — fail-open",
+                continuation_count + 1, exc,
+            )
+            continuation_error = True
+            continuation_count += 1
+            break
+
+    metadata = {
+        "continuation_count": continuation_count,
+        "was_continued": continuation_count > 0,
+        "still_truncated": is_truncated,
+        "stop_reason": stop_reason,
+        "continuation_error": continuation_error,
+    }
+    return response, metadata
+
+
 @dataclass
 class CogniNode:
     """A knowledge graph node with an embedded SLM agent.
