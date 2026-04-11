@@ -33,6 +33,40 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
+# ── CG-REASON-01 (v0.47.3): batch error fallback helper ───────────────────
+#
+# graqle.core.graph.areason_batch() previously constructed a ReasoningResult
+# in its asyncio.gather error branch with `node_count=0` (a read-only
+# @property, not a constructor field) and was missing three required fields
+# (query, active_nodes, message_trace). The error branch also iterated
+# `results` directly so the failing query was lost. This helper centralizes
+# the error fallback contract so any future caller that needs to construct
+# an error ReasoningResult does so consistently.
+
+
+def _make_error_result(query: str, exc: Exception) -> ReasoningResult:
+    """Build a ReasoningResult representing a failed batch query.
+
+    Sets backend_status='failed', backend_error=str(exc), reasoning_mode='error'
+    so downstream consumers can branch on the failure without parsing the
+    answer string. confidence=0.0 emits a single warnings.warn from
+    ReasoningResult.__post_init__ — intentional failure telemetry.
+    """
+    return ReasoningResult(
+        query=query,
+        answer=f"Error: {exc}",
+        confidence=0.0,
+        rounds_completed=0,
+        active_nodes=[],
+        message_trace=[],
+        cost_usd=0.0,
+        latency_ms=0.0,
+        backend_status="failed",
+        backend_error=str(exc),
+        reasoning_mode="error",
+    )
+
+
 # OT-060: Process-scoped Neo4j escape hatch via NEO4J_DISABLED env var.
 # Purpose: let hosts with tight handshake deadlines (VS Code MCP server,
 # CI jobs, Lambda) tell graQle to skip bolt:// dials entirely for this
@@ -1737,18 +1771,22 @@ class Graqle:
         tasks = [_bounded_reason(q) for q in queries]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        # CG-REASON-01 (v0.47.3): asyncio.gather always returns one entry per
+        # task in input order, but assert defensively in case the contract
+        # ever changes. zip() would silently truncate on mismatch.
+        if len(results) != len(queries):  # pragma: no cover — defensive
+            raise RuntimeError(
+                f"areason_batch: gather returned {len(results)} results "
+                f"for {len(queries)} queries — input/output mismatch"
+            )
+
         final: list[ReasoningResult] = []
-        for r in results:
+        for q, r in zip(queries, results):
             if isinstance(r, Exception):
-                logger.error(f"Batch query failed: {r}")
-                final.append(ReasoningResult(
-                    answer=f"Error: {r}",
-                    confidence=0.0,
-                    rounds_completed=0,
-                    node_count=0,
-                    cost_usd=0.0,
-                    latency_ms=0.0,
-                ))
+                logger.error(
+                    "Batch query failed for %r: %s", str(q)[:80], r,
+                )
+                final.append(_make_error_result(q, r))
             else:
                 final.append(r)
         return final

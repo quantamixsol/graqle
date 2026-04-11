@@ -2,6 +2,8 @@
 
 OT-028/030 Layer 1: Adds GenerateResult structured return type with
 backward-compatible str behavior for 31+ consuming modules.
+CG-REASON-02 (v0.47.1): __getstate__/__setstate__/__deepcopy__ drop
+transient client handles so backend instances are deepcopy-safe.
 """
 
 # ── graqle:intelligence ──
@@ -36,6 +38,37 @@ _STR_ALLOWLIST: frozenset[str] = frozenset({
     "removeprefix", "removesuffix",
 })
 
+
+# ── CG-REASON-02 (v0.47.1): backend serialization contract ────────────────
+#
+# Backend instances must be deepcopy- and pickle-safe so they can ride along
+# with reasoning-node snapshots (graqle/core/graph.py:areason). The contract:
+#
+#   PERSISTED on copy/pickle:
+#     - durable configuration (model id, retry counts, base URLs)
+#     - credentials reference (env-var name only, NOT live handles)
+#     - cost trackers (totals, counters)
+#
+#   DROPPED on copy/pickle (recreated lazily on next call):
+#     - HTTP client handles (httpx, AsyncOpenAI, anthropic.AsyncClient, ...)
+#     - cloud SDK sessions (boto3 client, gemini sdk client, ...)
+#     - executor / event-loop refs
+#     - threading primitives (Lock / RLock / Semaphore)
+#
+# Subclasses that introduce a new transient handle MUST add its attribute
+# name to ``_TRANSIENT_BACKEND_ATTRS`` (or override ``__getstate__``).
+# Future contributors: this is a serialization contract, not a style note.
+# Reintroducing a non-picklable handle outside this set will reopen
+# CG-REASON-02 across every reasoning round.
+
+_TRANSIENT_BACKEND_ATTRS: frozenset[str] = frozenset({
+    "_client",
+    "_async_client",
+    "_session",
+    "_executor",
+    "_loop",
+    "_lock",
+})
 
 @dataclass(slots=True)
 class GenerateResult:
@@ -147,6 +180,16 @@ class BaseBackend(ABC):
     a convenient base class with shared functionality.
 
     OT-028/030: generate() returns GenerateResult (str-compatible).
+
+    CG-REASON-02 (v0.47.1): Backend instances are deepcopy- and pickle-safe.
+    Transient runtime handles (HTTP clients, cloud SDK sessions, executor
+    references, threading locks) listed in ``_TRANSIENT_BACKEND_ATTRS`` are
+    dropped on serialization and lazily recreated on next access. This
+    fixes the ``cannot pickle '_thread.RLock' object`` crash that hit
+    ``graqle.core.graph.areason()`` when reasoning nodes were deepcopied
+    for the ADR-151 redaction snapshot. ``__deepcopy__`` is side-effect
+    free with respect to the source instance — concurrent reasoning rounds
+    sharing one backend reference are isolated by their own copies.
     """
 
     @abstractmethod
@@ -203,3 +246,62 @@ class BaseBackend(ABC):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r})"
+
+    # ── CG-REASON-02 (v0.47.1): copy/pickle safety ─────────────────────────
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Drop transient runtime handles before pickling/copying.
+
+        See ``_TRANSIENT_BACKEND_ATTRS`` for the contract. Recreated lazily
+        on next access by whatever ``_get_*`` accessor a concrete backend
+        defines. Side-effect free: does not mutate ``self``.
+        """
+        state = self.__dict__.copy()
+        for attr in _TRANSIENT_BACKEND_ATTRS:
+            state.pop(attr, None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore state and reset every transient handle to None.
+
+        Concrete backends use lazy ``_get_client()``-style accessors that
+        rebuild the handle on first call. We reset EVERY entry in
+        ``_TRANSIENT_BACKEND_ATTRS`` to ``None`` so subclasses with
+        multiple transient handles (e.g. both ``_client`` AND
+        ``_async_client``) come out consistent regardless of which
+        attributes the originating instance happened to set. Side-effect
+        free with respect to any other instance — this only mutates
+        ``self.__dict__``.
+        """
+        self.__dict__.update(state)
+        for attr in _TRANSIENT_BACKEND_ATTRS:
+            if attr not in self.__dict__:
+                self.__dict__[attr] = None
+
+        # Defensive note: if a future subclass uses ``__slots__`` only
+        # (no ``__dict__``), this and ``__deepcopy__`` need to be
+        # overridden in that subclass. All current backends are
+        # ``__dict__``-backed; see test_subclass_specific_transient_attr_can_be_added.
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "BaseBackend":
+        """Deepcopy via ``__getstate__`` / ``__setstate__``.
+
+        Without this, ``copy.deepcopy(backend)`` would walk the underlying
+        HTTP client tree and crash on the first ``_thread.RLock`` it
+        finds. By routing through ``__getstate__``, the resulting copy
+        holds only durable configuration (model name, retry counts,
+        credentials env-var name, cost trackers) and lazily rebuilds
+        the client on next call.
+
+        This implementation does NOT mutate ``self`` — the source
+        instance keeps its live client. Two reasoning rounds that share
+        a backend reference therefore each get an isolated copy with
+        its own lazy ``_client`` slot.
+        """
+        import copy as _copy
+
+        new_obj = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_obj
+        new_state = _copy.deepcopy(self.__getstate__(), memo)
+        new_obj.__setstate__(new_state)
+        return new_obj
