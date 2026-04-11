@@ -4,6 +4,182 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.50.0 — 2026-04-11
+
+**ChatAgentLoop v4 — Claude-Code-equivalent interactive chat layer (ADR-152).**
+
+This is a feature jump (0.47.3 → 0.50.0) that ships the entire chat
+agent loop the VS Code extension v0.6.0 will host: a three-graph
+runtime architecture (GRAQ.md / TCG / RCAG), an LLM tool-use loop
+that ranks over a TCG-activated subgraph instead of cold-picking from
+~134 tools, durable pause/resume with CAS-locked state machine,
+session-scoped permission caching, adversarial debate, polyglot
+backend routing, hard-error continuation, and convention inference
+as a first-class product feature. SDK-HF-01 (graq_generate missing
+from generate-intent DAG) is structurally resolved — the extension's
+dag.ts + intent.ts are deleted; tool selection moves to the SDK.
+
+### Added
+- **`graqle/chat/`** — new package, 8 SDK modules + 2 templates (~6500 LOC).
+  - **`streaming.py`** (TB-F1) — ChatEvent envelope, ChatEventBuffer with
+    monotonic per-turn sequencing, long-poll cursor helper.
+  - **`turn_ledger.py`** (TB-F1) — append-only audit log at
+    `.graqle/chat/ledger/turn_<id>.jsonl`.
+  - **`settings_loader.py`** (TB-F1) — `.graqle/settings.json` policy
+    loader with fail-closed jsonschema validation.
+  - **`graq_md_loader.py`** (TB-F1) — multi-root GRAQ.md loader walking
+    cwd UP to filesystem root, most-specific-wins conflict merge,
+    user-content sandbox escaping.
+  - **`templates/GRAQ_default.md`** (TB-F1) — built-in floor with 7
+    scenario playbooks (codegen / debug / refactor / audit / review /
+    write-new-artifact / convention-inference) + tool catalog.
+  - **`tool_capability_graph.py`** (TB-F2) — `ToolCapabilityGraph`
+    IS-A `Graqle` subclass with enrichment bypass, 30-tool/12-intent/
+    5-workflow/20-lesson seed, intent classification + activation,
+    edge reinforcement with [0.0, 10.0] clamp, probationary pattern
+    mining (3 obs / 2 holdouts / 0.15 lift), 2-hop missing-edge
+    prediction with destructive-edge safety filter, atomic save with
+    .bak rollback.
+  - **`templates/tcg_default.json`** (TB-F2) — canonical seed: 30 tools
+    with governance tiers (GREEN/YELLOW/RED), 12 intents with keyword
+    + preferred_sequence, 5 graduated workflow patterns including the
+    `convention_inference` workflow that wires `graq_glob → graq_read
+    → graq_write` for the `write-new-artifact` intent, 20 lessons,
+    108 typed edges (MATCHES_INTENT / USED_AFTER / PART_OF /
+    CAUSED_BY).
+  - **`rcag.py`** (TB-F3) — `RuntimeChatActionGraph` IS-A `Graqle`,
+    7 ephemeral node types (ToolCall, ToolResult, AssistantReasoning,
+    GovernanceCheckpoint, DebateRound, ErrorNode, AttachmentContext),
+    query augmentation with rolling 3-turn summary + partial
+    reasoning, deterministic token-overlap activation fallback for
+    unit tests (production wires through `_activate_subgraph(strategy
+    ='chunk')`).
+  - **`permission_manager.py`** (TB-F4) — `TurnState` enum, `TurnStore`
+    with CAS state transitions under `asyncio.Lock`, idempotent
+    resume via `tool_result_cache`, crash recovery via terminal
+    tombstoning, `PermissionManager` with session-scoped cache keyed
+    by `(tool_name, resource_scope, session_id)` plus revocation.
+  - **`debate.py`** (TB-F5) — PROPOSER/ADVERSARY/ARBITER personas via
+    `asyncio.gather` of three reason calls (will migrate to native
+    `graq_reason_batch` now that CG-REASON-01 is fixed in v0.47.3),
+    deterministic arbiter rule order safety > prerequisite > cost >
+    ambiguity, max 2 rounds, debate chip streaming.
+  - **`backend_router.py`** (TB-F6) — `BackendProfile`, `BackendRouter`,
+    family detection by name prefix, 6 chat task types (chat_triage /
+    chat_reasoning / chat_debate_proposer / chat_debate_adversary /
+    chat_debate_arbiter / chat_format), family separation enforced
+    only when 2+ families configured, minimal-polyglot degradation
+    when only one backend is available.
+  - **`agent_loop.py`** (TB-F7) — `ChatAgentLoop` integration point,
+    10-step turn flow from ADR-152 §Decision, adaptive budget with
+    burst override (25 → 100 ceiling), hard-error continuation via
+    ErrorNode + synthetic tool_result, governance parallelism,
+    pause/resume/cancel state transitions, CGI-compatible event
+    emission shape (ADR-153 seed) so the future project-self-memory
+    graph can fold turn events in via a classification pass.
+  - **`mcp_handlers.py`** (TB-F8) — four chat handler functions
+    (`handle_chat_turn`, `handle_chat_poll`, `handle_chat_resume`,
+    `handle_chat_cancel`) that the MCP server will dispatch the
+    `graq_chat_*` tools to. Kept in a separate module to minimize
+    the hub-file edit surface in `mcp_dev_server.py` per
+    CG-DIF-01/CG-DIF-02 — TB-N tracks the small registration block
+    that wires them in.
+
+### Tests
+- **`tests/test_chat/`** — new directory, 214 tests passing in 1.29s.
+  - test_streaming.py (TB-F1)
+  - test_turn_ledger.py (TB-F1)
+  - test_settings_loader.py (TB-F1)
+  - test_graq_md_loader.py (TB-F1)
+  - test_isolation.py (TB-F1; updated to allow the four shared core
+    modules graqle.core.{graph,node,edge,types,message,state} for
+    TB-F2 onward — everything else in graqle.core stays forbidden)
+  - test_tool_capability_graph.py (TB-F2, 43 cases covering BLOCKER-1
+    enrichment bypass / BLOCKER-2 single source of truth / MAJOR-2
+    destructive-edge filter / MAJOR-3 probationary filter /
+    MAJOR-4 atomic save rollback / MAJOR-5 negative paths /
+    MINOR-1 weight clamp / MINOR-2 probation thresholds)
+  - test_rcag.py (TB-F3, 19 cases)
+  - test_permission_manager.py (TB-F4, 22 async cases)
+  - test_debate.py (TB-F5, 15 cases including the deterministic rule
+    order verification)
+  - test_backend_router.py (TB-F6, 14 cases)
+  - test_agent_loop.py (TB-F7, 11 async cases including the
+    SDK-HF-01 structural regression guard
+    `test_sdk_hf_01_codegen_picks_graq_generate` that asserts a
+    codegen turn produces a tool_planned event for graq_generate
+    AND the final turn_complete text contains a fenced python block)
+  - test_mcp_handlers.py (TB-F8, 9 async cases)
+
+### Hotfixes rolled into v0.50.0
+- **CG-REASON-02** (v0.47.1) — BaseBackend deepcopy/pickle safety via
+  `_TRANSIENT_BACKEND_ATTRS` drop on serialization, fixed the
+  `cannot pickle '_thread.RLock' object` crash that was hard-downing
+  every reasoning round on the openai backend.
+- **SDK-HF-02** (v0.47.2) — synthesis truncation regression fixed via
+  the new `generate_with_continuation` helper extracted from
+  `CogniNode.reason` into `graqle/core/node.py`. The
+  `Aggregator._weighted_synthesis` path now recovers from
+  `stop_reason=max_tokens` the same way per-node responses do.
+  CogniNode.reason() keeps its inline copy of the loop untouched
+  (deferred to CG-OT028-01 follow-up).
+- **CG-REASON-01** (v0.47.3) — `areason_batch` error fallback fixed via
+  the new module-level `_make_error_result(query, exc)` helper that
+  builds a valid `ReasoningResult` with all required fields plus
+  `backend_status="failed"` / `backend_error` / `reasoning_mode=
+  "error"`. Unblocks the native batch reasoning path for the
+  ChatAgentLoop debate subsystem.
+
+### Notes
+- **SDK-HF-01 structurally resolved.** The extension's `dag.ts` +
+  `intent.ts` are obsoleted by the SDK-side TCG. The LLM picks tools
+  from a pre-activated TCG subgraph that puts `graq_generate` at
+  position #2 (score 1.635) for `write a Python function...` queries
+  on day one of the seed, before any user reinforcement. Verified
+  by the `test_sdk_hf_01_codegen_picks_graq_generate` regression
+  guard.
+- **Convention inference is a first-class product feature.** The TCG
+  ships with a `workflow_convention_inference` graduated workflow
+  pattern wiring `graq_glob → graq_read → graq_write` for the
+  `intent_write_new_artifact` intent. The built-in GRAQ.md template
+  has a `## Scenario: write-new-artifact` playbook encoding the
+  same behavior in natural language.
+- **CGI-compatible event emission shape (ADR-153 seed).** Every
+  ChatAgentLoop event carries the structural fields a future
+  Cognigraph Implementation Graph would need (turn_id, session_id,
+  parent_id, tool_name, status, latency_ms, debate_verdict,
+  debate_reason, governance_tier, governance_decision). The
+  ADR-153 design session (post-v0.50.0) can decide whether to fold
+  terminal turn events into a persistent project-self-memory graph
+  via a classification pass. No CGI node types or edge schemas are
+  implemented in v0.50.0 — ADR-153 ships in v0.51.0 as a separate
+  design wave.
+- **Source-level isolation rule narrowed.** `tests/test_chat/
+  test_isolation.py` now allows the chat package to import from
+  `graqle.core.{graph,node,edge,types,message,state}` (the
+  legitimate shared core); everything else in `graqle.core` /
+  `graqle.backends` / `graqle.orchestration` / `graqle.reasoning` /
+  `graqle.intelligence` / `graqle.plugins` / `graqle.connectors`
+  stays forbidden. Source-level scan pattern per
+  lesson_20260411T081005.
+- **Test counts at ship time:**
+  - tests/test_chat/: 214 passing in 1.29s (the v4 chat layer)
+  - tests/test_backends/test_base_serialization.py: 9 (CG-REASON-02)
+  - tests/test_core/test_continuation.py: 19 (SDK-HF-02 helper)
+  - tests/test_core/test_areason_batch.py: 9 (CG-REASON-01)
+  - tests/test_orchestration/test_aggregation.py: 7 (SDK-HF-02 wiring)
+- **TB-F8 hub-file wiring deferred.** The four `mcp_handlers.handle_chat_*`
+  functions are ready and tested standalone. The actual registration
+  block in `graqle/plugins/mcp_dev_server.py` (8609 lines, impact
+  radius 491) will be a small follow-up edit applied via
+  `graq_apply` per the CG-DIF-02 hub-file safety rule. See
+  `.gcc/CHATAGENTLOOP-V4-COMPLETE.md` for the registration snippet.
+- **PyPI publish + git tag pending operator approval.** The build is
+  staged at v0.50.0 but `python -m build && twine upload` is not
+  run automatically.
+
+---
+
 ## v0.47.3 — 2026-04-11
 
 ### Fixed

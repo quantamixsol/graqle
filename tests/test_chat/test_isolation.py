@@ -32,6 +32,18 @@ import pytest
 # dependency that was not part of the spec. TB-F2+ may relax specific
 # entries once the corresponding module lands (e.g. TB-F3 RCAG will need
 # graqle.core.graph via IS-A Graqle).
+# Globally-allowed shared core modules — TB-F2 onward needs Graqle/CogniNode
+# /CogniEdge to subclass and build the TCG/RCAG. Everything else in graqle.core
+# stays forbidden.
+_ALLOWED_CORE_MODULES = {
+    "graqle.core.graph",
+    "graqle.core.node",
+    "graqle.core.edge",
+    "graqle.core.types",
+    "graqle.core.message",
+    "graqle.core.state",
+}
+
 _FORBIDDEN_IMPORT_PREFIXES_TB_F1 = [
     "graqle.core",
     "graqle.backends",
@@ -87,13 +99,15 @@ def test_chat_submodules_do_not_import_forbidden_packages() -> None:
     leaks: dict[str, set[str]] = {}
     for py_file in _chat_py_files():
         imports = _scan_imports(py_file)
-        bad = {
-            name for name in imports
-            if any(
-                name == p or name.startswith(p + ".")
-                for p in _FORBIDDEN_IMPORT_PREFIXES_TB_F1
-            )
-        }
+        bad = set()
+        for name in imports:
+            # Allowlist short-circuit: legitimate shared core modules.
+            if name in _ALLOWED_CORE_MODULES:
+                continue
+            for fp in _FORBIDDEN_IMPORT_PREFIXES_TB_F1:
+                if name == fp or name.startswith(fp + "."):
+                    bad.add(name)
+                    break
         if bad:
             leaks[str(py_file.relative_to(_CHAT_DIR))] = bad
 
