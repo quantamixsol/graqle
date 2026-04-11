@@ -1,7 +1,7 @@
 {
   "_meta": {
     "schema_version": "1.0",
-    "description": "TCG (Tool Capability Graph) default seed for ChatAgentLoop v4 (ADR-152). Source of truth for tool selection. Runtime augmentation is forbidden — new tools are learned through reinforcement, not bootstrapped from list_tools(). See BLOCKER-2 in the TB-F2 review.",
+    "description": "TCG (Tool Capability Graph) default seed for ChatAgentLoop v4. Source of truth for tool selection. Runtime augmentation is forbidden - new tools are learned through reinforcement.",
     "schema_notes": {
       "node_kinds": {
         "TCGTool": "An MCP tool. properties: governance_tier ∈ {GREEN,YELLOW,RED}, side_effect ∈ {read,write,net,compute,destructive}, category, latency_tier ∈ {fast,medium,slow}, safe_for_prediction ∈ {true,false}",
@@ -31,7 +31,7 @@
       "id": "tool_graq_read",
       "label": "graq_read",
       "entity_type": "TCGTool",
-      "description": "Read file contents from disk with line numbers. Safe, idempotent, no side effects.",
+      "description": "Read file contents from disk with line numbers. Safe, idempotent, no side effects",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -44,7 +44,7 @@
       "id": "tool_graq_glob",
       "label": "graq_glob",
       "entity_type": "TCGTool",
-      "description": "Find files matching a glob pattern. Safe, idempotent.",
+      "description": "Find files matching a glob pattern. Safe, idempotent",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -57,7 +57,7 @@
       "id": "tool_graq_grep",
       "label": "graq_grep",
       "entity_type": "TCGTool",
-      "description": "Search file contents by regex. Safe, idempotent.",
+      "description": "Search file contents by regex. Safe, idempotent",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -70,7 +70,7 @@
       "id": "tool_graq_context",
       "label": "graq_context",
       "entity_type": "TCGTool",
-      "description": "Activate KG context for a task. Returns focused nodes + lessons. The preferred grounding step before reasoning.",
+      "description": "Activate KG context for a task. Returns focused nodes + lessons. The preferred grounding step before reasoning",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -83,7 +83,7 @@
       "id": "tool_graq_inspect",
       "label": "graq_inspect",
       "entity_type": "TCGTool",
-      "description": "Inspect graph stats or a node. Safe, read-only.",
+      "description": "Inspect graph stats or a node. Safe, read-only",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -96,7 +96,7 @@
       "id": "tool_graq_lessons",
       "label": "graq_lessons",
       "entity_type": "TCGTool",
-      "description": "Retrieve lessons for an operation. Read-only.",
+      "description": "Retrieve lessons for an operation. Read-only",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -109,7 +109,7 @@
       "id": "tool_graq_impact",
       "label": "graq_impact",
       "entity_type": "TCGTool",
-      "description": "Trace the blast radius of a component change.",
+      "description": "Trace the blast radius of a component change",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -122,7 +122,7 @@
       "id": "tool_graq_preflight",
       "label": "graq_preflight",
       "entity_type": "TCGTool",
-      "description": "Governance preflight before a change. Returns lessons + ADRs + safety boundaries.",
+      "description": "Governance preflight before a change. Returns lessons + ADRs + safety boundaries",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -135,7 +135,7 @@
       "id": "tool_graq_reason",
       "label": "graq_reason",
       "entity_type": "TCGTool",
-      "description": "Run graph-of-agents reasoning over the KG. Use before design / architectural decisions.",
+      "description": "Run graph-of-agents reasoning over the KG. Use before design / architectural decisions",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "compute",
@@ -148,7 +148,7 @@
       "id": "tool_graq_reason_batch",
       "label": "graq_reason_batch",
       "entity_type": "TCGTool",
-      "description": "Run multiple reasoning queries in parallel. Used by ChatAgentLoop v4 debate subsystem.",
+      "description": "Run multiple reasoning queries in parallel. Used by ChatAgentLoop v4 debate subsystem",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "compute",
@@ -161,7 +161,7 @@
       "id": "tool_graq_predict",
       "label": "graq_predict",
       "entity_type": "TCGTool",
-      "description": "Governed compound prediction that may fold a new subgraph into the KG.",
+      "description": "Governed compound prediction that may fold a new subgraph into the KG",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -174,7 +174,7 @@
       "id": "tool_graq_review",
       "label": "graq_review",
       "entity_type": "TCGTool",
-      "description": "Governed review of a file, diff, or spec. Returns BLOCKER/MAJOR/MINOR findings.",
+      "description": "Governed review of a file, diff, or spec. Returns BLOCKER/MAJOR/MINOR findings",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -187,7 +187,7 @@
       "id": "tool_graq_generate",
       "label": "graq_generate",
       "entity_type": "TCGTool",
-      "description": "Governed code generation. Produces a unified diff. THE preferred codegen tool — top of the list for codegen intent.",
+      "description": "Governed code generation. Produces a unified diff. THE preferred codegen tool — top of the list for codegen intent",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "compute",
@@ -200,7 +200,7 @@
       "id": "tool_graq_edit",
       "label": "graq_edit",
       "entity_type": "TCGTool",
-      "description": "Governed atomic file edit. Default dry_run=True. Use on small / low-risk files.",
+      "description": "Governed atomic file edit. Default dry_run=True. Use on small / low-risk files",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -213,7 +213,7 @@
       "id": "tool_graq_apply",
       "label": "graq_apply",
       "entity_type": "TCGTool",
-      "description": "Deterministic anchor-based bytes.replace insertion. Use on hub files (impact radius > 20 or > 1500 lines).",
+      "description": "Deterministic anchor-based bytes.replace insertion. Use on hub files (impact radius > 20 or > 1500 lines)",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -226,7 +226,7 @@
       "id": "tool_graq_write",
       "label": "graq_write",
       "entity_type": "TCGTool",
-      "description": "Governed atomic file write. Default dry_run=True. Creates new files.",
+      "description": "Governed atomic file write. Default dry_run=True. Creates new files",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -239,7 +239,7 @@
       "id": "tool_graq_bash",
       "label": "graq_bash",
       "entity_type": "TCGTool",
-      "description": "Run a shell command in the project directory. Governed — blocked in read-only mode.",
+      "description": "Run a shell command in the project directory. Governed — blocked in read-only mode",
       "properties": {
         "governance_tier": "RED",
         "side_effect": "destructive",
@@ -252,7 +252,7 @@
       "id": "tool_graq_test",
       "label": "graq_test",
       "entity_type": "TCGTool",
-      "description": "Run pytest on a target and parse results. Use focused paths.",
+      "description": "Run pytest on a target and parse results. Use focused paths",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "compute",
@@ -265,7 +265,7 @@
       "id": "tool_graq_git_status",
       "label": "graq_git_status",
       "entity_type": "TCGTool",
-      "description": "Git working tree status. Read-only.",
+      "description": "Git working tree status. Read-only",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -278,7 +278,7 @@
       "id": "tool_graq_git_diff",
       "label": "graq_git_diff",
       "entity_type": "TCGTool",
-      "description": "Git diff. Read-only.",
+      "description": "Git diff. Read-only",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -291,7 +291,7 @@
       "id": "tool_graq_git_log",
       "label": "graq_git_log",
       "entity_type": "TCGTool",
-      "description": "Git log. Read-only.",
+      "description": "Git log. Read-only",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -304,7 +304,7 @@
       "id": "tool_graq_git_branch",
       "label": "graq_git_branch",
       "entity_type": "TCGTool",
-      "description": "List / create / switch git branches.",
+      "description": "List / create / switch git branches",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -317,7 +317,7 @@
       "id": "tool_graq_git_commit",
       "label": "graq_git_commit",
       "entity_type": "TCGTool",
-      "description": "Governed git commit. Patent scan runs automatically.",
+      "description": "Governed git commit. Patent scan runs automatically",
       "properties": {
         "governance_tier": "RED",
         "side_effect": "destructive",
@@ -330,7 +330,7 @@
       "id": "tool_graq_debug",
       "label": "graq_debug",
       "entity_type": "TCGTool",
-      "description": "Diagnostic triage over the KG. Helps localize bugs.",
+      "description": "Diagnostic triage over the KG. Helps localize bugs",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -343,7 +343,7 @@
       "id": "tool_graq_learn",
       "label": "graq_learn",
       "entity_type": "TCGTool",
-      "description": "Teach the KG: record outcomes, entities, or knowledge. Writes new nodes/edges.",
+      "description": "Teach the KG: record outcomes, entities, or knowledge. Writes new nodes/edges",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "write",
@@ -356,7 +356,7 @@
       "id": "tool_graq_scaffold",
       "label": "graq_scaffold",
       "entity_type": "TCGTool",
-      "description": "Scaffold a new component from project conventions.",
+      "description": "Scaffold a new component from project conventions",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "compute",
@@ -369,7 +369,7 @@
       "id": "tool_graq_gate",
       "label": "graq_gate",
       "entity_type": "TCGTool",
-      "description": "Quality gate check on a change.",
+      "description": "Quality gate check on a change",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -382,7 +382,7 @@
       "id": "tool_graq_ingest",
       "label": "graq_ingest",
       "entity_type": "TCGTool",
-      "description": "Ingest external documents (PDF, DOCX) into the KG. Network + disk side effects.",
+      "description": "Ingest external documents (PDF, DOCX) into the KG. Network + disk side effects",
       "properties": {
         "governance_tier": "RED",
         "side_effect": "destructive",
@@ -395,7 +395,7 @@
       "id": "tool_graq_vendor",
       "label": "graq_vendor",
       "entity_type": "TCGTool",
-      "description": "Vendor external dependencies into the repository.",
+      "description": "Vendor external dependencies into the repository",
       "properties": {
         "governance_tier": "RED",
         "side_effect": "destructive",
@@ -408,7 +408,7 @@
       "id": "tool_graq_reload",
       "label": "graq_reload",
       "entity_type": "TCGTool",
-      "description": "Reload the KG from disk. Side effect: invalidates caches.",
+      "description": "Reload the KG from disk. Side effect: invalidates caches",
       "properties": {
         "governance_tier": "RED",
         "side_effect": "destructive",
@@ -421,7 +421,7 @@
       "id": "intent_codegen",
       "label": "codegen",
       "entity_type": "TCGIntent",
-      "description": "User wants new code written (function, module, class).",
+      "description": "User wants new code written (function, module, class)",
       "properties": {
         "keywords": [
           "write",
@@ -443,7 +443,7 @@
       "id": "intent_bug_fix",
       "label": "bug_fix",
       "entity_type": "TCGIntent",
-      "description": "User wants a bug diagnosed and fixed.",
+      "description": "User wants a bug diagnosed and fixed",
       "properties": {
         "keywords": [
           "fix",
@@ -465,7 +465,7 @@
       "id": "intent_refactor",
       "label": "refactor",
       "entity_type": "TCGIntent",
-      "description": "User wants code restructured without changing behavior.",
+      "description": "User wants code restructured without changing behavior",
       "properties": {
         "keywords": [
           "refactor",
@@ -485,7 +485,7 @@
       "id": "intent_audit",
       "label": "audit",
       "entity_type": "TCGIntent",
-      "description": "User wants to audit or analyze existing code.",
+      "description": "User wants to audit or analyze existing code",
       "properties": {
         "keywords": [
           "audit",
@@ -505,7 +505,7 @@
       "id": "intent_review",
       "label": "review",
       "entity_type": "TCGIntent",
-      "description": "User wants a governed review of a file or diff.",
+      "description": "User wants a governed review of a file or diff",
       "properties": {
         "keywords": [
           "review",
@@ -523,7 +523,7 @@
       "id": "intent_explain",
       "label": "explain",
       "entity_type": "TCGIntent",
-      "description": "User wants an explanation of existing behavior.",
+      "description": "User wants an explanation of existing behavior",
       "properties": {
         "keywords": [
           "explain",
@@ -542,7 +542,7 @@
       "id": "intent_search",
       "label": "search",
       "entity_type": "TCGIntent",
-      "description": "User wants to find something in the codebase.",
+      "description": "User wants to find something in the codebase",
       "properties": {
         "keywords": [
           "find",
@@ -561,7 +561,7 @@
       "id": "intent_test",
       "label": "test",
       "entity_type": "TCGIntent",
-      "description": "User wants tests written or executed.",
+      "description": "User wants tests written or executed",
       "properties": {
         "keywords": [
           "test",
@@ -580,7 +580,7 @@
       "id": "intent_write_new_artifact",
       "label": "write_new_artifact",
       "entity_type": "TCGIntent",
-      "description": "User wants a new artifact (ADR, tracker entry, lesson) written — triggers convention_inference.",
+      "description": "User wants a new artifact (ADR, tracker entry, lesson) written — triggers convention_inference",
       "properties": {
         "keywords": [
           "write an ADR",
@@ -601,7 +601,7 @@
       "id": "intent_git_status",
       "label": "git_status",
       "entity_type": "TCGIntent",
-      "description": "User wants to inspect git state.",
+      "description": "User wants to inspect git state",
       "properties": {
         "keywords": [
           "git status",
@@ -619,7 +619,7 @@
       "id": "intent_commit",
       "label": "commit",
       "entity_type": "TCGIntent",
-      "description": "User wants to commit staged changes.",
+      "description": "User wants to commit staged changes",
       "properties": {
         "keywords": [
           "commit",
@@ -636,7 +636,7 @@
       "id": "intent_governed_refactor",
       "label": "governed_refactor",
       "entity_type": "TCGIntent",
-      "description": "User wants a refactor with full governance gating.",
+      "description": "User wants a refactor with full governance gating",
       "properties": {
         "keywords": [
           "governed refactor",
@@ -658,7 +658,7 @@
       "id": "workflow_bug_fix",
       "label": "bug_fix_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Bug fix workflow from mcp_dev_server workflow_plans (seeded, not mined).",
+      "description": "Bug fix workflow from mcp_dev_server workflow_plans (seeded, not mined)",
       "properties": {
         "tool_sequence": [
           "tool_graq_grep",
@@ -679,7 +679,7 @@
       "id": "workflow_scaffold_and_test",
       "label": "scaffold_and_test_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Scaffold-and-test workflow from mcp_dev_server workflow_plans.",
+      "description": "Scaffold-and-test workflow from mcp_dev_server workflow_plans",
       "properties": {
         "tool_sequence": [
           "tool_graq_context",
@@ -697,7 +697,7 @@
       "id": "workflow_governed_refactor",
       "label": "governed_refactor_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Governed refactor workflow from mcp_dev_server workflow_plans.",
+      "description": "Governed refactor workflow from mcp_dev_server workflow_plans",
       "properties": {
         "tool_sequence": [
           "tool_graq_git_branch",
@@ -718,7 +718,7 @@
       "id": "workflow_review_and_fix",
       "label": "review_and_fix_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Review-and-fix workflow from mcp_dev_server workflow_plans.",
+      "description": "Review-and-fix workflow from mcp_dev_server workflow_plans",
       "properties": {
         "tool_sequence": [
           "tool_graq_read",
@@ -736,7 +736,7 @@
       "id": "workflow_convention_inference",
       "label": "convention_inference_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Convention-inference seed: glob for existing artifacts, read one example, infer location and style, write. First-class product feature per ADR-152.",
+      "description": "Convention-inference seed: glob for existing artifacts, read one example, infer location and style, write. First-class product feature per",
       "properties": {
         "tool_sequence": [
           "tool_graq_glob",
@@ -752,7 +752,7 @@
       "id": "lesson_sdk_hf_01",
       "label": "SDK-HF-01 DAG missing graq_generate",
       "entity_type": "TCGLesson",
-      "description": "The extension orchestrator built a DAG without graq_generate for codegen intent. ChatAgentLoop v4 TCG activation is the structural fix.",
+      "description": "The extension orchestrator built a DAG without graq_generate for codegen intent. ChatAgentLoop v4 TCG activation is the structural fix",
       "properties": {
         "severity": "HIGH",
         "hit_count": 1
@@ -760,9 +760,9 @@
     },
     "lesson_cg_dif_01": {
       "id": "lesson_cg_dif_01",
-      "label": "CG-DIF-01 graq_edit hub-file failure",
+      "label": "graq_edit hub-file insertion failure pattern",
       "entity_type": "TCGLesson",
-      "description": "graq_edit fails on hub files with multiple lookalike methods. Pivot to graq_apply.",
+      "description": "graq_edit fails on hub files with multiple lookalike methods. Pivot to graq_apply",
       "properties": {
         "severity": "HIGH",
         "hit_count": 3
@@ -770,9 +770,9 @@
     },
     "lesson_ot_060": {
       "id": "lesson_ot_060",
-      "label": "OT-060 NEO4J_DISABLED gate",
+      "label": "Neo4j disable-env-var gate",
       "entity_type": "TCGLesson",
-      "description": "When NEO4J_DISABLED=true, Graqle.from_neo4j/to_neo4j raise before dialing bolt://.",
+      "description": "When NEO4J_DISABLED=true, Graqle.from_neo4j/to_neo4j raise before dialing bolt://",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 132
@@ -780,9 +780,9 @@
     },
     "lesson_ot_062": {
       "id": "lesson_ot_062",
-      "label": "OT-062 per-instance session gates",
+      "label": "Per-instance session gate pattern",
       "entity_type": "TCGLesson",
-      "description": "Each KogniDevServer instance is its own MCP session container. Per-instance bypass attrs are session-scoped.",
+      "description": "Each KogniDevServer instance is its own MCP session container. Per-instance bypass attrs are session-scoped",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 130
@@ -790,9 +790,9 @@
     },
     "lesson_ot_061": {
       "id": "lesson_ot_061",
-      "label": "OT-061 AccessDenied dedupe",
+      "label": "Credential access dedupe pattern",
       "entity_type": "TCGLesson",
-      "description": "Module-level sentinel for boto3 AccessDenied dedupe to avoid log flooding.",
+      "description": "Module-level sentinel for boto3 AccessDenied dedupe to avoid log flooding",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 130
@@ -800,9 +800,9 @@
     },
     "lesson_cg_reason_02": {
       "id": "lesson_cg_reason_02",
-      "label": "CG-REASON-02 backend pickling",
+      "label": "Backend pickling crash pattern",
       "entity_type": "TCGLesson",
-      "description": "Backend instances crashed with _thread.RLock pickle error on deepcopy. Fixed via __getstate__/__setstate__ drop-transients pattern.",
+      "description": "Backend instances crashed with _thread.RLock pickle error on deepcopy. Fixed via __getstate__/__setstate__ drop-transients pattern",
       "properties": {
         "severity": "CRITICAL",
         "hit_count": 45
@@ -812,7 +812,7 @@
       "id": "lesson_sdk_hf_02",
       "label": "SDK-HF-02 synthesis truncation",
       "entity_type": "TCGLesson",
-      "description": "Synthesis hit stop_reason=max_tokens and returned truncated text. Fixed via generate_with_continuation helper.",
+      "description": "Synthesis hit stop_reason=max_tokens and returned truncated text. Fixed via generate_with_continuation helper",
       "properties": {
         "severity": "HIGH",
         "hit_count": 34
@@ -820,9 +820,9 @@
     },
     "lesson_cg_reason_01": {
       "id": "lesson_cg_reason_01",
-      "label": "CG-REASON-01 areason_batch fallback",
+      "label": "Batch reasoning fallback pattern",
       "entity_type": "TCGLesson",
-      "description": "areason_batch error branch crashed constructing ReasoningResult with node_count. Fixed via _make_error_result helper.",
+      "description": "areason_batch error branch crashed constructing ReasoningResult with node_count. Fixed via _make_error_result helper",
       "properties": {
         "severity": "HIGH",
         "hit_count": 9
@@ -830,9 +830,9 @@
     },
     "lesson_tb_f1_isolation": {
       "id": "lesson_tb_f1_isolation",
-      "label": "TB-F1 source-level isolation test",
+      "label": "Source-level isolation test pattern",
       "entity_type": "TCGLesson",
-      "description": "Isolation tests must scan source imports, not runtime sys.modules, because parent __init__ eagerly loads submodules.",
+      "description": "Isolation tests must scan source imports, not runtime sys.modules, because parent __init__ eagerly loads submodules",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 1
@@ -842,7 +842,7 @@
       "id": "lesson_reason_cold",
       "label": "graq_reason cold-call anti-pattern",
       "entity_type": "TCGLesson",
-      "description": "Calling graq_reason without prior graq_context/graq_inspect yields low-confidence cold answers.",
+      "description": "Calling graq_reason without prior graq_context/graq_inspect yields low-confidence cold answers",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 12
@@ -852,7 +852,7 @@
       "id": "lesson_pytest_full",
       "label": "pytest tests/ crashes on Windows",
       "entity_type": "TCGLesson",
-      "description": "Full pytest without focused path OOMs pytest-xdist workers on Windows. Always use focused paths.",
+      "description": "Full pytest without a focused path can overload parallel test workers on some environments. Always use focused paths.",
       "properties": {
         "severity": "HIGH",
         "hit_count": 8
@@ -862,7 +862,7 @@
       "id": "lesson_graq_apply_hub",
       "label": "graq_apply on hub files",
       "entity_type": "TCGLesson",
-      "description": "Hub files (impact_radius > 20 or > 1500 lines) must use graq_apply, not graq_edit.",
+      "description": "Hub files (impact_radius > 20 or > 1500 lines) must use graq_apply, not graq_edit",
       "properties": {
         "severity": "HIGH",
         "hit_count": 5
@@ -872,7 +872,7 @@
       "id": "lesson_dry_run_first",
       "label": "always dry_run=True first",
       "entity_type": "TCGLesson",
-      "description": "Every governed write tool defaults to dry_run=True. Explicit dry_run=False only after validation.",
+      "description": "Every governed write tool defaults to dry_run=True. Explicit dry_run=False only after validation",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 20
@@ -882,7 +882,7 @@
       "id": "lesson_convention_inf",
       "label": "convention inference first, no asking",
       "entity_type": "TCGLesson",
-      "description": "Never ask where files go or what the next sequence number is. Glob for existing artifacts, read one example, infer.",
+      "description": "Never ask where files go or what the next sequence number is. Glob for existing artifacts, read one example, infer",
       "properties": {
         "severity": "HIGH",
         "hit_count": 3
@@ -892,7 +892,7 @@
       "id": "lesson_patent_scrub",
       "label": "patent scan blocks credentials literals",
       "entity_type": "TCGLesson",
-      "description": "Patent scan rejects literal 'api_key', 'secret', 'token' in docstrings. Use 'credentials env-var name' or 'placeholder'.",
+      "description": "Patent scan rejects literal 'api_key', 'secret', 'token' in docstrings. Use 'credentials env-var name' or 'placeholder'",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 4
@@ -902,7 +902,7 @@
       "id": "lesson_governance_tier",
       "label": "governance tier upfront disclosure",
       "entity_type": "TCGLesson",
-      "description": "Governance tiers live on TCG tool nodes as attributes. Pre-disclosed upfront. Never surprise-block mid-flow.",
+      "description": "Governance tiers live on TCG tool nodes as attributes. Pre-disclosed upfront. Never surprise-block mid-flow",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 1
@@ -912,7 +912,7 @@
       "id": "lesson_probation",
       "label": "workflow probation before graduation",
       "entity_type": "TCGLesson",
-      "description": "Candidate workflow patterns stay in probation until holdout validation. Prevents pollution from coincidental repetition.",
+      "description": "Candidate workflow patterns stay in probation until holdout validation. Prevents pollution from coincidental repetition",
       "properties": {
         "severity": "MEDIUM",
         "hit_count": 1
@@ -922,7 +922,7 @@
       "id": "lesson_destructive",
       "label": "destructive-edge safety filter",
       "entity_type": "TCGLesson",
-      "description": "Predicted missing edges must pass a non-destructive allowlist. Never suggest graq_bash -> graq_delete_all even if support is high.",
+      "description": "Predicted missing edges must pass a non-destructive allowlist. Never suggest graq_bash -> graq_delete_all even if support is high",
       "properties": {
         "severity": "CRITICAL",
         "hit_count": 1
@@ -932,7 +932,7 @@
       "id": "lesson_weight_clamp",
       "label": "edge weight clamp [0.0, 10.0]",
       "entity_type": "TCGLesson",
-      "description": "Every reinforcement path must clamp the new weight to [0.0, 10.0] to prevent runaway reinforcement.",
+      "description": "Every reinforcement path must clamp the new weight to [0.0, 10.0] to prevent runaway reinforcement",
       "properties": {
         "severity": "LOW",
         "hit_count": 1
@@ -942,7 +942,7 @@
       "id": "lesson_atomic_save",
       "label": "TCG atomic save with .bak rollback",
       "entity_type": "TCGLesson",
-      "description": "TCG persistence: write temp -> fsync -> rotate current to .bak -> os.replace(temp, target) -> cleanup. Rollback on any failure.",
+      "description": "TCG persistence: write temp -> fsync -> rotate current to .bak -> os.replace(temp, target) -> cleanup. Rollback on any failure",
       "properties": {
         "severity": "HIGH",
         "hit_count": 1
@@ -952,7 +952,7 @@
       "id": "tool_graq_gov_gate",
       "label": "graq_gov_gate",
       "entity_type": "TCGTool",
-      "description": "Governance gate check — runs governance constraint verification before a change.",
+      "description": "Governance gate check — runs governance constraint verification before a change",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -965,7 +965,7 @@
       "id": "tool_graq_safety_check",
       "label": "graq_safety_check",
       "entity_type": "TCGTool",
-      "description": "Fast safety check for a proposed action against project safety boundaries.",
+      "description": "Fast safety check for a proposed action against project safety boundaries",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -978,7 +978,7 @@
       "id": "tool_graq_audit",
       "label": "graq_audit",
       "entity_type": "TCGTool",
-      "description": "Read-only audit trail inspection. Used by R18 GETC trace capture flow.",
+      "description": "Read-only audit trail inspection. Used by R18 GETC trace capture flow",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -991,7 +991,7 @@
       "id": "tool_graq_runtime",
       "label": "graq_runtime",
       "entity_type": "TCGTool",
-      "description": "Runtime introspection of current governance state. Used by R18 GETC.",
+      "description": "Runtime introspection of current governance state. Used by R18 GETC",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1004,7 +1004,7 @@
       "id": "tool_graq_phantom_browse",
       "label": "graq_phantom_browse",
       "entity_type": "TCGTool",
-      "description": "Browse a URL with a headless browser session.",
+      "description": "Browse a URL with a headless browser session",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1017,7 +1017,7 @@
       "id": "tool_graq_phantom_click",
       "label": "graq_phantom_click",
       "entity_type": "TCGTool",
-      "description": "Click an element in an active phantom session.",
+      "description": "Click an element in an active phantom session",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1030,7 +1030,7 @@
       "id": "tool_graq_phantom_type",
       "label": "graq_phantom_type",
       "entity_type": "TCGTool",
-      "description": "Type into a field in an active phantom session.",
+      "description": "Type into a field in an active phantom session",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1043,7 +1043,7 @@
       "id": "tool_graq_phantom_screenshot",
       "label": "graq_phantom_screenshot",
       "entity_type": "TCGTool",
-      "description": "Capture a screenshot of the current phantom page. JS execution via remote page makes this a governed operation.",
+      "description": "Capture a screenshot of the current phantom page. JS execution via remote page makes this a governed operation",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1056,7 +1056,7 @@
       "id": "tool_graq_phantom_audit",
       "label": "graq_phantom_audit",
       "entity_type": "TCGTool",
-      "description": "Run an automated audit (accessibility, perf, etc.) against the page.",
+      "description": "Run an automated audit (accessibility, perf, etc.) against the page",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1069,7 +1069,7 @@
       "id": "tool_graq_phantom_session",
       "label": "graq_phantom_session",
       "entity_type": "TCGTool",
-      "description": "Manage a phantom browser session (create, resume, close).",
+      "description": "Manage a phantom browser session (create, resume, close)",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1082,7 +1082,7 @@
       "id": "tool_graq_phantom_discover",
       "label": "graq_phantom_discover",
       "entity_type": "TCGTool",
-      "description": "Crawl-discover pages reachable from a URL.",
+      "description": "Crawl-discover pages reachable from a URL",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1095,7 +1095,7 @@
       "id": "tool_graq_phantom_flow",
       "label": "graq_phantom_flow",
       "entity_type": "TCGTool",
-      "description": "Execute a scripted multi-step browser flow.",
+      "description": "Execute a scripted multi-step browser flow",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1108,7 +1108,7 @@
       "id": "tool_graq_scorch_audit",
       "label": "graq_scorch_audit",
       "entity_type": "TCGTool",
-      "description": "Full SCORCH UX audit across a target URL or build.",
+      "description": "Full SCORCH UX audit across a target URL or build",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1121,7 +1121,7 @@
       "id": "tool_graq_scorch_report",
       "label": "graq_scorch_report",
       "entity_type": "TCGTool",
-      "description": "Generate a SCORCH audit report from a prior run.",
+      "description": "Generate a SCORCH audit report from a prior run",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1134,7 +1134,7 @@
       "id": "tool_graq_scorch_a11y",
       "label": "graq_scorch_a11y",
       "entity_type": "TCGTool",
-      "description": "Accessibility-only SCORCH audit (WCAG).",
+      "description": "Accessibility-only SCORCH audit (WCAG)",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1147,7 +1147,7 @@
       "id": "tool_graq_scorch_perf",
       "label": "graq_scorch_perf",
       "entity_type": "TCGTool",
-      "description": "Performance-only SCORCH audit (Core Web Vitals).",
+      "description": "Performance-only SCORCH audit (Core Web Vitals)",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1160,7 +1160,7 @@
       "id": "tool_graq_scorch_seo",
       "label": "graq_scorch_seo",
       "entity_type": "TCGTool",
-      "description": "SEO-only SCORCH audit.",
+      "description": "SEO-only SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1173,7 +1173,7 @@
       "id": "tool_graq_scorch_mobile",
       "label": "graq_scorch_mobile",
       "entity_type": "TCGTool",
-      "description": "Mobile-responsive SCORCH audit.",
+      "description": "Mobile-responsive SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1186,7 +1186,7 @@
       "id": "tool_graq_scorch_i18n",
       "label": "graq_scorch_i18n",
       "entity_type": "TCGTool",
-      "description": "i18n / RTL / encoding SCORCH audit.",
+      "description": "i18n / RTL / encoding SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1199,7 +1199,7 @@
       "id": "tool_graq_scorch_security",
       "label": "graq_scorch_security",
       "entity_type": "TCGTool",
-      "description": "Security headers + CSP SCORCH audit.",
+      "description": "Security headers + CSP SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1212,7 +1212,7 @@
       "id": "tool_graq_scorch_conversion",
       "label": "graq_scorch_conversion",
       "entity_type": "TCGTool",
-      "description": "Conversion-funnel SCORCH audit.",
+      "description": "Conversion-funnel SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1225,7 +1225,7 @@
       "id": "tool_graq_scorch_brand",
       "label": "graq_scorch_brand",
       "entity_type": "TCGTool",
-      "description": "Brand-consistency SCORCH audit.",
+      "description": "Brand-consistency SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1238,7 +1238,7 @@
       "id": "tool_graq_scorch_auth_flow",
       "label": "graq_scorch_auth_flow",
       "entity_type": "TCGTool",
-      "description": "Auth-flow SCORCH audit.",
+      "description": "Auth-flow SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1251,7 +1251,7 @@
       "id": "tool_graq_scorch_behavioral",
       "label": "graq_scorch_behavioral",
       "entity_type": "TCGTool",
-      "description": "Behavioral / user-interaction SCORCH audit.",
+      "description": "Behavioral / user-interaction SCORCH audit",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1264,7 +1264,7 @@
       "id": "tool_graq_scorch_diff",
       "label": "graq_scorch_diff",
       "entity_type": "TCGTool",
-      "description": "Diff SCORCH audit results between two runs.",
+      "description": "Diff SCORCH audit results between two runs",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1277,7 +1277,7 @@
       "id": "tool_graq_lifecycle",
       "label": "graq_lifecycle",
       "entity_type": "TCGTool",
-      "description": "Session lifecycle hooks (session_start / fix_complete).",
+      "description": "Session lifecycle hooks (session_start / fix_complete)",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1290,7 +1290,7 @@
       "id": "tool_graq_drace",
       "label": "graq_drace",
       "entity_type": "TCGTool",
-      "description": "DRACE reasoning-chain tracer.",
+      "description": "DRACE reasoning-chain tracer",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1303,7 +1303,7 @@
       "id": "tool_graq_workflow",
       "label": "graq_workflow",
       "entity_type": "TCGTool",
-      "description": "Run a pre-defined ordered tool workflow (bug_fix / scaffold / governed_refactor / review_and_fix).",
+      "description": "Run a pre-defined ordered tool workflow (bug_fix / scaffold / governed_refactor / review_and_fix)",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1316,7 +1316,7 @@
       "id": "tool_graq_auto",
       "label": "graq_auto",
       "entity_type": "TCGTool",
-      "description": "Autonomous multi-step agent run — classify, plan, execute, learn.",
+      "description": "Autonomous multi-step agent run — classify, plan, execute, learn",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "compute",
@@ -1329,7 +1329,7 @@
       "id": "tool_graq_route",
       "label": "graq_route",
       "entity_type": "TCGTool",
-      "description": "Classify a user query and pick the cheapest viable tool.",
+      "description": "Classify a user query and pick the cheapest viable tool",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1342,7 +1342,7 @@
       "id": "tool_graq_correct",
       "label": "graq_correct",
       "entity_type": "TCGTool",
-      "description": "Governed self-correction loop over a prior result.",
+      "description": "Governed self-correction loop over a prior result",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "compute",
@@ -1355,7 +1355,7 @@
       "id": "tool_graq_profile",
       "label": "graq_profile",
       "entity_type": "TCGTool",
-      "description": "Read/update the project profile used by reformulator.",
+      "description": "Read/update the project profile used by reformulator",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1368,7 +1368,7 @@
       "id": "tool_graq_web_search",
       "label": "graq_web_search",
       "entity_type": "TCGTool",
-      "description": "Web search — external lookups for context enrichment.",
+      "description": "Web search — external lookups for context enrichment",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1381,7 +1381,7 @@
       "id": "tool_graq_plan",
       "label": "graq_plan",
       "entity_type": "TCGTool",
-      "description": "Plan-as-graph decomposition (ADR-118).",
+      "description": "Plan-as-graph decomposition",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "compute",
@@ -1394,7 +1394,7 @@
       "id": "tool_graq_github_pr",
       "label": "graq_github_pr",
       "entity_type": "TCGTool",
-      "description": "Read or create a GitHub pull request.",
+      "description": "Read or create a GitHub pull request",
       "properties": {
         "governance_tier": "YELLOW",
         "side_effect": "net",
@@ -1407,7 +1407,7 @@
       "id": "tool_graq_github_diff",
       "label": "graq_github_diff",
       "entity_type": "TCGTool",
-      "description": "Read a GitHub pull request diff.",
+      "description": "Read a GitHub pull request diff",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1420,7 +1420,7 @@
       "id": "tool_graq_todo",
       "label": "graq_todo",
       "entity_type": "TCGTool",
-      "description": "Governed per-session todo list.",
+      "description": "Governed per-session todo list",
       "properties": {
         "governance_tier": "GREEN",
         "side_effect": "read",
@@ -1433,7 +1433,7 @@
       "id": "intent_visual_audit",
       "label": "visual_audit",
       "entity_type": "TCGIntent",
-      "description": "User wants a UI / UX / accessibility / SEO visual audit on a running page.",
+      "description": "User wants a UI / UX / accessibility / SEO visual audit on a running page",
       "properties": {
         "keywords": [
           "audit ui",
@@ -1460,7 +1460,7 @@
       "id": "intent_browser_automation",
       "label": "browser_automation",
       "entity_type": "TCGIntent",
-      "description": "User wants to drive a browser session (click, type, navigate, discover).",
+      "description": "User wants to drive a browser session (click, type, navigate, discover)",
       "properties": {
         "keywords": [
           "click",
@@ -1486,7 +1486,7 @@
       "id": "intent_production_deploy_check",
       "label": "production_deploy_check",
       "entity_type": "TCGIntent",
-      "description": "User wants to validate a production deployment via web-facing checks + audit trail.",
+      "description": "User wants to validate a production deployment via web-facing checks + audit trail",
       "properties": {
         "keywords": [
           "production",
@@ -1508,7 +1508,7 @@
       "id": "intent_dependency_management",
       "label": "dependency_management",
       "entity_type": "TCGIntent",
-      "description": "User wants to vendor, ingest external docs, or reload the graph.",
+      "description": "User wants to vendor, ingest external docs, or reload the graph",
       "properties": {
         "keywords": [
           "vendor",
@@ -1528,7 +1528,7 @@
       "id": "intent_autonomous_task",
       "label": "autonomous_task",
       "entity_type": "TCGIntent",
-      "description": "User wants an autonomous multi-step agent run with planning, routing, and correction.",
+      "description": "User wants an autonomous multi-step agent run with planning, routing, and correction",
       "properties": {
         "keywords": [
           "autonomous",
@@ -1551,7 +1551,7 @@
       "id": "intent_knowledge_lookup",
       "label": "knowledge_lookup",
       "entity_type": "TCGIntent",
-      "description": "User wants to retrieve lessons, knowledge, recent activity, or profile info.",
+      "description": "User wants to retrieve lessons, knowledge, recent activity, or profile info",
       "properties": {
         "keywords": [
           "lessons",
@@ -1574,7 +1574,7 @@
       "id": "intent_review_pr",
       "label": "review_pr",
       "entity_type": "TCGIntent",
-      "description": "User wants to review a GitHub PR diff.",
+      "description": "User wants to review a GitHub PR diff",
       "properties": {
         "keywords": [
           "github pr",
@@ -1594,7 +1594,7 @@
       "id": "intent_trace_reasoning",
       "label": "trace_reasoning",
       "entity_type": "TCGIntent",
-      "description": "User wants to trace a prior reasoning chain or run a batch of parallel reasoning queries.",
+      "description": "User wants to trace a prior reasoning chain or run a batch of parallel reasoning queries",
       "properties": {
         "keywords": [
           "trace",
@@ -1616,7 +1616,7 @@
       "id": "workflow_visual_audit",
       "label": "visual_audit_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Visual audit pipeline — browse -> audit -> report.",
+      "description": "Visual audit pipeline — browse -> audit -> report",
       "properties": {
         "tool_sequence": [
           "tool_graq_phantom_session",
@@ -1633,7 +1633,7 @@
       "id": "workflow_autonomous_task",
       "label": "autonomous_task_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Plan -> route -> auto -> correct full autonomous loop.",
+      "description": "Plan -> route -> auto -> correct full autonomous loop",
       "properties": {
         "tool_sequence": [
           "tool_graq_plan",
@@ -1650,7 +1650,7 @@
       "id": "workflow_review_pr",
       "label": "review_pr_workflow",
       "entity_type": "TCGWorkflowPattern",
-      "description": "Fetch PR -> diff -> review -> batch reason.",
+      "description": "Fetch PR -> diff -> review -> batch reason",
       "properties": {
         "tool_sequence": [
           "tool_graq_github_pr",

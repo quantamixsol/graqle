@@ -2252,6 +2252,15 @@ def init_command(
     no_skill: bool = typer.Option(
         False, "--no-skill", help="Skip /graq skill installation"
     ),
+    no_gate: bool = typer.Option(
+        False,
+        "--no-gate",
+        help=(
+            "Skip auto-installing the Claude Code governance gate when "
+            "Claude Code is detected. Can also be set via "
+            "GRAQLE_SKIP_GATE_INSTALL=1."
+        ),
+    ),
     ide: str = typer.Option(
         "auto", "--ide", "-i",
         help="Target IDE: auto, claude, cursor, vscode, windsurf, generic",
@@ -2737,6 +2746,41 @@ def init_command(
         plugin_lines.append(f"  [green]OK[/green] API key ({chosen_backend})")
     else:
         plugin_lines.append(f"  [red]--[/red] API key [dim](set {BACKENDS[chosen_backend].get('api_key_env', 'API_KEY')})[/dim]")
+
+    # ── Auto-install Claude Code governance gate (CG-GATE-02, v0.50.1) ──
+    # If Claude Code is detected in this project OR user-globally, and the
+    # user has not opted out, install the governance gate so that native
+    # Claude Code tools (Read/Write/Edit/Bash/...) are routed through the
+    # governed graq_* equivalents.
+    skip_gate = no_gate or os.environ.get("GRAQLE_SKIP_GATE_INSTALL") == "1"
+    if not skip_gate:
+        claude_in_project = (root / ".claude").exists()
+        claude_in_home = (Path.home() / ".claude").exists()
+        if claude_in_project or claude_in_home:
+            try:
+                from graqle.cli.main import gate_install_command
+                console.print(
+                    "\n[cyan]Claude Code detected — installing governance gate...[/cyan]"
+                )
+                gate_install_command(
+                    path=str(root),
+                    force=False,
+                    dry_run=False,
+                    json_output=False,
+                    fix_interpreter=False,
+                )
+            except typer.Exit as exc:
+                if exc.exit_code not in (0, None):
+                    console.print(
+                        "[yellow]Gate install skipped "
+                        "(already installed or --force needed). "
+                        "Run 'graq gate-install --force' manually if needed.[/yellow]"
+                    )
+            except Exception as exc:  # noqa: BLE001
+                console.print(
+                    f"[yellow]Gate auto-install failed: {exc}. "
+                    "Run 'graq gate-install' manually.[/yellow]"
+                )
 
     # Choose header and border based on graph health
     if node_total == 0:
