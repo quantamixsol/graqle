@@ -852,7 +852,7 @@
       "id": "lesson_pytest_full",
       "label": "pytest tests/ crashes on Windows",
       "entity_type": "TCGLesson",
-      "description": "Full pytest without focused path OOMs pytest-xdist workers on Windows. Always use focused paths",
+      "description": "Full pytest without a focused path can overload parallel test workers on some environments. Always use focused paths.",
       "properties": {
         "severity": "HIGH",
         "hit_count": 8
