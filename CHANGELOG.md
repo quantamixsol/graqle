@@ -4,6 +4,76 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## v0.47.3 — 2026-04-11
+
+### Fixed
+- **CG-REASON-01 (HIGH): `graq_reason_batch` constructor crash** in `graqle/core/graph.py:areason_batch` error fallback. The previous code constructed a `ReasoningResult` with `node_count=0` (a read-only `@property`, not a constructor field) and was missing three required fields: `query`, `active_nodes`, `message_trace`. The error branch also iterated `results` without zipping `queries`, so the failing query string was lost. Fix: extracted the fallback into a new module-level helper `_make_error_result(query, exc) -> ReasoningResult` that constructs the dataclass with all required fields plus `backend_status="failed"`, `backend_error=str(exc)`, `reasoning_mode="error"` so downstream consumers can branch on the failure without parsing the answer string. The loop now uses `for q, r in zip(queries, results)` with a defensive length-check guard. Logging is `str(q)[:80]` to handle non-string queries safely. This unblocks the native batch reasoning path; the ChatAgentLoop v4 adversarial debate subsystem can now use `graq_reason_batch` directly instead of falling back to serial `asyncio.gather` of 3 `graq_reason` calls.
+
+### Added
+- **`graqle.core.graph._make_error_result`** — module-level helper that builds a valid error-fallback `ReasoningResult`. Reusable by any caller that needs to construct an error result consistently.
+- **9 regression tests** in `tests/test_core/test_areason_batch.py`:
+  - 4 helper tests: TypeError-free construction, all required fields populated, `node_count` property accessibility, `confidence=0.0` warning emission as failure telemetry
+  - 1 mixed-batch test: success and failure interleaved, result count == query count, query strings preserved
+  - 1 all-fail batch test: every query fails, every result is an error fallback
+  - 1 downstream consumer compatibility test: error result is consumable through the exact field-access pattern used by `mcp_dev_server._handle_reason_batch` (`.answer`, `.confidence`, `.node_count`, `.cost_usd`, `.reasoning_mode`)
+  - 1 empty batch test
+  - 1 single-query failure test
+
+### Notes
+- Pre-implementation `graq_reason` (96% confidence) chose Option B (helper function) over Option A (inline minimal patch) and Option C (changing the dataclass contract).
+- Pre-implementation `graq_review` (86% confidence) returned CHANGES_REQUESTED with 1 BLOCKER + 4 MAJORs + 2 MINORs — all folded into the implementation including dataclass-signature verification, `zip` length-check guard, downstream-consumer test, and test consolidation from 6 cases to 4.
+- Post-implementation `graq_review` on the diff (89% confidence) flagged 2 MAJORs + 1 MINOR. The unsafe `q[:80]` was fixed via `str(q)[:80]`. The `_make_error_result` constructor concern was already validated by 9 passing tests and the smoke test. The "redundant length check" stays as defensive code with `# pragma: no cover`.
+- Post-implementation broader `graq_review` on `graqle/core/graph.py` flagged 1 BLOCKER + 5 MAJORs on **pre-existing code** (`_release_lock`, `_validate_graph_data`, `reclassify_batch`, etc.) — out of scope for CG-REASON-01 and logged for follow-up.
+- Test suite: 67 passed in 7.75s (9 new areason_batch + 19 continuation + 7 aggregation + 5 node + 18 graph + 9 base serialization). This is the cumulative test set across TB-H1, TB-H2, TB-H3 — zero regressions.
+- All 3 blocking hotfixes (CG-REASON-02, SDK-HF-02, CG-REASON-01) are now shipped. The ChatAgentLoop v4 build track (TB-F1 → TB-F9) is unblocked.
+
+---
+
+## v0.47.2 — 2026-04-11
+
+### Fixed
+- **SDK-HF-02 (HIGH): synthesis truncation regression** in `graqle/orchestration/aggregation.py:_weighted_synthesis`. Synthesis was making a single `backend.generate(prompt, max_tokens=4096)` call and silently returning the (possibly truncated/empty) result whenever `stop_reason=max_tokens`. Multi-agent reasoning rounds were getting partial answers with `confidence_unreliable=True` set silently. The fix introduces a new shared `generate_with_continuation` helper in `graqle/core/node.py` (alongside the existing OT-028 helpers `_extract_overlap_anchor` / `_build_continuation_prompt` / `_deduplicate_seam`) and uses it from `_weighted_synthesis`. The helper preserves all OT-028 invariants: empty-anchor abort, zero-progress guard via content-identity check, seam deduplication, fail-open on mid-loop exception. The first `backend.generate()` call propagates exceptions unchanged; only continuation-round exceptions surface via `metadata["continuation_error"]`. `max_tokens` stays at 4096 — raising to 8192 (per `lesson_20260407T065640`) is a separate tuning decision deferred until measurement shows persistent truncation.
+- **`_normalize_response` defensive guards** for `.text=None`, `.truncated=None`, `.stop_reason=None` shapes from non-conforming backends.
+
+### Added
+- **`graqle.core.node.generate_with_continuation`** — reusable async helper that any caller can use against any `BaseBackend`. Returns `(text, metadata)` where metadata has `continuation_count`, `was_continued`, `still_truncated`, `stop_reason`, `continuation_error` keys with a fully documented contract for every exit path.
+- **`graqle.core.node._normalize_response`** — adapter that handles `GenerateResult` / raw `str` / malformed shapes with defensive logging.
+- **19 regression tests** in `tests/test_core/test_continuation.py` covering every helper exit path: clean, recovery, empty-anchor abort, zero-progress, exhaustion, mid-loop fail-open, raw str input, malformed input, max_continuations=0, partial-overlap seam, initial-call exception propagation, mixed return types, arg passthrough, plus 5 normalizer cases including the post-impl review's None-text guard.
+- **7 regression tests** in `tests/test_orchestration/test_aggregation.py` covering `_weighted_synthesis`: clean synthesis, truncation recovery (the headline SDK-HF-02 fix), exhaustion, max_tokens=4096 regression assertion, trunc_info shape preservation, initial-call exception propagation, and continuation_error fail-open with log assertion.
+
+### Notes
+- Pre-implementation `graq_reason` (94% confidence) chose Option B (shared helper extraction) over copy-paste duplication and per-backend method approaches.
+- Pre-implementation `graq_review` round 1 (92% confidence) returned CHANGES_REQUESTED with 4 MAJORs — all folded into a revised plan that eliminated the highest-risk concerns (OT-028 metadata regression, re-export safety) by NOT moving the existing helpers and NOT refactoring `reason()`.
+- Pre-implementation `graq_review` round 2 (86% confidence) returned CHANGES_REQUESTED with 4 more MAJORs on the revised plan (exception contract, metadata contract, normalize observability, aggregation error handling) — all folded into the final spec before any code was written.
+- Post-implementation `graq_review` (86% confidence) flagged 1 BLOCKER + 4 MAJORs on **pre-existing `reason()` code** (not the new helper) plus 1 MAJOR on the new `_normalize_response` (None handling). The `_normalize_response` MAJOR was fixed immediately. The 5 pre-existing `reason()` issues are logged as **CG-OT028-01** in `.gcc/OPEN-TRACKER-CAPABILITY-GAPS.md` for follow-up — they are real but out of scope for SDK-HF-02 which targets synthesis, not per-node reasoning.
+- `core/node.py:reason()` is **NOT** modified in this hotfix. Zero regression risk on the per-node reasoning path. Verified: 5/5 pre-existing tests in `test_node.py` pass.
+- Test suite: 58 passed in 5.31s (19 continuation + 7 aggregation + 5 node + 18 graph + 9 base serialization).
+- Knowledge nodes added to KG: `knowledge_technical_20260411T070209` (Option B validation), `knowledge_technical_20260411T070448` (design refinement v2), `knowledge_technical_20260411T070606` (design refinement v3 with exception contract).
+
+---
+
+## v0.47.1 — 2026-04-11
+
+### Fixed
+- **CG-REASON-02 (CRITICAL): backend pickling crash** in `graqle/backends/base.py` — `BaseBackend` now provides `__getstate__`, `__setstate__`, and `__deepcopy__` that drop transient runtime handles (`_client`, `_async_client`, `_session`, `_executor`, `_loop`, `_lock`) on serialization. Previously, `copy.deepcopy(node)` at the three ADR-151 redaction-snapshot sites in `graqle/core/graph.py` (lines 1520, 1681, 344) would crash with `TypeError: cannot pickle '_thread.RLock' object` after a node had been activated with a backend whose lazy `_client` (e.g. `AsyncOpenAI` holding an `httpx.AsyncClient`) had been instantiated. The fix is backend-agnostic — all 14 providers inherit it through `BaseBackend` — and side-effect free with respect to the source instance, so concurrent reasoning rounds sharing one backend reference each get an isolated copy. Documented serialization contract added to `_TRANSIENT_BACKEND_ATTRS`.
+
+### Added
+- **8 regression tests** in `tests/test_backends/test_base_serialization.py` covering all four review-mandated scenarios:
+  1. `copy.deepcopy(backend)` after lazy `_client` populated
+  2. `pickle.dumps`/`loads` round-trip preserves durable config
+  3. ADR-151 simulation: deepcopying a node that holds an activated backend
+  4. Concurrent shared-backend isolation (two snapshots from one source backend stay independent)
+
+  Plus a real `OpenAIBackend` smoke test that confirms the abstract-base fix flows through to the concrete provider class, a contract test on `_TRANSIENT_BACKEND_ATTRS`, and a subclass-extension test showing how a future provider with a new transient handle can override `__getstate__`.
+
+### Notes
+- Discovered live during the 2026-04-11 ChatAgentLoop v4 design session (12 reasoning rounds). Crash hard-downed `graq_reason`, `graq_reason_batch`, `graq_predict`, and `graq_review` after the first successful round on `openai:gpt-5.4-mini`. Required mid-session VS Code reload to clear.
+- Pre-implementation `graq_review(spec=...)` returned CHANGES_REQUESTED (86% confidence) with 4 MAJOR concerns: serialization contract, concurrency safety, end-to-end coverage, test breadth. All four were folded into the implementation before any code was written. The post-implementation review on the diff is pending.
+- This unblocks the entire ChatAgentLoop v4 implementation track (TB-H1 → TB-H2 → TB-H3 → v0.50.0).
+- Test suite: 8 passed in 0.11s.
+
+---
+
 ## v0.47.0 — 2026-04-10
 
 ### Added
