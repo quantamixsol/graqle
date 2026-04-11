@@ -204,10 +204,29 @@ class Aggregator:
                 query=query, agent_outputs=agent_outputs
             )
 
-        raw_result = await backend.generate(prompt, max_tokens=4096, temperature=0.2)
-        # OT-028 B2: Extract truncation as local state (no instance leak)
-        _truncated = bool(getattr(raw_result, "truncated", False))
-        _stop_reason = getattr(raw_result, "stop_reason", "") or ""
+        # SDK-HF-02 (v0.47.2): synthesis was hitting stop_reason=max_tokens
+        # and silently returning empty/partial text. Use the shared
+        # generate_with_continuation helper from core/node.py to recover
+        # truncated synthesis the same way per-node responses recover.
+        # max_tokens stays 4096 — raising to 8192 is a separate tuning
+        # decision (see lesson_20260407T065640).
+        from graqle.core.node import generate_with_continuation
+
+        final_text, helper_meta = await generate_with_continuation(
+            backend, prompt, max_tokens=4096, temperature=0.2,
+        )
+        _truncated = helper_meta["still_truncated"]
+        _stop_reason = helper_meta["stop_reason"]
+        if helper_meta["was_continued"]:
+            logger.info(
+                "OT-028: Synthesis recovered from truncation via %d continuation(s) (still_truncated=%s)",
+                helper_meta["continuation_count"], _truncated,
+            )
+        if helper_meta["continuation_error"]:
+            logger.warning(
+                "OT-028: Synthesis continuation hit an error mid-loop — "
+                "returning fail-open accumulated text",
+            )
         if _truncated:
             logger.warning(
                 "OT-030: Synthesis response truncated (stop_reason=%s)",
@@ -217,7 +236,7 @@ class Aggregator:
             "synthesis_truncated": _truncated,
             "synthesis_stop_reason": _stop_reason,
         }
-        return str(raw_result), trunc_info
+        return final_text, trunc_info
 
     def _confidence_weighted(self, messages: dict[str, Message]) -> str:
         """Simple concatenation weighted by confidence."""

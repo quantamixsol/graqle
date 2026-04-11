@@ -4,7 +4,7 @@
 
 # Your codebase is a graph. Every node reasons. Every change is governed.
 
-> **One command. 90 seconds. Your AI writes code with architectural awareness, governance gates, and multi-agent reasoning. Not a linter. Not a copilot. A knowledge graph where every module is an autonomous agent.**
+> **One command. 90 seconds. Your AI writes code with architectural awareness, governance gates, multi-agent reasoning, and a self-learning tool graph. Not a linter. Not a copilot. A knowledge graph where every module is an autonomous agent — now with a structured chat layer that picks tools from a learned subgraph instead of cold-picking from 130+.**
 
 **The world's first governance-led multi-agent reasoning system for code.**
 Scan any codebase into a persistent knowledge graph. Every module becomes a reasoning agent.
@@ -16,10 +16,11 @@ Every change is impact-analysed, gate-checked, and taught back — automatically
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Downloads](https://img.shields.io/pypi/dw/graqle?color=%2306b6d4&label=downloads%2Fweek)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 4,150+](https://img.shields.io/badge/tests-4%2C150%2B%20passing-06b6d4.svg)]()
+[![Tests: 4,430+](https://img.shields.io/badge/tests-4%2C430%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
-[![MCP Tools: 122](https://img.shields.io/badge/MCP%20tools-122-06b6d4.svg)]()
+[![MCP Tools: 136](https://img.shields.io/badge/MCP%20tools-136-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
+[![ChatAgentLoop v4](https://img.shields.io/badge/ChatAgentLoop-v4-06b6d4.svg)]()
 [![Governed Reasoning](https://img.shields.io/badge/governed-reasoning-06b6d4.svg)]()
 [![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
 
@@ -57,29 +58,78 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.46.7
+## What's New in v0.50.0 — ChatAgentLoop v4
 
-### Multi-Agent Governed Reasoning
+> **The LLM becomes a ranker over a pre-activated tool subgraph, not a cold picker over 130+ options. Your codebase now runs a structured chat loop with learned tool selection, durable pause/resume, three-role concern checks, and hard-error continuation. This is Claude Code quality inside any MCP client — hosted by the SDK.**
 
-> **Your codebase is not a collection of files. It's a network of reasoning agents.**
+### ChatAgentLoop v4 — Structured Chat Agent Layer (ADR-152)
 
-- **ReasoningCoordinator** — decompose complex queries into specialist subtasks, dispatch to multiple graph nodes simultaneously, synthesize answers with clearance-level governance. Not a chatbot. An architecture-aware reasoning network.
-- **Governed synthesis** — every answer passes through GovernanceMiddleware. Trade secret patterns are unconditionally blocked. Clearance levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) propagate through the reasoning chain.
-- **BudgetAwareSemaphore** — cost-conscious concurrency. The graph reasons within your budget, decays costs across rounds, and stops before overspending.
-- **Feature-flagged** — `coordinator.enabled=false` by default. Zero disruption. Enable when ready: `graq run "your question" --coordinator`
+A complete chat agent subsystem ships under `graqle/chat/`. The SDK is now the host AI tool — the VS Code extension becomes a thin webview. Three non-overlapping runtime graphs plus a durable state machine drive the loop:
 
-### Self-Validating Code Generation
+- **GRAQ.md** — static policy + multi-root walk-up loader + scenario playbooks. Walks cwd UP to filesystem root collecting every `GRAQ.md`, most-specific wins, additive for scenario playbooks, plus `~/.graqle/GRAQ.md` (user-global) and a built-in template floor. User content sandboxed inside `<user_project_instructions UNTRUSTED=true>`.
+- **TCG — Tool Capability Graph** — a `Graqle` IS-A subclass whose nodes are the 67 MCP tools themselves plus Intent, WorkflowPattern, and Lesson nodes. Ships with a canonical seed (`graqle/chat/templates/tcg_default.json`): **67 tools / 20 intents / 8 graduated workflows / 20 lessons / 171 typed edges**, every tool reachable via at least one MATCHES_INTENT edge. Each tool carries a `governance_tier` attribute (GREEN/YELLOW/RED) so governance is pre-disclosed upfront, never surprise-blocked mid-flow. Cross-session, self-learning: edge reinforcement on every successful turn, probationary workflow-pattern mining with holdout validation before graduation, missing-edge prediction with destructive-edge safety filter, and auto-create-probationary fallback for observed-but-unseeded tools. Atomic save with `.bak` rollback.
+- **RCAG — Runtime Chat Action Graph** — per-session ephemeral execution memory as a `Graqle` IS-A subclass with seven typed action node types (ToolCall, ToolResult, AssistantReasoning, GovernanceCheckpoint, CheckRound, ErrorNode, AttachmentContext). Replaces linear chat history with query-time activation so context size stays constant regardless of turn count. Rolling 3-turn summary augments activation queries.
+- **TurnLedger** — immutable append-only audit log at `.graqle/chat/ledger/turn_<id>.jsonl`, outside the three-graph editorial rule because historical metadata doesn't fit any graph cleanly.
 
-- **The AI validates its own output before writing.** `ast.parse()` catches syntax errors. `difflib` catches drifted context lines. Auto-reanchoring fixes minor drift without burning an LLM call. CWE-22 containment on all file reads.
-- **`graq auto`** — autonomous loop: plan, generate, write, test, diagnose, fix, retry. All governed.
+### The 10-step turn flow
 
-### Intelligent First-Run
+1. `begin_turn` (RCAG) + `TurnStore.create` (CAS state machine) + ledger open
+2. TCG activation → ranked candidates with governance tiers pre-disclosed
+3. `governance_chip` events emitted upfront as a single consent
+4. LLM tool-use loop (the LLM RANKS over the activated subgraph, not cold-picks)
+5. Permission gate with session-scoped cache keyed by `(tool_name, resource_scope, session_id)` — pause & resume on prompt, deny on no
+6. Optional 3-role concern check (CANDIDATE / CRITIC / JUDGE) before HIGH/CRITICAL actions, with deterministic in-code override of the LLM judge verdict
+7. Tool execution with hard-error continuation — on exception the loop records an `ErrorNode`, feeds the LLM a synthetic result, and continues. Never freezes.
+8. Live reinforcement of TCG edges on success/failure
+9. Probationary workflow-pattern mining on turn completion
+10. `end_turn` + terminal state transition + rolling summary update
 
-- **No knowledge graph? No crash.** GraQle detects your LLM backend, profiles your project (languages, frameworks, file count), and guides you through 3 questions to build your first graph. Your original question is auto-answered after the scan completes.
+### Four new MCP tools
 
-### 14 LLM Backends. 122 MCP Tools. 4,150+ Tests.
+- `graq_chat_turn(message, ...)` — start a new turn, return first event batch + cursor
+- `graq_chat_poll(turn_id, since_seq, timeout)` — long-poll events since a cursor
+- `graq_chat_resume(turn_id, pending_id, decision)` — apply a permission decision and resume
+- `graq_chat_cancel(turn_id)` — cancel an in-flight turn cleanly
 
-Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Now with think-tag fallback and num_predict auto-scale for local reasoning models.
+### Bring-your-own-backend polyglot routing
+
+Six new chat task types route against whatever backends you have configured in `graqle.yaml`: `chat_triage`, `chat_reasoning`, `chat_debate_proposer`, `chat_debate_adversary`, `chat_debate_arbiter`, `chat_format`. Family separation is enforced only when 2+ families are configured; otherwise the router degrades to a same-family warning chip. Minimal-polyglot mode kicks in when only one backend is available.
+
+### Durable pause/resume
+
+- `TurnCheckpoint` with CAS state transitions under a single `asyncio.Lock`
+- Idempotent resume via `tool_result_cache` keyed by `tool_call_id`
+- Crash recovery via terminal-state tombstoning (`active`/`paused` at crash → `abandoned` with `crash_recovery` reason)
+- Second `graq_chat_turn` while one is active returns `turn_busy` with a `graq_chat_cancel` escape hatch
+
+### Convention inference — a first-class product feature
+
+When you say *"write an ADR for this decision"* or *"add a new test for this"*, ChatAgentLoop v4 MUST infer conventions from existing artifacts rather than ask where files go. The TCG seeds a `workflow_convention_inference` graduated pattern wiring `graq_glob → graq_read → graq_write` for the `write-new-artifact` intent. The built-in GRAQ.md template has a `## Scenario: write-new-artifact` playbook encoding the same behavior.
+
+### 3 blocking hotfixes rolled in
+
+- **CG-REASON-02** (v0.47.1) — BaseBackend `__getstate__`/`__setstate__`/`__deepcopy__` drops transient runtime handles (HTTP clients, cloud SDK sessions, executors, threading primitives) so reasoning nodes can be deepcopied without the `cannot pickle '_thread.RLock'` crash. Fix-forward compatible with any backend.
+- **SDK-HF-02** (v0.47.2) — synthesis truncation recovery via the new `generate_with_continuation` helper extracted from `CogniNode.reason`. `Aggregator._weighted_synthesis` now recovers from `stop_reason=max_tokens` the same way per-node responses do.
+- **CG-REASON-01** (v0.47.3) — `areason_batch` error fallback via `_make_error_result(query, exc)` helper that builds a valid `ReasoningResult` with all required fields plus `backend_status="failed"` so the native batch reasoning path can be used by the chat concern-check subsystem.
+
+### Key numbers
+
+- **8 new SDK modules + 2 templates** (~6,500 LOC of new governed chat infrastructure)
+- **67 tools / 20 intents / 8 graduated workflows / 20 lessons / 171 typed edges** in the TCG seed
+- **239 new tests** in `tests/test_chat/` (all green in 1.4s)
+- **136 MCP tools** total (was 122)
+- **4,430+ total tests** (was 4,150+)
+- **3 blocking hotfixes** rolled in (CG-REASON-01 / CG-REASON-02 / SDK-HF-02)
+
+### Governance posture
+
+- **SDK-HF-01 structurally resolved** — the extension's old DAG builder is obsoleted; the LLM picks tools from a TCG-activated subgraph that puts `graq_generate` in the top 3 candidates for codegen intent on day one. No orchestration bug can recreate the broken path `graq_preflight → graq_context → graq_reason → graq_learn` because no component owns it anymore.
+- **Three-tier governance** (GREEN auto / YELLOW async chip / RED permission modal) with tiers embedded in the TCG tool nodes as attributes — pre-disclosed upfront as a single consent, never surprise-blocked mid-flow.
+- **Destructive-edge safety filter** blocks `graq_bash`, `graq_write`, `graq_git_commit`, `graq_ingest`, `graq_vendor`, `graq_reload` from ever surfacing in predicted missing edges, regardless of statistical support.
+
+### 14 LLM Backends. 136 MCP Tools. 4,430+ Tests.
+
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers.
 
 [Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
