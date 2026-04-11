@@ -153,8 +153,12 @@ packages = ["graqle"]
 exclude = ["graqle/benchmarks/data/*"]
 
 [tool.hatch.build.targets.wheel.force-include]
+# NOTE: graqle/data/claude_gate is covered by packages=["graqle"] above.
+# Adding a force-include for a path already under the packages tree
+# creates duplicate local-header entries in the wheel ZIP and causes
+# PyPI to reject the upload with HTTP 400 "Duplicate filename in
+# local headers". Only force-include paths OUTSIDE the packages tree.
 "examples" = "graqle/examples"
-"graqle/data/claude_gate" = "graqle/data/claude_gate"
 
 [tool.ruff]
 target-version = "py310"
