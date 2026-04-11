@@ -1043,10 +1043,10 @@
       "id": "tool_graq_phantom_screenshot",
       "label": "graq_phantom_screenshot",
       "entity_type": "TCGTool",
-      "description": "Capture a screenshot of the current phantom page.",
+      "description": "Capture a screenshot of the current phantom page. JS execution via remote page makes this a governed operation.",
       "properties": {
-        "governance_tier": "GREEN",
-        "side_effect": "read",
+        "governance_tier": "YELLOW",
+        "side_effect": "net",
         "category": "phantom",
         "latency_tier": "medium",
         "safe_for_prediction": true
@@ -1427,6 +1427,240 @@
         "category": "session",
         "latency_tier": "fast",
         "safe_for_prediction": true
+      }
+    },
+    "intent_visual_audit": {
+      "id": "intent_visual_audit",
+      "label": "visual_audit",
+      "entity_type": "TCGIntent",
+      "description": "User wants a UI / UX / accessibility / SEO visual audit on a running page.",
+      "properties": {
+        "keywords": [
+          "audit ui",
+          "visual audit",
+          "a11y",
+          "accessibility",
+          "seo audit",
+          "performance audit",
+          "mobile audit",
+          "i18n audit",
+          "brand audit",
+          "scorch",
+          "screenshot"
+        ],
+        "preferred_sequence": [
+          "tool_graq_phantom_session",
+          "tool_graq_phantom_browse",
+          "tool_graq_scorch_audit",
+          "tool_graq_scorch_report"
+        ]
+      }
+    },
+    "intent_browser_automation": {
+      "id": "intent_browser_automation",
+      "label": "browser_automation",
+      "entity_type": "TCGIntent",
+      "description": "User wants to drive a browser session (click, type, navigate, discover).",
+      "properties": {
+        "keywords": [
+          "click",
+          "type in",
+          "fill form",
+          "navigate to",
+          "open url",
+          "browser flow",
+          "phantom",
+          "scrape",
+          "crawl",
+          "screenshot"
+        ],
+        "preferred_sequence": [
+          "tool_graq_phantom_session",
+          "tool_graq_phantom_browse",
+          "tool_graq_phantom_click",
+          "tool_graq_phantom_type"
+        ]
+      }
+    },
+    "intent_production_deploy_check": {
+      "id": "intent_production_deploy_check",
+      "label": "production_deploy_check",
+      "entity_type": "TCGIntent",
+      "description": "User wants to validate a production deployment via web-facing checks + audit trail.",
+      "properties": {
+        "keywords": [
+          "production",
+          "deploy check",
+          "smoke test",
+          "post-deploy",
+          "canary",
+          "rollout"
+        ],
+        "preferred_sequence": [
+          "tool_graq_phantom_browse",
+          "tool_graq_scorch_audit",
+          "tool_graq_audit",
+          "tool_graq_runtime"
+        ]
+      }
+    },
+    "intent_dependency_management": {
+      "id": "intent_dependency_management",
+      "label": "dependency_management",
+      "entity_type": "TCGIntent",
+      "description": "User wants to vendor, ingest external docs, or reload the graph.",
+      "properties": {
+        "keywords": [
+          "vendor",
+          "ingest",
+          "reload",
+          "import dependency",
+          "external doc"
+        ],
+        "preferred_sequence": [
+          "tool_graq_vendor",
+          "tool_graq_ingest",
+          "tool_graq_reload"
+        ]
+      }
+    },
+    "intent_autonomous_task": {
+      "id": "intent_autonomous_task",
+      "label": "autonomous_task",
+      "entity_type": "TCGIntent",
+      "description": "User wants an autonomous multi-step agent run with planning, routing, and correction.",
+      "properties": {
+        "keywords": [
+          "autonomous",
+          "auto mode",
+          "full auto",
+          "self-correct",
+          "plan and run",
+          "end-to-end"
+        ],
+        "preferred_sequence": [
+          "tool_graq_plan",
+          "tool_graq_route",
+          "tool_graq_auto",
+          "tool_graq_correct",
+          "tool_graq_workflow"
+        ]
+      }
+    },
+    "intent_knowledge_lookup": {
+      "id": "intent_knowledge_lookup",
+      "label": "knowledge_lookup",
+      "entity_type": "TCGIntent",
+      "description": "User wants to retrieve lessons, knowledge, recent activity, or profile info.",
+      "properties": {
+        "keywords": [
+          "lessons",
+          "past mistake",
+          "profile",
+          "activity log",
+          "history",
+          "web search",
+          "look up"
+        ],
+        "preferred_sequence": [
+          "tool_graq_lessons",
+          "tool_graq_profile",
+          "tool_graq_web_search",
+          "tool_graq_git_log"
+        ]
+      }
+    },
+    "intent_review_pr": {
+      "id": "intent_review_pr",
+      "label": "review_pr",
+      "entity_type": "TCGIntent",
+      "description": "User wants to review a GitHub PR diff.",
+      "properties": {
+        "keywords": [
+          "github pr",
+          "pr review",
+          "pull request",
+          "github diff"
+        ],
+        "preferred_sequence": [
+          "tool_graq_github_pr",
+          "tool_graq_github_diff",
+          "tool_graq_review",
+          "tool_graq_reason_batch"
+        ]
+      }
+    },
+    "intent_trace_reasoning": {
+      "id": "intent_trace_reasoning",
+      "label": "trace_reasoning",
+      "entity_type": "TCGIntent",
+      "description": "User wants to trace a prior reasoning chain or run a batch of parallel reasoning queries.",
+      "properties": {
+        "keywords": [
+          "trace",
+          "drace",
+          "reasoning chain",
+          "batch reason",
+          "parallel query",
+          "predict"
+        ],
+        "preferred_sequence": [
+          "tool_graq_drace",
+          "tool_graq_reason_batch",
+          "tool_graq_predict",
+          "tool_graq_lifecycle"
+        ]
+      }
+    },
+    "workflow_visual_audit": {
+      "id": "workflow_visual_audit",
+      "label": "visual_audit_workflow",
+      "entity_type": "TCGWorkflowPattern",
+      "description": "Visual audit pipeline — browse -> audit -> report.",
+      "properties": {
+        "tool_sequence": [
+          "tool_graq_phantom_session",
+          "tool_graq_phantom_browse",
+          "tool_graq_scorch_audit",
+          "tool_graq_scorch_report"
+        ],
+        "support_count": 10,
+        "graduated": true,
+        "intent_id": "intent_visual_audit"
+      }
+    },
+    "workflow_autonomous_task": {
+      "id": "workflow_autonomous_task",
+      "label": "autonomous_task_workflow",
+      "entity_type": "TCGWorkflowPattern",
+      "description": "Plan -> route -> auto -> correct full autonomous loop.",
+      "properties": {
+        "tool_sequence": [
+          "tool_graq_plan",
+          "tool_graq_route",
+          "tool_graq_auto",
+          "tool_graq_correct"
+        ],
+        "support_count": 10,
+        "graduated": true,
+        "intent_id": "intent_autonomous_task"
+      }
+    },
+    "workflow_review_pr": {
+      "id": "workflow_review_pr",
+      "label": "review_pr_workflow",
+      "entity_type": "TCGWorkflowPattern",
+      "description": "Fetch PR -> diff -> review -> batch reason.",
+      "properties": {
+        "tool_sequence": [
+          "tool_graq_github_pr",
+          "tool_graq_github_diff",
+          "tool_graq_review",
+          "tool_graq_reason_batch"
+        ],
+        "support_count": 10,
+        "graduated": true,
+        "intent_id": "intent_review_pr"
       }
     }
   },
@@ -2228,6 +2462,405 @@
       "target_id": "tool_graq_safety_check",
       "relationship": "MATCHES_INTENT",
       "weight": 2.0
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_a11y",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_a11y",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_perf",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_perf",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_seo",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_seo",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_mobile",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_mobile",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_i18n",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_i18n",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_brand",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_brand",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_security",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_security",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_conversion",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_conversion",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_auth_flow",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_auth_flow",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_behavioral",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_behavioral",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_diff",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_diff",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_phantom_audit",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_phantom_audit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_phantom_screenshot",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_phantom_screenshot",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_click",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_click",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_type",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_type",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_screenshot",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_screenshot",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_flow",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_flow",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_discover",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_discover",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_audit",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_audit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_scorch_audit",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_scorch_audit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_scorch_security",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_scorch_security",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_scorch_perf",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_scorch_perf",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_audit",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_audit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_runtime",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_runtime",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_dependency_management_tool_graq_vendor",
+      "source_id": "intent_dependency_management",
+      "target_id": "tool_graq_vendor",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_dependency_management_tool_graq_ingest",
+      "source_id": "intent_dependency_management",
+      "target_id": "tool_graq_ingest",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_dependency_management_tool_graq_reload",
+      "source_id": "intent_dependency_management",
+      "target_id": "tool_graq_reload",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_plan",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_plan",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_route",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_route",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_auto",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_auto",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_correct",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_correct",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_workflow",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_workflow",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_autonomous_task_tool_graq_todo",
+      "source_id": "intent_autonomous_task",
+      "target_id": "tool_graq_todo",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_knowledge_lookup_tool_graq_lessons",
+      "source_id": "intent_knowledge_lookup",
+      "target_id": "tool_graq_lessons",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_knowledge_lookup_tool_graq_profile",
+      "source_id": "intent_knowledge_lookup",
+      "target_id": "tool_graq_profile",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_knowledge_lookup_tool_graq_web_search",
+      "source_id": "intent_knowledge_lookup",
+      "target_id": "tool_graq_web_search",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_knowledge_lookup_tool_graq_git_log",
+      "source_id": "intent_knowledge_lookup",
+      "target_id": "tool_graq_git_log",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_knowledge_lookup_tool_graq_todo",
+      "source_id": "intent_knowledge_lookup",
+      "target_id": "tool_graq_todo",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_review_pr_tool_graq_github_pr",
+      "source_id": "intent_review_pr",
+      "target_id": "tool_graq_github_pr",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_review_pr_tool_graq_github_diff",
+      "source_id": "intent_review_pr",
+      "target_id": "tool_graq_github_diff",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_review_pr_tool_graq_reason_batch",
+      "source_id": "intent_review_pr",
+      "target_id": "tool_graq_reason_batch",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_trace_reasoning_tool_graq_drace",
+      "source_id": "intent_trace_reasoning",
+      "target_id": "tool_graq_drace",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_trace_reasoning_tool_graq_reason_batch",
+      "source_id": "intent_trace_reasoning",
+      "target_id": "tool_graq_reason_batch",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_trace_reasoning_tool_graq_predict",
+      "source_id": "intent_trace_reasoning",
+      "target_id": "tool_graq_predict",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_trace_reasoning_tool_graq_lifecycle",
+      "source_id": "intent_trace_reasoning",
+      "target_id": "tool_graq_lifecycle",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.5
+    },
+    {
+      "id": "e_r2_intent_refactor_tool_graq_edit",
+      "source_id": "intent_refactor",
+      "target_id": "tool_graq_edit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.0
+    },
+    {
+      "id": "e_r2_intent_bug_fix_tool_graq_bash",
+      "source_id": "intent_bug_fix",
+      "target_id": "tool_graq_bash",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.0
+    },
+    {
+      "id": "e_r2_intent_git_status_tool_graq_git_log",
+      "source_id": "intent_git_status",
+      "target_id": "tool_graq_git_log",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.0
+    },
+    {
+      "id": "e_r2_intent_commit_tool_graq_git_log",
+      "source_id": "intent_commit",
+      "target_id": "tool_graq_git_log",
+      "relationship": "MATCHES_INTENT",
+      "weight": 2.0
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_phantom_session",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_phantom_session",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_phantom_browse",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_phantom_browse",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_audit",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_audit",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_visual_audit_tool_graq_scorch_report",
+      "source_id": "intent_visual_audit",
+      "target_id": "tool_graq_scorch_report",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_session",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_session",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_browser_automation_tool_graq_phantom_browse",
+      "source_id": "intent_browser_automation",
+      "target_id": "tool_graq_phantom_browse",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_production_deploy_check_tool_graq_phantom_browse",
+      "source_id": "intent_production_deploy_check",
+      "target_id": "tool_graq_phantom_browse",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
+    },
+    {
+      "id": "e_r2_intent_review_pr_tool_graq_review",
+      "source_id": "intent_review_pr",
+      "target_id": "tool_graq_review",
+      "relationship": "MATCHES_INTENT",
+      "weight": 3.0
     }
   ]
 }

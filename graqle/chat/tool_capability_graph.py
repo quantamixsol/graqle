@@ -198,6 +198,7 @@ class ToolCapabilityGraph(Graqle):
         *,
         path: Path | None = None,
         config: GraqleConfig | None = None,
+        settings: dict | None = None,
     ) -> None:
         # BLOCKER-1: empty maps to super() so the
         # `if self.nodes:` branch at graph.py:331 evaluates False
@@ -207,6 +208,20 @@ class ToolCapabilityGraph(Graqle):
         self.path = path
         self._probation: dict[str, dict[str, Any]] = {}
         self._raw_payload_meta: dict[str, Any] = {}
+
+        # RO2-1 (Round-2): resolve the probation novelty-lift threshold
+        # from an optional settings dict. If settings are provided,
+        # settings_loader.load_novelty_lift_min extracts
+        # chat.probation.novelty_lift_min and validates the value. If
+        # settings are None or the key is absent, the public default
+        # PROBATION_NOVELTY_LIFT_MIN (0.2) is used as a fallback —
+        # deliberately non-operational so operators in production MUST
+        # configure the real value.
+        from graqle.chat.settings_loader import load_novelty_lift_min
+        resolved = load_novelty_lift_min(settings) if settings else None
+        self._novelty_lift_min: float = (
+            resolved if resolved is not None else PROBATION_NOVELTY_LIFT_MIN
+        )
 
         if payload is not None:
             self._load_payload(payload)
@@ -693,7 +708,7 @@ class ToolCapabilityGraph(Graqle):
             return False
         if holdout_successes < PROBATION_MIN_HOLDOUTS:
             return False
-        if novelty_lift < PROBATION_NOVELTY_LIFT_MIN:
+        if novelty_lift < self._novelty_lift_min:
             return False
         node = self.nodes.get(candidate_id)
         if node is None:

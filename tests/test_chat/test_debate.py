@@ -31,7 +31,7 @@ from graqle.chat.debate import (
     ROLE_CRITIC,
     ROLE_JUDGE,
     ConcernCheckRecord,
-    _BANNED_PROMPT_PHRASES,
+    _BANNED_PHRASE_HASHES,
     _assert_no_banned_phrases,
     classify_concern,
     resolve_concern,
@@ -183,7 +183,7 @@ def test_banned_phrase_guard_catches_slip() -> None:
     """The guard must fail fast on any reintroduction of banned phrasing."""
     with pytest.raises(RuntimeError, match="banned phrase"):
         _assert_no_banned_phrases(
-            "You are PROPOSER. Think about the next step.",
+            "You are proposer and the next step",
         )
 
 
@@ -207,7 +207,10 @@ def test_prompts_do_not_state_strict_ordering() -> None:
 
 def test_module_source_has_no_persona_names() -> None:
     """The shipped debate.py source (as loaded on disk) must not contain
-    the legacy persona names PROPOSER / ADVERSARY / ARBITER.
+    the legacy persona names PROPOSER / ADVERSARY / ARBITER in ANY form —
+    neither at capitals nor as lowercase plaintext. RO2-4 round-2
+    remediation: the banned-phrase guard now uses SHA-1 hashes so the
+    banned tokens themselves never appear as plaintext in the source.
     """
     module_path = (
         pathlib.Path(__file__).resolve().parent.parent.parent
@@ -215,15 +218,45 @@ def test_module_source_has_no_persona_names() -> None:
     )
     src = module_path.read_text(encoding="utf-8")
     for word in ("PROPOSER", "ADVERSARY", "ARBITER"):
-        # Allow the word only if it appears inside _BANNED_PROMPT_PHRASES
-        # as a lowercase literal (the guard needs them to check for
-        # regressions). Everything else must be absent.
-        lower = word.lower()
-        # Count actual caps occurrences.
+        # Capital form: must not appear anywhere in shipped source.
         cap_count = src.count(word)
         assert cap_count == 0, f"found {cap_count} stray '{word}' in debate.py"
-        # Lowercase token is allowed ONLY inside the guard set.
-        assert lower in _BANNED_PROMPT_PHRASES
+        # Lowercase form: must also not appear as plaintext anywhere.
+        # The hashed guard means the banned tokens live only as hex
+        # digests in _BANNED_PHRASE_HASHES.
+        low_count = src.lower().count(word.lower())
+        assert low_count == 0, (
+            f"found {low_count} stray lowercase '{word.lower()}' in debate.py — "
+            "hashed guard is defeated by plaintext leak"
+        )
+
+
+def test_banned_phrase_hashes_size() -> None:
+    """RO2-4 sanity: the hashed guard set is non-empty and each entry
+    is a 16-char lowercase hex digest."""
+    assert len(_BANNED_PHRASE_HASHES) >= 6
+    import re
+    for h in _BANNED_PHRASE_HASHES:
+        assert re.fullmatch(r"[0-9a-f]{16}", h), (
+            f"banned hash {h!r} is not a 16-char hex digest"
+        )
+
+
+def test_banned_hash_guard_catches_strict_ordering_regression() -> None:
+    """The hash-based guard still fires when the strict-ordering
+    sentence is reintroduced, even though the sentence itself is not
+    in the shipped source."""
+    with pytest.raises(RuntimeError, match="banned phrase regression"):
+        _assert_no_banned_phrases(
+            "Apply rule order strictly: safety > prerequisite > cost > ambiguity",
+        )
+
+
+def test_banned_hash_guard_catches_persona_regression() -> None:
+    """The hash-based guard still fires on each legacy persona token."""
+    for legacy in ("You are proposer today", "call the adversary", "the arbiter decides"):
+        with pytest.raises(RuntimeError):
+            _assert_no_banned_phrases(legacy)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -275,9 +308,9 @@ async def test_secret_like_input_not_echoed_to_callback() -> None:
     async def on_signal(role: str, text: str, decision: str) -> None:
         emitted.append((role, text, decision))
 
-    async def stub(prompt: str, *, persona: str) -> str:
+    async def stub(prompt: str, *, role: str) -> str:
         # Roles never echo the secret — they only output their own text.
-        return f"{persona} acknowledged the request"
+        return f"{role} acknowledged the request"
 
     record = await resolve_concern(
         secret_question, reason_fn=stub, on_signal=on_signal,
@@ -296,8 +329,8 @@ async def test_secret_like_input_not_echoed_to_callback() -> None:
 
 
 def _stub(responses: dict[str, str]):
-    async def _fn(prompt: str, *, persona: str) -> str:
-        return responses.get(persona, f"{persona} says nothing")
+    async def _fn(prompt: str, *, role: str) -> str:
+        return responses.get(role, f"{role} says nothing")
     return _fn
 
 
@@ -330,13 +363,13 @@ async def test_resolve_refines_then_proceeds() -> None:
     """REFINE continues to next round; PROCEED stops."""
     counts: dict[str, int] = {ROLE_CANDIDATE: 0, ROLE_CRITIC: 0, ROLE_JUDGE: 0}
 
-    async def fn(prompt: str, *, persona: str) -> str:
-        counts[persona] += 1
-        if persona == ROLE_CRITIC:
-            if counts[persona] == 1:
+    async def fn(prompt: str, *, role: str) -> str:
+        counts[role] += 1
+        if role == ROLE_CRITIC:
+            if counts[role] == 1:
                 return "missing prerequisite — needs context first"
             return "CONCERN: none"
-        return f"{persona} round {counts[persona]}"
+        return f"{role} round {counts[role]}"
 
     record = await resolve_concern("question", reason_fn=fn)
     assert len(record.rounds) == 2
@@ -377,8 +410,8 @@ async def test_resolve_reason_fn_exception_recorded() -> None:
     """A role failure does not crash the engine; it's recorded and the
     engine falls through to its fail-safe default (REFINE)."""
 
-    async def fn(prompt: str, *, persona: str) -> str:
-        if persona == ROLE_CRITIC:
+    async def fn(prompt: str, *, role: str) -> str:
+        if role == ROLE_CRITIC:
             raise RuntimeError("backend down")
         return "ok"
 

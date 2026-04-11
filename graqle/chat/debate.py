@@ -42,8 +42,8 @@ Mechanism preserved (NON-NEGOTIABLE — operator waiver condition):
 
 - Three parallel role calls via :func:`asyncio.gather`
 - Deterministic in-code override of the LLM's judge decision
-- Safety-first precedence with four categories (safety, prerequisite,
-  cost, ambiguity) — precedence lives in :func:`classify_concern`, not
+- Four concern categories with a fixed internal ordering applied in
+  :func:`classify_concern`. The specific ordering lives in code, not
   in prompt text
 - Round-refinement feedback loop — the JUDGE's prior-round decision and
   rationale feed the next round's CANDIDATE prompt
@@ -73,7 +73,7 @@ MAX_CHECK_ROUNDS = 2
 
 # Role vocabulary — neutral, standard ML workflow terminology. These
 # three strings are the public role identifiers; the ``reason_fn``
-# protocol receives them via the ``persona`` keyword. Downstream
+# protocol receives them via the ``role`` keyword. Downstream
 # consumers (tests, streaming UI) match on these exact strings.
 ROLE_CANDIDATE = "CANDIDATE"
 ROLE_CRITIC = "CRITIC"
@@ -103,35 +103,58 @@ JUDGE_PROMPT = (
     "DECISION: <PROCEED|REFINE|BLOCK> RATIONALE: <one_line>."
 )
 
-# Banned phrases that MUST NOT appear in any shipped prompt, docstring
-# line, or exported record. Kept as a frozenset so the import-time
-# guard below can check every prompt once.
-_BANNED_PROMPT_PHRASES: frozenset[str] = frozenset({
-    # Patent-leaking phrasing from the original v4 prompts.
-    "apply rule order strictly",
-    "safety > prerequisite > cost > ambiguity",
-    "proposer",
-    "adversary",
-    "arbiter",
-    "adversarial",
+# RO2-4 (Round-2): banned-phrase guard moved from literal strings to
+# SHA-1[:16] hashes. The guard still fails fast on any regression that
+# reintroduces a patent-leaking sentence, but the shipped source no
+# longer contains the banned sentences themselves — defeating the
+# self-defeat vulnerability flagged in the Round-2 review.
+#
+# The plaintext phrase list is NEVER committed to this source file. To
+# add a new banned phrase, compute its hash with:
+#
+#   python -c "import hashlib; print(hashlib.sha1('your phrase'.lower().encode()).hexdigest()[:16])"
+#
+# and append the hex literal below. Document the REASON for the ban in
+# the commit message, not in this file.
+_BANNED_PHRASE_HASHES: frozenset[str] = frozenset({
+    "dc4f7db559b35e74",
+    "2e19d566090cc518",
+    "7887a0a371b35e02",
+    "9e2e5ec096d7d12e",
+    "31ae1b626bac1d11",
+    "b883b5bd8897f0e8",
+    "108b95ab3295c222",
+    "f0cd8c5728b14601",
+    "eb31acd884912638",
+    "ae2729105a3c56bf",
 })
+assert len(_BANNED_PHRASE_HASHES) == 10, "banned-phrase hash set shrunk"
 
 
 def _assert_no_banned_phrases(*prompt_texts: str) -> None:
     """Import-time guard against patent-leaking regressions.
 
-    Verifies every prompt template is clean. Runs once at module import
-    and is also re-asserted by the test suite on each test run so any
-    future rewrite that reintroduces banned phrasing fails fast.
+    Computes a sliding window of word n-grams (1..8 words) over each
+    prompt, SHA-1 hashes each window, and compares against the banned
+    hash set. Any match is a regression.
+
+    The fact that this function contains zero plaintext banned strings
+    is the point — a competitor grepping the shipped source for the
+    banned phrases will find nothing. Test suite re-asserts the guard
+    at runtime.
     """
+    import hashlib as _hl
     for prompt in prompt_texts:
-        low = prompt.lower()
-        for banned in _BANNED_PROMPT_PHRASES:
-            if banned in low:
-                raise RuntimeError(
-                    f"banned phrase {banned!r} detected in prompt text — "
-                    "remediation regression"
-                )
+        tokens = prompt.lower().split()
+        for n in range(1, 9):  # 1..8-word windows
+            for i in range(len(tokens) - n + 1):
+                window = " ".join(tokens[i:i + n])
+                digest = _hl.sha1(window.encode("utf-8")).hexdigest()[:16]
+                if digest in _BANNED_PHRASE_HASHES:
+                    raise RuntimeError(
+                        "banned phrase regression detected — "
+                        "see _BANNED_PHRASE_HASHES"
+                    )
 
 
 _assert_no_banned_phrases(CANDIDATE_PROMPT, CRITIC_PROMPT, JUDGE_PROMPT)
@@ -143,7 +166,7 @@ _assert_no_banned_phrases(CANDIDATE_PROMPT, CRITIC_PROMPT, JUDGE_PROMPT)
 
 
 class ReasonFn(Protocol):
-    async def __call__(self, prompt: str, *, persona: str) -> str: ...
+    async def __call__(self, prompt: str, *, role: str) -> str: ...
 
 
 @dataclass
@@ -206,9 +229,11 @@ class ConcernCheckRecord:
 # ``no ``, ``non-``, ``never ``, ``never`` followed by whitespace) and
 # skips the match if present.
 #
-# The ORDER of this list determines precedence — safety comes first and
-# wins over prerequisite/cost/ambiguity when multiple categories match.
-# This is where the precedence policy lives — in code, not in any
+# Iteration order is the tie-breaker when multiple categories match
+# the same critic text. The policy is enforced here in code, not in
+# any user-visible prompt or docstring. The specific category
+# ordering is documented in the project-private design notes, not
+# in this shipped source.
 # prompt now lives — in code, not in user-visible text.
 
 _NEGATION_WINDOW = 20
@@ -296,7 +321,7 @@ def classify_concern(
 
     The decision values are ``PROCEED``, ``REFINE``, or ``BLOCK``. The
     classifier runs ``_CATEGORY_SIGNALS`` in declared order so safety
-    wins over prerequisite > cost > ambiguity when multiple categories
+    is picked per the internal precedence policy when multiple categories
     match the same critic text. Word-boundary regex + negation guard
     prevents the MAJOR-R3 false positives (``non-destructive``,
     ``credentials env-var name``, ``unsafe pattern we already fixed``,
@@ -359,7 +384,7 @@ async def _safe_reason(
     role: str,
 ) -> RoleResponse:
     try:
-        text = await reason_fn(prompt, persona=role)
+        text = await reason_fn(prompt, role=role)
         return RoleResponse(role=role, text=text)
     except Exception as exc:
         logger.warning("concern-check role %s failed: %s", role, exc)

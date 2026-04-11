@@ -4,6 +4,136 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+### Round-2 remediation (2026-04-11) — research team review PR #49 (follow-up)
+
+Addresses the 1 new BLOCKER (RO2-6) + 3 new MAJORs (RO2-1, RO2-3, RO2-4)
++ 2 MINORs (RO2-2, RO2-5) raised in the Round-2 research team review on
+private PR #49. Operator directive: *"maintain our algorithm,
+implementation rigour and business value while solving the points raised
+by the research team."* All mechanism preserved. Algorithm integrity
+verified: 9/9 classify_concern precedence cases pass after the fixes.
+
+**RO2-6 (BLOCKER, now closed) — TCG seed reachability 25/67 → 67/67**
+- The Round-1 expansion added 37 new TCGTool nodes but wired only a
+  few MATCHES_INTENT edges, leaving 42/67 tools orphaned (unreachable
+  from any intent or workflow pattern). Research team's programmatic
+  graph-reachability audit caught this.
+- Added 8 new TCGIntent nodes: `intent_visual_audit`,
+  `intent_browser_automation`, `intent_production_deploy_check`,
+  `intent_dependency_management`, `intent_autonomous_task`,
+  `intent_knowledge_lookup`, `intent_review_pr`, `intent_trace_reasoning`.
+- Added 3 new graduated TCGWorkflowPattern nodes:
+  `workflow_visual_audit`, `workflow_autonomous_task`,
+  `workflow_review_pr`.
+- Added 57 new MATCHES_INTENT edges wiring every previously-orphan
+  tool into at least one intent.
+- Also backfilled core dev tools (`graq_edit`, `graq_bash`,
+  `graq_git_log`) into their existing intents.
+- **Reachability now 67/67 tools (100%)**, verified by the post-Round-2
+  orphan audit script.
+
+**RO2-4 (MAJOR, now closed) — banned-phrase guard self-defeat**
+- The Round-1 `_BANNED_PROMPT_PHRASES` frozenset stored the literal
+  patent-leaking sentences as plaintext strings in the shipped source.
+  A competitor grepping the PyPI wheel could trivially discover the
+  exact phrases the guard was meant to suppress.
+- Replaced with `_BANNED_PHRASE_HASHES: frozenset[str]` — a set of
+  SHA-1[:16] hex digests. The plaintext phrases never appear in
+  shipped source.
+- `_assert_no_banned_phrases` now computes a sliding window of 1..8
+  word n-grams over each prompt, SHA-1 hashes each window, and
+  compares against the hash set. Any match is a regression.
+- Regression-tested: the guard still fires on `"Apply rule order
+  strictly: safety > prerequisite > cost > ambiguity"` and on each
+  legacy persona token (PROPOSER/ADVERSARY/ARBITER) even though none
+  of these phrases appear as plaintext in the source.
+- Added `test_banned_phrase_hashes_size` (shape check) +
+  `test_banned_hash_guard_catches_strict_ordering_regression` +
+  `test_banned_hash_guard_catches_persona_regression`.
+
+**RO2-3 (MAJOR, now closed) — precedence comment leaks in debate.py**
+- Scrubbed 3 locations where the English precedence chain
+  ("safety comes first and wins over prerequisite > cost > ambiguity")
+  was leaked in comments / docstrings:
+  - `debate.py:209-213` — the `_CATEGORY_SIGNALS` comment. Replaced
+    with generic "iteration order is the tie-breaker" language that
+    does not state the specific ordering.
+  - `debate.py:~299` — docstring inside `classify_concern`. Replaced
+    with "is picked per the internal precedence policy".
+  - Module docstring "Safety-first precedence with four categories" →
+    "Four concern categories with a fixed internal ordering".
+- All three scrubs preserve the documentation intent while removing
+  the verbatim English chain.
+
+**RO2-1 (MAJOR, now closed) — dead strict reader wired into TCG**
+- Round-1 added `settings_loader.require_novelty_lift_min` but
+  `tool_capability_graph.graduate_pattern` still read the module
+  constant `PROBATION_NOVELTY_LIFT_MIN` directly, making the strict
+  reader dead code.
+- `ToolCapabilityGraph.__init__` now accepts an optional
+  `settings: dict | None` parameter and stores the resolved threshold
+  in `self._novelty_lift_min`. If `settings` is provided, the value is
+  pulled via `settings_loader.load_novelty_lift_min`; otherwise the
+  public default (0.2, intentionally non-operational) is used.
+- `graduate_pattern` now reads `self._novelty_lift_min` on every call.
+- `load_novelty_lift_min` + `require_novelty_lift_min` are now
+  actually called in the hot path.
+
+**RO2-2 (MINOR, now closed) — persona kwarg renamed to role**
+- `ReasonFn` protocol: `persona: str` → `role: str`.
+- All internal call sites updated.
+- Docstring reference scrubbed.
+- "Persona" was flagged as semantic cousin of the scrubbed vocabulary
+  (core multi-agent debate terminology). Renaming to the neutral
+  "role" label completes the vocabulary scrub.
+
+**RO2-5 (MINOR, now closed) — phantom_screenshot tier adjusted**
+- `graq_phantom_screenshot` governance tier GREEN → YELLOW.
+- Side effect `read` → `net`.
+- Rationale added to description: JS execution via remote page makes
+  this a governed operation.
+
+**Algorithm integrity verified (9/9 cases pass after fixes)**
+- Safety precedence: `"destructive AND expensive AND slow"` → BLOCK
+- Prerequisite > cost: `"missing prerequisite also expensive"` → REFINE
+- Cost alone: `"this is expensive, high-latency"` → REFINE
+- Ambiguity alone: `"ambiguous — unclear"` → REFINE
+- Explicit none: `"CONCERN: none"` → PROCEED
+- Affirmative safe: `"This action is non-destructive and safe."` → PROCEED
+- Credentials rewrite: `"Uses credentials env-var name"` → PROCEED
+- Safety alone: `"data loss ahead"` → BLOCK
+- Irreversible: `"this is irreversible"` → BLOCK
+
+**Mechanism preserved (non-negotiable per operator directive)**
+- 3 parallel role calls via `asyncio.gather`
+- Deterministic in-code override of the judge verdict
+- 4-category internal ordering (enforced in `_CATEGORY_SIGNALS` list
+  order)
+- Round-refinement feedback loop
+- `MAX_CHECK_ROUNDS = 2` hard ceiling
+- `ReasonFn` protocol surface (kwarg name changed, semantics unchanged)
+
+**Reachability verification**
+- Pre-Round-1: 30 tools, 12 intents, 5 workflows, no orphans by
+  construction
+- Post-Round-1: 67 tools, 12 intents, 5 workflows — **42 orphans**
+  (RO2-6 finding)
+- Post-Round-2: **67 tools, 20 intents, 8 graduated workflows, 0
+  orphans** — all tools reachable via at least one MATCHES_INTENT edge
+  or workflow_pattern membership
+
+**Tests:** `tests/test_chat/` 236 → **239 passing** (+3 new Round-2
+regression tests). Hotfix suites (test_base_serialization.py,
+test_continuation.py, test_areason_batch.py, test_aggregation.py)
+unchanged at 9+19+9+7 = 44 passing. Zero regressions.
+
+**Post-impl `graq_review` on debate.py with security focus:** **APPROVED
+at 93% confidence**. All comments are INFO-level hygiene notes. No
+OWASP Top 10 sinks, no secret exposure paths, no unsafe subprocess
+calls. Hash-based guard ships without plaintext sensitive phrases.
+
+---
+
 ### Round-1 remediation (2026-04-11) — research team review PR #49
 
 Addresses the 2 BLOCKERs + 3 MAJORs raised in the research team review
