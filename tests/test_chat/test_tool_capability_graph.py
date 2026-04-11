@@ -11,7 +11,7 @@ Covers:
   - MAJOR-4 atomic save with .bak rollback
   - MAJOR-5 negative paths (corrupt JSON, missing seed, unwritable path)
   - MINOR-1 weight clamp [0.0, 10.0]
-  - MINOR-2 probation thresholds (3 obs / 2 holdouts / 0.15 lift)
+  - MINOR-2 probation thresholds (3 obs / 2 holdouts / 0.2 lift)
   - Reinforcement: success/failure deltas, intent reinforcement
 """
 
@@ -597,6 +597,131 @@ def test_tool_candidate_to_dict() -> None:
     assert d["tool_id"] == "t1"
     assert d["score"] == 1.5
     assert d["governance_tier"] == "GREEN"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Round-1 remediation — MAJOR-R1 expanded seed + auto-create probationary
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_expanded_seed_includes_governance_tools(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Research MAJOR-R1: expanded seed must include governance tools
+    so the ChatAgentLoop governance pre-disclosure property holds."""
+    labels = {n.label for n in fresh_tcg.tools().values()}
+    for required in (
+        "graq_gov_gate",
+        "graq_safety_check",
+        "graq_audit",
+        "graq_runtime",
+    ):
+        assert required in labels, f"governance tool missing: {required}"
+
+
+def test_expanded_seed_includes_phantom_scorch_coverage(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Expanded seed should include phantom + scorch production tools."""
+    labels = {n.label for n in fresh_tcg.tools().values()}
+    phantom = sum(1 for lbl in labels if lbl.startswith("graq_phantom_"))
+    scorch = sum(1 for lbl in labels if lbl.startswith("graq_scorch_"))
+    assert phantom >= 8, f"expected 8+ phantom tools, got {phantom}"
+    assert scorch >= 13, f"expected 13+ scorch tools, got {scorch}"
+
+
+def test_expanded_seed_total_tool_count_at_least_60(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Expanded seed should cover 60+ tools (was 30 pre-Round-1)."""
+    assert len(fresh_tcg.tools()) >= 60
+
+
+def test_audit_intent_activates_governance_tools(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Research MAJOR-R1: `intent_audit` must now surface graq_gov_gate
+    / graq_safety_check / graq_audit in its top candidates."""
+    result = fresh_tcg.activate_for_query(
+        "audit the governance trail on this module"
+    )
+    labels = [c.label for c in result.candidates[:6]]
+    # At least one of the four governance tools should surface.
+    governance_hits = [
+        lbl for lbl in labels
+        if lbl in {"graq_gov_gate", "graq_safety_check", "graq_audit", "graq_runtime"}
+    ]
+    assert len(governance_hits) >= 1, (
+        f"no governance tool surfaced for audit intent: {labels}"
+    )
+
+
+def test_reinforce_sequence_auto_creates_unknown_probationary(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Research MAJOR-R1b: a tool_id observed in reinforcement that is
+    NOT in the seed must be auto-created as a probationary YELLOW node
+    with safe_for_prediction=False, not silently skipped.
+    """
+    unknown_a = "tool_graq_experimental_a"
+    unknown_b = "tool_graq_experimental_b"
+    assert unknown_a not in fresh_tcg.nodes
+    assert unknown_b not in fresh_tcg.nodes
+
+    touched = fresh_tcg.reinforce_sequence(
+        [unknown_a, unknown_b], outcome="success",
+    )
+    assert touched >= 1
+    # Both nodes must now exist.
+    assert unknown_a in fresh_tcg.nodes
+    assert unknown_b in fresh_tcg.nodes
+    # And be marked probationary + non-predictable.
+    node_a = fresh_tcg.nodes[unknown_a]
+    assert node_a.properties.get("probation") is True
+    assert node_a.properties.get("safe_for_prediction") is False
+    assert node_a.properties.get("governance_tier") == "YELLOW"
+    # And an edge must exist between them.
+    edge = fresh_tcg._find_edge(unknown_b, unknown_a, "USED_AFTER")
+    assert edge is not None
+
+
+def test_auto_created_probationary_excluded_from_prediction(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Auto-created probationary tools must NOT surface in
+    predict_missing_edges output (safe_for_prediction=False)."""
+    probe = "tool_graq_brand_new_action"
+    # Create it via reinforcement.
+    fresh_tcg.reinforce_sequence(
+        ["tool_graq_context", probe], outcome="success",
+    )
+    suggestions = fresh_tcg.predict_missing_edges(
+        min_confidence=0.0, max_suggestions=500,
+    )
+    for s in suggestions:
+        assert s["source"] != probe, (
+            "probationary tool surfaced as prediction source"
+        )
+        assert s["target"] != probe, (
+            "probationary tool surfaced as prediction target"
+        )
+
+
+def test_reinforce_still_ignores_non_tool_prefix_ids(
+    fresh_tcg: ToolCapabilityGraph,
+) -> None:
+    """Auto-create only fires for tool_* prefixed ids so intent/
+    workflow/lesson ids never accidentally become tools."""
+    before = len(fresh_tcg.tools())
+    # Use prefixes that neither exist in the seed nor start with tool_.
+    touched = fresh_tcg.reinforce_sequence(
+        ["custom_node_alpha", "custom_node_beta"], outcome="success",
+    )
+    # Non-tool_ ids are still silently skipped — no auto-create fires.
+    assert touched == 0
+    assert len(fresh_tcg.tools()) == before
+    assert "custom_node_alpha" not in fresh_tcg.nodes
+    assert "custom_node_beta" not in fresh_tcg.nodes
 
 
 def test_activation_result_to_dict(fresh_tcg: ToolCapabilityGraph) -> None:

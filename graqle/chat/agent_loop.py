@@ -69,7 +69,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from graqle.chat.backend_router import BackendRouter
-from graqle.chat.debate import DebateRecord, ReasonFn, run_debate
+from graqle.chat.debate import ConcernCheckRecord, ReasonFn, resolve_concern
 from graqle.chat.permission_manager import (
     PermissionDecision,
     PermissionManager,
@@ -143,7 +143,7 @@ class TurnResult:
     final_text: str
     state: TurnState
     tool_executions: list[ToolExecution] = field(default_factory=list)
-    debate_records: list[DebateRecord] = field(default_factory=list)
+    check_records: list[ConcernCheckRecord] = field(default_factory=list)
     cost_usd: float = 0.0
 
 
@@ -258,7 +258,7 @@ class ChatAgentLoop:
 
         # Step 4: tool-use loop
         results: list[ToolExecution] = []
-        debates: list[DebateRecord] = []
+        checks: list[ConcernCheckRecord] = []
         partial_text = ""
         executed = 0
         budget = self.tool_call_budget
@@ -327,7 +327,7 @@ class ChatAgentLoop:
                     final_text="",
                     state=cp_now.state if cp_now else TurnState.PAUSED,
                     tool_executions=results,
-                    debate_records=debates,
+                    check_records=checks,
                 )
             if decision == PermissionDecision.DENY:
                 exec_result = ToolExecution(
@@ -349,23 +349,23 @@ class ChatAgentLoop:
 
             # Step 4c: debate (optional)
             if plan.requires_debate and self.reason_fn is not None:
-                debate_record = await run_debate(
+                check_record = await resolve_concern(
                     f"{plan.tool_name}({plan.params})",
                     reason_fn=self.reason_fn,
                 )
-                debates.append(debate_record)
+                checks.append(check_record)
                 await self._emit(
                     turn_id, ChatEventType.DEBATE_CHIP,
                     {
-                        "verdict": debate_record.final_verdict,
-                        "reason": debate_record.final_reason,
+                        "verdict": check_record.final_decision,
+                        "reason": check_record.final_rationale,
                         "rounds": len(debate_record.rounds),
                     },
                 )
-                if debate_record.final_verdict == "BLOCK":
+                if check_record.final_decision == "BLOCK":
                     exec_result = ToolExecution(
                         tool_name=plan.tool_name, status="denied",
-                        payload_summary=f"blocked by debate: {debate_record.final_reason}",
+                        payload_summary=f"blocked by debate: {check_record.final_rationale}",
                         latency_ms=0.0, error="debate_blocked",
                     )
                     results.append(exec_result)
@@ -464,7 +464,7 @@ class ChatAgentLoop:
             final_text=final_text,
             state=cp_final.state if cp_final else TurnState.COMPLETED,
             tool_executions=results,
-            debate_records=debates,
+            check_records=checks,
         )
 
     async def resume_turn(

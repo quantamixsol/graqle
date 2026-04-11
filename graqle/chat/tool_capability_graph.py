@@ -86,7 +86,12 @@ WEIGHT_MAX = 10.0
 
 PROBATION_MIN_OBSERVATIONS = 3
 PROBATION_MIN_HOLDOUTS = 2
-PROBATION_NOVELTY_LIFT_MIN = 0.15
+# BLOCKER-R2 Round-1: public default changed from 0.15 to 0.2 to
+# avoid exact collision with the unpublished PSE similarity_threshold.
+# Operators who need the production value must set it via
+# .graqle/settings.json -> chat.probation.novelty_lift_min; the
+# loader validates the key exists and raises ValueError on omission.
+PROBATION_NOVELTY_LIFT_MIN = 0.2
 
 _DEFAULT_SEED_RELATIVE = Path("templates") / "tcg_default.json"
 _DEFAULT_USER_PATH = Path.home() / ".graqle" / "tcg.json"
@@ -508,6 +513,52 @@ class ToolCapabilityGraph(Graqle):
             self.nodes[target_id].incoming_edges.append(edge_id)
         return edge
 
+
+    # ── MAJOR-R1b (Round-1): auto-create probationary unknown tools ─────
+    #
+    # Research review flagged that silent-skip in reinforce_sequence
+    # combined with BLOCKER-2's "no runtime list_tools() bootstrap"
+    # rule meant the 36 tools missing from the seed could never be
+    # learned after ship. The fix: when reinforce_sequence encounters
+    # a tool_id that isn't in the TCG, auto-create a probationary
+    # TCGTool node with governance_tier=YELLOW and
+    # safe_for_prediction=False. The node is visible to activation
+    # (so future turns can use it) but predict_missing_edges cannot
+    # surface it until a future session graduates it explicitly.
+    #
+    # This is NOT a runtime list_tools() bootstrap — we only learn
+    # from OBSERVED usage, which is the same mechanism the graduated
+    # seed workflows use.
+
+    def _auto_create_probationary_tool(self, tool_id: str) -> CogniNode:
+        """Create a probationary YELLOW tool node for a tool_id that
+        was observed in live usage but is not in the TCG seed."""
+        label = tool_id.removeprefix("tool_")
+        node = CogniNode(
+            id=tool_id,
+            label=label,
+            entity_type=NODE_TYPE_TOOL,
+            description=(
+                f"probationary TCGTool created from live reinforcement "
+                f"observation — awaiting graduation via holdout validation"
+            ),
+            properties={
+                "governance_tier": "YELLOW",
+                "side_effect": "unknown",
+                "category": "probationary",
+                "latency_tier": "medium",
+                "safe_for_prediction": False,
+                "probation": True,
+                "auto_created": True,
+            },
+        )
+        self.nodes[tool_id] = node
+        logger.info(
+            "TCG auto-created probationary tool %s from live observation",
+            tool_id,
+        )
+        return node
+
     def reinforce_sequence(
         self,
         tool_ids: list[str],
@@ -526,8 +577,21 @@ class ToolCapabilityGraph(Graqle):
         delta = REINFORCE_SUCCESS_DELTA if outcome == "success" else REINFORCE_FAILURE_DELTA
         touched = 0
         for prev, cur in zip(tool_ids[:-1], tool_ids[1:]):
-            if prev not in self.nodes or cur not in self.nodes:
-                continue
+            # MAJOR-R1b (Round-1): auto-create probationary YELLOW
+            # tool nodes for observed tools that are not in the seed.
+            # No longer silently drops unknown tools — they now
+            # participate in reinforcement with safe_for_prediction=False
+            # so predict_missing_edges still cannot surface them.
+            if prev not in self.nodes:
+                if prev.startswith("tool_"):
+                    self._auto_create_probationary_tool(prev)
+                else:
+                    continue
+            if cur not in self.nodes:
+                if cur.startswith("tool_"):
+                    self._auto_create_probationary_tool(cur)
+                else:
+                    continue
             edge = self._find_edge(cur, prev, EDGE_USED_AFTER)
             if edge is None:
                 edge = self._upsert_edge(cur, prev, EDGE_USED_AFTER, initial_weight=1.0)

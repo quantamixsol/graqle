@@ -236,3 +236,58 @@ class SettingsLoader:
             )
 
         return ChatSettings.from_validated_dict(parsed)
+
+
+# BLOCKER-R2 Round-1 — required-key helper for the TCG novelty lift
+# threshold. See lesson_20260402T210613: config.get(KEY, default) with a
+# numerical default IS a hardcoded threshold disguised as config.
+# Correct pattern: config[KEY] with fail-loud ValueError on missing key.
+
+_NOVELTY_LIFT_SETTINGS_PATH = ("chat", "probation", "novelty_lift_min")
+
+
+def load_novelty_lift_min(settings: dict | None) -> float | None:
+    """Extract ``chat.probation.novelty_lift_min`` from a settings dict.
+
+    Returns ``None`` if the settings dict is None or the key is absent
+    so the caller can fall back to the module default
+    (``tool_capability_graph.PROBATION_NOVELTY_LIFT_MIN``). Callers that
+    require the operator value MUST raise themselves on None — this
+    helper is a strict reader, not a default-provider, to comply with
+    the lesson_20260402T210613 pattern.
+    """
+    if not settings:
+        return None
+    node = settings
+    for key in _NOVELTY_LIFT_SETTINGS_PATH:
+        if not isinstance(node, dict) or key not in node:
+            return None
+        node = node[key]
+    try:
+        value = float(node)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"settings[{'.'.join(_NOVELTY_LIFT_SETTINGS_PATH)}] "
+            f"must be a float, got {type(node).__name__}: {exc}"
+        ) from None
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(
+            f"settings[{'.'.join(_NOVELTY_LIFT_SETTINGS_PATH)}] "
+            f"must be in [0.0, 1.0], got {value}"
+        )
+    return value
+
+
+def require_novelty_lift_min(settings: dict) -> float:
+    """Strict reader: raises ValueError if the key is missing. Use in
+    production contexts that must NOT fall back to the public default.
+    """
+    value = load_novelty_lift_min(settings)
+    if value is None:
+        raise ValueError(
+            "chat.probation.novelty_lift_min is required in settings — "
+            "the public default is intentionally non-operational. Set "
+            "the value in .graqle/settings.json before running."
+        )
+    return value
+

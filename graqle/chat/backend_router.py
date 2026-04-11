@@ -9,8 +9,8 @@ user has configured.
 
 Family separation
 -----------------
-For the adversarial debate to be meaningful, the PROPOSER and
-ADVERSARY personas should run on backends from DIFFERENT families
+For the concern-check roles to provide a meaningful second opinion,
+the CANDIDATE and CRITIC roles should run on backends from DIFFERENT families
 (e.g. anthropic vs openai). The router enforces family separation
 ONLY when 2+ families are configured. With a single family available,
 it logs a warning chip and runs same-family debate.

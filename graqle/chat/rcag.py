@@ -16,7 +16,7 @@ Six node types
                              (text, embedding, partial flag)
   - ``GovernanceCheckpoint`` — a governance gate decision
                                (tier, decision, reason, related_tool_call)
-  - ``DebateRound``     — one round of PROPOSER/ADVERSARY/ARBITER debate
+  - ``CheckRound``      — one round of concern-check
                           (proposer_text, adversary_text, arbiter_verdict)
   - ``ErrorNode``       — a tool / backend error (kind, message, recovered)
 
@@ -84,7 +84,9 @@ NODE_TYPE_TOOL_CALL = "RCAGToolCall"
 NODE_TYPE_TOOL_RESULT = "RCAGToolResult"
 NODE_TYPE_ASSISTANT_REASONING = "RCAGAssistantReasoning"
 NODE_TYPE_GOVERNANCE_CHECKPOINT = "RCAGGovernanceCheckpoint"
-NODE_TYPE_DEBATE_ROUND = "RCAGDebateRound"
+NODE_TYPE_CHECK_ROUND = "RCAGCheckRound"
+# Backward-compat alias for pre-Round1 callers — remove in v0.51.0.
+NODE_TYPE_DEBATE_ROUND = NODE_TYPE_CHECK_ROUND
 NODE_TYPE_ERROR = "RCAGErrorNode"
 NODE_TYPE_ATTACHMENT = "RCAGAttachmentContext"
 

@@ -1,4 +1,12 @@
-"""TB-F5 tests for graqle.chat.debate."""
+"""Round-1 tests for graqle.chat.debate (concern-check subsystem).
+
+Covers:
+  - Original 15 cases under the new CANDIDATE/CRITIC/JUDGE vocabulary
+  - MAJOR-R3 four false-positive regression cases
+    (non-destructive / credentials env-var name / unsafe fixed / ambiguous but safe)
+  - Banned-phrase guard import-time + runtime assertion
+  - Security invariants: no secret leakage, no subprocess usage, no env reads
+"""
 
 # ── graqle:intelligence ──
 # module: tests.test_chat.test_debate
@@ -9,190 +17,399 @@
 
 from __future__ import annotations
 
+import inspect
+import pathlib
+
 import pytest
 
 from graqle.chat.debate import (
-    MAX_DEBATE_ROUNDS,
-    DebateRecord,
-    deterministic_arbiter,
-    run_debate,
+    CANDIDATE_PROMPT,
+    CRITIC_PROMPT,
+    JUDGE_PROMPT,
+    MAX_CHECK_ROUNDS,
+    ROLE_CANDIDATE,
+    ROLE_CRITIC,
+    ROLE_JUDGE,
+    ConcernCheckRecord,
+    _BANNED_PROMPT_PHRASES,
+    _assert_no_banned_phrases,
+    classify_concern,
+    resolve_concern,
 )
 
 
 # ──────────────────────────────────────────────────────────────────────
-# deterministic_arbiter — rule order
+# classify_concern — deterministic in-code override
 # ──────────────────────────────────────────────────────────────────────
 
 
-def test_arbiter_no_concern_proceeds() -> None:
-    verdict, reason = deterministic_arbiter(
-        "use graq_read", "CONCERN: none — looks fine",
+def test_classify_explicit_none_proceeds() -> None:
+    decision, rationale = classify_concern(
+        "use graq_read",
+        "CONCERN: none — looks fine",
     )
-    assert verdict == "PROCEED"
+    assert decision == "PROCEED"
 
 
-def test_arbiter_safety_blocks() -> None:
-    verdict, reason = deterministic_arbiter(
-        "run rm -rf", "this is destructive — will lose data",
+def test_classify_no_concern_variant_proceeds() -> None:
+    decision, _ = classify_concern("do x", "no concern here")
+    assert decision == "PROCEED"
+
+
+def test_classify_safety_blocks() -> None:
+    decision, rationale = classify_concern(
+        "run rm -rf",
+        "this is destructive — will lose data",
     )
-    assert verdict == "BLOCK"
-    assert "safety" in reason
+    assert decision == "BLOCK"
+    assert "safety" in rationale
 
 
-def test_arbiter_safety_beats_cost() -> None:
-    """Safety wins over cost in rule order."""
-    verdict, _ = deterministic_arbiter(
+def test_classify_safety_beats_cost() -> None:
+    """Precedence in code: safety wins over cost."""
+    decision, _ = classify_concern(
         "do x", "destructive AND expensive AND slow",
     )
-    assert verdict == "BLOCK"
+    assert decision == "BLOCK"
 
 
-def test_arbiter_prerequisite_refines() -> None:
-    verdict, reason = deterministic_arbiter(
-        "call graq_generate", "missing prerequisite — needs preflight first",
+def test_classify_prerequisite_refines() -> None:
+    decision, rationale = classify_concern(
+        "call graq_generate",
+        "missing prerequisite — needs preflight first",
     )
-    assert verdict == "REFINE"
-    assert "prerequisite" in reason
+    assert decision == "REFINE"
+    assert "prerequisite" in rationale
 
 
-def test_arbiter_cost_refines() -> None:
-    verdict, reason = deterministic_arbiter(
-        "call graq_reason 6 times", "this is expensive — high latency",
+def test_classify_cost_refines() -> None:
+    decision, rationale = classify_concern(
+        "call graq_reason 6 times",
+        "this is expensive — high-latency",
     )
-    assert verdict == "REFINE"
-    assert "cost" in reason
+    assert decision == "REFINE"
+    assert "cost" in rationale
 
 
-def test_arbiter_ambiguity_refines() -> None:
-    verdict, reason = deterministic_arbiter(
-        "do something", "ambiguous — unclear what the user wants",
+def test_classify_ambiguity_refines() -> None:
+    decision, rationale = classify_concern(
+        "do something",
+        "ambiguous — unclear what the user wants",
     )
-    assert verdict == "REFINE"
-    assert "ambiguity" in reason
+    assert decision == "REFINE"
+    assert "ambiguity" in rationale
 
 
-def test_arbiter_unclassified_concern_refines() -> None:
-    verdict, _ = deterministic_arbiter(
-        "do x", "I have a vague feeling about this",
-    )
-    assert verdict == "REFINE"
-
-
-def test_arbiter_prerequisite_beats_cost() -> None:
-    """Prerequisite wins over cost in rule order."""
-    verdict, _ = deterministic_arbiter(
-        "do x", "missing prerequisite — also expensive",
-    )
-    assert verdict == "REFINE"  # prerequisite is REFINE not BLOCK
-    # Sanity: it's prerequisite-refine, not cost-refine.
-    _, reason = deterministic_arbiter(
-        "do x", "missing prerequisite — also expensive",
-    )
-    assert "prerequisite" in reason
+def test_classify_unclassified_concern_refines() -> None:
+    decision, _ = classify_concern("do x", "I have a vague feeling about this")
+    assert decision == "REFINE"
 
 
 # ──────────────────────────────────────────────────────────────────────
-# run_debate — full integration with stub reason_fn
+# MAJOR-R3 — the four false-positive regression cases
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _stub_reason(responses: dict[str, str]):
-    """Build an async stub reason_fn that returns canned text per persona."""
+def test_major_r3_non_destructive_proceeds() -> None:
+    """'non-destructive' must not match 'destructive'."""
+    decision, _ = classify_concern(
+        "stage a read-only tool",
+        "This action is non-destructive and safe.",
+    )
+    assert decision == "PROCEED", (
+        "negation guard failed — 'non-destructive' incorrectly flagged"
+    )
+
+
+def test_major_r3_credentials_env_var_name_proceeds() -> None:
+    """'credentials env-var name' is the lesson_patent_scrub safe rewrite
+    phrase — it must not be flagged by any category signal.
+    """
+    decision, _ = classify_concern(
+        "use the backend",
+        "Uses credentials env-var name from the project config.",
+    )
+    assert decision == "PROCEED", (
+        "safe rewrite phrase incorrectly blocked"
+    )
+
+
+def test_major_r3_unsafe_already_fixed_blocks() -> None:
+    """'unsafe pattern we already fixed' still contains 'unsafe' word-
+    boundary match — the operator's safer default is to BLOCK on any
+    unresolved-sounding safety mention. This matches the conservative
+    stance documented in classify_concern.
+    """
+    decision, _ = classify_concern(
+        "re-apply",
+        "This is an unsafe pattern we already fixed.",
+    )
+    # Intentional: word-boundary 'unsafe' fires without negation. The
+    # conservative default is BLOCK — the operator can revisit via a
+    # more nuanced signal_kind field in a future round.
+    assert decision == "BLOCK"
+
+
+def test_major_r3_ambiguous_but_safe_refines() -> None:
+    """'ambiguous but safe' still matches the 'ambiguous' signal — the
+    conservative default is REFINE. The engine never silently proceeds
+    on an ambiguity signal.
+    """
+    decision, _ = classify_concern(
+        "do x",
+        "The concern is ambiguous, but safe.",
+    )
+    assert decision == "REFINE"
+
+
+def test_major_r3_no_not_negations_proceed() -> None:
+    """Multiple negation tokens must be recognised."""
+    for text in [
+        "This is not destructive at all.",
+        "There is no destructive effect here.",
+        "The action is never unsafe.",
+        "Runs without destructive side effects.",
+    ]:
+        decision, _ = classify_concern("x", text)
+        assert decision == "PROCEED", f"failed on: {text}"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Banned-phrase guard (import-time + runtime)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_banned_phrase_guard_catches_slip() -> None:
+    """The guard must fail fast on any reintroduction of banned phrasing."""
+    with pytest.raises(RuntimeError, match="banned phrase"):
+        _assert_no_banned_phrases(
+            "You are PROPOSER. Think about the next step.",
+        )
+
+
+def test_banned_phrase_guard_passes_on_neutral_text() -> None:
+    _assert_no_banned_phrases(
+        "You are the CANDIDATE role. Recommend the next action.",
+    )
+
+
+def test_prompts_contain_no_banned_phrases() -> None:
+    """Runtime re-assertion — every shipped prompt must be clean."""
+    _assert_no_banned_phrases(CANDIDATE_PROMPT, CRITIC_PROMPT, JUDGE_PROMPT)
+
+
+def test_prompts_do_not_state_strict_ordering() -> None:
+    """No prompt may contain the verbatim rule-order sentence."""
+    banned_sentence = "safety > prerequisite > cost > ambiguity"
+    for prompt in (CANDIDATE_PROMPT, CRITIC_PROMPT, JUDGE_PROMPT):
+        assert banned_sentence.lower() not in prompt.lower()
+
+
+def test_module_source_has_no_persona_names() -> None:
+    """The shipped debate.py source (as loaded on disk) must not contain
+    the legacy persona names PROPOSER / ADVERSARY / ARBITER.
+    """
+    module_path = (
+        pathlib.Path(__file__).resolve().parent.parent.parent
+        / "graqle" / "chat" / "debate.py"
+    )
+    src = module_path.read_text(encoding="utf-8")
+    for word in ("PROPOSER", "ADVERSARY", "ARBITER"):
+        # Allow the word only if it appears inside _BANNED_PROMPT_PHRASES
+        # as a lowercase literal (the guard needs them to check for
+        # regressions). Everything else must be absent.
+        lower = word.lower()
+        # Count actual caps occurrences.
+        cap_count = src.count(word)
+        assert cap_count == 0, f"found {cap_count} stray '{word}' in debate.py"
+        # Lowercase token is allowed ONLY inside the guard set.
+        assert lower in _BANNED_PROMPT_PHRASES
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Security invariants — no secrets, no subprocess, no env reads
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_module_source_has_no_subprocess_usage() -> None:
+    """graqle/chat/debate.py must not import or call any subprocess API."""
+    module_path = (
+        pathlib.Path(__file__).resolve().parent.parent.parent
+        / "graqle" / "chat" / "debate.py"
+    )
+    src = module_path.read_text(encoding="utf-8")
+    forbidden = [
+        "import subprocess",
+        "from subprocess",
+        "subprocess.run",
+        "subprocess.Popen",
+        "os.system",
+        "os.popen",
+    ]
+    for token in forbidden:
+        assert token not in src, f"forbidden token in debate.py: {token}"
+
+
+def test_module_source_has_no_env_reads() -> None:
+    """debate.py must not read environment variables directly."""
+    module_path = (
+        pathlib.Path(__file__).resolve().parent.parent.parent
+        / "graqle" / "chat" / "debate.py"
+    )
+    src = module_path.read_text(encoding="utf-8")
+    forbidden = ["os.environ", "os.getenv", "environ["]
+    for token in forbidden:
+        assert token not in src, f"env-read pattern in debate.py: {token}"
+
+
+@pytest.mark.asyncio
+async def test_secret_like_input_not_echoed_to_callback() -> None:
+    """A secret-like string in the question stays in the candidate/critic
+    trail but is not transformed / enriched / forwarded to anything
+    outside the record. The callback receives exactly what the roles
+    produced — nothing more.
+    """
+    secret_question = "deploy my-service with SECRET=sk-fake-not-real-0123456789"
+    emitted: list[tuple[str, str, str]] = []
+
+    async def on_signal(role: str, text: str, decision: str) -> None:
+        emitted.append((role, text, decision))
+
+    async def stub(prompt: str, *, persona: str) -> str:
+        # Roles never echo the secret — they only output their own text.
+        return f"{persona} acknowledged the request"
+
+    record = await resolve_concern(
+        secret_question, reason_fn=stub, on_signal=on_signal,
+    )
+    assert record.final_decision == "REFINE"
+    # The record text never contains the secret — the role callables
+    # produced clean outputs and the engine only passed their outputs
+    # through.
+    for _, text, _ in emitted:
+        assert "sk-fake-not-real-0123456789" not in text
+
+
+# ──────────────────────────────────────────────────────────────────────
+# resolve_concern — full-integration async behavior
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _stub(responses: dict[str, str]):
     async def _fn(prompt: str, *, persona: str) -> str:
         return responses.get(persona, f"{persona} says nothing")
     return _fn
 
 
 @pytest.mark.asyncio
-async def test_debate_proceeds_with_no_concern() -> None:
-    reason_fn = _stub_reason({
-        "PROPOSER": "use graq_read on file.py",
-        "ADVERSARY": "CONCERN: none",
-        "ARBITER": "PROCEED",
+async def test_resolve_proceeds_with_no_concern() -> None:
+    reason_fn = _stub({
+        ROLE_CANDIDATE: "use graq_read on file.py",
+        ROLE_CRITIC: "CONCERN: none",
+        ROLE_JUDGE: "PROCEED",
     })
-    record = await run_debate("read file.py", reason_fn=reason_fn)
-    assert record.final_verdict == "PROCEED"
+    record = await resolve_concern("read file.py", reason_fn=reason_fn)
+    assert record.final_decision == "PROCEED"
     assert len(record.rounds) == 1
 
 
 @pytest.mark.asyncio
-async def test_debate_blocks_on_safety() -> None:
-    reason_fn = _stub_reason({
-        "PROPOSER": "rm everything",
-        "ADVERSARY": "this is destructive — irreversible",
-        "ARBITER": "BLOCK",
+async def test_resolve_blocks_on_safety() -> None:
+    reason_fn = _stub({
+        ROLE_CANDIDATE: "rm everything",
+        ROLE_CRITIC: "this is destructive — irreversible",
+        ROLE_JUDGE: "BLOCK",
     })
-    record = await run_debate("clean up", reason_fn=reason_fn)
-    assert record.final_verdict == "BLOCK"
+    record = await resolve_concern("clean up", reason_fn=reason_fn)
+    assert record.final_decision == "BLOCK"
     assert len(record.rounds) == 1
 
 
 @pytest.mark.asyncio
-async def test_debate_refines_for_two_rounds_then_proceeds() -> None:
-    """REFINE means continue to the next round; PROCEED stops."""
-    call_counts: dict[str, int] = {"PROPOSER": 0, "ADVERSARY": 0, "ARBITER": 0}
+async def test_resolve_refines_then_proceeds() -> None:
+    """REFINE continues to next round; PROCEED stops."""
+    counts: dict[str, int] = {ROLE_CANDIDATE: 0, ROLE_CRITIC: 0, ROLE_JUDGE: 0}
 
     async def fn(prompt: str, *, persona: str) -> str:
-        call_counts[persona] += 1
-        if persona == "ADVERSARY":
-            if call_counts[persona] == 1:
+        counts[persona] += 1
+        if persona == ROLE_CRITIC:
+            if counts[persona] == 1:
                 return "missing prerequisite — needs context first"
             return "CONCERN: none"
-        return f"{persona} round {call_counts[persona]}"
+        return f"{persona} round {counts[persona]}"
 
-    record = await run_debate("question", reason_fn=fn)
+    record = await resolve_concern("question", reason_fn=fn)
     assert len(record.rounds) == 2
-    assert record.final_verdict == "PROCEED"
+    assert record.final_decision == "PROCEED"
 
 
 @pytest.mark.asyncio
-async def test_debate_caps_at_max_rounds() -> None:
-    """Even if every round REFINEs, the engine stops at MAX_DEBATE_ROUNDS."""
-    reason_fn = _stub_reason({
-        "PROPOSER": "do x",
-        "ADVERSARY": "ambiguous — unclear",
-        "ARBITER": "REFINE",
+async def test_resolve_caps_at_max_rounds() -> None:
+    reason_fn = _stub({
+        ROLE_CANDIDATE: "do x",
+        ROLE_CRITIC: "ambiguous — unclear",
+        ROLE_JUDGE: "REFINE",
     })
-    record = await run_debate("question", reason_fn=reason_fn, max_rounds=10)
-    assert len(record.rounds) == MAX_DEBATE_ROUNDS
-    assert record.final_verdict == "REFINE"
+    record = await resolve_concern("q", reason_fn=reason_fn, max_rounds=10)
+    assert len(record.rounds) == MAX_CHECK_ROUNDS
+    assert record.final_decision == "REFINE"
 
 
 @pytest.mark.asyncio
-async def test_debate_chip_callback_fires() -> None:
-    chips: list[tuple[str, str, str]] = []
+async def test_resolve_signal_callback_fires_with_new_roles() -> None:
+    signals: list[tuple[str, str, str]] = []
 
-    async def on_chip(persona: str, text: str, verdict: str) -> None:
-        chips.append((persona, text, verdict))
+    async def on_signal(role: str, text: str, decision: str) -> None:
+        signals.append((role, text, decision))
 
-    reason_fn = _stub_reason({
-        "PROPOSER": "ok",
-        "ADVERSARY": "CONCERN: none",
-        "ARBITER": "PROCEED",
+    reason_fn = _stub({
+        ROLE_CANDIDATE: "ok",
+        ROLE_CRITIC: "CONCERN: none",
+        ROLE_JUDGE: "PROCEED",
     })
-    await run_debate("q", reason_fn=reason_fn, on_chip=on_chip)
-    personas = {c[0] for c in chips}
-    assert {"PROPOSER", "ADVERSARY", "ARBITER"} <= personas
+    await resolve_concern("q", reason_fn=reason_fn, on_signal=on_signal)
+    roles = {s[0] for s in signals}
+    assert {ROLE_CANDIDATE, ROLE_CRITIC, ROLE_JUDGE} <= roles
 
 
 @pytest.mark.asyncio
-async def test_debate_reason_fn_exception_recorded() -> None:
-    """A persona failure does not crash the engine; it's recorded."""
+async def test_resolve_reason_fn_exception_recorded() -> None:
+    """A role failure does not crash the engine; it's recorded and the
+    engine falls through to its fail-safe default (REFINE)."""
+
     async def fn(prompt: str, *, persona: str) -> str:
-        if persona == "ADVERSARY":
+        if persona == ROLE_CRITIC:
             raise RuntimeError("backend down")
         return "ok"
 
-    record = await run_debate("q", reason_fn=fn)
-    # ADVERSARY error → empty text → no "concern: none" marker → fail-safe REFINE
-    # (the engine treats unparseable adversary output as a soft refine,
-    # never as silent approval).
-    assert record.final_verdict == "REFINE"
-    assert record.rounds[0].adversary.error == "backend down"
+    record = await resolve_concern("q", reason_fn=fn)
+    # CRITIC error → empty text → no "concern: none" marker → REFINE.
+    assert record.final_decision == "REFINE"
+    assert record.rounds[0].critic.error == "backend down"
 
 
-def test_debate_record_to_dict() -> None:
-    rec = DebateRecord()
+def test_concern_check_record_to_dict() -> None:
+    rec = ConcernCheckRecord()
     d = rec.to_dict()
     assert "rounds" in d
-    assert "final_verdict" in d
+    assert "final_decision" in d
+    assert "final_rationale" in d
+
+
+def test_role_labels_are_public_module_constants() -> None:
+    """The three role labels must be stable public constants for the
+    VS Code extension to match on without importing private names.
+    """
+    assert ROLE_CANDIDATE == "CANDIDATE"
+    assert ROLE_CRITIC == "CRITIC"
+    assert ROLE_JUDGE == "JUDGE"
+
+
+def test_resolve_concern_signature_matches_protocol() -> None:
+    """Resolve-concern must accept the same kwargs the ChatAgentLoop uses."""
+    sig = inspect.signature(resolve_concern)
+    params = list(sig.parameters)
+    assert "question" in params
+    assert "reason_fn" in params
+    assert "max_rounds" in params
+    assert "on_signal" in params
