@@ -321,7 +321,8 @@ class Graqle:
         self._node_backends: dict[str, ModelBackend] = {}
         self._orchestrator: Any = None  # set lazily
         self._activator: Any = None  # set lazily
-        self._reformulator: Any = None  # set lazily self._task_router: Any = None  # set lazily (v0.22: task-based routing)
+        self._reformulator: Any = None  # set lazily
+        self._task_router: Any = None  # set lazily (v0.22: task-based routing)
         self._activation_memory: Any = None  # v0.12: cross-query learning
         self._neo4j_connector: Any = None  # set by from_neo4j / to_neo4j
         self._nx_graph: nx.Graph | None = None

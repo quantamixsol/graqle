@@ -384,6 +384,37 @@ def _check_graph_file() -> list[CheckResult]:
     return results
 
 
+def _check_storage_tiers() -> list[CheckResult]:
+    """Check storage tier status and invariant."""
+    results = []
+    try:
+        from graqle.storage.tiers import StorageTiers, TierStatus
+
+        tiers = StorageTiers()
+        for td in tiers.all():
+            if td.status == TierStatus.ACTIVE:
+                results.append((PASS, td.name, td.detail))
+            elif td.status == TierStatus.OPT_IN_AVAILABLE:
+                results.append((INFO, td.name, td.detail))
+            elif td.status == TierStatus.DISABLED:
+                results.append((WARN, td.name, td.detail))
+            else:
+                results.append((INFO, td.name, td.detail))
+
+        if tiers.has_override():
+            ep = tiers.effective_primary()
+            results.append((FAIL, "Storage invariant", ep.detail))
+        else:
+            ok, reason = tiers.enforce()
+            if ok:
+                results.append((PASS, "Storage invariant", "Tier 0 is single source of truth — OK"))
+            else:
+                results.append((WARN, "Storage invariant", reason))
+    except Exception as e:
+        results.append((WARN, "Storage tiers", f"Could not check: {e}"))
+    return results
+
+
 def _check_mcp_registration() -> list[CheckResult]:
     """Check if MCP server is registered for any supported IDE.
 
@@ -882,6 +913,7 @@ def doctor_command(
     all_results.extend(_check_config_file())
     all_results.extend(_check_bedrock_model_id())
     all_results.extend(_check_graph_file())
+    all_results.extend(_check_storage_tiers())
     all_results.extend(_check_mcp_registration())
     all_results.extend(_check_skill_system())
     all_results.extend(_check_neo4j_backend())
