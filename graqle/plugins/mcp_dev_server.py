@@ -3609,8 +3609,7 @@ class KogniDevServer:
                 "mode": "error",
                 "confidence": 0.0,
                 "backend_error": err,
-                "traceback": _full_tb,
-                "hint": "graq_inspect is available for keyword-only node lookup if needed.",
+                "hint": "Check server logs for full traceback. graq_inspect is available for keyword-only lookup.",
             })
 
     # ── 3b. graq_reason_batch (PRO) ──────────────────────────────────
@@ -8329,10 +8328,31 @@ class KogniDevServer:
         return json.dumps(result)
 
 
+    # -- MAJOR-2 fix: Windows-safe atomic file replace with retry --
+
+    @staticmethod
+    def _safe_replace(src: Path, dst: Path) -> None:
+        """Atomic file replace with Windows file-lock retry."""
+        import platform
+        import time as _time
+        if platform.system() == "Windows":
+            for attempt in range(3):
+                try:
+                    os.replace(str(src), str(dst))
+                    return
+                except PermissionError:
+                    if attempt == 2:
+                        raise
+                    _time.sleep(0.1)
+        else:
+            os.replace(str(src), str(dst))
+
     # -- graq_gate_status handler (v0.52.0) --
 
     async def _handle_gate_status(self, args: dict[str, Any]) -> str:
         """S-009: Check governance gate health via MCP transport."""
+        import asyncio
+        import functools
         import subprocess as _sp
         from datetime import datetime, timezone
 
@@ -8350,11 +8370,19 @@ class KogniDevServer:
         gate_path = project_root / ".claude" / "hooks" / "graqle-gate.py"
         settings_path = project_root / ".claude" / "settings.json"
 
+        # MINOR-4: use relative paths to avoid filesystem layout disclosure
+        try:
+            rel_hook = str(gate_path.relative_to(project_root))
+            rel_settings = str(settings_path.relative_to(project_root))
+        except ValueError:
+            rel_hook = str(gate_path)
+            rel_settings = str(settings_path)
+
         result: dict[str, Any] = {
             "installed": False, "enforcing": False, "interpreter": "",
             "interpreter_valid": False,
             "self_test": {"exit_code": -1, "passed": False, "ran_at": ""},
-            "hook_path": str(gate_path), "settings_path": str(settings_path),
+            "hook_path": rel_hook, "settings_path": rel_settings,
         }
 
         if not gate_path.exists():
@@ -8381,27 +8409,32 @@ class KogniDevServer:
             interpreter_cmd = sys.executable or "python"
         result["interpreter"] = interpreter_cmd
 
-        # Validate interpreter
+        # BLOCKER-2 fix: run subprocess via run_in_executor to avoid blocking event loop
+        loop = asyncio.get_event_loop()
+
+        # Validate interpreter (non-blocking)
         try:
-            r = _sp.run(
+            r = await loop.run_in_executor(None, functools.partial(
+                _sp.run,
                 interpreter_cmd.split() + ["-c", "import sys; print(sys.version_info[0])"],
                 capture_output=True, text=True, timeout=5,
-            )
+            ))
             result["interpreter_valid"] = r.returncode == 0 and r.stdout.strip() == "3"
         except Exception:
             result["interpreter_valid"] = False
 
-        # Self-test
+        # Self-test (non-blocking)
         if run_self_test and result["interpreter_valid"]:
             test_payload = json.dumps({
                 "tool_name": "Bash", "tool_input": {"command": "echo test"},
                 "cwd": str(project_root),
             })
             try:
-                st = _sp.run(
+                st = await loop.run_in_executor(None, functools.partial(
+                    _sp.run,
                     interpreter_cmd.split() + [str(gate_path)],
                     input=test_payload, capture_output=True, text=True, timeout=5,
-                )
+                ))
                 result["self_test"] = {
                     "exit_code": st.returncode,
                     "stderr_snippet": (st.stderr or "")[:200],
@@ -8422,8 +8455,12 @@ class KogniDevServer:
 
     async def _handle_gate_install(self, args: dict[str, Any]) -> str:
         """S-010: Install/upgrade governance gate via MCP transport."""
+        import asyncio
+        import functools
+        import platform
         import shutil
         import subprocess as _sp
+        import time as _time
 
         force = args.get("force", False)
         dry_run = args.get("dry_run", False)
@@ -8514,7 +8551,7 @@ class KogniDevServer:
             if not dry_run:
                 tmp_path = settings_dst.with_suffix(".json.tmp")
                 tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
-                os.replace(str(tmp_path), str(settings_dst))
+                self._safe_replace(tmp_path, settings_dst)
             result["actions"].append(f"Rewrote {rewritten} hook command(s) to: {interpreter_cmd}")
             result["success"] = True
             return json.dumps(result)
@@ -8558,18 +8595,20 @@ class KogniDevServer:
             existing_settings["hooks"]["PreToolUse"].extend(new_pre)
             tmp_path = settings_dst.with_suffix(".json.tmp")
             tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
-            os.replace(str(tmp_path), str(settings_dst))
+            self._safe_replace(tmp_path, settings_dst)
 
-        # Self-test
+        # Self-test (BLOCKER-2 fix: non-blocking via run_in_executor)
+        loop = asyncio.get_event_loop()
         test_payload = json.dumps({
             "tool_name": "Bash", "tool_input": {"command": "echo test"},
             "cwd": str(project_root),
         })
         try:
-            st = _sp.run(
+            st = await loop.run_in_executor(None, functools.partial(
+                _sp.run,
                 interpreter_cmd.split() + [str(gate_dst)],
                 input=test_payload, capture_output=True, text=True, timeout=5,
-            )
+            ))
             passed = st.returncode == 2 and "GATE BLOCKED" in (st.stderr or "")
             result["self_test"] = {"exit_code": st.returncode, "passed": passed}
         except Exception as exc:
