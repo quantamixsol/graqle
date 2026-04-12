@@ -259,7 +259,8 @@ class GovernancePolicyConfig(BaseModel):
     """
 
     ts_hard_block: bool = True
-    ts_patterns_file: str | None = None     # Path to ip_patterns.yml review_threshold: float = 0.70          # T2 gate threshold
+    ts_patterns_file: str | None = None     # Path to ip_patterns.yml
+    review_threshold: float = 0.70          # T2 gate threshold
     block_threshold: float = 0.90           # T3 block threshold
     auto_pass_max_radius: int = 2           # T1 max impact_radius for auto-pass
     auto_pass_max_risk: str = "LOW"         # T1 max risk level for auto-pass

@@ -1953,9 +1953,18 @@ def lint_public_command(
         "\\" + "$10/mo" + "nth", "pytest-xdist wor" + "kers",
     ]
     combined = re.compile("|".join(_frags))
+    # Exempt paths that contain functional string literals (e.g. clientInfo
+    # name comparisons) which must stay as-is for runtime correctness.
+    _exempt = {
+        "graqle/plugins/mcp_dev_server.py",
+        "graqle/benchmarks/",
+    }
     violations: list[dict] = []
     for p in sorted(pkg.rglob("*")):
         if not p.is_file() or p.suffix not in exts:
+            continue
+        rel = p.relative_to(repo_root).as_posix()
+        if any(rel.startswith(ex) for ex in _exempt):
             continue
         try:
             content = p.read_text(encoding="utf-8")

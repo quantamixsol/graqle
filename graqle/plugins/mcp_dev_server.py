@@ -2242,7 +2242,7 @@ class KogniDevServer:
         self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
         self._plan_active: bool = False      # Set True by graq_plan
         # Per-MCP-session gate bypasses for VS Code extension.
-        # Set by the initialize handler when clientInfo.name == "the VS Code extension".
+        # Set by the initialize handler when clientInfo.name == "graqle-vscode".
         # Fail-closed default: bypasses are False. Each KogniDevServer instance
         # is one MCP session (one stdio process), so this state is naturally
         # session-scoped — concurrent non-the VS Code extension clients run in their
@@ -8404,7 +8404,7 @@ class KogniDevServer:
                 _client_info = params.get("clientInfo", {}) if isinstance(params, dict) else {}
                 _client_name = _client_info.get("name", "") if isinstance(_client_info, dict) else ""
                 self._mcp_client_name = _client_name or None
-                if _client_name == "the VS Code extension":
+                if _client_name == "graqle-vscode":
                     self._cg01_bypass = True
                     self._cg02_bypass = True
                     self._cg03_bypass = True
