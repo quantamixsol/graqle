@@ -1349,7 +1349,7 @@ class Graqle:
 
     def _get_task_router(self) -> Any:
         """Lazily create and return the task router from config."""
-        if self._task_router is None:
+        if not hasattr(self, "_task_router") or self._task_router is None:
             from graqle.routing import TaskRouter
             routing_cfg = self.config.routing
             config_dict: dict[str, Any] = {}

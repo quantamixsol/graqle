@@ -3534,6 +3534,9 @@ class KogniDevServer:
         # Keyword traversal is NOT reasoning. Pretending it is destroys user trust.
         # graq_inspect exists for keyword lookup. graq_reason MUST use LLM.
         try:
+            # OT-063: defensive _task_router initialization — self-heal if attribute missing
+            if not hasattr(graph, "_task_router"):
+                graph._task_router = None
             result = await graph.areason(
                 question, max_rounds=max_rounds, task_type="reason",
             )
@@ -3583,8 +3586,10 @@ class KogniDevServer:
         except (RuntimeError, Exception) as exc:
             # Hard failure — NO keyword fallback.
             # User must know reasoning is broken and fix it.
+            import traceback as _tb
             err = str(exc)[:300]
-            logger.error("graq_reason FAILED (no fallback per %s", err)
+            _full_tb = _tb.format_exc()
+            logger.error("graq_reason FAILED: %s\nFULL TRACEBACK:\n%s", err, _full_tb)
             cfg_backend = getattr(getattr(self._config, "model", None), "backend", "unknown")
             cfg_model = getattr(getattr(self._config, "model", None), "model", "unknown")
             cfg_region = getattr(getattr(self._config, "model", None), "region", "unknown")
@@ -3604,6 +3609,7 @@ class KogniDevServer:
                 "mode": "error",
                 "confidence": 0.0,
                 "backend_error": err,
+                "traceback": _full_tb,
                 "hint": "graq_inspect is available for keyword-only node lookup if needed.",
             })
 
