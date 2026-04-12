@@ -14,9 +14,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 ALLOWED_TOOLS = {"ToolSearch", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "Skill"}
+
+# Unknown-tool fail-closed heuristic (CG-GATE-04, v0.50.1):
+# Any unknown tool whose name matches this regex is treated as write-class
+# and blocked by default. Unknown read-class tools still fall through to
+# allow (exit 0). This prevents new Claude Code write tools from silently
+# bypassing the gate.
+_WRITE_CLASS_PATTERN = re.compile(
+    r"^(Write|Edit|Delete|Exec|Run|Create|Update|Put|Post)", re.IGNORECASE
+)
 
 BLOCKED_TOOLS = {
     "Read": "graq_read",
@@ -80,8 +90,17 @@ def main() -> int:
         )
         return 2
 
-    # Unknown tools: allow (Claude Code has internal tools we cannot block)
-    return 0
+    # Unknown tools: fail-closed for write-class heuristics, allow read-class.
+    # Prevents new Claude Code write tools (or renamed ones) from silently
+    # bypassing the gate. File a capability gap to get a real graq_ equivalent.
+    if _WRITE_CLASS_PATTERN.match(tool_name):
+        print(
+            f"GATE BLOCKED: Unknown write-class tool '{tool_name}' fail-closed. "
+            f"File a capability gap if this tool has a legitimate use.",
+            file=sys.stderr,
+        )
+        return 2
+    return 0  # Unknown read-class tool: allow
 
 
 if __name__ == "__main__":

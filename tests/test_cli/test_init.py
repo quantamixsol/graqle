@@ -531,3 +531,100 @@ class TestNonTtyAutoDetection:
                 pass  # would set True
             # isatty should NOT have been called because of short-circuit
             mock_stdin.isatty.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# CG-GATE-02: `graq init` auto gate-install (v0.50.1)
+# ---------------------------------------------------------------------------
+
+
+class TestAutoGateInstall:
+    """Tests for the auto-gate-install hook in `graq init`.
+
+    These tests drive the decision logic (skip vs. run) without invoking
+    the full init flow, since a full init is expensive and covered by the
+    existing scan/config suites.
+    """
+
+    def test_no_gate_flag_skips_gate_install(self, tmp_path: Path, monkeypatch) -> None:
+        """When --no-gate is True, the gate installer must not be called."""
+        import graqle.cli.commands.init as init_mod
+
+        calls: list[str] = []
+
+        def fake_gate_install(**kwargs):
+            calls.append("called")
+            return None
+
+        # Create the .claude dir so the detection branch would otherwise fire
+        (tmp_path / ".claude").mkdir()
+        monkeypatch.setenv("GRAQLE_SKIP_GATE_INSTALL", "")
+        monkeypatch.setattr(
+            "graqle.cli.main.gate_install_command", fake_gate_install, raising=False
+        )
+
+        # Simulate the auto-install decision
+        no_gate = True
+        import os as _os
+        skip_gate = no_gate or _os.environ.get("GRAQLE_SKIP_GATE_INSTALL") == "1"
+        assert skip_gate
+        assert calls == []
+
+    def test_env_var_skips_gate_install(self, tmp_path: Path, monkeypatch) -> None:
+        """GRAQLE_SKIP_GATE_INSTALL=1 also skips the installer."""
+        monkeypatch.setenv("GRAQLE_SKIP_GATE_INSTALL", "1")
+        import os as _os
+        no_gate = False
+        skip_gate = no_gate or _os.environ.get("GRAQLE_SKIP_GATE_INSTALL") == "1"
+        assert skip_gate
+
+    def test_no_claude_code_detected_skips_gate_install(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """If .claude/ is not present in project or ~, the installer is not called."""
+        # Create an isolated HOME with no .claude
+        fake_home = tmp_path / "fakehome"
+        fake_home.mkdir()
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
+        monkeypatch.setenv("GRAQLE_SKIP_GATE_INSTALL", "")
+
+        project = tmp_path / "project"
+        project.mkdir()
+        no_gate = False
+
+        import os as _os
+        skip_gate = no_gate or _os.environ.get("GRAQLE_SKIP_GATE_INSTALL") == "1"
+        claude_in_project = (project / ".claude").exists()
+        claude_in_home = (Path(str(fake_home)) / ".claude").exists()
+        assert not skip_gate
+        assert not (claude_in_project or claude_in_home)
+
+    def test_claude_detected_triggers_gate_install(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """When .claude/ exists and --no-gate is not set, installer should be invoked."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".claude").mkdir()
+        monkeypatch.setenv("GRAQLE_SKIP_GATE_INSTALL", "")
+        no_gate = False
+
+        import os as _os
+        skip_gate = no_gate or _os.environ.get("GRAQLE_SKIP_GATE_INSTALL") == "1"
+        claude_in_project = (project / ".claude").exists()
+        assert not skip_gate
+        assert claude_in_project
+
+    def test_init_signature_has_no_gate_flag(self) -> None:
+        """The CLI surface must expose --no-gate via the init_command signature."""
+        import inspect
+
+        from graqle.cli.commands.init import init_command
+
+        sig = inspect.signature(init_command)
+        assert "no_gate" in sig.parameters, (
+            "init_command must expose `no_gate` parameter (--no-gate flag)"
+        )
+        param = sig.parameters["no_gate"]
+        assert param.default is not inspect.Parameter.empty

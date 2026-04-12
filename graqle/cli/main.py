@@ -1498,12 +1498,55 @@ def gate_command(
         raise typer.Exit(code=1)
 
 
+def _probe_python_interpreter() -> str:
+    """Return a working Python 3 interpreter command string for the gate hook.
+
+    Tries, in order:
+      1. ``sys.executable`` — the Python currently running the SDK
+      2. ``python3``
+      3. ``python``
+      4. ``py -3``
+
+    Each candidate is probed with ``<cmd> -c "import sys; print(sys.version_info[0])"``.
+    A 5-second timeout is applied per probe. Only candidates whose probe
+    returns exit 0 AND stdout "3" are accepted. This skips the Windows Store
+    Python stub (which prints a message to stderr and exits 106 when launched
+    without a real installation).
+
+    Fail-safe: if every candidate fails, returns ``sys.executable`` so the
+    gate-install output is still a writable string. The caller should still
+    run ``_gate_self_test()`` to confirm the gate actually enforces.
+    """
+    import subprocess
+    candidates = [sys.executable, "python3", "python", "py -3"]
+    for cand in candidates:
+        if not cand:
+            continue
+        try:
+            result = subprocess.run(
+                cand.split() + ["-c", "import sys; print(sys.version_info[0])"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip() == "3":
+                return cand
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            continue
+    return sys.executable  # last-resort fallback
+
+
 @app.command("gate-install")
 def gate_install_command(
     path: str = typer.Argument(".", help="Project root directory"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing gate files"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    fix_interpreter: bool = typer.Option(
+        False,
+        "--fix-interpreter",
+        help="Re-probe the Python interpreter and rewrite the gate hook command in settings.json only (no other changes).",
+    ),
 ) -> None:
     """Install the GraQle governance gate for Claude Code.
 
@@ -1549,12 +1592,31 @@ def gate_install_command(
         console.print(f"[dim]Expected: {settings_src}[/dim]")
         raise typer.Exit(1)
 
+    # ── Probe Python interpreter for the gate hook command ───────────
+    interpreter_cmd = _probe_python_interpreter()
+
     # ── Read all inputs once (no TOCTOU) ──────────────────────────
     try:
         new_hook_config = _json_mod.loads(settings_src.read_text(encoding="utf-8"))
     except _json_mod.JSONDecodeError:
         console.print("[red]Corrupt settings template in SDK package data.[/red]")
         raise typer.Exit(1)
+
+    # Substitute {{PYTHON_INTERPRETER}} inside the parsed dict so we never
+    # have to worry about JSON-escaping backslashes in Windows interpreter
+    # paths. Applies to any command string in the PreToolUse hooks.
+    def _substitute_interpreter(cfg: dict) -> None:
+        pre = cfg.get("hooks", {}).get("PreToolUse", [])
+        for entry in pre if isinstance(pre, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            for h in entry.get("hooks", []) or []:
+                if isinstance(h, dict) and isinstance(h.get("command"), str):
+                    h["command"] = h["command"].replace(
+                        "{{PYTHON_INTERPRETER}}", interpreter_cmd
+                    )
+
+    _substitute_interpreter(new_hook_config)
 
     existing_settings: dict = {}
     corrupt_existing = False
@@ -1577,6 +1639,45 @@ def gate_install_command(
 
     existing_pre = existing_settings.get("hooks", {}).get("PreToolUse", [])
     already_installed = any(_has_graqle_gate(h) for h in existing_pre)
+
+    # ── --fix-interpreter: rewrite only the hook command, leave the rest ──
+    if fix_interpreter:
+        if not settings_dst.exists():
+            console.print(
+                "[red]Cannot --fix-interpreter: no .claude/settings.json exists. "
+                "Run 'graq gate-install' first.[/red]"
+            )
+            raise typer.Exit(1)
+        rewritten = 0
+        for entry in existing_settings.get("hooks", {}).get("PreToolUse", []):
+            if not isinstance(entry, dict):
+                continue
+            for h in entry.get("hooks", []) or []:
+                if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                    h["command"] = f"{interpreter_cmd} .claude/hooks/graqle-gate.py"
+                    rewritten += 1
+        if rewritten == 0:
+            console.print(
+                "[yellow]No graqle-gate hooks found in settings.json to fix.[/yellow]"
+            )
+            raise typer.Exit(1)
+        if dry_run:
+            console.print(
+                f"[yellow]DRY RUN[/yellow] would rewrite {rewritten} hook command(s) to: "
+                f"[cyan]{interpreter_cmd}[/cyan]"
+            )
+            return
+        tmp_path = settings_dst.with_suffix(".json.tmp")
+        tmp_path.write_text(
+            _json_mod.dumps(existing_settings, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(str(tmp_path), str(settings_dst))
+        console.print(
+            f"[green]Rewrote {rewritten} hook command(s) to use interpreter: "
+            f"[cyan]{interpreter_cmd}[/cyan][/green]"
+        )
+        return
 
     # ── Compute actions ───────────────────────────────────────────
     actions: list[str] = []
@@ -1661,9 +1762,53 @@ def gate_install_command(
         )
         os.replace(str(tmp_path), str(settings_dst))
 
+    # ── Gate self-test: synthesize a known-blocked Bash payload ─────
+    # Verifies the installed hook actually fail-closes under the probed
+    # interpreter. Catches broken installs (Windows Store Python stub,
+    # missing dependencies, etc.) before the user runs Claude Code.
+    import subprocess as _subprocess_mod
+    test_payload = _json_mod.dumps({
+        "tool_name": "Bash",
+        "tool_input": {"command": "echo test"},
+        "cwd": str(root),
+    })
+    try:
+        self_test_result = _subprocess_mod.run(
+            interpreter_cmd.split() + [str(gate_dst)],
+            input=test_payload,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (_subprocess_mod.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        console.print(
+            "[bold red]Gate install SELF-TEST FAILED[/bold red] "
+            f"— could not run hook: {exc}"
+        )
+        console.print(
+            "[yellow]The gate is installed but may not be enforcing. "
+            "Try 'graq gate-install --fix-interpreter'.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    if self_test_result.returncode != 2 or "GATE BLOCKED" not in (self_test_result.stderr or ""):
+        console.print("[bold red]Gate install SELF-TEST FAILED[/bold red]")
+        console.print(
+            f"[dim]Expected exit=2 with 'GATE BLOCKED' on stderr. "
+            f"Got exit={self_test_result.returncode}. "
+            f"Stderr snippet: {(self_test_result.stderr or '')[:200]!r}[/dim]"
+        )
+        console.print(
+            "[yellow]The gate is installed but is not enforcing. "
+            "Try 'graq gate-install --fix-interpreter' or "
+            "'graq gate-install --force'.[/yellow]"
+        )
+        raise typer.Exit(1)
+
     console.print(
         "\n[bold green]Governance gate installed.[/bold green] "
         "Claude Code native tools are now routed through GraQle.\n"
+        f"[dim]Interpreter: {interpreter_cmd}  |  self-test: exit=2 GATE BLOCKED[/dim]\n"
         "[dim]Run 'graq gate-install --dry-run' to verify. "
         "Remove .claude/hooks/graqle-gate.py to disable.[/dim]"
     )

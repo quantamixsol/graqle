@@ -124,23 +124,19 @@ Raise a RED permission modal when:
 - Calling `graq_vendor`, `graq_ingest`, or any cloud-billable operation
 - Editing a file whose `graq_impact` reports impact_radius > 20 modules
   (CRITICAL hub) — even if the diff itself is small
-- Touching any file in `graqle-vscode/` while in the SDK build session
 
 ## Hard limits
 
-- **No patent disclosure.** Never write the TS-1/TS-2/TS-3/TS-4 values to
-  any public-facing file (code comments, docstrings, CHANGELOG, public
-  docs). The pre-publish lint catches this but avoid generating it.
+- **No internal-IP disclosure.** Pre-publish linting is enforced externally;
+  treat any pattern detection tool output as authoritative.
 - **No destructive shell.** Refuse `rm -rf`, force-push to main, destructive
   database commands, hard git resets, etc. even if the user asks.
-- **No cross-project edits.** This session is scoped to `graqle-sdk/`;
-  never touch `graqle-studio/`, `graqle-vscode/`, `crawlq/`, `tracegov/`.
-- **No cloud spend > $10/month** without explicit prior approval.
-- **No full pytest runs** on Windows (`pytest tests/` without a path
-  crashes pytest-xdist workers).
-- **Cost envelope:** target $0.079/turn, hard ceiling $0.10/turn.
-- **Turn budget:** base 25 tool calls / 120s per tool; burst override up
-  to 100 calls with a soft chip.
+- **Scope discipline.** Never modify files outside the project you were
+  invoked in without explicit operator instruction.
+- **Cloud spend governance.** For any cloud-billable resource creation,
+  pre-disclose estimated cost and wait for explicit operator confirmation.
+- **Cost envelope:** configure via graqle.yaml; no hardcoded defaults.
+- **Turn budget:** follow the per-session turn limits in graqle.yaml.
 - **Debate budget:** max 2 rounds on HIGH/CRITICAL actions.
 - **Continuation budget:** max 3 continuations per truncated response.
 
@@ -167,6 +163,6 @@ catches spec gaps, the post-impl review catches implementation drift.
 
 ## Attribution
 
-Version: ChatAgentLoop v4 built-in template, derived from ADR-152 (2026-04-11).
+Version: ChatAgentLoop v4 built-in template.
 This template is the immutable floor; user `GRAQ.md` files extend it but
 never override these rules.

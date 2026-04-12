@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.50.0"
-description = "Architecture-aware AI coding assistant for your codebase. Build a knowledge graph from any project where every module is a reasoning agent. Governed code generation, impact analysis, preflight checks, multi-agent synthesis. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
+version = "0.50.1"
+description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
 requires-python = ">=3.10"
@@ -42,7 +42,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "jsonschema>=4.0",
     "networkx>=3.0",
     "numpy>=1.24",
     "pydantic>=2.0",
@@ -153,12 +152,8 @@ packages = ["graqle"]
 exclude = ["graqle/benchmarks/data/*"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# NOTE: graqle/data/claude_gate is covered by packages=["graqle"] above.
-# Adding a force-include for a path already under the packages tree
-# creates duplicate local-header entries in the wheel ZIP and causes
-# PyPI to reject the upload with HTTP 400 "Duplicate filename in
-# local headers". Only force-include paths OUTSIDE the packages tree.
 "examples" = "graqle/examples"
+"graqle/data/claude_gate" = "graqle/data/claude_gate"
 
 [tool.ruff]
 target-version = "py310"

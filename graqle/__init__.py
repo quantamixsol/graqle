@@ -25,7 +25,7 @@ from graqle.core.types import NodeStatus, ReasoningResult, ReasoningType
 
 __all__ = [
     "__version__",
-    "GraQle",
+    "Graqle",
     "CogniGraph",
     "CogniNode",
     "CogniEdge",
