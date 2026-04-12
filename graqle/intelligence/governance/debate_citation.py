@@ -2,7 +2,7 @@
 
 Validates that debate turn ``evidence_refs`` reference actual KG node IDs.
 
-See ADR-139 for design rationale.
+See for design rationale.
 """
 
 from __future__ import annotations

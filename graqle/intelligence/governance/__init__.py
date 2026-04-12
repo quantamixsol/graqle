@@ -6,7 +6,7 @@ Mapped from TAMR+ regulatory governance patterns to the development domain:
 - evidence.py → decision chain builder (from evidence_chains.py)
 - scope_gate.py → scope boundary validation (from semantic_shacl_gate.py)
 
-See ADR-105 §Governance Layer (Mapped from TAMR+).
+See §Governance Layer (Mapped from TAMR+).
 """
 
 # ── graqle:intelligence ──

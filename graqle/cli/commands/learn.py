@@ -301,7 +301,7 @@ def learn_file(
 
 @learn_app.command("entity")
 def learn_entity(
-    entity_id: str = typer.Argument(..., help="Unique entity ID (e.g. 'CrawlQ', 'Philips')"),
+    entity_id: str = typer.Argument(..., help="Unique entity ID (e.g. 'the regulatory product', 'Philips')"),
     entity_type: str = typer.Option("PRODUCT", "--type", "-t", help="Entity type: PRODUCT, CLIENT, BUSINESS_OUTCOME, TEAM, SYNERGY, MARKET"),
     description: str = typer.Option("", "--desc", "-d", help="Business description"),
     connects: str = typer.Option(None, "--connects", help="Comma-separated node IDs to connect to"),
@@ -317,9 +317,9 @@ def learn_entity(
 
     \b
     Examples:
-        graq learn entity "CrawlQ" --type PRODUCT --desc "Content ERP for enterprise"
+        graq learn entity "the regulatory product" --type PRODUCT --desc "Content ERP for enterprise"
         graq learn entity "Philips" --type CLIENT --desc "75% content time reduction"
-        graq learn entity "content_compliance" --type SYNERGY --connects "CrawlQ,TracGov"
+        graq learn entity "content_compliance" --type SYNERGY --connects "the regulatory product,TracGov"
     """
     # Business types get special properties
     business_types = {"PRODUCT", "CLIENT", "BUSINESS_OUTCOME", "TEAM", "SYNERGY", "MARKET", "COMPETITOR", "METRIC"}
@@ -486,8 +486,8 @@ def _extract_entities(text: str) -> list[str]:
     """Extract entities from text using lightweight NLP heuristics.
 
     Finds:
-    - Quoted terms ("TAMR+", 'CrawlQ')
-    - Capitalized multi-word phrases (C-suite, Neo4j, TraceGov)
+    - Quoted terms ("TAMR+", 'the regulatory product')
+    - Capitalized multi-word phrases (C-suite, Neo4j, the regulatory product)
     - ALL-CAPS acronyms (JWT, API, CORS)
     - CamelCase terms (DeepSeek, GraphLearner)
 

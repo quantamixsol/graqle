@@ -42,7 +42,7 @@ _BUILTIN_DOMAINS: dict[str, str] = {
     "graqle.ontology.domains.data_analytics": "register_data_analytics_domain",
     # v0.38.0: governed code generation domain
     "graqle.ontology.domains.coding": "register_coding_domain",
-    # ADR-128: MCP protocol domain (R3 research)
+    # MCP protocol domain (R3 research)
     "graqle.ontology.domains.mcp": "register_mcp_domain",
 }
 
@@ -108,7 +108,7 @@ def collect_all_skills(
         "graqle.ontology.domains.data_analytics": "DATA_ANALYTICS_SKILLS",
         # v0.38.0
         "graqle.ontology.domains.coding": "CODING_SKILLS",
-        # ADR-128: MCP protocol domain
+        # MCP protocol domain
         "graqle.ontology.domains.mcp": "MCP_SKILLS",
     }
 

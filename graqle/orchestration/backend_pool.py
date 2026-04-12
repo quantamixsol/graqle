@@ -1,6 +1,6 @@
 """BackendPool — parallel panelist dispatch for debate rounds.
 
-Implements ADR-139: concurrent multi-backend dispatch with per-panelist
+Implements concurrent multi-backend dispatch with per-panelist
 timeout isolation, optional clearance filtering, and cost/latency
 aggregation.
 """
@@ -114,7 +114,7 @@ class BackendPool:
                 ),
                 timeout=self._timeout_s,
             )
-            # OT-028 B2/M1: Extract truncation before str conversion
+            # B2/M1: Extract truncation before str conversion
             _is_truncated = getattr(raw_result, "truncated", False)
             raw: str = str(raw_result)
             latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -122,7 +122,7 @@ class BackendPool:
             cost_usd = approx_tokens * getattr(backend, "cost_per_1k_tokens", 0.0) / 1000.0
             if _is_truncated:
                 logger.warning(
-                    "OT-030: Panelist %s response truncated (stop_reason=%s)",
+                    " Panelist %s response truncated (stop_reason=%s)",
                     name, getattr(raw_result, "stop_reason", ""),
                 )
             return PanelistResponse(

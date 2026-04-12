@@ -3,7 +3,7 @@ graqle.core.kg_sync
 ~~~~~~~~~~~~~~~~~~~
 Knowledge Graph synchronisation layer — S3 as single source of truth.
 
-Implements ADR-123: every local write pushes to S3 (background, non-blocking,
+Implements every local write pushes to S3 (background, non-blocking,
 debounced); every server startup pulls from S3 if cloud version is newer.
 
 Public API
@@ -41,7 +41,7 @@ PUSH_DEBOUNCE_SECS: float = 5.0   # max one push per path per N seconds
 PULL_TIMEOUT_SECS: float = 3.0    # max seconds to wait for S3 on startup
 S3_BUCKET = "graqle-graphs-eu"
 
-# OT-061: Session-scoped AccessDenied dedupe.
+# Session-scoped AccessDenied dedupe.
 # Goal: log AccessDenied ONCE per process at WARNING, not per occurrence.
 # Other S3 errors continue to be logged at ERROR per occurrence.
 _access_denied_logged: bool = False
@@ -294,7 +294,7 @@ def pull_if_newer(
     except ImportError:
         return PullResult(reason="boto3 not available")
     except Exception as exc:
-        # OT-061: dedupe AccessDenied at WARNING, log other errors at ERROR
+        # dedupe AccessDenied at WARNING, log other errors at ERROR
         _log_s3_error("pull", exc)
         return PullResult(reason=f"error: {exc}")
 
@@ -375,7 +375,7 @@ def _push_worker(local_path: Path, project: str | None, retry_on_error: bool = T
         except ImportError:
             return  # boto3 not available — skip silently
         except Exception as exc:
-            # OT-061: dedupe AccessDenied at WARNING, log other errors at ERROR
+            # dedupe AccessDenied at WARNING, log other errors at ERROR
             if attempt == 1 and retry_on_error:
                 _log_s3_error("push (retrying)", exc)
                 time.sleep(1.0)

@@ -1,9 +1,9 @@
 """Budget-aware concurrency semaphore for governed parallel reasoning.
 
-Implements ADR-150: governance-bounded parallelism with per-task and
+Implements governance-bounded parallelism with per-task and
 per-query budget ceilings enforced *before* concurrency acquisition.
 
-All thresholds are injected via ``config`` — zero hardcoded defaults (TS-2/V9).
+All thresholds are injected via ``config`` — zero hardcoded defaults (internal-pattern-B/V9).
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class BudgetAwareSemaphore:
         if missing:
             raise ValueError(
                 f"BudgetAwareSemaphore config missing required keys: {missing}. "
-                f"TS-2: these must come from graqle_secrets.yaml, not defaults."
+                f"internal-pattern-B: these must come from graqle_secrets.yaml, not defaults."
             )
 
         self._semaphore = asyncio.Semaphore(int(config["CONCURRENCY_LIMIT"]))
@@ -239,7 +239,7 @@ class ExponentialBackoff:
     """Exponential backoff with jitter for rate-limited API calls.
 
     Config keys BACKOFF_BASE_SECONDS and BACKOFF_MAX_SECONDS are required
-    in the semaphore config (TS-2 — no hardcoded defaults).
+    in the semaphore config (internal-pattern-B — no hardcoded defaults).
     """
 
     def __init__(self, config: dict[str, Any]) -> None:

@@ -1,6 +1,6 @@
 """Cost gate for multi-backend debate with decaying budget.
 
-Implements the governance cost-control layer described in ADR-139.
+Implements the governance cost-control layer described in .
 Thin wrapper around :class:`~graqle.core.types.DebateCostBudget` —
 pure governance logic, no logging, no LLM calls.
 """

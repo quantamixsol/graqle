@@ -5,7 +5,7 @@
 # risk: LOW (impact radius: 1 module)
 # consumers: R9 federated activation (future)
 # dependencies: graqle.alignment.types
-# constraints: TS-2 — penalty values externalized to .graqle/r9_penalties.json (gitignored)
+# constraints: internal-pattern-B — penalty values externalized to .graqle/r9_penalties.json (gitignored)
 # ── /graqle:intelligence ──
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ class FederatedActivationConfig:
     authority_weights, diversity_enforcement, min_diversity_ratio,
     conflict_detection, rrf_k, ema_alpha, disagreement_discount.
 
-    All tuning values are config fields with safe defaults (TS-2 compliant).
+    All tuning values are config fields with safe defaults (internal-pattern-B compliant).
     Production values loaded from .graqle/r9_penalties.json.
     """
 
@@ -151,7 +151,7 @@ def configure_r9_from_alignment(
     """Set R9 federated activation parameters based on measured alignment.
 
     Penalty values are loaded from ``.graqle/r9_penalties.json`` (gitignored)
-    to comply with TS-2 trade secret governance. Safe defaults are used when
+    to comply with internal-pattern-B trade secret governance. Safe defaults are used when
     the file is absent.
 
     Parameters

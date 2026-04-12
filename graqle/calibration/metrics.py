@@ -1,4 +1,4 @@
-"""Calibration metrics for GraQle confidence scoring (R11 ADR-138).
+"""Calibration metrics for GraQle confidence scoring (R11 .
 
 Numpy-only implementations of standard calibration metrics:
 - Expected Calibration Error (ECE)

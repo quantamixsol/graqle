@@ -1,6 +1,6 @@
 """MCP Protocol domain — first-class protocol-typed knowledge graph nodes.
 
-R3 Research Handoff (ADR-128): Represents MCP protocol entities as typed KG nodes
+R3 Research Handoff Represents MCP protocol entities as typed KG nodes
 enabling protocol-aware reasoning, schema validation at reasoning time, and
 cross-domain blast radius analysis.
 
@@ -19,10 +19,9 @@ Output Gates (3): validate_rpc_trace, validate_schema_params, validate_transport
 # module: graqle.ontology.domains.mcp
 # risk: LOW (new domain — zero existing consumers)
 # consumers: mcp_dev_server (all graq_*/kogni_* tools), skill_pipeline
-# constraints: NEVER expose weight values or formula internals (TS-1..TS-4)
+# constraints: NEVER expose weight values or formula internals (internal-pattern-A..internal-pattern-D)
 # research: R3 Functional Specification (graq_predict 72%+89.5%, novelty 0.82+0.91)
-# adr: ADR-128
-# ── /graqle:intelligence ──
+# adr: # ── /graqle:intelligence ──
 
 from __future__ import annotations
 

@@ -453,7 +453,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "entity_id": {
                     "type": "string",
-                    "description": "[entity mode] Unique entity ID (e.g. 'CrawlQ', 'Philips')",
+                    "description": "[entity mode] Unique entity ID (e.g. 'the regulatory product', 'Philips')",
                 },
                 "entity_type": {
                     "type": "string",
@@ -1526,7 +1526,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "graq_apply",
         "description": (
-            "Deterministic exact-string insertion engine (CG-DIF-02). Use this INSTEAD of "
+            "Deterministic exact-string insertion engine . Use this INSTEAD of "
             "graq_edit when the target file is a CRITICAL hub (impact_radius > 20), large "
             "(>1500 lines), or has multiple lookalike methods. Provides byte-perfect replacement "
             "via Python bytes.replace() — no LLM in the loop. Each insertion has a unique anchor "
@@ -1674,7 +1674,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "graq_git_commit",
         "description": (
             "Create a git commit with a governed message. Runs patent scan before commit — "
-            "blocks if trade secrets (TS-1..TS-4) are detected in staged changes. "
+            "blocks if trade secrets (internal-pattern-A..internal-pattern-D) are detected in staged changes. "
             "Blocked in read-only mode."
         ),
         "inputSchema": {
@@ -2241,11 +2241,11 @@ class KogniDevServer:
         # CG-01/02: Protocol enforcement state
         self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
         self._plan_active: bool = False      # Set True by graq_plan
-        # OT-062: Per-MCP-session gate bypasses for VS Code extension.
-        # Set by the initialize handler when clientInfo.name == "graqle-vscode".
+        # Per-MCP-session gate bypasses for VS Code extension.
+        # Set by the initialize handler when clientInfo.name == "the VS Code extension".
         # Fail-closed default: bypasses are False. Each KogniDevServer instance
         # is one MCP session (one stdio process), so this state is naturally
-        # session-scoped — concurrent non-graqle-vscode clients run in their
+        # session-scoped — concurrent non-the VS Code extension clients run in their
         # own KogniDevServer instances and are unaffected.
         self._mcp_client_name: str | None = None
         self._cg01_bypass: bool = False  # Skip session_started check
@@ -2309,7 +2309,7 @@ class KogniDevServer:
 
     def _load_graph_impl(self) -> Any | None:
         """Lazy-load the knowledge graph. Reloads automatically if file changed on disk."""
-        # ADR-123 Phase 1: Pull from S3 if cloud version is newer (pull-before-read).
+        # Phase 1: Pull from S3 if cloud version is newer (pull-before-read).
         # Only runs on first load (self._graph is None) to avoid latency on hot-reload.
         if self._graph is None:
             try:
@@ -2453,7 +2453,7 @@ class KogniDevServer:
     def _resolve_file_path(self, file_path: str) -> str:
         """Resolve a relative file path against the graph's project root.
 
-        Ported from _handle_review OT-033 to all file-handling handlers
+        Ported from _handle_review to all file-handling handlers
         (v0.42.2 hotfix B3). Resolution order:
         1. Graph-root-relative (preferred — most reliable)
         2. CWD-relative (if exists and contained)
@@ -3034,7 +3034,7 @@ class KogniDevServer:
             # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
             _CG01_EXEMPT = {"graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect"}
             if getattr(_governance, "session_gate_enabled", False):
-                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg01_bypass
+                # the VS Code extension bypass — skip if initialize handler set _cg01_bypass
                 if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT and not getattr(self, "_cg01_bypass", False):
                     logger.warning("CG-01 BLOCKED: '%s' before session_start", name)
                     err = json.dumps({
@@ -3055,7 +3055,7 @@ class KogniDevServer:
                 "graq_lifecycle", "kogni_lifecycle",
             }
             if getattr(_governance, "plan_mandatory", False):
-                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg02_bypass
+                # the VS Code extension bypass — skip if initialize handler set _cg02_bypass
                 if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False):
                     logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
                     err = json.dumps({
@@ -3073,11 +3073,25 @@ class KogniDevServer:
             # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
             # Use graq_edit instead — it runs preflight + governance + diff application.
             if getattr(_governance, "edit_enforcement", False):
-                # OT-062: graqle-vscode bypass — skip if initialize handler set _cg03_bypass
+                # the VS Code extension bypass — skip if initialize handler set _cg03_bypass
                 if name in ("graq_write", "kogni_write") and not getattr(self, "_cg03_bypass", False):
                     _target = arguments.get("file_path", "")
                     _CODE_EXTS = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java"}
-                    if any(_target.endswith(ext) for ext in _CODE_EXTS):
+                    # -FRICTION-01 v0.51.0: allowlist carve-outs for new-file creation
+                    # and scratch/test zones. graq_write is still blocked for editing existing
+                    # hub code files, but NEW code files under .tmp_* / scripts/ / tests/ paths,
+                    # and any NEW code file that does not yet exist on disk, are allowed so
+                    # scaffolding and throwaway helper scripts can be written through the
+                    # governed tool instead of forcing graq_edit's LLM round-trip.
+                    import os as _os_mod
+                    _t_norm = _target.replace("\\", "/")
+                    _is_new_file = bool(_target) and not _os_mod.path.exists(_target)
+                    _in_scratch = any(
+                        _t_norm.startswith(prefix) or f"/{prefix}" in _t_norm
+                        for prefix in (".tmp_", "scripts/", "tests/")
+                    )
+                    _is_code = any(_target.endswith(ext) for ext in _CODE_EXTS)
+                    if _is_code and not _is_new_file and not _in_scratch:
                         logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
                         err = json.dumps({
                             "error": "CG-03_EDIT_GATE",
@@ -3137,7 +3151,7 @@ class KogniDevServer:
             # v0.38.0: governed code generation + editing
             "graq_edit": self._handle_edit,
             "kogni_edit": self._handle_edit,
-            # v0.47.0 (CG-DIF-02): deterministic insertion engine
+            # v0.47.0 deterministic insertion engine
             "graq_apply": self._handle_apply,
             "kogni_apply": self._handle_apply,
             "graq_generate": self._handle_generate,
@@ -3458,7 +3472,7 @@ class KogniDevServer:
         # Detect backend status BEFORE attempting reasoning
         backend_status = self._check_backend_status(graph)
 
-        # ADR-112: NO SILENT FALLBACK. If reasoning fails, return a hard error.
+        # NO SILENT FALLBACK. If reasoning fails, return a hard error.
         # Keyword traversal is NOT reasoning. Pretending it is destroys user trust.
         # graq_inspect exists for keyword lookup. graq_reason MUST use LLM.
         try:
@@ -3509,10 +3523,10 @@ class KogniDevServer:
             return json.dumps(result_dict)
 
         except (RuntimeError, Exception) as exc:
-            # ADR-112: Hard failure — NO keyword fallback.
+            # Hard failure — NO keyword fallback.
             # User must know reasoning is broken and fix it.
             err = str(exc)[:300]
-            logger.error("graq_reason FAILED (no fallback per ADR-112): %s", err)
+            logger.error("graq_reason FAILED (no fallback per %s", err)
             cfg_backend = getattr(getattr(self._config, "model", None), "backend", "unknown")
             cfg_model = getattr(getattr(self._config, "model", None), "model", "unknown")
             cfg_region = getattr(getattr(self._config, "model", None), "region", "unknown")
@@ -5382,13 +5396,13 @@ class KogniDevServer:
             except Exception as _retry_exc:
                 logger.debug("AL-11: retry failed: %s", _retry_exc)
 
-        # OT-031 (ADR-134): Auto-sync written file into KG after successful edit
+        # Auto-sync written file into KG after successful edit
         kg_synced = False
         if not dry_run and apply_result.success and file_path:
             try:
                 kg_synced = self._post_write_kg_sync(file_path)
             except Exception as exc:
-                logger.debug("OT-031 KG sync failed (non-blocking): %s", exc)
+                logger.debug(" KG sync failed (non-blocking): %s", exc)
 
         result: dict[str, Any] = {
             **apply_result.to_dict(),
@@ -5503,7 +5517,7 @@ class KogniDevServer:
     # Phase 1 of feature-coding-assistant plan
 
     async def _handle_apply(self, args: dict[str, Any]) -> str:
-        """v0.47.0 CG-DIF-02 — deterministic insertion engine.
+        """v0.47.0 — deterministic insertion engine.
 
         Wraps graqle.plugins.graq_apply.apply_insertions() and returns a JSON
         response matching graq_edit\'s shape.
@@ -5550,7 +5564,7 @@ class KogniDevServer:
             file_path: target file (optional — graph infers if omitted)
             max_rounds: LLM reasoning rounds (default 2, max 5)
             dry_run: if True, return diff without applying (always True in Phase 1)
-            context: graq_reason output as advisory constraints (OT-049, max 4096 chars)
+            context: graq_reason output as advisory constraints max 4096 chars)
 
         Returns:
             JSON of CodeGenerationResult.to_dict()
@@ -5567,7 +5581,7 @@ class KogniDevServer:
         max_rounds = min(max(int(args.get("max_rounds", 2)), 1), 5)
         dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67 Fix 3: safe string coercion
         stream = _coerce_bool(args.get("stream"), default=False)  # T3.4: backend streaming support
-        _raw_context = args.get("context", "")  # OT-049: graq_reason output as constraints
+        _raw_context = args.get("context", "")  # graq_reason output as constraints
         # Sanitize + cap length (prompt-injection mitigation per graq_review BLOCKER)
         _MAX_CONTEXT_CHARS = 4096
         context = _raw_context[:_MAX_CONTEXT_CHARS].strip() if _raw_context else ""
@@ -5595,14 +5609,14 @@ class KogniDevServer:
                 if _fixture_lines:
                     _fixture_context = "\n\nAVAILABLE TEST FIXTURES:\n" + "\n---\n".join(_fixture_lines) + "\n"
 
-        # TODO(OT-048): remove FileNotFoundError pass once _resolve_file_path
+        # TODO remove FileNotFoundError pass once _resolve_file_path
         # handles non-existent paths natively (B3 merge from public master).
 
         if not description:
             return json.dumps({"error": "Parameter 'description' is required."})
 
         # B3: Resolve file path via graph root (v0.42.2 hotfix)
-        # OT-048: graq_generate creates new files — FileNotFoundError is expected.
+        # graq_generate creates new files — FileNotFoundError is expected.
         # Sandbox check: resolve against graph root before allowing.
         _original_file_path = file_path  # preserve relative path for P0-A sibling matching
         if file_path:
@@ -5612,7 +5626,7 @@ class KogniDevServer:
                 logger.warning("access_denied resolving %s: %s", file_path, pe)
                 return json.dumps({"success": False, "error": "access_denied"})
             except FileNotFoundError:
-                # OT-048: new file — sandbox-validate against graph root
+                # new file — sandbox-validate against graph root
                 _graph_file = getattr(self, "_graph_file", None)
                 if not _graph_file:
                     return json.dumps({
@@ -5628,7 +5642,7 @@ class KogniDevServer:
                 _fp = (Path(_graph_file).parent / file_path).resolve()
                 if _fp.parent.exists():
                     file_path = str(_fp)
-                    logger.debug("OT-048: new file target — %s", file_path)
+                    logger.debug(" new file target — %s", file_path)
                 else:
                     logger.warning("graq_generate: parent missing for %s", _fp.parent)
                     return json.dumps({
@@ -5715,7 +5729,7 @@ class KogniDevServer:
         except ImportError:
             pass  # governance module optional in stripped builds
 
-        # Step 2: Read actual file content (OT-023 fix — LLM must see real code, not KG summaries)
+        # Step 2: Read actual file content fix — LLM must see real code, not KG summaries)
         # S-009: For files >200 lines, include focused context (surrounding lines)
         # to avoid exceeding local backend context windows
         file_content = ""
@@ -5764,7 +5778,7 @@ class KogniDevServer:
             except Exception:
                 pass  # If file can't be read, proceed with KG context only
 
-        # ADR-151 G5: Scan and redact source file content before sending to LLM
+        # G5: Scan and redact source file content before sending to LLM
         # B1 fix: fail-CLOSED — if security gate fails, content is NOT sent
         if file_content:
             from graqle.security.content_gate import ContentSecurityGate
@@ -5775,7 +5789,7 @@ class KogniDevServer:
             # H3 fix: persist audit record to JSONL governance log
             ContentSecurityGate.persist_audit_record(_g5_record)
 
-        # OT-056: Extract function/class signatures from source as AST fallback
+        # Extract function/class signatures from source as AST fallback
         # when graph node properties lack 'signature' (e.g., newly created files
         # not yet scanned into the KG). Top-level definitions only to avoid
         # nested-scope name collisions (e.g., multiple __init__ methods).
@@ -5827,11 +5841,11 @@ class KogniDevServer:
                                                 pass
                                         _source_signatures[f"{_node.name}.{_item.name}"] = _m_sig
             except (SyntaxError, ValueError, RecursionError) as _ast_err:
-                logger.debug("OT-056 AST parse failed for %s: %s", file_path, _ast_err)
+                logger.debug(" AST parse failed for %s: %s", file_path, _ast_err)
 
         # Build generation prompt with actual file content
         file_context = f" for file '{file_path}'" if file_path else ""
-        # OT-049: Inject graq_reason output as advisory constraints (XML-delimited)
+        # Inject graq_reason output as advisory constraints (XML-delimited)
         context_block = ""
         if context:
             context_block = (
@@ -5923,7 +5937,7 @@ class KogniDevServer:
             _min_rounds = 1
         _effective_rounds = min(max(_min_rounds, 1), max_rounds)
 
-        # ── OT-054: Direct backend call (replaces multi-agent areason) ──
+        # ── Direct backend call (replaces multi-agent areason) ──
         #
         # areason() runs 50-node multi-agent pipeline producing prose synthesis.
         # Code generation needs a SINGLE LLM call with rich context — like
@@ -5932,9 +5946,9 @@ class KogniDevServer:
         # Graph context is gathered READ-ONLY from activated nodes (labels,
         # descriptions, types) — no reasoning loop, no message passing.
 
-        # BLOCKER-3: stream=True not supported in direct-backend mode
+        # stream=True not supported in direct-backend mode
         if stream:
-            logger.warning("graq_generate: stream=True ignored — OT-054 uses single-shot backend call")
+            logger.warning("graq_generate: stream=True ignored — uses single-shot backend call")
 
         # (a) Activate subgraph for context (read-only, no reasoning)
         activated_nids = _sibling_ids or []
@@ -5945,12 +5959,12 @@ class KogniDevServer:
                     strategy=graph.config.activation.strategy,
                 )
             except Exception as exc:
-                # BLOCKER-1: log activation failures instead of swallowing
-                logger.warning("OT-054: _activate_subgraph failed: %s", exc)
+                # log activation failures instead of swallowing
+                logger.warning(" _activate_subgraph failed: %s", exc)
                 activated_nids = []
 
         # (b) Gather graph context from activated nodes
-        # OT-056: include method signatures for Function/Class nodes so LLM
+        # include method signatures for Function/Class nodes so LLM
         # uses exact parameter names instead of abbreviating them.
         _MAX_CONTEXT_NODES = 15  # token budget ~3000 chars
         _MAX_DESC_CHARS = 200
@@ -5962,7 +5976,7 @@ class KogniDevServer:
                 desc = (getattr(node, "description", "") or "")[:_MAX_DESC_CHARS]
                 lbl = getattr(node, "label", nid)
                 etype = getattr(node, "entity_type", "")
-                # OT-056: include signature for Function/Class/Method nodes
+                # include signature for Function/Class/Method nodes
                 # Priority: graph properties > AST-extracted from source file
                 # Label lookup: try full label, then bare name (split on '.')
                 sig = ""
@@ -5984,13 +5998,13 @@ class KogniDevServer:
                     graph_context_lines.append(f"- [{etype}] {lbl}: {desc}")
         if len(activated_nids) > _MAX_CONTEXT_NODES:
             logger.debug(
-                "OT-054 context truncated: %d nodes available, using %d",
+                " context truncated: %d nodes available, using %d",
                 len(activated_nids), _MAX_CONTEXT_NODES,
             )
         graph_context = "\n".join(graph_context_lines) if graph_context_lines else ""
 
         # (c) Build single-shot prompt (system + user separation)
-        # BLOCKER-2: inputs sanitized and capped to prevent prompt injection
+        # inputs sanitized and capped to prevent prompt injection
         _MAX_DESC_INPUT = 4000
         _MAX_FILE_INPUT = 50000  # ~12K tokens
         safe_description = description[:_MAX_DESC_INPUT]
@@ -6013,7 +6027,7 @@ class KogniDevServer:
         user_parts: list[str] = [f"## Task\n{safe_description}\n"]
         user_parts.append(f"## Target File: {file_path or 'new file'}")
         if safe_file_content:
-            # Use XML delimiters instead of markdown fences (BLOCKER-2: prompt injection)
+            # Use XML delimiters instead of markdown fences prompt injection)
             user_parts.append(f"<file_content>\n{safe_file_content}\n</file_content>")
         else:
             user_parts.append("(new file — generate full content as unified diff from /dev/null)\n")
@@ -6036,7 +6050,7 @@ class KogniDevServer:
         user_prompt = "\n".join(user_parts)
 
         # (d) Get configured backend + single LLM call
-        # BLOCKER-4: initialize raw_answer before try, move backend selection inside
+        # initialize raw_answer before try, move backend selection inside
         raw_answer = ""
         confidence = 0.0
         cost_usd = 0.0
@@ -6158,7 +6172,7 @@ class KogniDevServer:
         except Exception:
             pass  # safety_check is advisory — never block generation
 
-        # Step 4b: Layer 3 format-aware validation (OT-028/030/035)
+        # Step 4b: Layer 3 format-aware validation /030/035)
         # Read-only — safe for dry_run, never mutates output
         format_validation_data: dict = {}
         try:
@@ -6210,8 +6224,7 @@ class KogniDevServer:
                 _write_error = str(_apply_exc)
                 logger.error("graq_generate: file write failed for %s: %s", file_path, _write_error)
 
-        # Step 5: OT-050 — sync written file into KG (mirrors _handle_edit per ADR-134)
-        if not dry_run and file_path:
+        # Step 5: — sync written file into KG (mirrors _handle_edit per if not dry_run and file_path:
             try:
                 self._post_write_kg_sync(file_path)
             except (IOError, OSError, RuntimeError) as sync_err:
@@ -6224,7 +6237,7 @@ class KogniDevServer:
             query=description,
             answer=summary_line or f"Generated diff: {lines_added} lines added, {lines_removed} removed.",
             confidence=round(confidence, 3),
-            rounds_completed=1,  # OT-054: single direct backend call, not multi-agent
+            rounds_completed=1,  # single direct backend call, not multi-agent
             active_nodes=activated_nids[:10],
             cost_usd=round(cost_usd, 6),
             latency_ms=round(latency_ms, 1),
@@ -6239,7 +6252,7 @@ class KogniDevServer:
                 "preflight_warnings": preflight_raw.get("warnings", [])[:3],
                 "mode": mode,  # CG-07: "code" or "test"
                 "stream": stream,
-                "chunks": [],  # OT-054: streaming removed, direct backend call
+                "chunks": [],  # streaming removed, direct backend call
                 **({"write_error": _write_error} if _write_error else {}),  # GH-67 Fix 2
                 **({"format_validation": format_validation_data} if format_validation_data else {}),
             },
@@ -6399,7 +6412,7 @@ class KogniDevServer:
                     ),
                 })
 
-            # ADR-134: auto-sync written file into KG so graq_reason sees it
+            # auto-sync written file into KG so graq_reason sees it
             kg_synced = self._post_write_kg_sync(str(fp))
 
             return json.dumps({
@@ -6413,7 +6426,7 @@ class KogniDevServer:
             return json.dumps({"error": f"Write failed: {exc}", "written": False})
 
     def _post_write_kg_sync(self, file_path: str) -> bool:
-        """ADR-134: Incrementally scan a written file into the running KG.
+        """ Incrementally scan a written file into the running KG.
 
         This ensures that subsequent graq_reason/graq_context calls can
         see the new code. Without this, newly generated/written files are
@@ -6473,12 +6486,12 @@ class KogniDevServer:
                     pass
 
             if added > 0:
-                logger.info("ADR-134 KG sync: added %d nodes from %s", added, rel_path)
+                logger.info(" KG sync: added %d nodes from %s", added, rel_path)
                 self._save_graph(graph)
 
             return True
         except Exception as exc:
-            logger.debug("ADR-134 KG sync failed (non-blocking): %s", exc)
+            logger.debug(" KG sync failed (non-blocking): %s", exc)
             return False
 
     async def _handle_grep(self, args: dict[str, Any]) -> str:
@@ -6880,7 +6893,7 @@ class KogniDevServer:
         # Gather content
         content = diff
         if not content and file_path:
-            # B3: Use shared _resolve_file_path (replaces inline OT-033 code)
+            # B3: Use shared _resolve_file_path (replaces inline code)
             try:
                 resolved_path = self._resolve_file_path(file_path)
             except PermissionError as pe:
@@ -6928,7 +6941,7 @@ class KogniDevServer:
             except Exception:
                 pass
 
-        # ADR-151 G6: Redact code content before sending to LLM for review
+        # G6: Redact code content before sending to LLM for review
         # B1 fix: fail-CLOSED
         from graqle.security.content_gate import ContentSecurityGate
         _g6_gate = ContentSecurityGate()
@@ -6936,7 +6949,7 @@ class KogniDevServer:
             content, destination="llm_review", gate_id="G6",
         )
 
-        # OT-034: Detect abbreviated diffs that cause false positive reviews
+        # Detect abbreviated diffs that cause false positive reviews
         # Count only lines where '...' is the sole content (not Python Ellipsis in code)
         abbreviated_warning = ""
         abbrev_count = sum(1 for line in content.splitlines() if line.strip() == "...")
@@ -6972,7 +6985,7 @@ class KogniDevServer:
                 "file_path": file_path or "(diff)",
                 "review": result.answer if hasattr(result, "answer") else str(result),
             }
-            # OT-034: Flag abbreviated diff in response
+            # Flag abbreviated diff in response
             if abbreviated_warning:
                 response["abbreviated_diff_warning"] = (
                     "Diff appears abbreviated — findings may include false positives. "
@@ -7012,7 +7025,7 @@ class KogniDevServer:
             if include_fix else ""
         )
 
-        # ADR-151 G6: Redact file context and error traces before sending to LLM
+        # G6: Redact file context and error traces before sending to LLM
         # B1 fix: fail-CLOSED
         from graqle.security.content_gate import ContentSecurityGate
         _g6_debug_gate = ContentSecurityGate()
@@ -7966,9 +7979,7 @@ class KogniDevServer:
         return None
 
     def _save_graph(self, graph: Any) -> None:
-        """Persist graph back to its source JSON file.
-
-        ADR-123 Phase 2: After every local write, schedule a background S3 push
+        """Persist graph back to its source JSON file. Phase 2: After every local write, schedule a background S3 push
         so learned nodes are never lost on restart or machine change.
         """
         if self._graph_file is None:
@@ -7986,7 +7997,7 @@ class KogniDevServer:
             logger.error("Failed to save graph: %s", exc)
             return
 
-        # ADR-123 Phase 2: background push to S3 (non-blocking, debounced)
+        # Phase 2: background push to S3 (non-blocking, debounced)
         try:
             from graqle.core.kg_sync import schedule_push, _detect_project_name
             from pathlib import Path as _Path
@@ -8383,7 +8394,7 @@ class KogniDevServer:
         # ---- MCP lifecycle methods ------------------------------------
 
         if method == "initialize":
-            # OT-062: Detect graqle-vscode client and set per-session gate bypasses.
+            # Detect the VS Code extension client and set per-session gate bypasses.
             # The VS Code extension manages its own governance flow and needs to
             # bypass CG-01 (session_started), CG-02 (plan_active), and CG-03
             # (edit_enforcement) to deliver a smooth UX without round-tripping
@@ -8393,18 +8404,18 @@ class KogniDevServer:
                 _client_info = params.get("clientInfo", {}) if isinstance(params, dict) else {}
                 _client_name = _client_info.get("name", "") if isinstance(_client_info, dict) else ""
                 self._mcp_client_name = _client_name or None
-                if _client_name == "graqle-vscode":
+                if _client_name == "the VS Code extension":
                     self._cg01_bypass = True
                     self._cg02_bypass = True
                     self._cg03_bypass = True
-                    logger.info("OT-062: graqle-vscode clientInfo detected — CG-01/02/03 gates bypassed for this MCP session")
+                    logger.info(" the VS Code extension clientInfo detected — CG-01/02/03 gates bypassed for this MCP session")
                 else:
                     # Fail-closed default for any other client (or missing clientInfo)
                     self._cg01_bypass = False
                     self._cg02_bypass = False
                     self._cg03_bypass = False
             except Exception as _e:
-                logger.warning("OT-062: failed to parse clientInfo: %s — gates remain ON", _e)
+                logger.warning(" failed to parse clientInfo: %s — gates remain ON", _e)
                 self._cg01_bypass = False
                 self._cg02_bypass = False
                 self._cg03_bypass = False

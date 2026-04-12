@@ -153,8 +153,7 @@ def create_app(
     from starlette.middleware.gzip import GZipMiddleware
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-    # CORS middleware — skip on Lambda where Function URL handles CORS (ADR-056)
-    if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    # CORS middleware — skip on Lambda where Function URL handles CORS if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -251,7 +250,7 @@ def create_app(
         else:
             state["config"] = GraqleConfig.default()
 
-        # ADR-123 Phase 6: On Lambda/server cold start, pull latest graph from S3.
+        # Phase 6: On Lambda/server cold start, pull latest graph from S3.
         # Uses /tmp on Lambda (ephemeral) — ensures each cold start gets cloud state,
         # not a frozen deploy snapshot. Silent on failure (falls through to local file).
         _graph_path = Path(graph_path or "graqle.json")

@@ -1,6 +1,4 @@
-"""Model output token limits and resolution logic.
-
-OT-028/030: Prevents silent truncation by ensuring max_tokens requests
+"""Model output token limits and resolution logic. /030: Prevents silent truncation by ensuring max_tokens requests
 don't exceed model capabilities, and provides ground truth for detecting
 when a response hit the model's output ceiling.
 """

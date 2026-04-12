@@ -353,9 +353,7 @@ def cloud_push(
         help="Push even if cloud version is newer (overwrites cloud). Use carefully.",
     ),
 ) -> None:
-    """Upload knowledge graph + intelligence to GraQle Cloud.
-
-    ADR-123 Phase 4: checks for conflicts before pushing — aborts if cloud is
+    """Upload knowledge graph + intelligence to GraQle Cloud. Phase 4: checks for conflicts before pushing — aborts if cloud is
     newer than local (prevents git reset from silently overwriting cloud state).
     Use --force to override.
 
@@ -383,7 +381,7 @@ def cloud_push(
         ))
         raise typer.Exit(1)
 
-    # ADR-123 Phase 4: Conflict detection — abort if cloud is newer than local
+    # Phase 4: Conflict detection — abort if cloud is newer than local
     if not force:
         email_h = _email_hash(creds.email)
         conflict, conflict_reason = check_push_conflict(graph_path, proj_name, email_h)

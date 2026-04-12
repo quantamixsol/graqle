@@ -6,7 +6,7 @@ Outputs:
 - .graqle/intelligence/module_index.json
 - .graqle/scorecard.json
 
-See ADR-105 §Intelligence Outputs.
+See §Intelligence Outputs.
 """
 
 # ── graqle:intelligence ──

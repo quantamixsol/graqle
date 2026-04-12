@@ -1,4 +1,4 @@
-"""Sensitivity classification for knowledge-graph nodes — ADR-151 Pillar 1 (TAG at Ingest).
+"""Sensitivity classification for knowledge-graph nodes — Pillar 1 (TAG at Ingest).
 
 Multi-layer detection pipeline that assigns a ``SensitivityLevel`` to every
 node *before* it enters the graph.  Typed placeholders preserve embedding
@@ -58,7 +58,7 @@ class RedactionMarker:
 
 
 # ---------------------------------------------------------------------------
-# Typed placeholders (ADR-151 — preserve embedding quality)
+# Typed placeholders — preserve embedding quality)
 # ---------------------------------------------------------------------------
 
 TYPED_PLACEHOLDERS: dict[str, str] = {
@@ -106,7 +106,7 @@ _CREDENTIAL_ASSIGNMENT_RE: re.Pattern[str] = re.compile(
 
 
 class SensitivityClassifier:
-    """Multi-layer sensitivity detection pipeline (ADR-151 Pillar 1).
+    """Multi-layer sensitivity detection pipeline Pillar 1).
 
     Instantiate once and reuse — heavy dependencies are lazily imported
     on first use to avoid circular imports and degrade gracefully when

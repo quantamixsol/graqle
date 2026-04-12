@@ -121,9 +121,9 @@ def _apply_patch_to_lines(
     and delete lines, inserting additions, tracking match positions for
     validation. All validation happens inline before any irreversible mutation.
 
-    - OT-023 fix: track context match rate and FAIL if too many mismatches
+    - fix: track context match rate and FAIL if too many mismatches
       (previously silently appended code at EOF on mismatch)
-    - OT-023 hardening: track match positions and validate positional coherence
+    - hardening: track match positions and validate positional coherence
       to catch greedy forward-scan mis-matches on duplicate/similar lines.
 
     Parameters
@@ -197,7 +197,7 @@ def _apply_patch_to_lines(
 
     # --- Post-loop validation (on the SAME positions used to build result) ---
 
-    # OT-023 fix: check context match rate
+    # fix: check context match rate
     if context_total > 0:
         match_rate = context_matched / context_total
         if match_rate < context_match_threshold:
@@ -208,7 +208,7 @@ def _apply_patch_to_lines(
                 f"Refusing to apply — this would append code at EOF instead of editing in place."
             )
 
-    # OT-023 hardening: positional coherence check
+    # hardening: positional coherence check
     # match_positions is strictly monotone (single forward scan guarantees this)
     if len(match_positions) >= 2:
         gaps = [

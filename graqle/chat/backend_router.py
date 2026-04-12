@@ -1,6 +1,4 @@
-"""Bring-your-own-backend polyglot router for ChatAgentLoop v4.
-
-TB-F6 of ChatAgentLoop v4 (ADR-152). Reads ``graqle.yaml``'s
+"""Bring-your-own-backend polyglot router for ChatAgentLoop v4. of ChatAgentLoop v4 . Reads ``graqle.yaml``'s
 ``models:`` section, detects backend families, and routes the 6 new
 chat task types (``chat_triage``, ``chat_reasoning``,
 ``chat_debate_proposer``, ``chat_debate_adversary``,
@@ -33,8 +31,7 @@ cached for the lifetime of the session.
 # ── graqle:intelligence ──
 # module: graqle.chat.backend_router
 # risk: MEDIUM (config-driven dispatch)
-# consumers: chat.agent_loop (planned TB-F7), chat.debate (TB-F5)
-# dependencies: __future__, dataclasses, enum, typing
+# consumers: chat.agent_loop (planned chat.debate # dependencies: __future__, dataclasses, enum, typing
 # constraints: never hard-code backend choices; family detection by name
 # ── /graqle:intelligence ──
 

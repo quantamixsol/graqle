@@ -10,7 +10,7 @@ corrections accumulate.
 # risk: HIGH (impact radius: intent routing pipeline)
 # consumers: intent_classifier, tool_router, checkpoint_manager
 # dependencies: graqle.intent.types, collections, json, logging, math
-# constraints: TS-2 (all hyperparameters as constructor kwargs)
+# constraints: internal-pattern-B (all hyperparameters as constructor kwargs)
 # ── /graqle:intelligence ──
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class OnlineLearner:
     """Adaptive weight updater that blends keyword-rule scores with KG
     node-type signals, learning from user corrections.
 
-    All hyperparameters are constructor kwargs (TS-2 compliance — no
+    All hyperparameters are constructor kwargs (internal-pattern-B compliance — no
     class-level constants).
     """
 
@@ -46,7 +46,7 @@ class OnlineLearner:
         kg_blend_denominator: float = 200.0,
         known_rules: Optional[List[str]] = None,
     ) -> None:
-        # Hyperparameters (instance-level, NOT class constants — TS-2)
+        # Hyperparameters (instance-level, NOT class constants — internal-pattern-B)
         self.learning_rate = learning_rate
         self.min_corrections = min_corrections
         self.weight_floor = weight_floor

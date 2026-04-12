@@ -88,9 +88,7 @@ class ModelBackend(Protocol):
     """Protocol for any model that can generate text from a prompt.
 
     Implementations: LocalModel, AnthropicBackend, OpenAIBackend,
-    OllamaBackend, BedrockBackend, CustomBackend.
-
-    OT-028/030: Backends now return GenerateResult (str-compatible).
+    OllamaBackend, BedrockBackend, CustomBackend. /030: Backends now return GenerateResult (str-compatible).
     Protocol keeps -> str annotation to avoid circular import
     (types.py cannot import backends.base). runtime_checkable only
     checks method existence, not return types, so this is safe.
@@ -132,7 +130,7 @@ class AgentProtocol(Protocol):
     Return type: ``generate()`` returns ``str`` in this Phase 2 skeleton.
     Phase 3 will align to ``ReasoningResult`` when the coordinator's
     synthesis pipeline consumes structured metadata (confidence, cost,
-    latency).  See OT-041 for the parallel ``ModelBackend`` alignment.
+    latency).  See for the parallel ``ModelBackend`` alignment.
     """
 
     @property
@@ -145,7 +143,7 @@ class AgentProtocol(Protocol):
         """LLM model identifier this agent uses for generation."""
         ...
 
-    async def generate(self, prompt: str, **kwargs: Any) -> str:  # TODO(OT-041): -> ReasoningResult in Phase 3
+    async def generate(self, prompt: str, **kwargs: Any) -> str:  # TODO -> ReasoningResult in Phase 3
         """Generate a response for the given prompt.
 
         Returns plain ``str`` in Phase 2.  Will return ``ReasoningResult``
@@ -172,7 +170,7 @@ class ReasoningResult:
     latency_ms: float
     timestamp: datetime = field(default_factory=datetime.utcnow)
     metadata: dict[str, Any] = field(default_factory=dict)
-    # v0.24.1: Backend status fields (Issue 1+3 from CrawlQ feedback)
+    # v0.24.1: Backend status fields (Issue 1+3 from the regulatory product feedback)
     backend_status: str = "ok"  # "ok", "unavailable", "fallback", "not_configured"
     backend_error: str | None = None  # Error message if backend failed
     reasoning_mode: str = "full"  # "full", "fallback_traversal", "keyword"
@@ -243,8 +241,7 @@ class NodeConfig:
 
 
 # ---------------------------------------------------------------------------
-# R5 Cross-Language MCP Linker types (ADR-131)
-# ---------------------------------------------------------------------------
+# R5 Cross-Language MCP Linker types # ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -272,8 +269,7 @@ class MCPHandler:
     registry_confirmed: bool    # True if found in TOOL_REGISTRY
 
 # ---------------------------------------------------------------------------
-# R15 Multi-Backend Debate types (ADR-139)
-# ---------------------------------------------------------------------------
+# R15 Multi-Backend Debate types # ---------------------------------------------------------------------------
 
 
 @dataclass

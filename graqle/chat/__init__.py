@@ -1,6 +1,6 @@
-"""ChatAgentLoop v4 SDK package (TB-F1..F9, ADR-152).
+"""ChatAgentLoop v4 SDK package ..F9, .
 
-Public API (TB-F1 foundation modules):
+Public API foundation modules):
 
     from graqle.chat import (
         ChatEvent, ChatEventType, ChatEventBuffer, PollResult, poll_events,
@@ -9,12 +9,12 @@ Public API (TB-F1 foundation modules):
         SystemPromptBundle, GraqMdLoader, load_built_in_template,
     )
 
-Design: three-graph editorial rule (ADR-152) — GRAQ.md static policy,
+Design: three-graph editorial rule — GRAQ.md static policy,
 TCG learned tool-selection patterns, RCAG ephemeral execution memory.
 TurnLedger is intentionally OUTSIDE the three graphs as a plain log.
 
 Isolation guarantee: no symbol in this module imports from graqle.core
-or graqle.backends at TB-F1. This is asserted by
+or graqle.backends at . This is asserted by
 tests/test_chat/test_isolation.py.
 """
 

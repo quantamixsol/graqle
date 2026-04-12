@@ -1,4 +1,4 @@
-"""R2 Bridge-Edge Reconciliation — ADR-133.
+"""R2 Bridge-Edge Reconciliation — .
 
 Deduplicates and reconciles bridge edge candidates from
 BridgeDetectionReport, resolving conflicts by dedup key,
@@ -10,7 +10,7 @@ confidence score, method priority, and cross-language semantics.
 # risk: LOW (impact radius: 2 modules)
 # consumers: merge.pipeline, mcp_dev_server
 # dependencies: __future__, dataclasses, logging, graqle.analysis.bridge
-# constraints: ADR-133 R2 bridge validation protocol
+# constraints: R2 bridge validation protocol
 # ── /graqle:intelligence ──
 
 from __future__ import annotations

@@ -19,7 +19,7 @@ import sys
 
 ALLOWED_TOOLS = {"ToolSearch", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "Skill"}
 
-# Unknown-tool fail-closed heuristic (CG-GATE-04, v0.50.1):
+# Unknown-tool fail-closed heuristic v0.50.1):
 # Any unknown tool whose name matches this regex is treated as write-class
 # and blocked by default. Unknown read-class tools still fall through to
 # allow (exit 0). This prevents new Claude Code write tools from silently

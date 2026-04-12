@@ -32,7 +32,7 @@ Pipeline flow:
     → DRACEPillarEvaluator (per pillar)
       → DRACEScore (composite)
 
-See ADR-105 §DRACE Scoring, TAMR+ §TRACE Pipeline Architecture.
+See §DRACE Scoring, TAMR+ §TRACE Pipeline Architecture.
 """
 
 # ── graqle:intelligence ──

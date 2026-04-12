@@ -3,7 +3,7 @@
 Production client for querying the graqle-kg Neptune Serverless cluster.
 Uses HTTPS + openCypher via HTTP POST, with SigV4 IAM authentication.
 
-Ported from CrawlQ Studio's neptune_client.py (studio-tamr-kg pattern).
+Ported from the regulatory product Studio's neptune_client.py (studio-tamr-kg pattern).
 
 Cluster: graqle-kg (eu-central-1, serverless v2)
 Endpoint: graqle-kg.cluster-cfb3tqihxeti.eu-central-1.neptune.amazonaws.com:8182
@@ -318,7 +318,7 @@ def cross_project_search(project_ids: list[str], query_text: str, limit: int = 5
     """Search for nodes matching a text pattern across multiple projects.
 
     This is the cross-project reasoning query — answers questions like
-    "what connects crawlq to graqle?" by finding shared node types,
+    "what connects the regulatory product to graqle?" by finding shared node types,
     similar labels, and cross-boundary dependencies.
     """
     if not project_ids:
