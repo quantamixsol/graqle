@@ -63,14 +63,35 @@ class StorageTiers:
             detail=detail,
         )
 
+    def _read_backends_yaml(self) -> dict:
+        """Read backends: section from graqle.yaml, or empty dict on failure."""
+        if yaml is None:
+            return {}
+        yaml_path = self.project_dir / "graqle.yaml"
+        if not yaml_path.exists():
+            return {}
+        try:
+            data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+            return data.get("backends", {})
+        except Exception:
+            return {}
+
     def tier1_neo4j(self) -> TierDescriptor:
         disabled_value = os.getenv("NEO4J_DISABLED", "")
         if disabled_value.lower() in _NEO4J_DISABLED_VALUES:
             detail = "Disabled by NEO4J_DISABLED (OT-060 gate)."
             status = TierStatus.DISABLED
         else:
-            detail = "Projection available via Graqle.to_neo4j."
-            status = TierStatus.OPT_IN_AVAILABLE
+            # Phase 3: check backends.neo4j.enabled in graqle.yaml
+            backends = self._read_backends_yaml()
+            neo4j_cfg = backends.get("neo4j", {})
+            if neo4j_cfg.get("enabled", False):
+                uri = neo4j_cfg.get("uri", "bolt://localhost:7687")
+                detail = f"Enabled via backends.neo4j (uri={uri})."
+                status = TierStatus.ACTIVE
+            else:
+                detail = "Projection available via Graqle.to_neo4j."
+                status = TierStatus.OPT_IN_AVAILABLE
         return TierDescriptor(
             name="Tier 1A \u2014 Neo4j (local, opt-in)",
             role="projection",
@@ -79,13 +100,21 @@ class StorageTiers:
         )
 
     def tier1_neptune(self) -> TierDescriptor:
-        endpoint = os.getenv("NEPTUNE_ENDPOINT", "")
-        if endpoint:
-            detail = f"Projection available to Neptune endpoint: {endpoint}"
-            status = TierStatus.OPT_IN_AVAILABLE
+        # Phase 3: check backends.neptune.enabled in graqle.yaml first
+        backends = self._read_backends_yaml()
+        neptune_cfg = backends.get("neptune", {})
+        if neptune_cfg.get("enabled", False):
+            endpoint = neptune_cfg.get("endpoint", os.getenv("NEPTUNE_ENDPOINT", ""))
+            detail = f"Enabled via backends.neptune (endpoint={endpoint})."
+            status = TierStatus.ACTIVE
         else:
-            detail = "NEPTUNE_ENDPOINT not configured."
-            status = TierStatus.NOT_CONFIGURED
+            endpoint = os.getenv("NEPTUNE_ENDPOINT", "")
+            if endpoint:
+                detail = f"Projection available to Neptune endpoint: {endpoint}"
+                status = TierStatus.OPT_IN_AVAILABLE
+            else:
+                detail = "NEPTUNE_ENDPOINT not configured."
+                status = TierStatus.NOT_CONFIGURED
         return TierDescriptor(
             name="Tier 1B \u2014 Neptune (hosted, opt-in)",
             role="projection",
