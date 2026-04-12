@@ -153,8 +153,7 @@ def create_app(
     from starlette.middleware.gzip import GZipMiddleware
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-    # CORS middleware — skip on Lambda where Function URL handles CORS
-    if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    # CORS middleware — skip on Lambda where Function URL handles CORS if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],

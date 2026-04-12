@@ -1,0 +1,17 @@
+"""Build module entry point for GraQle."""
+
+from __future__ import annotations
+
+
+def buildmodule() -> None:
+    """Placeholder build hook for packaging workflows."""
+    return None
+
+
+def main() -> None:
+    """CLI-compatible entry point."""
+    buildmodule()
+
+
+if __name__ == "__main__":
+    main()
