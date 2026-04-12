@@ -1,6 +1,4 @@
-"""Permission Manager + TurnStore — durable pause/resume for ChatAgentLoop v4.
-
-TB-F4 of ChatAgentLoop v4 (ADR-152). Holds:
+"""Permission Manager + TurnStore — durable pause/resume for ChatAgentLoop v4. of ChatAgentLoop v4 . Holds:
 
   - ``TurnState`` enum: the v4 state machine
   - ``TurnCheckpoint`` dataclass: runtime + persisted split
@@ -35,12 +33,12 @@ Approve once for a scope, subsequent same-scope calls auto-proceed
 with a soft chip. Revocation is mid-session and takes effect at the
 next safe boundary (next call to ``check``).
 
-CGI-compatibility note (ADR-153 seed)
+CGI-compatibility note seed)
 -------------------------------------
 ``TurnCheckpoint`` carries fields (``started_at``, ``ended_at``,
 ``model_id``, ``cost_usd``, ``tools_used_count``, ``exit_reason``)
 that map directly onto the future ``Session`` and ``Checkpoint``
-nodes in ADR-153. Today they are stored in the runtime ``TurnStore``;
+nodes in . Today they are stored in the runtime ``TurnStore``;
 post-v0.50.0 the CGI design session can decide whether to copy them
 into a persistent CGI on terminal transitions.
 """
@@ -48,8 +46,7 @@ into a persistent CGI on terminal transitions.
 # ── graqle:intelligence ──
 # module: graqle.chat.permission_manager
 # risk: HIGH (concurrency contract)
-# consumers: chat.agent_loop (planned TB-F7)
-# dependencies: __future__, asyncio, dataclasses, enum, typing, time
+# consumers: chat.agent_loop (planned # dependencies: __future__, asyncio, dataclasses, enum, typing, time
 # constraints: every mutation inside the asyncio.Lock
 # ── /graqle:intelligence ──
 
@@ -161,7 +158,7 @@ class TurnStore:
 
     Every mutation is performed inside ``self._lock`` so the contract
     holds even when several MCP calls land concurrently. The store is
-    intentionally NOT persisted — TB-F1's ``TurnLedger`` handles the
+    intentionally NOT persisted — 's ``TurnLedger`` handles the
     immutable historical transcript at the file layer; this is hot
     runtime state.
     """

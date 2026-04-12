@@ -770,7 +770,7 @@ def studio(
     console.print()
     console.print("     [cyan]graq serve --port 8077[/cyan]   ← start the API backend")
     console.print("     [cyan]graqle.com/dashboard[/cyan]     ← open the modern Studio")
-    console.print("     [dim]Or run npm run dev in graqle-studio/ for local development[/dim]")
+    console.print("     [dim]Or run npm run dev in the studio frontend/ for local development[/dim]")
     console.print()
     if graph:
         console.print(f"  Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")

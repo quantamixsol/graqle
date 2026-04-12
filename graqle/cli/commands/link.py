@@ -6,7 +6,7 @@ edges. This enables GraQle reasoning across your entire ecosystem.
 Examples:
     graq link merge project1/graqle.json project2/graqle.json -o merged.json
     graq link infer merged.json
-    graq link edge crawlq/tamr_sdk frictionmelt/retrieval --relation POWERS
+    graq link edge the regulatory product/tamr_sdk frictionmelt/retrieval --relation POWERS
     graq link stats merged.json
 """
 
@@ -65,13 +65,13 @@ def link_merge(
     names: list[str] = typer.Option(
         None, "--names", "-n",
         help="Explicit project names for each graph file (in order). "
-             "E.g. --names crawlq --names graqle. Falls back to graph metadata or parent dir.",
+             "E.g. --names the regulatory product --names graqle. Falls back to graph metadata or parent dir.",
     ),
 ) -> None:
     """Merge multiple project KGs into a single unified graph.
 
     Each graph's nodes are optionally prefixed with the project name
-    to prevent ID collisions (e.g. 'auth-lambda' → 'crawlq/auth-lambda').
+    to prevent ID collisions (e.g. 'auth-lambda' → 'the regulatory product/auth-lambda').
 
     By default, project names are derived from the parent directory.
     Use --names to override (e.g. when graphs are in temp directories).
@@ -79,7 +79,7 @@ def link_merge(
     \b
     Examples:
         graq link merge project1/graqle.json project2/graqle.json
-        graq link merge a.json b.json --names crawlq --names graqle
+        graq link merge a.json b.json --names the regulatory product --names graqle
         graq link merge *.json --output unified.json --no-prefix
     """
     if len(graphs) < 2:
@@ -196,8 +196,8 @@ def link_edge(
 
     \b
     Examples:
-        graq link edge crawlq/tamr_sdk frictionmelt/retrieval --relation POWERS
-        graq link edge graqle/reasoning tracegov/compliance --relation ENABLES
+        graq link edge the regulatory product/tamr_sdk frictionmelt/retrieval --relation POWERS
+        graq link edge graqle/reasoning the regulatory product/compliance --relation ENABLES
     """
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
@@ -303,7 +303,7 @@ def link_stats(
 
 
 def _get_project(node_id: str) -> str:
-    """Extract project prefix from a node ID (e.g. 'crawlq/auth.py' -> 'crawlq')."""
+    """Extract project prefix from a node ID (e.g. 'the regulatory product/auth.py' -> 'the regulatory product')."""
     return node_id.split("/", 1)[0] if "/" in node_id else ""
 
 

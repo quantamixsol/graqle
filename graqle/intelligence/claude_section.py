@@ -5,7 +5,7 @@ and quality gate status. Auto-detects which AI tool config files exist.
 
 Markers: <!-- graqle:intelligence --> ... <!-- /graqle:intelligence -->
 
-See ADR-105 §CLAUDE.md Auto-Section.
+See §CLAUDE.md Auto-Section.
 """
 
 # ── graqle:intelligence ──

@@ -1,4 +1,4 @@
-"""Unified content security gate — ADR-151 Pillar 2 (GATE at Every Exit).
+"""Unified content security gate — Pillar 2 (GATE at Every Exit).
 
 Enforces sensitivity classification and redaction at all 7 exit points
 (G1-G7) before content leaves the GraQle trust boundary:
@@ -15,7 +15,7 @@ All methods are pure — inputs are never mutated. Detection delegates to
 ``SensitivityClassifier`` and ``RedactionEngine``; replacement uses
 ``TYPED_PLACEHOLDERS`` for semantic-preserving redaction.
 
-Reference: ADR-151 Pillar 2 — "GATE at Every Exit"
+Reference: Pillar 2 — "GATE at Every Exit"
 """
 
 from __future__ import annotations

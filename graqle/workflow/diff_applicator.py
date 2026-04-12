@@ -21,7 +21,7 @@ from graqle.workflow.action_agent_protocol import ExecutionResult
 logger = logging.getLogger("graqle.workflow.diff_applicator")
 
 # Protected file patterns — never allow autonomous modification
-# These protect trade secrets (TS-1..TS-4) and IP-sensitive code
+# These protect trade secrets (internal-pattern-A..internal-pattern-D) and IP-sensitive code
 _PROTECTED_PATTERNS: frozenset[str] = frozenset({
     ".env",
     ".env.local",

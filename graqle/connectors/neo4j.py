@@ -1,7 +1,7 @@
 """Neo4j connector — production graph database integration.
 
 Supports both read (load) and write (save) operations, plus vector search
-on chunk embeddings for CypherActivation (ADR-105).
+on chunk embeddings for CypherActivation .
 """
 
 # ── graqle:intelligence ──

@@ -1,4 +1,4 @@
-"""Layer 3 — Format-aware output validation for graq_generate (OT-028/030/035).
+"""Layer 3 — Format-aware output validation for graq_generate /030/035).
 
 Validates structural completeness of generated output. Never mutates output
 or triggers continuation — that's Layer 2's responsibility. Returns
@@ -72,18 +72,18 @@ def validate_generate_output(
         else:
             output_format = "code"
 
-    # ── Check 1: Balanced delimiters (OT-028) ──
+    # ── Check 1: Balanced delimiters ──
     _check_balanced_delimiters(content, result)
 
-    # ── Check 2: SUMMARY marker (OT-030) ──
+    # ── Check 2: SUMMARY marker ──
     if expect_summary:
         _check_summary_marker(content, result)
 
-    # ── Check 3: Diff hunk integrity (OT-030) ──
+    # ── Check 3: Diff hunk integrity ──
     if output_format == "diff":
         _check_diff_hunks(content, result)
 
-    # ── Check 4: Formula divergence flag (OT-035) ──
+    # ── Check 4: Formula divergence flag ──
     _check_formula_markers(content, result)
 
     return result
@@ -193,7 +193,7 @@ def _check_diff_hunks(content: str, result: FormatValidation) -> None:
             result.truncation_suspected = True
 
 
-# OT-035: Configurable spec-sensitive identifiers — empty by default (opt-in)
+# Configurable spec-sensitive identifiers — empty by default (opt-in)
 # Override via graqle.yaml validation.formula_markers or at call time
 SPEC_SENSITIVE_IDENTIFIERS: frozenset[str] = frozenset()
 
@@ -203,7 +203,7 @@ def _check_formula_markers(
     result: FormatValidation,
     markers: frozenset[str] | None = None,
 ) -> None:
-    """OT-035: Flag generated content containing spec-sensitive constants."""
+    """ Flag generated content containing spec-sensitive constants."""
     check_set = markers if markers is not None else SPEC_SENSITIVE_IDENTIFIERS
     if not check_set:
         return  # No markers configured — skip check

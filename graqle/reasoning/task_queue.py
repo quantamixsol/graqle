@@ -3,7 +3,7 @@
 Implements topological wave decomposition (Kahn's algorithm), cascade
 isolation on gate failures (AND-semantics), and governance yield tracking.
 
-Reference: ADR-147 — Governed Reasoning Pipeline Architecture.
+Reference: — Governed Reasoning Pipeline Architecture.
 """
 from __future__ import annotations
 

@@ -84,7 +84,7 @@ class MessagePassingProtocol:
         async def _node_reason(node_id: str) -> tuple[str, Message]:
             node = graph.nodes[node_id]
             query_msg = Message.create_query_broadcast(query, node_id)
-            # OT-028 L2: Wire continuation config from graph
+            # L2: Wire continuation config from graph
             orch_cfg = getattr(graph, "config", None)
             orch = getattr(orch_cfg, "orchestration", None)
             _max_cont = getattr(orch, "max_continuations", 3)
@@ -149,7 +149,7 @@ class MessagePassingProtocol:
                 incoming.insert(0, self._observer_feedback[node_id])
 
             # Re-reason with neighbor context + evidence filtering
-            # OT-028 L2: Wire continuation config from graph
+            # L2: Wire continuation config from graph
             orch_cfg = getattr(graph, "config", None)
             orch = getattr(orch_cfg, "orchestration", None)
             _max_cont = getattr(orch, "max_continuations", 3)

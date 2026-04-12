@@ -1,6 +1,6 @@
 """Governed Epistemic Memory for multi-agent reasoning rounds.
 
-Implements the ReasoningMemory class per ADR-146: provenance-tracked,
+Implements the ReasoningMemory class per provenance-tracked,
 clearance-filtered, decay-aware memory with MVCC snapshots and
 concurrent merge semantics.
 """
@@ -36,8 +36,8 @@ class ReasoningMemory:
     for safe rollback during adversarial debate rounds.
 
     All tuneable thresholds are loaded from the *config* dict at
-    construction time (TS-2 compliant — no hard-coded policy values).
-    See ADR-146 for design rationale.
+    construction time (internal-pattern-B compliant — no hard-coded policy values).
+    See for design rationale.
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -45,7 +45,7 @@ class ReasoningMemory:
         if missing:
             raise ValueError(
                 f"ReasoningMemory requires config keys: {missing}. "
-                f"TS-2: these must come from graqle_secrets.yaml, not defaults."
+                f"internal-pattern-B: these must come from graqle_secrets.yaml, not defaults."
             )
         self._max_chars: int = int(config["MEMORY_SUMMARY_MAX_CHARS"])
         self._min_confidence: float = float(config["MEMORY_MIN_CONFIDENCE"])

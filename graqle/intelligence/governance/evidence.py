@@ -7,7 +7,7 @@ Every AI decision links back to the specific KG nodes, source files,
 and intelligence packets that informed it. This makes every decision
 auditable and explainable.
 
-See ADR-105 §Governance Layer: evidence_chains.py → governance/evidence.py.
+See §Governance Layer: evidence_chains.py → governance/evidence.py.
 """
 
 # ── graqle:intelligence ──

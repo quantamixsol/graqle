@@ -6,7 +6,7 @@ before every commit. This ensures the Quality Gate is always active.
 The hook is lightweight: it reads pre-compiled intelligence (no scanning),
 so it adds <1 second to commit time.
 
-See ADR-105 §Layer C: Enforcement.
+See §Layer C: Enforcement.
 """
 
 # ── graqle:intelligence ──

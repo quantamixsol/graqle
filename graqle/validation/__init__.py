@@ -1,4 +1,4 @@
-# OT-028/030 Layer 3: Format-aware output validation
+# /030 Layer 3: Format-aware output validation
 from graqle.validation.output_format import (
     FormatDiagnostic,
     FormatValidation,

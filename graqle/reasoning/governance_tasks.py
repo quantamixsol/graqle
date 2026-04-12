@@ -1,6 +1,6 @@
 """Standard governance gate definitions for the reasoning pipeline.
 
-Reference: ADR-147 — Governance gates run in Wave 0 with no dependencies,
+Reference: — Governance gates run in Wave 0 with no dependencies,
 ensuring policy checks complete before any downstream reasoning tasks execute.
 """
 

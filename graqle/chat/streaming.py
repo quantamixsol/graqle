@@ -1,4 +1,4 @@
-"""ChatAgentLoop v4 streaming events (TB-F1, ADR-152).
+"""ChatAgentLoop v4 streaming events .
 
 ChatEvent is the wire envelope the SDK emits to its client (the VS Code
 extension webview, or any future MCP consumer). Each turn has a monotonic
@@ -21,9 +21,7 @@ imported in isolation by the chat package and by tests.
 
 # ── graqle:intelligence ──
 # module: graqle.chat.streaming
-# risk: LOW (impact radius: 0 modules at TB-F1, will rise to ~10 by TB-F8)
-# consumers: graqle.chat.agent_loop (TB-F7), graqle.plugins.mcp_dev_server (TB-F8)
-# dependencies: dataclasses, enum, json, threading, time, typing, datetime
+# risk: LOW (impact radius: 0 modules at will rise to ~10 by # consumers: graqle.chat.agent_loop graqle.plugins.mcp_dev_server # dependencies: dataclasses, enum, json, threading, time, typing, datetime
 # constraints: zero intra-graqle deps, JSON-serializable
 # ── /graqle:intelligence ──
 
@@ -235,7 +233,7 @@ class ChatEventBuffer:
     ) -> ChatEvent:
         """Allocate the next sequence number and append a new event."""
         with self._lock:
-            # SDK-HF-02 / TB-F1 hardening: validate JSON-serializability
+            # SDK-HF-02 / hardening: validate JSON-serializability
             # at append time so producers fail fast at the boundary, not
             # later in to_json() / on the wire.
             payload = dict(data or {})

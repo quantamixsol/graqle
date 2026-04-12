@@ -1,4 +1,4 @@
-"""graq debate — Multi-backend debate CLI command (R15, ADR-139).
+"""graq debate — Multi-backend debate CLI command (R15, .
 
 Usage:
     graq debate "your query" --panelists p1 p2 p3

@@ -1,4 +1,4 @@
-"""Content security package — ADR-151: Tag at Ingest, Gate at Every Exit, Audit Always."""
+"""Content security package — Tag at Ingest, Gate at Every Exit, Audit Always."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Security audit logging — ADR-151 Pillar 3 (AUDIT Always).
+"""Security audit logging — Pillar 3 (AUDIT Always).
 
 Append-only JSONL audit trail for all content-security events
 (redactions, sensitivity classifications, provider routing decisions).

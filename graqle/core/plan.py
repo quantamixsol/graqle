@@ -8,7 +8,7 @@
 # ── /graqle:intelligence ──
 
 These types are intentionally separate from types.py (257-module blast radius).
-New module = zero regressions. See ADR-111 rationale.
+New module = zero regressions. See rationale.
 
 Usage:
     plan = ExecutionPlan(

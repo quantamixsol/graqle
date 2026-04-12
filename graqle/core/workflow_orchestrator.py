@@ -7,9 +7,7 @@
 # constraints: PLAN→PREFLIGHT→GATE→CODE→VALIDATE→TEST→LEARN stage order enforced
 # ── /graqle:intelligence ──
 
-Enforces the governed coding workflow defined in ADR-121:
-
-    PLAN      → graq_plan (read-only, returns ExecutionPlan)
+Enforces the governed coding workflow defined in PLAN      → graq_plan (read-only, returns ExecutionPlan)
     PREFLIGHT → graq_preflight (risk assessment, impact_radius)
     GATE      → GovernanceMiddleware.check() (3-tier: TS-BLOCK/T1/T2/T3)
     CODE      → graq_generate or graq_edit (produces diff)

@@ -1,6 +1,6 @@
 """Coding domain — governed AI code generation ontology.
 
-Phase 4 (v0.38.0): Expanded from 25% → 80%+ completeness per ADR-116.
+Phase 4 (v0.38.0): Expanded from 25% → 80%+ completeness per .
 Phase 6 (v0.38.0): +GOAL_DECOMPOSITION skill, +ExecutionPlan entity, +PLANNED_BY relationship,
                    +validate_plan_format gate → agent planning capability.
 Phase 7 (v0.38.0): +PERFORMANCE_PROFILING skill, +validate_profile_output gate
@@ -32,7 +32,7 @@ Output Gates (12): validate_diff_format, check_file_path_exists,
 # module: graqle.ontology.domains.coding
 # risk: LOW (impact radius: 0 existing consumers — new domain)
 # consumers: mcp_dev_server (graq_generate, graq_review, graq_debug, graq_scaffold, graq_workflow)
-# constraints: NEVER expose weight values or formula internals (TS-1..TS-4)
+# constraints: NEVER expose weight values or formula internals (internal-pattern-A..internal-pattern-D)
 # ── /graqle:intelligence ──
 
 from __future__ import annotations

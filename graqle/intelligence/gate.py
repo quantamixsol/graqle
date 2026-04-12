@@ -6,7 +6,7 @@ No graph loading. No scanning. Just reads JSON files from disk.
 This is the core of Layer A (Deep Reasoning) — making intelligence instantly
 available to any AI tool via MCP or direct API.
 
-See ADR-105 §Layer A: Deep Reasoning.
+See §Layer A: Deep Reasoning.
 """
 
 # ── graqle:intelligence ──

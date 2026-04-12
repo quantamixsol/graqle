@@ -33,7 +33,7 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
-# ── CG-REASON-01 (v0.47.3): batch error fallback helper ───────────────────
+# ── (v0.47.3): batch error fallback helper ───────────────────
 #
 # graqle.core.graph.areason_batch() previously constructed a ReasoningResult
 # in its asyncio.gather error branch with `node_count=0` (a read-only
@@ -67,7 +67,7 @@ def _make_error_result(query: str, exc: Exception) -> ReasoningResult:
     )
 
 
-# OT-060: Process-scoped Neo4j escape hatch via NEO4J_DISABLED env var.
+# Process-scoped Neo4j escape hatch via NEO4J_DISABLED env var.
 # Purpose: let hosts with tight handshake deadlines (VS Code MCP server,
 # CI jobs, Lambda) tell graQle to skip bolt:// dials entirely for this
 # process. Neo4j remains a first-class power-user storage + reasoning
@@ -321,8 +321,7 @@ class Graqle:
         self._node_backends: dict[str, ModelBackend] = {}
         self._orchestrator: Any = None  # set lazily
         self._activator: Any = None  # set lazily
-        self._reformulator: Any = None  # set lazily (ADR-104)
-        self._task_router: Any = None  # set lazily (v0.22: task-based routing)
+        self._reformulator: Any = None  # set lazily self._task_router: Any = None  # set lazily (v0.22: task-based routing)
         self._activation_memory: Any = None  # v0.12: cross-query learning
         self._neo4j_connector: Any = None  # set by from_neo4j / to_neo4j
         self._nx_graph: nx.Graph | None = None
@@ -334,7 +333,7 @@ class Graqle:
             self._enforce_no_empty_descriptions()
 
     # ------------------------------------------------------------------
-    # ADR-128: Atomic batch reclassification (copy-on-write)
+    # Atomic batch reclassification (copy-on-write)
     # ------------------------------------------------------------------
 
     def reclassify_batch(
@@ -599,7 +598,7 @@ class Graqle:
         Loads nodes and edges via Cypher, attaches chunks as node properties,
         and stores the connector for runtime Cypher vector search.
         """
-        # OT-060: Process-scoped escape hatch. When NEO4J_DISABLED=true,
+        # Process-scoped escape hatch. When NEO4J_DISABLED=true,
         # raise before importing Neo4jConnector or dialing bolt://.
         # Zero dials, zero retries. Callers already wrap this in try/except
         # and fall back to JSON, so the existing graceful-degradation
@@ -686,7 +685,7 @@ class Graqle:
             embed_fn: Optional callable(text) -> list[float] for chunk embeddings.
                       If None, chunks are written without embeddings.
         """
-        # OT-060: Process-scoped escape hatch. When NEO4J_DISABLED=true,
+        # Process-scoped escape hatch. When NEO4J_DISABLED=true,
         # raise before importing Neo4jConnector or dialing bolt://.
         # Use Graqle.to_json() to export locally instead.
         if _neo4j_disabled():
@@ -888,7 +887,7 @@ class Graqle:
                         parts.append(f"{key}: {val_str}")
 
                 # Then remaining properties (skip duplicates, internal, and sensitive keys)
-                # ADR-151 G3: prevent sensitive properties from entering descriptions
+                # G3: prevent sensitive properties from entering descriptions
                 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
                 skip_keys = {"id", "label", "type", "description", "source_file",
                              "source_line", "confidence", "source",
@@ -1005,7 +1004,7 @@ class Graqle:
                 # Build a richer chunk by combining description with key properties
                 parts = [desc]
                 # Include select metadata fields that add context
-                # ADR-151 G2: skip sensitive property keys in chunk synthesis
+                # G2: skip sensitive property keys in chunk synthesis
                 from graqle.core.redaction import DEFAULT_SENSITIVE_KEYS
                 skip_keys = {"chunks", "chunk_count", "file_path", "source_file"
                              } | DEFAULT_SENSITIVE_KEYS
@@ -1037,8 +1036,7 @@ class Graqle:
         """Split source code into semantic chunks at function/class boundaries.
 
         Returns a list of ``{"text": ..., "type": ...}`` dicts, capped at
-        *max_chunks* to stay within token budgets.  Raised from 5 to 15
-        (OT-018) so files up to ~600 lines are fully indexed.
+        *max_chunks* to stay within token budgets.  Raised from 5 to 15 so files up to ~600 lines are fully indexed.
         """
         import re as _re
 
@@ -1475,7 +1473,7 @@ class Graqle:
         Args:
             context: Optional ``ReformulationContext`` from an AI tool
                      (Claude Code, Cursor, Codex) for query enhancement
-                     before PCST activation (ADR-104).
+                     before PCST activation .
             task_type: Optional task type for task-based model routing (v0.22).
         """
         from graqle.orchestration.orchestrator import Orchestrator
@@ -1519,8 +1517,7 @@ class Graqle:
                 "Large single-repo graph: capping activation max_nodes to 50"
             )
 
-        # 0. Query reformulation (ADR-104)
-        query = self._reformulate_query(query, context=context)
+        # 0. Query reformulation query = self._reformulate_query(query, context=context)
 
         # 1. Activate subgraph
         relevance_scores: dict[str, float] | None = None
@@ -1533,7 +1530,7 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # 1.5 ADR-151 SECURITY GATE (G1): Redact via node snapshots.
+        # 1.5 SECURITY GATE (G1): Redact via node snapshots.
         # B1 fix: fail-CLOSED — security gate MUST load or operation blocks.
         # B2 fix: deep-copy nodes — never mutate originals across await.
         # Snapshots replace originals in self.nodes during reasoning,
@@ -1690,8 +1687,7 @@ class Graqle:
         max_rounds = max_rounds or self.config.orchestration.max_rounds
         strategy = strategy or self.config.activation.strategy
 
-        # Query reformulation (ADR-104)
-        query = self._reformulate_query(query, context=context)
+        # Query reformulation query = self._reformulate_query(query, context=context)
 
         if node_ids is None:
             node_ids = self._activate_subgraph(query, strategy)
@@ -1699,7 +1695,7 @@ class Graqle:
         # Filter stale node IDs from embedding cache (Bug: dangling cache refs)
         node_ids = [nid for nid in node_ids if nid in self.nodes]
 
-        # ADR-151 SECURITY GATE (G1): Redact before streaming (B1+B2 fix)
+        # SECURITY GATE (G1): Redact before streaming (B1+B2 fix)
         _original_nodes_stream: dict[str, Any] = {}
         llm_redaction_cfg = getattr(self.config, "llm_redaction", None)
         if llm_redaction_cfg is None or llm_redaction_cfg.enabled:
@@ -1739,7 +1735,7 @@ class Graqle:
         for nid in node_ids:
             self.nodes[nid].deactivate()
 
-        # ADR-151 G1: Restore original nodes after streaming (B2)
+        # G1: Restore original nodes after streaming (B2)
         for nid, original in _original_nodes_stream.items():
             self.nodes[nid] = original
 
@@ -1771,7 +1767,7 @@ class Graqle:
         tasks = [_bounded_reason(q) for q in queries]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # CG-REASON-01 (v0.47.3): asyncio.gather always returns one entry per
+        # (v0.47.3): asyncio.gather always returns one entry per
         # task in input order, but assert defensively in case the contract
         # ever changes. zip() would silently truncate on mismatch.
         if len(results) != len(queries):  # pragma: no cover — defensive
@@ -1864,7 +1860,7 @@ class Graqle:
             logger.warning("Activation memory recording failed: %s", e)
 
     def _reformulate_query(self, query: str, *, context: Any = None) -> str:
-        """Apply query reformulation if configured (ADR-104).
+        """Apply query reformulation if configured .
 
         Returns the reformulated query, or the original if reformulation
         is disabled, not applicable, or fails for any reason (fail-open).
@@ -1947,7 +1943,7 @@ class Graqle:
             k = min(self.config.activation.max_nodes, len(sorted_nodes))
             return [n.id for n in sorted_nodes[:k]]
         else:
-            # Direct file lookup bypass (ADR-103 Layer 3)
+            # Direct file lookup bypass Layer 3)
             direct = self._direct_file_lookup(query)
             if direct:
                 logger.info(
@@ -2064,7 +2060,7 @@ class Graqle:
             )
 
     def _direct_file_lookup(self, query: str) -> list[str] | None:
-        """Layer 3 (ADR-103): Directly activate nodes matching filenames in the query.
+        """Layer 3 Directly activate nodes matching filenames in the query.
 
         If the query contains a recognisable filename (e.g., "auth.ts",
         "payment_service.py"), find the matching node(s) and return them

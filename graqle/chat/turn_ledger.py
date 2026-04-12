@@ -1,9 +1,9 @@
-"""ChatAgentLoop v4 turn ledger (TB-F1, ADR-152).
+"""ChatAgentLoop v4 turn ledger .
 
 TurnLedger is the immutable append-only audit log for chat turns. It lives
 at ``.graqle/chat/ledger/turn_<id>.jsonl`` (one file per turn) and is
 intentionally OUTSIDE the three-graph editorial rule (GRAQ.md / TCG / RCAG)
-per ADR-152 — historical metadata is a plain log, not a graph.
+per — historical metadata is a plain log, not a graph.
 
 Observable guarantees (the contract; do not over-couple to the
 graqle.security.audit pattern):
@@ -26,9 +26,7 @@ imported in isolation by the chat package and by tests.
 
 # ── graqle:intelligence ──
 # module: graqle.chat.turn_ledger
-# risk: LOW (impact radius: 0 modules at TB-F1)
-# consumers: graqle.chat.agent_loop (TB-F7)
-# dependencies: json, logging, threading, pathlib
+# risk: LOW (impact radius: 0 modules at # consumers: graqle.chat.agent_loop # dependencies: json, logging, threading, pathlib
 # constraints: zero intra-graqle deps; fail-soft never-raise audit semantics
 # ── /graqle:intelligence ──
 

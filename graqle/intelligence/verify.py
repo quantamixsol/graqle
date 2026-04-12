@@ -10,7 +10,7 @@ This is Layer C (Enforcement) of the Quality Gate.
 The architecture cures itself — using GraQle makes the codebase easier
 for GraQle (and any AI tool) to reason about.
 
-See ADR-105 §Layer C: Enforcement.
+See §Layer C: Enforcement.
 """
 
 # ── graqle:intelligence ──

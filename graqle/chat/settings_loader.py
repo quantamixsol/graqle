@@ -1,4 +1,4 @@
-"""ChatAgentLoop v4 settings loader (TB-F1, ADR-152).
+"""ChatAgentLoop v4 settings loader .
 
 Fail-closed jsonschema-validated loader for ``.graqle/settings.json``.
 
@@ -23,9 +23,7 @@ Eager jsonschema import — fail-closed validation cannot be optional.
 
 # ── graqle:intelligence ──
 # module: graqle.chat.settings_loader
-# risk: LOW (impact radius: 0 modules at TB-F1)
-# consumers: graqle.chat.agent_loop (TB-F7)
-# dependencies: dataclasses, json, jsonschema, pathlib
+# risk: LOW (impact radius: 0 modules at # consumers: graqle.chat.agent_loop # dependencies: dataclasses, json, jsonschema, pathlib
 # constraints: zero intra-graqle deps; fail-closed on schema violation
 # ── /graqle:intelligence ──
 

@@ -155,7 +155,7 @@ class ChunkScorer:
             len(chunk_texts), len(desc_texts),
         )
 
-        # ADR-151 G4: Redact sensitive content before embedding API calls
+        # G4: Redact sensitive content before embedding API calls
         # B1 fix: fail-CLOSED — if security gate fails, embedding is blocked.
         # B3 fix: block SECRET+ content from cloud embedding entirely.
         from graqle.security.content_gate import ContentSecurityGate

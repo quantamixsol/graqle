@@ -160,11 +160,11 @@ def test_no_forbidden_strings_in_v0501_sanitized_targets():
 
 
 def test_advisory_package_wide_leakage():
-    """Advisory metric: count forbidden strings across all shipped files.
+    """Hard gate: zero forbidden strings across ALL shipped files.
 
-    Does NOT fail. Emits a count so CI can surface the number. Pre-existing
-    internal tracker references across the package are tracked for
-    systematic sanitization in v0.51.0 under CG-SANITIZE-POSTFIX.
+    v0.51.0 Session 3 systematically sanitized every file under graqle/**
+    and dropped the advisory baseline from 381 to 0. This test is now a
+    hard gate (not advisory) that prevents any re-introduction.
     """
     total = 0
     for path, rel in _iter_shipped_files():
@@ -173,18 +173,10 @@ def test_advisory_package_wide_leakage():
         except UnicodeDecodeError:
             continue
         for match in COMBINED_RE.finditer(content):
-            if rel in TS2_COMMENT_EXEMPT and match.group() == "TS-2":
-                continue
             total += 1
-    # No assertion — this is an advisory metric for v0.51.0 planning.
-    # We only require that the number does not exceed a high-water baseline
-    # to catch a sudden spike. If you intentionally add more internal refs,
-    # bump BASELINE.
-    BASELINE = 400
-    assert total <= BASELINE, (
-        f"Package-wide internal-reference count {total} exceeds "
-        f"baseline {BASELINE}. Investigate or bump the baseline in "
-        f"tests/test_distribution/test_no_internal_strings.py"
+    assert total == 0, (
+        f"Package-wide internal-reference count is {total}; must be 0. "
+        f"Run the distribution lint to find the regressions."
     )
 
 

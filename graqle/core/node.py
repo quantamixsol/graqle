@@ -97,7 +97,7 @@ INSTRUCTIONS:
 - State your confidence as CONFIDENCE: [0-100]%"""
 
 
-# ── OT-028 Layer 2: Continuation loop helpers ──────────────
+# ── Layer 2: Continuation loop helpers ──────────────
 
 
 def _build_continuation_prompt(overlap_anchor: str) -> str:
@@ -172,11 +172,11 @@ def _deduplicate_seam(
 
 # ── SDK-HF-02 (v0.47.2): reusable continuation helper ──────────────────────
 #
-# Extracts the OT-028 truncation-recovery loop into a callable that any caller
+# Extracts the truncation-recovery loop into a callable that any caller
 # (synthesis aggregator, future tool layers, etc.) can use against any
 # BaseBackend without re-implementing the contract. CogniNode.reason() keeps
 # its own inline copy of the loop (untouched in this hotfix to eliminate
-# OT-028 metadata regression risk on the per-node path).
+# metadata regression risk on the per-node path).
 #
 # Exception contract:
 #   - The FIRST backend.generate() call is OUTSIDE the try/except, so its
@@ -205,7 +205,7 @@ def _normalize_response(raw: Any) -> tuple[str, bool, str]:
     """Normalize a backend.generate() return value to (text, truncated, stop_reason).
 
     Handles three shapes:
-      - GenerateResult (OT-028 type): pulls .text/.truncated/.stop_reason
+      - GenerateResult type): pulls .text/.truncated/.stop_reason
       - raw str: text=raw, truncated=False, stop_reason="" (str backends
         cannot report truncation)
       - anything else: defensive str(raw) fallback with a warning log so
@@ -228,7 +228,7 @@ def _normalize_response(raw: Any) -> tuple[str, bool, str]:
     if isinstance(raw, str):
         return (raw, False, "")
     logger.warning(
-        "OT-028: backend returned unexpected response shape %s — coercing via str()",
+        " backend returned unexpected response shape %s — coercing via str()",
         type(raw).__name__,
     )
     return (str(raw), False, "")
@@ -247,8 +247,7 @@ async def generate_with_continuation(
     """Call backend.generate, then continue if truncated, until clean.
 
     Used by orchestration/aggregation.py:_weighted_synthesis to fix
-    SDK-HF-02 (synthesis truncation regression). Re-uses the existing
-    OT-028 helpers (_extract_overlap_anchor, _build_continuation_prompt,
+    SDK-HF-02 (synthesis truncation regression). Re-uses the existing helpers (_extract_overlap_anchor, _build_continuation_prompt,
     _deduplicate_seam) so the continuation contract is identical to the
     one in CogniNode.reason().
 
@@ -287,7 +286,7 @@ async def generate_with_continuation(
         overlap_anchor = _extract_overlap_anchor(response, n_lines=overlap_lines)
         if not overlap_anchor:
             logger.warning(
-                "OT-028: generate_with_continuation empty overlap anchor — aborting"
+                " generate_with_continuation empty overlap anchor — aborting"
             )
             break
 
@@ -300,7 +299,7 @@ async def generate_with_continuation(
             cont_text, cont_truncated, cont_stop = _normalize_response(raw_cont)
             if not cont_text.strip():
                 logger.warning(
-                    "OT-028: generate_with_continuation empty continuation — aborting"
+                    " generate_with_continuation empty continuation — aborting"
                 )
                 break
             new_response = _deduplicate_seam(
@@ -308,7 +307,7 @@ async def generate_with_continuation(
             )
             if new_response.strip() == response.strip():
                 logger.warning(
-                    "OT-028: generate_with_continuation zero-progress — aborting"
+                    " generate_with_continuation zero-progress — aborting"
                 )
                 break
             response = new_response
@@ -317,7 +316,7 @@ async def generate_with_continuation(
             continuation_count += 1
         except Exception as exc:  # noqa: BLE001 — fail-open is intentional
             logger.warning(
-                "OT-028: generate_with_continuation continuation %d failed: %s — fail-open",
+                " generate_with_continuation continuation %d failed: %s — fail-open",
                 continuation_count + 1, exc,
             )
             continuation_error = True
@@ -474,14 +473,14 @@ class CogniNode:
             temperature=self.temperature,
         )
 
-        # OT-028 B1: Extract truncation metadata BEFORE str conversion
+        # B1: Extract truncation metadata BEFORE str conversion
         _is_truncated = bool(getattr(raw_result, "truncated", False))
         _stop_reason = getattr(raw_result, "stop_reason", "") or ""
 
         # Convert to str — re.search(), .lower(), etc. require it
         response = str(raw_result)
 
-        # ── OT-028 Layer 2: Continuation loop for truncated responses ──
+        # ── Layer 2: Continuation loop for truncated responses ──
         _continuation_count = 0
         _continuation_error = False
         while _is_truncated and _continuation_count < max_continuations:
@@ -491,7 +490,7 @@ class CogniNode:
             )
             if not overlap_anchor:
                 logger.warning(
-                    "OT-028: Node %s empty overlap anchor — aborting continuation",
+                    " Node %s empty overlap anchor — aborting continuation",
                     self.id,
                 )
                 break
@@ -505,7 +504,7 @@ class CogniNode:
                 cont_text = str(cont_result) if cont_result else ""
                 if not cont_text.strip():
                     logger.warning(
-                        "OT-028: Node %s continuation %d returned empty — aborting",
+                        " Node %s continuation %d returned empty — aborting",
                         self.id, _continuation_count,
                     )
                     break
@@ -518,19 +517,19 @@ class CogniNode:
                 # Guard zero-progress: content identity check (not length)
                 if new_response.strip() == response.strip():
                     logger.warning(
-                        "OT-028: Node %s continuation %d produced no new content — aborting",
+                        " Node %s continuation %d produced no new content — aborting",
                         self.id, _continuation_count,
                     )
                     break
                 response = new_response
                 logger.debug(
-                    "OT-028: Node %s continuation %d/%d (still_truncated=%s, len=%d)",
+                    " Node %s continuation %d/%d (still_truncated=%s, len=%d)",
                     self.id, _continuation_count, max_continuations,
                     _is_truncated, len(response),
                 )
             except Exception as e:
                 logger.warning(
-                    "OT-028: Node %s continuation %d failed: %s — using accumulated response",
+                    " Node %s continuation %d failed: %s — using accumulated response",
                     self.id, _continuation_count, e,
                 )
                 _continuation_error = True
@@ -588,7 +587,7 @@ class CogniNode:
         self.state.update(response, confidence)
         self.status = NodeStatus.CONVERGED
 
-        # OT-028 B1+L2: Surface truncation + continuation metadata in Message
+        # B1+L2: Surface truncation + continuation metadata in Message
         _meta: dict = {
             "still_truncated": _is_truncated,
             "continuation_error": _continuation_error,
@@ -601,7 +600,7 @@ class CogniNode:
             _meta["stop_reason"] = _stop_reason
             _meta["confidence_unreliable"] = True
             logger.warning(
-                "OT-030: Node %s response still truncated after %d continuations (stop_reason=%s)",
+                " Node %s response still truncated after %d continuations (stop_reason=%s)",
                 self.id, _continuation_count, _stop_reason,
             )
 

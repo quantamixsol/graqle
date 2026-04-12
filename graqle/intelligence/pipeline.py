@@ -23,7 +23,7 @@ Three phases:
 2. Import graph pass (fast — regex on imports, dependency map)
 3. Deep scan (streaming — full AST + chunks + validation per file)
 
-See ADR-105 §Streaming Intelligence Pipeline.
+See §Streaming Intelligence Pipeline.
 """
 
 # ── graqle:intelligence ──

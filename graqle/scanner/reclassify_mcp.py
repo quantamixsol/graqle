@@ -1,6 +1,4 @@
-"""MCP node reclassification — batch pass converting generic Entity/Function nodes to typed MCP nodes.
-
-ADR-128 Phase 3: Reclassification functions are designed to be called via
+"""MCP node reclassification — batch pass converting generic Entity/Function nodes to typed MCP nodes. Phase 3: Reclassification functions are designed to be called via
 Graqle.reclassify_batch() which provides atomic copy-on-write execution.
 The functions here intentionally mutate the already-copied node dicts in-place.
 Pattern-match rules (first-match-wins) with explicit confidence-descending ordering.
@@ -17,14 +15,14 @@ logger = logging.getLogger("graqle.scanner.reclassify_mcp")
 
 # Reclassification rules — first match wins, ordered by confidence descending.
 # Use re.search for substring/keyword rules, re.match only for ^-anchored prefixes.
-# NOTE: Confidence values are loaded from private config (TS-2 compliance).
-# See: ADR-129, ADR-130 — hardcoded values were flagged as trade secret exposure.
+# NOTE: Confidence values are loaded from private config (internal-pattern-B compliance).
+# See:  — hardcoded values were flagged as trade secret exposure.
 
 def _load_confidence_values() -> dict[str, float]:
     """Load reclassification confidence values from private config.
 
     Falls back to opaque defaults if config not found.
-    Values are proprietary calibration outputs (TS-2) and must
+    Values are proprietary calibration outputs (internal-pattern-B) and must
     NEVER be hardcoded in source files committed to public repos.
     """
     import os

@@ -1,6 +1,6 @@
 """Fault-isolated, clearance-aware result types for GraQle node reasoning.
 
-Implements ADR-145: every node call returns a ToolResult instead of raising.
+Implements every node call returns a ToolResult instead of raising.
 Provides Promise.allSettled semantics so no single failure kills a round.
 """
 from __future__ import annotations
