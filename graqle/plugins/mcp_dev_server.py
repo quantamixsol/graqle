@@ -3077,7 +3077,21 @@ class KogniDevServer:
                 if name in ("graq_write", "kogni_write") and not getattr(self, "_cg03_bypass", False):
                     _target = arguments.get("file_path", "")
                     _CODE_EXTS = {".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java"}
-                    if any(_target.endswith(ext) for ext in _CODE_EXTS):
+                    # CG-GATES-FRICTION-01 v0.51.0: allowlist carve-outs for new-file creation
+                    # and scratch/test zones. graq_write is still blocked for editing existing
+                    # hub code files, but NEW code files under .tmp_* / scripts/ / tests/ paths,
+                    # and any NEW code file that does not yet exist on disk, are allowed so
+                    # scaffolding and throwaway helper scripts can be written through the
+                    # governed tool instead of forcing graq_edit's LLM round-trip.
+                    import os as _os_mod
+                    _t_norm = _target.replace("\\", "/")
+                    _is_new_file = bool(_target) and not _os_mod.path.exists(_target)
+                    _in_scratch = any(
+                        _t_norm.startswith(prefix) or f"/{prefix}" in _t_norm
+                        for prefix in (".tmp_", "scripts/", "tests/")
+                    )
+                    _is_code = any(_target.endswith(ext) for ext in _CODE_EXTS)
+                    if _is_code and not _is_new_file and not _in_scratch:
                         logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
                         err = json.dumps({
                             "error": "CG-03_EDIT_GATE",
