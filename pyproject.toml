@@ -159,6 +159,7 @@ exclude = ["graqle/benchmarks/data/*"]
 # PyPI to reject the upload with HTTP 400 "Duplicate filename in
 # local headers". Only force-include paths OUTSIDE the packages tree.
 "examples" = "graqle/examples"
+"graqle/data/claude_gate" = "graqle/data/claude_gate"
 
 [tool.ruff]
 target-version = "py310"

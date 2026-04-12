@@ -1953,18 +1953,9 @@ def lint_public_command(
         "\\" + "$10/mo" + "nth", "pytest-xdist wor" + "kers",
     ]
     combined = re.compile("|".join(_frags))
-    # Exempt paths that contain functional string literals (e.g. clientInfo
-    # name comparisons) which must stay as-is for runtime correctness.
-    _exempt = {
-        "graqle/plugins/mcp_dev_server.py",
-        "graqle/benchmarks/",
-    }
     violations: list[dict] = []
     for p in sorted(pkg.rglob("*")):
         if not p.is_file() or p.suffix not in exts:
-            continue
-        rel = p.relative_to(repo_root).as_posix()
-        if any(rel.startswith(ex) for ex in _exempt):
             continue
         try:
             content = p.read_text(encoding="utf-8")
@@ -2324,7 +2315,7 @@ def route_command(
 
     if json_output:
         import json as json_lib
-        #  shape B: recommended_tool + fallback_tools + rationale
+        # ADR-154 shape B: recommended_tool + fallback_tools + rationale
         # merged with existing shape A for full compatibility
         out = rec.to_dict()
         out["recommended_tool"] = rec.graqle_tools[0] if rec.graqle_tools else ""
@@ -2770,7 +2761,7 @@ def _create_backend_from_config(cfg, verbose: bool = False):
 
 
 # ---------------------------------------------------------------------------
-#  Layer 6: chat-trace, cgi-task, cgi-checkpoint (v0.51.0 closure)
+# ADR-154 Layer 6: chat-trace, cgi-task, cgi-checkpoint (v0.51.0 closure)
 # ---------------------------------------------------------------------------
 
 

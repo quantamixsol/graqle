@@ -36,7 +36,12 @@ class ModelConfig(BaseModel):
 
 
 class GraphConfig(BaseModel):
-    """Graph connector configuration."""
+    """Graph connector configuration.
+
+    DEPRECATION (Phase 3): Setting connector to 'neo4j' or 'neptune' here
+    is deprecated. Use the new 'backends:' section instead. The connector
+    field will be removed in a future release. See ADR for migration guide.
+    """
 
     connector: str = "networkx"
     path: str | None = None  # JSON graph file path (default: graqle.json)
@@ -48,6 +53,46 @@ class GraphConfig(BaseModel):
     vector_index_name: str = "cogni_chunk_embedding_index"
     embedding_dimension: int = 1024
     embedding_model: str = "amazon.titan-embed-text-v2:0"
+
+
+class Neo4jBackendConfig(BaseModel):
+    """Tier 1A — Neo4j local projection backend."""
+
+    enabled: bool = False
+    uri: str = "bolt://localhost:7687"
+    username: str = "neo4j"
+    database: str = "neo4j"
+    mirror_writes: bool = True  # auto-mirror Tier 0 changes to Neo4j
+    vector_index_name: str = "cogni_chunk_embedding_index"
+    embedding_dimension: int = 1024
+
+
+class NeptuneBackendConfig(BaseModel):
+    """Tier 1B — Neptune hosted projection backend."""
+
+    enabled: bool = False
+    endpoint: str = ""
+    region: str = "eu-central-1"
+    mirror_writes: bool = True  # auto-mirror Tier 0 changes to Neptune
+
+
+class BackendsConfig(BaseModel):
+    """Storage tier backends (Tier 1 projections).
+
+    Tier 0 (graqle.json) is always the single source of truth.
+    These backends are opt-in projections, never primary.
+
+    Precedence rule (Phase 3 migration):
+      In the current release, ``graph.connector`` drives runtime connector
+      choice (read by from_neo4j/to_neo4j). The ``backends:`` section is a
+      forward-looking schema that will become the primary config in a future
+      release. If both ``graph.connector: neo4j`` AND ``backends.neo4j.enabled:
+      true`` are set, the deprecation warning fires for ``graph.connector``
+      and ``backends`` is ignored at runtime until the migration is complete.
+    """
+
+    neo4j: Neo4jBackendConfig = Field(default_factory=Neo4jBackendConfig)
+    neptune: NeptuneBackendConfig = Field(default_factory=NeptuneBackendConfig)
 
 
 class EmbeddingsConfig(BaseModel):
@@ -514,6 +559,26 @@ class GraqleConfig(BaseModel):
     calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
     llm_redaction: LLMRedactionConfig = Field(default_factory=LLMRedactionConfig)
     coordinator: CoordinatorConfig = Field(default_factory=CoordinatorConfig)
+    backends: BackendsConfig = Field(default_factory=BackendsConfig)
+
+    @model_validator(mode="after")
+    def _warn_deprecated_connector(self) -> "GraqleConfig":
+        """Emit deprecation warning if graph.connector is neo4j/neptune."""
+        import warnings
+        if self.graph.connector.lower() in ("neo4j", "neptune"):
+            warnings.warn(
+                f"graph.connector='{self.graph.connector}' is deprecated. "
+                f"Migrate to the new 'backends:' section in graqle.yaml. "
+                f"Example:\n"
+                f"  backends:\n"
+                f"    neo4j:\n"
+                f"      enabled: true\n"
+                f"      uri: bolt://localhost:7687\n"
+                f"This config will stop working in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self
 
     @model_validator(mode="after")
     def _validate_debate_panelists(self) -> "GraqleConfig":

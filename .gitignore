@@ -21,8 +21,12 @@ build/
 
 # Virtual environments
 .venv/
+.venv_*/
 venv/
 env/
+.tmp_*
+graqle.json.bak*
+"(inferred from graph)"
 
 # IDE
 .vscode/

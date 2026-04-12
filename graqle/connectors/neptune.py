@@ -415,6 +415,54 @@ def reset_availability() -> None:
     _NEPTUNE_UNAVAILABLE = False
 
 
+# ─── NeptuneMirror (Phase 2 — enforced Tier 0 → Tier 1B contract) ─────────
+
+
+class NeptuneMirror:
+    """Enforced projection from Tier 0 (graqle.json) to Neptune.
+
+    All Neptune writes MUST go through this class. Direct calls to
+    upsert_nodes/upsert_edges are internal — NeptuneMirror.sync_from_json()
+    is the only public write entry point. This enforces the invariant that
+    Neptune never has state that graqle.json doesn't.
+    """
+
+    def __init__(self, project_id: str) -> None:
+        self._project_id = project_id
+
+    def sync_from_json(self, graph_path: str) -> dict[str, int]:
+        """Read graqle.json and push all nodes + edges to Neptune.
+
+        Returns {'nodes': N, 'edges': M} with counts of upserted items.
+        Raises RuntimeError if Neptune is unavailable.
+        """
+        import json
+        from pathlib import Path
+
+        path = Path(graph_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Tier 0 graph not found: {path}")
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        nodes = data.get("nodes", [])
+        edges = data.get("links", data.get("edges", []))
+
+        # Convert dict-style nodes to list if needed (graqle.json uses dict keyed by id)
+        if isinstance(nodes, dict):
+            nodes = [{"id": k, **v} for k, v in nodes.items()]
+        if isinstance(edges, dict):
+            edges = [{"id": k, **v} for k, v in edges.items()]
+
+        n_count = upsert_nodes(self._project_id, nodes)
+        e_count = upsert_edges(self._project_id, edges)
+
+        logger.info(
+            "NeptuneMirror synced %d nodes, %d edges for project %s",
+            n_count, e_count, self._project_id,
+        )
+        return {"nodes": n_count, "edges": e_count}
+
+
 # ─── Backwards compatibility ────────────────────────────────────────────────
 # These keep existing tests and imports working.
 

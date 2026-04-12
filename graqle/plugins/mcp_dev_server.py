@@ -2100,6 +2100,56 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    # ── S-009: graq_gate_status — governance gate health ──
+    {
+        "name": "graq_gate_status",
+        "description": (
+            "Check the health of the installed governance gate. Reports whether "
+            "the Claude Code governance gate hook is installed, the interpreter "
+            "is valid, and the self-test passes. Returns JSON with: installed, "
+            "enforcing, interpreter, interpreter_valid, self_test, hook_path."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "self_test": {
+                    "type": "boolean",
+                    "description": "Run the gate self-test (default true)",
+                    "default": True,
+                },
+            },
+        },
+    },
+    # ── S-010: graq_gate_install — install/upgrade governance gate ──
+    {
+        "name": "graq_gate_install",
+        "description": (
+            "Install or upgrade the GraQle governance gate for Claude Code. "
+            "Creates .claude/hooks/graqle-gate.py and merges PreToolUse hooks "
+            "into .claude/settings.json. Runs a self-test after install. "
+            "Returns JSON with actions taken and self-test result."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "force": {
+                    "type": "boolean",
+                    "description": "Overwrite existing gate files (default false)",
+                    "default": False,
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Preview actions without writing (default false)",
+                    "default": False,
+                },
+                "fix_interpreter": {
+                    "type": "boolean",
+                    "description": "Only fix the Python interpreter path in settings.json (default false)",
+                    "default": False,
+                },
+            },
+        },
+    },
     # ── S-005: graq_ingest — spec/document ingestion ──
     {
         "name": "graq_ingest",
@@ -3032,7 +3082,10 @@ class KogniDevServer:
         if _governance:
             # CG-01: Session gate — BLOCK all tools until session_start
             # Exempt: graq_lifecycle (needed to start session), graq_inspect (read-only diagnostics)
-            _CG01_EXEMPT = {"graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect"}
+            _CG01_EXEMPT = {
+                "graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect",
+                "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
+            }
             if getattr(_governance, "session_gate_enabled", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg01_bypass
                 if not getattr(self, "_session_started", False) and name not in _CG01_EXEMPT and not getattr(self, "_cg01_bypass", False):
@@ -3053,6 +3106,7 @@ class KogniDevServer:
             _CG02_EXEMPT = {
                 "graq_plan", "kogni_plan", "graq_learn", "kogni_learn",
                 "graq_lifecycle", "kogni_lifecycle",
+                "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
             }
             if getattr(_governance, "plan_mandatory", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg02_bypass
@@ -3237,6 +3291,10 @@ class KogniDevServer:
             "kogni_web_search": self._handle_web_search,
             "graq_gcc_status": self._handle_gcc_status,
             "kogni_gcc_status": self._handle_gcc_status,
+            "graq_gate_status": self._handle_gate_status,
+            "kogni_gate_status": self._handle_gate_status,
+            "graq_gate_install": self._handle_gate_install,
+            "kogni_gate_install": self._handle_gate_install,
             "graq_ingest": self._handle_ingest,
             "kogni_ingest": self._handle_ingest,
             # v0.46.4: governed todo list
@@ -3476,6 +3534,9 @@ class KogniDevServer:
         # Keyword traversal is NOT reasoning. Pretending it is destroys user trust.
         # graq_inspect exists for keyword lookup. graq_reason MUST use LLM.
         try:
+            # OT-063: defensive _task_router initialization — self-heal if attribute missing
+            if not hasattr(graph, "_task_router"):
+                graph._task_router = None
             result = await graph.areason(
                 question, max_rounds=max_rounds, task_type="reason",
             )
@@ -3525,8 +3586,10 @@ class KogniDevServer:
         except (RuntimeError, Exception) as exc:
             # Hard failure — NO keyword fallback.
             # User must know reasoning is broken and fix it.
+            import traceback as _tb
             err = str(exc)[:300]
-            logger.error("graq_reason FAILED (no fallback per %s", err)
+            _full_tb = _tb.format_exc()
+            logger.error("graq_reason FAILED: %s\nFULL TRACEBACK:\n%s", err, _full_tb)
             cfg_backend = getattr(getattr(self._config, "model", None), "backend", "unknown")
             cfg_model = getattr(getattr(self._config, "model", None), "model", "unknown")
             cfg_region = getattr(getattr(self._config, "model", None), "region", "unknown")
@@ -3546,7 +3609,7 @@ class KogniDevServer:
                 "mode": "error",
                 "confidence": 0.0,
                 "backend_error": err,
-                "hint": "graq_inspect is available for keyword-only node lookup if needed.",
+                "hint": "Check server logs for full traceback. graq_inspect is available for keyword-only lookup.",
             })
 
     # ── 3b. graq_reason_batch (PRO) ──────────────────────────────────
@@ -8264,6 +8327,300 @@ class KogniDevServer:
 
         return json.dumps(result)
 
+
+    # -- MAJOR-2 fix: Windows-safe atomic file replace with retry --
+
+    @staticmethod
+    def _safe_replace(src: Path, dst: Path) -> None:
+        """Atomic file replace with Windows file-lock retry."""
+        import platform
+        import time as _time
+        if platform.system() == "Windows":
+            for attempt in range(3):
+                try:
+                    os.replace(str(src), str(dst))
+                    return
+                except PermissionError:
+                    if attempt == 2:
+                        raise
+                    _time.sleep(0.1)
+        else:
+            os.replace(str(src), str(dst))
+
+    # -- graq_gate_status handler (v0.52.0) --
+
+    async def _handle_gate_status(self, args: dict[str, Any]) -> str:
+        """S-009: Check governance gate health via MCP transport."""
+        import asyncio
+        import functools
+        import subprocess as _sp
+        from datetime import datetime, timezone
+
+        run_self_test = args.get("self_test", True)
+
+        _raw = getattr(self, "_graph_file", None)
+        if _raw and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        gate_path = project_root / ".claude" / "hooks" / "graqle-gate.py"
+        settings_path = project_root / ".claude" / "settings.json"
+
+        # MINOR-4: use relative paths to avoid filesystem layout disclosure
+        try:
+            rel_hook = str(gate_path.relative_to(project_root))
+            rel_settings = str(settings_path.relative_to(project_root))
+        except ValueError:
+            rel_hook = str(gate_path)
+            rel_settings = str(settings_path)
+
+        result: dict[str, Any] = {
+            "installed": False, "enforcing": False, "interpreter": "",
+            "interpreter_valid": False,
+            "self_test": {"exit_code": -1, "passed": False, "ran_at": ""},
+            "hook_path": rel_hook, "settings_path": rel_settings,
+        }
+
+        if not gate_path.exists():
+            return json.dumps(result)
+        result["installed"] = True
+
+        # Detect interpreter from settings.json
+        interpreter_cmd = ""
+        if settings_path.exists():
+            try:
+                settings = json.loads(settings_path.read_text(encoding="utf-8"))
+                for entry in settings.get("hooks", {}).get("PreToolUse", []):
+                    if not isinstance(entry, dict):
+                        continue
+                    for h in entry.get("hooks", []) or []:
+                        if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                            interpreter_cmd = h["command"].split()[0]
+                            break
+                    if interpreter_cmd:
+                        break
+            except Exception:
+                pass
+        if not interpreter_cmd:
+            interpreter_cmd = sys.executable or "python"
+        result["interpreter"] = interpreter_cmd
+
+        # BLOCKER-2 fix: run subprocess via run_in_executor to avoid blocking event loop
+        loop = asyncio.get_event_loop()
+
+        # Validate interpreter (non-blocking)
+        try:
+            r = await loop.run_in_executor(None, functools.partial(
+                _sp.run,
+                interpreter_cmd.split() + ["-c", "import sys; print(sys.version_info[0])"],
+                capture_output=True, text=True, timeout=5,
+            ))
+            result["interpreter_valid"] = r.returncode == 0 and r.stdout.strip() == "3"
+        except Exception:
+            result["interpreter_valid"] = False
+
+        # Self-test (non-blocking)
+        if run_self_test and result["interpreter_valid"]:
+            test_payload = json.dumps({
+                "tool_name": "Bash", "tool_input": {"command": "echo test"},
+                "cwd": str(project_root),
+            })
+            try:
+                st = await loop.run_in_executor(None, functools.partial(
+                    _sp.run,
+                    interpreter_cmd.split() + [str(gate_path)],
+                    input=test_payload, capture_output=True, text=True, timeout=5,
+                ))
+                result["self_test"] = {
+                    "exit_code": st.returncode,
+                    "stderr_snippet": (st.stderr or "")[:200],
+                    "passed": st.returncode == 2 and "GATE BLOCKED" in (st.stderr or ""),
+                    "ran_at": datetime.now(timezone.utc).isoformat(),
+                }
+            except Exception as exc:
+                result["self_test"]["stderr_snippet"] = str(exc)[:200]
+
+        result["enforcing"] = (
+            result["installed"] and result["interpreter_valid"]
+            and result["self_test"].get("passed", False)
+        )
+
+        return json.dumps(result)
+
+    # -- graq_gate_install handler (v0.52.0) --
+
+    async def _handle_gate_install(self, args: dict[str, Any]) -> str:
+        """S-010: Install/upgrade governance gate via MCP transport."""
+        import asyncio
+        import functools
+        import platform
+        import shutil
+        import subprocess as _sp
+        import time as _time
+
+        force = args.get("force", False)
+        dry_run = args.get("dry_run", False)
+        fix_interpreter = args.get("fix_interpreter", False)
+
+        _raw = getattr(self, "_graph_file", None)
+        if _raw and isinstance(_raw, (str, Path)):
+            try:
+                project_root = Path(str(_raw)).resolve().parent
+            except OSError:
+                project_root = Path.cwd().resolve()
+        else:
+            project_root = Path.cwd().resolve()
+
+        claude_dir = project_root / ".claude"
+        hooks_dir = claude_dir / "hooks"
+        gate_dst = hooks_dir / "graqle-gate.py"
+        settings_dst = claude_dir / "settings.json"
+
+        # Locate SDK package data
+        pkg_data = Path(__file__).parent.parent / "data" / "claude_gate"
+        gate_src = pkg_data / "graqle-gate.py"
+        settings_src = pkg_data / "settings.json"
+
+        result: dict[str, Any] = {
+            "actions": [], "dry_run": dry_run, "success": False,
+            "self_test": {"passed": False},
+        }
+
+        if not gate_src.exists() or not settings_src.exists():
+            result["error"] = f"Gate package data not found at {pkg_data}"
+            return json.dumps(result)
+
+        # Probe interpreter
+        interpreter_cmd = sys.executable or "python"
+
+        # Read settings template and substitute interpreter
+        try:
+            new_hook_config = json.loads(settings_src.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            result["error"] = "Corrupt settings template in SDK package data"
+            return json.dumps(result)
+
+        for entry in new_hook_config.get("hooks", {}).get("PreToolUse", []):
+            if not isinstance(entry, dict):
+                continue
+            for h in entry.get("hooks", []) or []:
+                if isinstance(h, dict) and isinstance(h.get("command"), str):
+                    h["command"] = h["command"].replace(
+                        "{{PYTHON_INTERPRETER}}", interpreter_cmd
+                    )
+
+        # Check existing settings
+        existing_settings: dict = {}
+        if settings_dst.exists():
+            try:
+                existing_settings = json.loads(settings_dst.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                existing_settings = {}
+
+        def _has_graqle_gate(hook_entry: object) -> bool:
+            if not isinstance(hook_entry, dict):
+                return False
+            for h in hook_entry.get("hooks", []):
+                if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                    return True
+            return False
+
+        existing_pre = existing_settings.get("hooks", {}).get("PreToolUse", [])
+        already_installed = any(_has_graqle_gate(h) for h in existing_pre)
+
+        # --fix-interpreter mode
+        if fix_interpreter:
+            if not settings_dst.exists():
+                result["error"] = "No settings.json — run gate-install first"
+                return json.dumps(result)
+            rewritten = 0
+            for entry in existing_settings.get("hooks", {}).get("PreToolUse", []):
+                if not isinstance(entry, dict):
+                    continue
+                for h in entry.get("hooks", []) or []:
+                    if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                        h["command"] = f"{interpreter_cmd} .claude/hooks/graqle-gate.py"
+                        rewritten += 1
+            if rewritten == 0:
+                result["error"] = "No graqle-gate hooks found to fix"
+                return json.dumps(result)
+            if not dry_run:
+                tmp_path = settings_dst.with_suffix(".json.tmp")
+                tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
+                self._safe_replace(tmp_path, settings_dst)
+            result["actions"].append(f"Rewrote {rewritten} hook command(s) to: {interpreter_cmd}")
+            result["success"] = True
+            return json.dumps(result)
+
+        # Compute actions
+        if gate_dst.exists() and not force:
+            result["actions"].append(f"SKIP {gate_dst} (exists, use force=true)")
+        else:
+            verb = "OVERWRITE" if gate_dst.exists() else "CREATE"
+            result["actions"].append(f"{verb} {hooks_dir}/graqle-gate.py")
+
+        if already_installed and not force:
+            result["actions"].append(f"SKIP {settings_dst} (gate already registered)")
+        else:
+            result["actions"].append(f"MERGE {settings_dst} (add PreToolUse hook)")
+
+        if dry_run:
+            result["success"] = True
+            return json.dumps(result)
+
+        # Write gate script
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        if not gate_dst.exists() or force:
+            shutil.copy2(gate_src, gate_dst)
+            try:
+                gate_dst.chmod(0o755)
+            except (NotImplementedError, OSError):
+                pass
+
+        # Write settings.json (atomic merge)
+        if not already_installed or force:
+            if settings_dst.exists():
+                backup = settings_dst.with_suffix(".json.bak")
+                shutil.copy2(settings_dst, backup)
+            existing_settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
+            existing_settings["hooks"]["PreToolUse"] = [
+                h for h in existing_settings["hooks"]["PreToolUse"]
+                if not _has_graqle_gate(h)
+            ]
+            new_pre = new_hook_config.get("hooks", {}).get("PreToolUse", [])
+            existing_settings["hooks"]["PreToolUse"].extend(new_pre)
+            tmp_path = settings_dst.with_suffix(".json.tmp")
+            tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
+            self._safe_replace(tmp_path, settings_dst)
+
+        # Self-test (BLOCKER-2 fix: non-blocking via run_in_executor)
+        loop = asyncio.get_event_loop()
+        test_payload = json.dumps({
+            "tool_name": "Bash", "tool_input": {"command": "echo test"},
+            "cwd": str(project_root),
+        })
+        try:
+            st = await loop.run_in_executor(None, functools.partial(
+                _sp.run,
+                interpreter_cmd.split() + [str(gate_dst)],
+                input=test_payload, capture_output=True, text=True, timeout=5,
+            ))
+            passed = st.returncode == 2 and "GATE BLOCKED" in (st.stderr or "")
+            result["self_test"] = {"exit_code": st.returncode, "passed": passed}
+        except Exception as exc:
+            result["self_test"] = {"passed": False, "error": str(exc)[:200]}
+
+        result["success"] = result["self_test"].get("passed", False)
+        result["interpreter"] = interpreter_cmd
+        result["message"] = (
+            "Gate installed and enforcing." if result["success"]
+            else "Gate installed but self-test failed — check interpreter."
+        )
+        return json.dumps(result)
 
     # -- graq_todo handler (v0.46.4) --
 

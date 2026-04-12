@@ -4,7 +4,7 @@
 
 # Your codebase is a graph. Every node reasons. Every change is governed.
 
-> **One command. 90 seconds. Your AI writes code with architectural awareness, governance gates, and multi-agent reasoning. Not a linter. Not a copilot. A knowledge graph where every module is an autonomous agent — now with a structured chat layer that picks the right tool for every task.**
+> **One command. 90 seconds. Your AI writes code with architectural awareness, governance gates, and multi-agent reasoning. Not a linter. Not a copilot. A knowledge graph where every module is an autonomous agent.**
 
 **The world's first governance-led multi-agent reasoning system for code.**
 Scan any codebase into a persistent knowledge graph. Every module becomes a reasoning agent.
@@ -16,9 +16,9 @@ Every change is impact-analysed, gate-checked, and taught back — automatically
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Downloads](https://img.shields.io/pypi/dw/graqle?color=%2306b6d4&label=downloads%2Fweek)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 4,400+](https://img.shields.io/badge/tests-4%2C400%2B%20passing-06b6d4.svg)]()
+[![Tests: 4,150+](https://img.shields.io/badge/tests-4%2C150%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
-[![MCP Tools: 136](https://img.shields.io/badge/MCP%20tools-136-06b6d4.svg)]()
+[![MCP Tools: 122](https://img.shields.io/badge/MCP%20tools-122-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
 [![Governed Reasoning](https://img.shields.io/badge/governed-reasoning-06b6d4.svg)]()
 [![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
@@ -57,42 +57,29 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.50.0 — Structured Chat Agent
+## What's New in v0.46.7
 
-> **Your AI coding assistant now runs a structured chat loop with architectural awareness, durable pause/resume, and governed tool selection. The same quality you get from dedicated coding assistants — now inside any MCP client.**
+### Multi-Agent Governed Reasoning
 
-### Structured chat agent layer
+> **Your codebase is not a collection of files. It's a network of reasoning agents.**
 
-- **Smart tool selection** — the assistant picks the right tool for the job based on what your project already uses, your past successful workflows, and the specific intent of your question. No more cold-picking from a long tool list.
-- **Durable pause/resume** — long-running tasks can pause for your approval and resume exactly where they left off. No lost work if you close the session.
-- **Structured second-opinion check** — for sensitive actions, the assistant runs a quick internal check before touching anything, flagging safety concerns, missing prerequisites, or ambiguity.
-- **Bring-your-own-backend** — mix and match LLM providers for different task types (triage, reasoning, formatting). Works with a single backend or multiple families.
-- **Hard-error continuation** — when a tool fails, the assistant adapts and keeps going instead of freezing.
-- **Convention inference** — when you say *"write an ADR for this"* or *"add a test for that"*, the assistant finds existing examples in your project, matches the style, and writes in the right location — no clarifying questions.
+- **ReasoningCoordinator** — decompose complex queries into specialist subtasks, dispatch to multiple graph nodes simultaneously, synthesize answers with clearance-level governance. Not a chatbot. An architecture-aware reasoning network.
+- **Governed synthesis** — every answer passes through GovernanceMiddleware. Trade secret patterns are unconditionally blocked. Clearance levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) propagate through the reasoning chain.
+- **BudgetAwareSemaphore** — cost-conscious concurrency. The graph reasons within your budget, decays costs across rounds, and stops before overspending.
+- **Feature-flagged** — `coordinator.enabled=false` by default. Zero disruption. Enable when ready: `graq run "your question" --coordinator`
 
-### Three new SDK capabilities
+### Self-Validating Code Generation
 
-- **Session-scoped permissions** — approve a tool once for a scope, subsequent same-scope calls auto-proceed. Revocable mid-session.
-- **Append-only audit log** — every turn is recorded at `.graqle/chat/ledger/turn_<id>.jsonl` for full historical transcript inspection.
-- **Project-specific instructions** — drop a `GRAQ.md` at your project root to customize how the assistant behaves for your codebase, similar to `CLAUDE.md`.
+- **The AI validates its own output before writing.** `ast.parse()` catches syntax errors. `difflib` catches drifted context lines. Auto-reanchoring fixes minor drift without burning an LLM call. CWE-22 containment on all file reads.
+- **`graq auto`** — autonomous loop: plan, generate, write, test, diagnose, fix, retry. All governed.
 
-### Governed by default
+### Intelligent First-Run
 
-- Three-tier governance (auto / review / approval) with tiers pre-disclosed upfront — no surprise-blocks mid-flow
-- Impact analysis and preflight checks on every change
-- Destructive operations always require explicit confirmation
+- **No knowledge graph? No crash.** GraQle detects your LLM backend, profiles your project (languages, frameworks, file count), and guides you through 3 questions to build your first graph. Your original question is auto-answered after the scan completes.
 
-### Three critical bug fixes rolled in
+### 14 LLM Backends. 122 MCP Tools. 4,150+ Tests.
 
-- **Backend reliability** — fixes a crash that affected reasoning calls after the first round on some backends
-- **Long-response handling** — synthesis now correctly handles responses that hit the model's output token limit
-- **Batch reasoning** — the batch reasoning path now works correctly when a query fails inside a batch
-
-### Key numbers
-
-- **136 MCP tools** exposed to Claude Code, Cursor, and VS Code Copilot
-- **14 LLM backends** — Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers
-- **Fully offline capable** with Ollama
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Now with think-tag fallback and num_predict auto-scale for local reasoning models.
 
 [Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
