@@ -249,6 +249,16 @@ def auto_cloud_sync(
     if not graph_path.exists():
         return False
 
+    # Phase 1 Option Z: enforce storage tier invariant before any cloud write.
+    # Tier 0 (graqle.json) must be active and no graph.connector override.
+    try:
+        from graqle.storage.tiers import StorageTiers
+        StorageTiers(project_dir=root_path).enforce(strict=True)
+    except Exception as _tier_err:
+        if not quiet:
+            console.print(f"  [yellow]Cloud sync skipped: {_tier_err}[/yellow]")
+        return False
+
     proj_name = _detect_project_name(root_path)
 
     # Load graph if not provided

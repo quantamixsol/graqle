@@ -321,7 +321,8 @@ class Graqle:
         self._node_backends: dict[str, ModelBackend] = {}
         self._orchestrator: Any = None  # set lazily
         self._activator: Any = None  # set lazily
-        self._reformulator: Any = None  # set lazily self._task_router: Any = None  # set lazily (v0.22: task-based routing)
+        self._reformulator: Any = None  # set lazily
+        self._task_router: Any = None  # set lazily (v0.22: task-based routing)
         self._activation_memory: Any = None  # v0.12: cross-query learning
         self._neo4j_connector: Any = None  # set by from_neo4j / to_neo4j
         self._nx_graph: nx.Graph | None = None
@@ -592,11 +593,17 @@ class Graqle:
         password: str = "",
         database: str = "neo4j",
         config: GraqleConfig | None = None,
+        mirror_to: str | Path | None = "graqle.json",
     ) -> Graqle:
         """Create a GraQle from a Neo4j database.
 
         Loads nodes and edges via Cypher, attaches chunks as node properties,
         and stores the connector for runtime Cypher vector search.
+
+        Args:
+            mirror_to: Path to write a JSON snapshot after loading. Keeps
+                       graqle.json as the source of truth (Tier 0 invariant).
+                       Set to None to skip mirroring.
         """
         # Process-scoped escape hatch. When NEO4J_DISABLED=true,
         # raise before importing Neo4jConnector or dialing bolt://.
@@ -669,6 +676,23 @@ class Graqle:
 
         graph = cls(nodes=nodes, edges=edges, config=cfg)
         graph._neo4j_connector = connector
+
+        # Phase 2: mirror Neo4j load to local JSON (Tier 0 invariant).
+        # Ensures graqle.json on disk always reflects the latest graph state.
+        if mirror_to is not None:
+            try:
+                mirror_path = Path(mirror_to)
+                graph.save(str(mirror_path))
+                logger.info("Mirrored Neo4j load to %s (%d nodes)", mirror_path, len(nodes))
+            except Exception as exc:
+                import warnings
+                warnings.warn(
+                    f"Tier 0 mirror failed after Neo4j load — graqle.json is STALE. "
+                    f"Run 'graq scan repo .' or save manually. Error: {exc}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
         return graph
 
     def to_neo4j(
@@ -697,6 +721,20 @@ class Graqle:
                 "Use Graqle.to_json() to export locally, or see `graq upgrade neo4j` "
                 "to set up a local Neo4j instance."
             )
+
+        # Phase 2: save JSON first (Tier 0 invariant).
+        # Ensures graqle.json is written BEFORE any Tier 1 projection,
+        # so Neo4j never has state that the local file doesn't.
+        _json_path = self.config.graph.path or "graqle.json"
+        try:
+            self.save(str(_json_path))
+            logger.info("Saved Tier 0 JSON to %s before Neo4j export", _json_path)
+        except Exception as exc:
+            from graqle.storage.tiers import StorageTierInvariantError
+            raise StorageTierInvariantError(
+                f"Cannot export to Neo4j: Tier 0 JSON save failed ({exc}). "
+                f"Neo4j write aborted to preserve the storage tier invariant."
+            ) from exc
 
         from graqle.connectors.neo4j import Neo4jConnector
 
@@ -1311,7 +1349,7 @@ class Graqle:
 
     def _get_task_router(self) -> Any:
         """Lazily create and return the task router from config."""
-        if self._task_router is None:
+        if not hasattr(self, "_task_router") or self._task_router is None:
             from graqle.routing import TaskRouter
             routing_cfg = self.config.routing
             config_dict: dict[str, Any] = {}

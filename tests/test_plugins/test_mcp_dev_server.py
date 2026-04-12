@@ -206,8 +206,10 @@ class TestToolDefinitions:
             "graq_vendor",
             "graq_web_search",
             "graq_gcc_status",
+            "graq_gate_status",
+            "graq_gate_install",
             "graq_ingest",
-            # v0.46.4: governed todo
+            # v0.46.4: governed todo list
             "graq_todo",
             # v0.47.0: deterministic insertion engine (CG-DIF-02)
             "graq_apply",
@@ -286,8 +288,10 @@ class TestToolDefinitions:
             "kogni_vendor",
             "kogni_web_search",
             "kogni_gcc_status",
+            "kogni_gate_status",
+            "kogni_gate_install",
             "kogni_ingest",
-            # v0.46.4: governed todo
+            # v0.46.4: governed todo list
             "kogni_todo",
             # v0.47.0: deterministic insertion engine (CG-DIF-02)
             "kogni_apply",
@@ -322,7 +326,7 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 134  # +2: graq_apply + kogni_apply (v0.47.0)
+        assert len(tools) == 138  # +4: graq/kogni_gate_status + graq/kogni_gate_install (v0.52.0)
 
 
 # ---------------------------------------------------------------------------
