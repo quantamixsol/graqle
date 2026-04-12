@@ -1814,6 +1814,170 @@ def gate_install_command(
     )
 
 
+@app.command("gate-status")
+def gate_status_command(
+    path: str = typer.Argument(".", help="Project root directory"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    run_self_test: bool = typer.Option(True, "--self-test/--no-self-test", help="Run self-test"),
+) -> None:
+    """Check the health of the installed governance gate.
+
+    Reports whether the Claude Code governance gate hook is installed,
+    the interpreter is valid, and the self-test passes.
+
+    \b
+    Examples:
+        graq gate-status
+        graq gate-status --json
+        graq gate-status --no-self-test
+    """
+    import json as _json_mod
+    import subprocess as _subprocess_mod
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    root = Path(path).resolve()
+    gate_path = root / ".claude" / "hooks" / "graqle-gate.py"
+    settings_path = root / ".claude" / "settings.json"
+
+    result: dict = {
+        "installed": False, "enforcing": False, "interpreter": "",
+        "interpreter_valid": False,
+        "self_test": {"exit_code": -1, "stderr_snippet": "", "passed": False, "ran_at": ""},
+        "hook_path": str(gate_path), "settings_path": str(settings_path),
+    }
+
+    if not gate_path.exists():
+        if json_output:
+            console.print(_json_mod.dumps(result, indent=2))
+        else:
+            console.print("[red]Gate NOT installed.[/red] Run 'graq gate-install' first.")
+        raise typer.Exit(1)
+    result["installed"] = True
+
+    interpreter_cmd = ""
+    if settings_path.exists():
+        try:
+            settings = _json_mod.loads(settings_path.read_text(encoding="utf-8"))
+            for entry in settings.get("hooks", {}).get("PreToolUse", []):
+                if not isinstance(entry, dict):
+                    continue
+                for h in entry.get("hooks", []) or []:
+                    if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                        interpreter_cmd = h["command"].split()[0]
+                        break
+                if interpreter_cmd:
+                    break
+        except Exception:
+            pass
+    if not interpreter_cmd:
+        interpreter_cmd = _probe_python_interpreter()
+    result["interpreter"] = interpreter_cmd
+
+    try:
+        r = _subprocess_mod.run(
+            interpreter_cmd.split() + ["-c", "import sys; print(sys.version_info[0])"],
+            capture_output=True, text=True, timeout=5,
+        )
+        result["interpreter_valid"] = r.returncode == 0 and r.stdout.strip() == "3"
+    except Exception:
+        result["interpreter_valid"] = False
+
+    if run_self_test and result["interpreter_valid"]:
+        test_payload = _json_mod.dumps({
+            "tool_name": "Bash", "tool_input": {"command": "echo test"}, "cwd": str(root),
+        })
+        try:
+            st = _subprocess_mod.run(
+                interpreter_cmd.split() + [str(gate_path)],
+                input=test_payload, capture_output=True, text=True, timeout=5,
+            )
+            result["self_test"] = {
+                "exit_code": st.returncode,
+                "stderr_snippet": (st.stderr or "")[:200],
+                "passed": st.returncode == 2 and "GATE BLOCKED" in (st.stderr or ""),
+                "ran_at": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception as exc:
+            result["self_test"]["stderr_snippet"] = str(exc)[:200]
+
+    result["enforcing"] = (
+        result["installed"] and result["interpreter_valid"]
+        and result["self_test"].get("passed", False)
+    )
+
+    if json_output:
+        console.print(_json_mod.dumps(result, indent=2))
+        raise typer.Exit(0 if result["enforcing"] else 1)
+
+    if result["enforcing"]:
+        console.print("[bold green]ENFORCING[/bold green] — gate installed and self-test passes.")
+    elif result["installed"] and not result["interpreter_valid"]:
+        console.print("[bold yellow]INSTALLED but interpreter invalid.[/bold yellow]")
+        console.print("[yellow]Run 'graq gate-install --fix-interpreter' to fix.[/yellow]")
+    elif result["installed"] and not result["self_test"].get("passed"):
+        console.print("[bold yellow]INSTALLED but self-test FAILED.[/bold yellow]")
+        console.print("[yellow]Run 'graq gate-install --force' to reinstall.[/yellow]")
+    else:
+        console.print("[red]NOT INSTALLED.[/red] Run 'graq gate-install'.")
+    console.print(f"[dim]Interpreter: {interpreter_cmd} (valid={result['interpreter_valid']})[/dim]")
+    raise typer.Exit(0 if result["enforcing"] else 1)
+
+
+@app.command("lint-public")
+def lint_public_command(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Scan shipped files for forbidden internal references.
+
+    \b
+    Examples:
+        graq lint-public
+        graq lint-public --json
+    """
+    import json as _json_mod
+    import re
+    from pathlib import Path
+
+    pkg = Path(__file__).resolve().parent.parent
+    repo_root = pkg.parent
+    exts = {".py", ".md", ".json", ".yaml", ".yml", ".toml"}
+    # Build the pattern from fragments so the regex source code in this file
+    # does not contain any of the literal tokens as contiguous strings (which
+    # would cause the scanner to match itself — the self-reference trap).
+    _frags = [
+        r"\bTS-[1-4]\b", r"\bcrawlq\b", r"\btracegov\b",
+        r"\bgraqle-studio\b", r"\bgraqle-vscode\b",
+        r"\bADR-[0-9]+\b", r"\bTB-[A-Z][0-9]+\b", r"\bOT-[0-9]{3}\b",
+        r"\bCG-[A-Z]+(?:-[0-9]+)?\b", r"\bBLOCKER-[0-9]+\b",
+        "\\" + "$10/mo" + "nth", "pytest-xdist wor" + "kers",
+    ]
+    combined = re.compile("|".join(_frags))
+    violations: list[dict] = []
+    for p in sorted(pkg.rglob("*")):
+        if not p.is_file() or p.suffix not in exts:
+            continue
+        try:
+            content = p.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for match in combined.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            rel = p.relative_to(repo_root).as_posix()
+            violations.append({"file": rel, "line": line_num, "match": match.group()})
+
+    if json_output:
+        console.print(_json_mod.dumps({"violations": violations, "count": len(violations)}, indent=2))
+    else:
+        if violations:
+            console.print(f"[red]Found {len(violations)} forbidden strings:[/red]")
+            for v in violations[:30]:
+                console.print(f"  {v['file']}:{v['line']}: [yellow]{v['match']}[/yellow]")
+        else:
+            console.print("[green]Clean: 0 forbidden strings in shipped files.[/green]")
+    raise typer.Exit(1 if violations else 0)
+
+
 @app.command("safety-check")
 def safety_check_command(
     component: str = typer.Argument(..., help="Component or file to safety-check"),
