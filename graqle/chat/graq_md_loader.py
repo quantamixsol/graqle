@@ -1,4 +1,4 @@
-"""ChatAgentLoop v4 GRAQ.md multi-root loader (TB-F1, ADR-152).
+"""ChatAgentLoop v4 GRAQ.md multi-root loader .
 
 Implements the GRAQ.md loader with Claude-Code-equivalent walk-up
 precedence. The loader collects all ``GRAQ.md`` files from ``start_dir``
@@ -26,9 +26,7 @@ imported in isolation by the chat package and by tests.
 
 # ── graqle:intelligence ──
 # module: graqle.chat.graq_md_loader
-# risk: LOW (impact radius: 0 modules at TB-F1)
-# consumers: graqle.chat.agent_loop (TB-F7)
-# dependencies: dataclasses, html, importlib.resources, logging, pathlib
+# risk: LOW (impact radius: 0 modules at # consumers: graqle.chat.agent_loop # dependencies: dataclasses, html, importlib.resources, logging, pathlib
 # constraints: zero intra-graqle deps; sandbox escaping + Windows root safety
 # ── /graqle:intelligence ──
 

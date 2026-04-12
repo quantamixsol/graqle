@@ -372,7 +372,7 @@ class Orchestrator:
             metadata["health_score"] = observer_report.health_score
             cost_usd += observer_report.observer_cost_usd
 
-        # OT-028 B1+B2: Surface truncation from nodes and synthesis
+        # B1+B2: Surface truncation from nodes and synthesis
         # Null-safe: (or {}) handles metadata=None; .get(, False) handles absent key
         truncated_nodes = [
             nid for nid, msg in final_messages.items()

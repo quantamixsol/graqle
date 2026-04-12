@@ -100,7 +100,7 @@ class OrchestrationConfig(BaseModel):
     aggregation: str = "weighted_synthesis"
     async_mode: bool = False
     confidence_threshold: float = 0.8
-    # OT-028 Layer 2: Continuation loop for truncated responses
+    # Layer 2: Continuation loop for truncated responses
     max_continuations: int = 3
     continuation_overlap_lines: int = 15
 
@@ -140,7 +140,7 @@ class CostConfig(BaseModel):
 
 
 class ReformulatorConfig(BaseModel):
-    """Query reformulation configuration (ADR-104).
+    """Query reformulation configuration .
 
     Controls whether and how queries are enhanced before PCST activation.
 
@@ -259,8 +259,7 @@ class GovernancePolicyConfig(BaseModel):
     """
 
     ts_hard_block: bool = True
-    ts_patterns_file: str | None = None     # Path to ip_patterns.yml (ADR-140)
-    review_threshold: float = 0.70          # T2 gate threshold
+    ts_patterns_file: str | None = None     # Path to ip_patterns.yml review_threshold: float = 0.70          # T2 gate threshold
     block_threshold: float = 0.90           # T3 block threshold
     auto_pass_max_radius: int = 2           # T1 max impact_radius for auto-pass
     auto_pass_max_risk: str = "LOW"         # T1 max risk level for auto-pass
@@ -327,7 +326,7 @@ class DebateConfig(BaseModel):
 
 
 class CalibrationConfig(BaseModel):
-    """Confidence calibration configuration (R11, TS-2 compliant)."""
+    """Confidence calibration configuration (R11, internal-pattern-B compliant)."""
 
     enabled: bool = False
     method: str = "temperature"  # temperature | platt | isotonic

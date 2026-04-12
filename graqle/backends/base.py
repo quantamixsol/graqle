@@ -1,8 +1,5 @@
-"""Base model backend — the protocol that all backends implement.
-
-OT-028/030 Layer 1: Adds GenerateResult structured return type with
-backward-compatible str behavior for 31+ consuming modules.
-CG-REASON-02 (v0.47.1): __getstate__/__setstate__/__deepcopy__ drop
+"""Base model backend — the protocol that all backends implement. /030 Layer 1: Adds GenerateResult structured return type with
+backward-compatible str behavior for 31+ consuming modules. (v0.47.1): __getstate__/__setstate__/__deepcopy__ drop
 transient client handles so backend instances are deepcopy-safe.
 """
 
@@ -21,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-# OT-028 B1/B3 fix: Read-only str method allowlist for backward-compat.
+# B1/B3 fix: Read-only str method allowlist for backward-compat.
 # Covers all str methods used by 31+ consumers. Typos still raise AttributeError.
 _STR_ALLOWLIST: frozenset[str] = frozenset({
     "strip", "lstrip", "rstrip",
@@ -39,7 +36,7 @@ _STR_ALLOWLIST: frozenset[str] = frozenset({
 })
 
 
-# ── CG-REASON-02 (v0.47.1): backend serialization contract ────────────────
+# ── (v0.47.1): backend serialization contract ────────────────
 #
 # Backend instances must be deepcopy- and pickle-safe so they can ride along
 # with reasoning-node snapshots (graqle/core/graph.py:areason). The contract:
@@ -59,7 +56,7 @@ _STR_ALLOWLIST: frozenset[str] = frozenset({
 # name to ``_TRANSIENT_BACKEND_ATTRS`` (or override ``__getstate__``).
 # Future contributors: this is a serialization contract, not a style note.
 # Reintroducing a non-picklable handle outside this set will reopen
-# CG-REASON-02 across every reasoning round.
+# across every reasoning round.
 
 _TRANSIENT_BACKEND_ATTRS: frozenset[str] = frozenset({
     "_client",
@@ -177,17 +174,13 @@ class BaseBackend(ABC):
 
     All backends must implement async generate(). The ModelBackend protocol
     in core/types.py defines the structural interface; this ABC provides
-    a convenient base class with shared functionality.
-
-    OT-028/030: generate() returns GenerateResult (str-compatible).
-
-    CG-REASON-02 (v0.47.1): Backend instances are deepcopy- and pickle-safe.
+    a convenient base class with shared functionality. /030: generate() returns GenerateResult (str-compatible). (v0.47.1): Backend instances are deepcopy- and pickle-safe.
     Transient runtime handles (HTTP clients, cloud SDK sessions, executor
     references, threading locks) listed in ``_TRANSIENT_BACKEND_ATTRS`` are
     dropped on serialization and lazily recreated on next access. This
     fixes the ``cannot pickle '_thread.RLock' object`` crash that hit
     ``graqle.core.graph.areason()`` when reasoning nodes were deepcopied
-    for the ADR-151 redaction snapshot. ``__deepcopy__`` is side-effect
+    for the redaction snapshot. ``__deepcopy__`` is side-effect
     free with respect to the source instance — concurrent reasoning rounds
     sharing one backend reference are isolated by their own copies.
     """
@@ -231,9 +224,7 @@ class BaseBackend(ABC):
         for free without any changes.
 
         Override in backends that support native streaming (Anthropic, etc.)
-        to yield token-by-token chunks for lower time-to-first-token.
-
-        OT-028/030: Keeps yielding str chunks, not GenerateResult.
+        to yield token-by-token chunks for lower time-to-first-token. /030: Keeps yielding str chunks, not GenerateResult.
         Truncation is only knowable at stream end — Layer 2 handles this.
         """
         result = await self.generate(
@@ -247,7 +238,7 @@ class BaseBackend(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r})"
 
-    # ── CG-REASON-02 (v0.47.1): copy/pickle safety ─────────────────────────
+    # ── (v0.47.1): copy/pickle safety ─────────────────────────
 
     def __getstate__(self) -> dict[str, Any]:
         """Drop transient runtime handles before pickling/copying.

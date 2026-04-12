@@ -81,24 +81,46 @@ def _load_patterns(path: str | None = None) -> list[dict[str, Any]]:
     """Load externalized patterns from env var or YAML file.
 
     Resolution order:
-      1. GRAQLE_PATTERNS env var (base64-encoded JSON array)
+      1. GRAQLE_PATTERNS env var (base64-encoded JSON array). The legacy
+         GRAQLE_TS_PATTERNS name is also accepted for backward compatibility.
       2. ``path`` argument (YAML file, typically .graqle/ip_patterns.yml)
       3. Fall back to built-in ``_BUILTIN_PATTERNS_DEFAULT``
 
     Fail-closed: any parse error logs a warning and returns the built-in
     defaults so that Pattern protection is NEVER silently disabled.
+
+    v0.51.0 robustness: env var name aligned, base64 decode explicit.
     """
     global _pattern_cache, _pattern_exclude_paths, _pattern_declassified  # noqa: PLW0603
 
-    # 1. Environment variable (base64 JSON)
-    env_val = os.environ.get("GRAQLE_TS_PATTERNS", "").strip()
+    # 1. Environment variable (base64 JSON). Primary name is GRAQLE_PATTERNS;
+    # legacy GRAQLE_TS_PATTERNS is tolerated for pre-v0.51.0 deployments.
+    env_val = (
+        os.environ.get("GRAQLE_PATTERNS", "").strip()
+        or os.environ.get("GRAQLE_TS_PATTERNS", "").strip()
+    )
     if env_val:
         try:
-            raw = json.loads(base64.b64decode(env_val))
+            # v0.51.0 robustness: explicit UTF-8 decode + schema validation
+            decoded_bytes = base64.b64decode(env_val, validate=True)
+            raw = json.loads(decoded_bytes.decode("utf-8"))
             if isinstance(raw, list) and len(raw) > 0:
-                _pattern_cache = raw
+                # Schema-validate each entry before caching.
+                validated = [
+                    e for e in raw
+                    if isinstance(e, dict)
+                    and "regex" in e
+                    and isinstance(e["regex"], str)
+                    and e["regex"]
+                ]
+                if not validated:
+                    _logger.warning(
+                        "GRAQLE_PATTERNS env contained no validly-shaped entries; using built-in defaults"
+                    )
+                    return []
+                _pattern_cache = validated
                 _logger.debug("Loaded %d protected patterns from GRAQLE_PATTERNS env", len(raw))
-                return raw
+                return validated
         except Exception as exc:
             _logger.warning("GRAQLE_PATTERNS env parse failed (fail-closed): %s", exc)
 
@@ -126,7 +148,8 @@ def _load_patterns(path: str | None = None) -> list[dict[str, Any]]:
         except Exception as exc:
             _logger.warning("Pattern file %s parse failed (fail-closed): %s", path, exc)
 
-    # 3. Fall back to built-in defaults (fail-closed — never returns empty)
+    # 3. Fall back to built-in defaults (fail-closed — v0.51.0 robustness:
+    #    signal built-in mode via None, NEVER leave an empty list in the cache).
     _pattern_cache = None  # signal: using defaults
     return []
 
@@ -178,9 +201,19 @@ def _check_pattern_leakage(content: str, file_path: str = "") -> tuple[bool, str
     if file_path and _is_path_excluded(file_path):
         return False, ""
 
-    # Use externalized patterns if loaded
-    if _pattern_cache is not None:
+    # v0.51.0 robustness: treat empty or invalid cache as built-in mode.
+    # The previous check only considered `_pattern_cache is None` as fallback,
+    # which meant an external load that succeeded but produced an empty list
+    # would leave _pattern_cache=[] and silently disable protection.
+    _cache_valid = (
+        _pattern_cache is not None
+        and isinstance(_pattern_cache, list)
+        and len(_pattern_cache) > 0
+    )
+    if _cache_valid:
         for entry in _pattern_cache:
+            if not isinstance(entry, dict):
+                continue  # skip malformed entries defensively
             pid = entry.get("id", "")
             regex = entry.get("regex", "")
             if not regex:
@@ -215,7 +248,16 @@ def _check_secret_exposure(content: str) -> tuple[bool, list[str]]:
     found, matches = _check_secrets_full(content, use_ast=True)
     if not found:
         return False, []
-    return True, [f"{m.group}:{m.pattern_name}" for m in matches[:10]]
+    # v0.51.0 robustness: defensive access via getattr so a future
+    # shape change in check_secrets_full cannot raise AttributeError here.
+    labels: list[str] = []
+    for m in matches[:10]:
+        _g = getattr(m, "group", None)
+        _n = getattr(m, "pattern_name", None)
+        if _g is None or _n is None:
+            continue
+        labels.append(f"{_g}:{_n}")
+    return True, labels
 
 
 # ---------------------------------------------------------------------------
@@ -250,8 +292,21 @@ class GovernanceConfig:
         "LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3
     }, repr=False)
 
-    def risk_to_int(self, risk: str) -> int:
-        return self._RISK_ORDER.get(risk.upper(), 1)
+    def risk_to_int(self, risk: Any) -> int:
+        """Convert a risk level string to its numeric rank.
+
+        v0.51.0 robustness: fail-safest on malformed input. Any
+        ``None``, non-string, or unknown risk value is mapped to CRITICAL (3)
+        so that unknown-is-dangerous semantics apply at the gate. Previously
+        unknown values were silently downgraded to MEDIUM (1), which is
+        unsafe for a governance gate where uncertainty must mean "block".
+        """
+        if not isinstance(risk, str) or not risk:
+            return self._RISK_ORDER["CRITICAL"]
+        rank = self._RISK_ORDER.get(risk.upper())
+        if rank is None:
+            return self._RISK_ORDER["CRITICAL"]
+        return rank
 
 
 # ---------------------------------------------------------------------------
@@ -371,6 +426,24 @@ class GovernanceAuditLog:
             env_path = os.environ.get(self._ENV_VAR, "").strip()
             self._path = Path(env_path).resolve() if env_path else Path(self._DEFAULT_PATH).resolve()
         self._lock = threading.Lock()
+        # v0.51.0 robustness: ensure the parent directory of the audit
+        # log exists at construction time. Previously the first append() call
+        # would raise FileNotFoundError if the configured parent directory did
+        # not yet exist, and the broad except Exception swallowed it, silently
+        # losing audit history. Creating the parent eagerly also surfaces a
+        # permissions error at construction time rather than on first write.
+        self._init_error: Optional[str] = None
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            self._init_error = (
+                f"could not create audit log parent directory "
+                f"{self._path.parent}: {exc}"
+            )
+            print(
+                f"[graqle.governance] {self._init_error}",
+                file=sys.stderr,
+            )
 
     def append(
         self,
@@ -453,15 +526,39 @@ class GovernanceMiddleware:
 
     @classmethod
     def _ensure_state_loaded(cls) -> None:
-        """Load persisted cumulative state from disk on first call (once per process)."""
+        """Load persisted cumulative state from disk on first call (once per process).
+
+        v0.51.0 robustness: validate every actor entry as a
+        [iso-timestamp:str, radius:int] pair. Corrupt, partial, or legacy
+        shapes are skipped with a logged warning instead of letting a bad
+        row crash datetime.fromisoformat / sum() later on.
+        """
         with cls._cumulative_lock:
             if cls._state_loaded:
                 return
             try:
                 if cls._STATE_FILE.exists():
                     raw = json.loads(cls._STATE_FILE.read_text(encoding="utf-8"))
+                    if not isinstance(raw, dict):
+                        _logger.warning(
+                            "Persisted cumulative state at %s is not a JSON object; ignoring",
+                            cls._STATE_FILE,
+                        )
+                        raw = {}
                     for actor, entries in raw.items():
-                        cls._cumulative[actor] = entries
+                        if not isinstance(entries, list):
+                            continue
+                        validated: list[list] = []
+                        for entry in entries:
+                            if (
+                                isinstance(entry, (list, tuple))
+                                and len(entry) == 2
+                                and isinstance(entry[0], str)
+                                and isinstance(entry[1], (int, float))
+                            ):
+                                validated.append([entry[0], int(entry[1])])
+                        if validated:
+                            cls._cumulative[actor] = validated
             except Exception:
                 pass  # Corrupt state file — start fresh, never block on I/O error
             cls._state_loaded = True

@@ -1,6 +1,4 @@
-"""Runtime Chat Action Graph (RCAG) — per-session ephemeral execution memory.
-
-TB-F3 of ChatAgentLoop v4 (ADR-152). RCAG is the third runtime graph
+"""Runtime Chat Action Graph (RCAG) — per-session ephemeral execution memory. of ChatAgentLoop v4 . RCAG is the third runtime graph
 in the v4 architecture (alongside GRAQ.md and TCG). It replaces a
 linear chat history with query-time activation over typed action
 nodes, so context size stays constant regardless of turn count.
@@ -37,7 +35,7 @@ small set of relevant prior nodes. The query is augmented with:
 so the activation is grounded in the current intent + recent dialog
 shape, not just the literal token string.
 
-CGI-compatibility note (ADR-153 seed)
+CGI-compatibility note seed)
 -------------------------------------
 RCAG is per-session and ephemeral. CGI is cross-session and project-
 scoped. They MUST stay in different graphs. RCAG node ids carry a
@@ -48,8 +46,7 @@ runtime nodes from project-self-memory nodes during migration.
 # ── graqle:intelligence ──
 # module: graqle.chat.rcag
 # risk: HIGH (subclasses Graqle, hot path on every turn)
-# consumers: chat.agent_loop (planned TB-F7)
-# dependencies: __future__, copy, hashlib, json, time, dataclasses,
+# consumers: chat.agent_loop (planned # dependencies: __future__, copy, hashlib, json, time, dataclasses,
 #   typing, graqle.core.{graph,node,edge}
 # constraints: ephemeral only — never persist; never bleed into TCG/CGI
 # ── /graqle:intelligence ──
@@ -130,8 +127,7 @@ class RuntimeChatActionGraph(Graqle):
     transient runtime artifacts, not domain entities — enrichment is
     semantically wrong here.
 
-    The graph is intentionally NOT persisted. ``TurnLedger`` (TB-F1)
-    handles the immutable historical transcript at the file level;
+    The graph is intentionally NOT persisted. ``TurnLedger`` handles the immutable historical transcript at the file level;
     RCAG itself dies with the session.
     """
 
@@ -430,7 +426,7 @@ class RuntimeChatActionGraph(Graqle):
 
         v4 will eventually call into ``Graqle._activate_subgraph(query,
         strategy='chunk')`` (the ChunkScorer pattern at
-        ``mcp_dev_server.py:4378-4385``). For TB-F3 we ship a
+        ``mcp_dev_server.py:4378-4385``). For we ship a
         deterministic local fallback that scores nodes by token-overlap
         with the augmented query so the unit tests are independent of
         the embedding pipeline. The hot path is wired through

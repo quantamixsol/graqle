@@ -4,6 +4,42 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.51.0 (2026-04-12)
+
+### Added
+- `graq gate-status` CLI command — reports gate health (installed / enforcing /
+  interpreter valid / self-test passed). JSON output matches the ADR-154 Layer 2
+  contract for the VS Code extension status chip.
+- `graq lint-public` CLI command — scans all shipped files under `graqle/` for
+  forbidden internal references (pattern tags, tracker IDs, product names, budget
+  constants). Returns exit 0 if clean, exit 1 with violation list if not.
+- ADR-154: VS Code extension integration spec (7-layer architecture, 7 new MCP
+  tools, 9 CLI subcommands, 4-week rollout). First ADR committed to the tracked
+  tree for cross-team visibility.
+- `graq_write` new-file allowlist: CG-03 edit gate now allows `graq_write` on
+  NEW code files (not yet on disk) and files under `.tmp_*` / `scripts/` /
+  `tests/` paths. Existing hub code files remain edit-gated.
+
+### Fixed
+- Governance robustness hardening (6 pre-existing findings from v0.50.1 review):
+  pattern-cache fail-closed semantics, env-var naming alignment + explicit base64
+  decode + per-entry schema validation, persisted cumulative state validation,
+  `risk_to_int` fail-safest (unknown/None/non-string maps to CRITICAL instead of
+  MEDIUM), defensive credential-match attribute access, audit log parent-dir
+  creation at init time.
+- Systematic sanitization of 107 files across the entire `graqle/` package:
+  381 forbidden internal references (ADR-N, TB-N, OT-NNN, CG-*, BLOCKER-N,
+  TS-[1-4], product names) replaced with neutral descriptions. Distribution
+  lint upgraded from advisory baseline (400) to hard gate (0).
+
+### Internal
+- 14 new governance regression tests in `tests/test_core/test_governance_postfix.py`.
+- 13 KG lessons taught via `graq_learn` covering governance robustness, gates-on
+  friction patterns, squash-merge rule, and Windows interpreter probe pattern.
+- `graqle/storage/` module preserved as Phase 0 commit (parked for v0.51.1/v0.52.0).
+
+---
+
 ## 0.50.1 (2026-04-12)
 
 ### Fixed

@@ -4,7 +4,7 @@ The Q in GraQle: Quality Gate for development.
 Every file passes through 6 validation gates, producing guaranteed-complete
 intelligence packets that AI tools consume naturally.
 
-See ADR-105 for the full architectural design.
+See for the full architectural design.
 """
 
 # ── graqle:intelligence ──

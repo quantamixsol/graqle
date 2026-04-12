@@ -9,7 +9,7 @@ activation, provenance tracking, and multi-agent reasoning rounds.
 # risk: MEDIUM (impact radius: federation subsystem)
 # consumers: federation.registry, federation.activator, federation.merger
 # dependencies: __future__, dataclasses, enum, typing, numpy
-# constraints: TS-2 (no hardcoded thresholds), ProvenanceTag frozen=True
+# constraints: internal-pattern-B (no hardcoded thresholds), ProvenanceTag frozen=True
 # ── /graqle:intelligence ──
 
 from __future__ import annotations

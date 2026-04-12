@@ -38,7 +38,7 @@ class NeptuneConnector(BaseConnector):
     Parameters
     ----------
     project_id:
-        Neptune project identifier (e.g. "graqle-sdk", "graqle-studio").
+        Neptune project identifier (e.g. "graqle-sdk", "the studio frontend").
     """
 
     def __init__(self, project_id: str) -> None:

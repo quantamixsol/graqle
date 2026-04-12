@@ -6,7 +6,7 @@ Each tool call is recorded as an AuditEntry in the active session.
 Keeps MCP handlers thin (no governance logic inline) and makes
 every reasoning call automatically auditable.
 
-See ADR-105 §Governance Integration.
+See §Governance Integration.
 """
 
 # ── graqle:intelligence ──

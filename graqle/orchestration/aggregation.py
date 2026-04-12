@@ -219,17 +219,17 @@ class Aggregator:
         _stop_reason = helper_meta["stop_reason"]
         if helper_meta["was_continued"]:
             logger.info(
-                "OT-028: Synthesis recovered from truncation via %d continuation(s) (still_truncated=%s)",
+                " Synthesis recovered from truncation via %d continuation(s) (still_truncated=%s)",
                 helper_meta["continuation_count"], _truncated,
             )
         if helper_meta["continuation_error"]:
             logger.warning(
-                "OT-028: Synthesis continuation hit an error mid-loop — "
+                " Synthesis continuation hit an error mid-loop — "
                 "returning fail-open accumulated text",
             )
         if _truncated:
             logger.warning(
-                "OT-030: Synthesis response truncated (stop_reason=%s)",
+                " Synthesis response truncated (stop_reason=%s)",
                 _stop_reason,
             )
         trunc_info = {

@@ -5,7 +5,7 @@
 # risk: HIGH (impact radius: federation results)
 # consumers: federation.activator, federation.reasoning
 # dependencies: numpy, graqle.federation.types, graqle.alignment.types
-# constraints: TS-2 — all thresholds from FederatedActivationConfig
+# constraints: internal-pattern-B — all thresholds from FederatedActivationConfig
 # ── /graqle:intelligence ──
 
 from __future__ import annotations

@@ -22,7 +22,7 @@ Orchestrates the full streaming intelligence pipeline:
 
 This is the core command that makes GraQle's Quality Gate operational.
 
-See ADR-105 §Implementation Plan, Phase 1.
+See §Implementation Plan, Phase 1.
 """
 
 # ── graqle:intelligence ──

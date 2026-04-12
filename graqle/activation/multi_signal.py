@@ -17,8 +17,7 @@
 Patent-protected Innovation #14 (Neo4j vector + graph search) and
 Innovation #10 (Cross-query learning) fused into a single Cypher query.
 
-Architecture (ADR-106):
-  1. GATE: Semantic vector search on chunk embeddings (must pass min_score)
+Architecture 1. GATE: Semantic vector search on chunk embeddings (must pass min_score)
   2. RERANK: Multiply semantic score by (1 + sum of bonus signals)
      - authority_bonus: normalized PageRank (pre-computed)
      - memory_bonus: activation memory usefulness × keyword overlap

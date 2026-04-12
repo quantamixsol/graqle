@@ -103,7 +103,7 @@ class DomainRegistry:
                     f"not in upper ontology or domain hierarchy"
                 )
 
-        # ADR-128 Phase 1B: Reject overlapping entity types across domains.
+        # Phase 1B: Reject overlapping entity types across domains.
         # Non-deterministic find_domain_for_type resolution is a P0 risk
         # (graq_predict pse-pred-12f8041de710, 91% confidence).
         new_types = {t for t in class_hierarchy if t not in ("Thing", "")}
@@ -114,7 +114,7 @@ class DomainRegistry:
                     f"Domain '{name}' overlaps with '{existing_name}' "
                     f"on entity types: {overlap}. "
                     f"This causes non-deterministic domain resolution in "
-                    f"find_domain_for_type. See ADR-128."
+                    f"find_domain_for_type. See ."
                 )
 
         # Extend upper ontology with domain types

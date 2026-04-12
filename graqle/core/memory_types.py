@@ -3,7 +3,7 @@
 Implements TRACE-scored provenance entries with epistemic decay,
 clearance-gated redaction, and contradiction tracking.
 
-Reference: ADR-146 — Epistemic Memory Governance & TRACE Scoring.
+Reference: — Epistemic Memory Governance & TRACE Scoring.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class ProvenanceEntry:
     are updated as the entry ages or accumulates contradictions.
 
     All numerical parameters for decay are caller-supplied
-    (TS-2: no hardcoded threshold values in this module).
+    (internal-pattern-B: no hardcoded threshold values in this module).
     """
 
     value: Any
@@ -81,7 +81,7 @@ class ProvenanceEntry:
         confidence drop so that transparency and auditability gaps widen
         as the entry becomes stale.
 
-        All numerical parameters are caller-supplied (TS-2 compliance).
+        All numerical parameters are caller-supplied (internal-pattern-B compliance).
 
         Returns:
             The decayed confidence value (also written to ``self.confidence``).

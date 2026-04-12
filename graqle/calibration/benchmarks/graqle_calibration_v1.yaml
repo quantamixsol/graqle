@@ -469,20 +469,20 @@ questions:
  SDK internal module + regulatory compliance score is not stored.
  is_answerable: false
 - id: R11-BQ-028
- question: According to the cross-project compliance dashboard shared between GraQle and CrawlQ, what percentage of EU AI
+ question: According to the cross-project compliance dashboard shared between GraQle and the regulatory product, what percentage of EU AI
  Act Article 9 risk management requirements are satisfied by the shared PCST activation layer?
  expected_answer: UNANSWERABLE
  canonical_variants:
- - What percentage of EU AI Act Article 9 requirements does the shared GraQle/CrawlQ PCST layer satisfy?
- - Does the GraQle-CrawlQ cross-project dashboard show Article 9 coverage for the PCST activation layer?
+ - What percentage of EU AI Act Article 9 requirements does the shared GraQle/the regulatory product PCST layer satisfy?
+ - Does the GraQle-the regulatory product cross-project dashboard show Article 9 coverage for the PCST activation layer?
  expected_tool: graq_reason
  answer_type: numeric
  difficulty: easy
  domain: cross_kg
  expected_band: 1
  cross_kg: true
- source: GraQle SDK + CrawlQ + EU AI Act Article 9
- notes: GraQle and CrawlQ are explicitly separated products with no shared KG. No cross-project compliance dashboard exists.
+ source: GraQle SDK + the regulatory product + EU AI Act Article 9
+ notes: GraQle and the regulatory product are explicitly separated products with no shared KG. No cross-project compliance dashboard exists.
  The PCST layer is not shared. Three fabricated premises.
  is_answerable: false
 - id: R11-BQ-029
@@ -1603,14 +1603,14 @@ questions:
  and graph-level merge is not obvious from the API surface.
  is_answerable: true
 - id: R11-BQ-083
- question: Does graq_learn write new knowledge to both the Graqle SDK knowledge graph and the CrawlQ knowledge graph when
+ question: Does graq_learn write new knowledge to both the Graqle SDK knowledge graph and the the regulatory product knowledge graph when
  invoked from the Graqle project context?
  expected_answer: No. graq_learn writes to the knowledge graph associated with the project context in which it is invoked.
  When invoked from the Graqle project (using graqle-sdk/graqle.json as the active graph), it writes only to the Graqle
- KG. The CrawlQ knowledge graph (cognigraph.json) is a separate file in a separate project directory and is not modified
+ KG. The the regulatory product knowledge graph (cognigraph.json) is a separate file in a separate project directory and is not modified
  by graq_learn calls made in the Graqle context.
  canonical_variants:
- - graq_learn writes only to the active project's KG; CrawlQ KG is separate
+ - graq_learn writes only to the active project's KG; the regulatory product KG is separate
  - project context determines target KG; cross-project write does not occur
  - graqle.json and cognigraph.json are separate; graq_learn respects project boundaries
  expected_tool: graq_reason

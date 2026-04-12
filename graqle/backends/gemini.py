@@ -120,7 +120,7 @@ class GeminiBackend(BaseBackend):
             parts = content.get("parts", [])
             text = parts[0].get("text", "") if parts else ""
 
-            # OT-028: Capture finishReason for truncation detection
+            # Capture finishReason for truncation detection
             finish_reason = candidate.get("finishReason", "") or ""
             truncated = finish_reason == "MAX_TOKENS"
             # Gemini token count from usageMetadata

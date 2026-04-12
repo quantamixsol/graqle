@@ -21,7 +21,7 @@ Every time an AI tool reasons over the codebase (via graq_reason, graq_gate,
 or graq_impact), the session is logged immutably. This creates a full audit
 trail of what the AI knew, what it decided, and why.
 
-See ADR-105 §Governance Layer: audit_trail.py → governance/audit.py.
+See §Governance Layer: audit_trail.py → governance/audit.py.
 """
 
 # ── graqle:intelligence ──

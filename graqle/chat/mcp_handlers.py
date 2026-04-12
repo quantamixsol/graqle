@@ -1,4 +1,4 @@
-"""ChatAgentLoop v4 MCP handlers — TB-F8.
+"""ChatAgentLoop v4 MCP handlers — .
 
 Four handler functions plus a ``ChatHandlerContext`` that owns the
 shared per-process state (``ChatAgentLoop``, ``TurnStore``,
@@ -10,10 +10,10 @@ tools to these functions.
 Why a separate module
 ---------------------
 ``mcp_dev_server.py`` is a CRITICAL hub file (8609 lines, impact
-radius 491 modules). Per CG-DIF-01 / CG-DIF-02 the safest pattern is
+radius 491 modules). Per / the safest pattern is
 to keep new logic in its own module and add the SMALLEST possible
 edit to the hub: a few lines that import + dispatch. This module is
-the "few lines" target — TB-F8 wiring in mcp_dev_server.py is just
+the "few lines" target — wiring in mcp_dev_server.py is just
 ``from graqle.chat.mcp_handlers import handle_chat_*`` plus the
 registration block.
 
@@ -28,11 +28,11 @@ Tools registered
 Each handler returns a JSON-serializable dict that the MCP layer
 passes through unchanged.
 
-CGI-compatibility note (ADR-153 seed)
+CGI-compatibility note seed)
 -------------------------------------
 The ``ChatHandlerContext`` already owns a ``TurnStore`` whose
 ``TurnCheckpoint`` carries the fields a future CGI ``Session`` /
-``Checkpoint`` node would need. When ADR-153 ships, the only thing
+``Checkpoint`` node would need. When ships, the only thing
 that needs to change is the terminal-transition hook in
 ``handle_chat_turn`` and ``handle_chat_resume`` to also write the
 checkpoint into a persistent CGI graph. The handler signature stays
@@ -42,7 +42,7 @@ the same.
 # ── graqle:intelligence ──
 # module: graqle.chat.mcp_handlers
 # risk: MEDIUM (process-level shared state)
-# consumers: graqle.plugins.mcp_dev_server (TB-F8 registration)
+# consumers: graqle.plugins.mcp_dev_server registration)
 # dependencies: __future__, asyncio, typing, graqle.chat.*
 # constraints: every handler returns JSON-serializable dict
 # ── /graqle:intelligence ──

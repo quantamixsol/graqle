@@ -1,1 +1,1 @@
-"""GraQle confidence calibration module (R11 ADR-138)."""
+"""GraQle confidence calibration module (R11 ."""

@@ -22,7 +22,7 @@ When an AI tool is about to modify code, the scope gate checks:
 2. Does the change respect module ownership boundaries?
 3. Are cross-module side effects acknowledged?
 
-See ADR-105 §Governance Layer: semantic_shacl_gate.py → governance/scope_gate.py.
+See §Governance Layer: semantic_shacl_gate.py → governance/scope_gate.py.
 """
 
 # ── graqle:intelligence ──

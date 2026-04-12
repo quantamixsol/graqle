@@ -5,7 +5,7 @@
 # risk: LOW (impact radius: 1 module)
 # consumers: intent.classifier, benchmarks, tests
 # dependencies: __future__, dataclasses, logging, collections, graqle.intent.types
-# constraints: no hardcoded confidence thresholds (TS-2)
+# constraints: no hardcoded confidence thresholds (internal-pattern-B)
 # ── /graqle:intelligence ──
 
 from __future__ import annotations

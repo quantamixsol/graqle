@@ -6,7 +6,7 @@ Delegates plan/generate/apply/test/rollback to KogniDevServer handlers
 without subclassing BaseAgent (respects 402-dep blast-radius constraint).
 
 v2 design: apply() uses apply_diff() from core/file_writer.py for existing
-files and atomic write for new files (/dev/null). ADR-112: hard errors only.
+files and atomic write for new files (/dev/null). hard errors only.
 """
 from __future__ import annotations
 
@@ -174,9 +174,7 @@ class McpActionAgent:
 
         Two-path design (research team V2 validated):
           - Existing files: apply_diff() from core/file_writer.py
-          - New files (--- /dev/null): extract +lines, patent scan, atomic write
-
-        ADR-112: hard error on any failure, no fallback tiers.
+          - New files (--- /dev/null): extract +lines, patent scan, atomic write hard error on any failure, no fallback tiers.
         CWE-22: abort ALL patches on any path traversal attempt.
         """
         rollback_token = uuid.uuid4().hex
@@ -189,14 +187,14 @@ class McpActionAgent:
         except (json.JSONDecodeError, TypeError) as exc:
             return ExecutionResult(
                 exit_code=1, stdout="", modified_files=[],
-                stderr=f"ADR-112: diff is not valid JSON: {exc}",
+                stderr=f" diff is not valid JSON: {exc}",
                 rollback_token=rollback_token,
             )
 
         if not isinstance(payload, dict):
             return ExecutionResult(
                 exit_code=1, stdout="", modified_files=[],
-                stderr=f"ADR-112: expected JSON object, got {type(payload).__name__}",
+                stderr=f" expected JSON object, got {type(payload).__name__}",
                 rollback_token=rollback_token,
             )
 
@@ -211,7 +209,7 @@ class McpActionAgent:
         if "patches" not in payload:
             return ExecutionResult(
                 exit_code=1, stdout="", modified_files=[],
-                stderr="ADR-112: 'patches' key missing from CodeGenerationResult",
+                stderr=" 'patches' key missing from CodeGenerationResult",
                 rollback_token=rollback_token,
             )
 
@@ -219,7 +217,7 @@ class McpActionAgent:
         if not isinstance(patches, list):
             return ExecutionResult(
                 exit_code=1, stdout="", modified_files=[],
-                stderr=f"ADR-112: 'patches' must be list, got {type(patches).__name__}",
+                stderr=f" 'patches' must be list, got {type(patches).__name__}",
                 rollback_token=rollback_token,
             )
 
@@ -234,14 +232,14 @@ class McpActionAgent:
             if not isinstance(patch, dict):
                 return ExecutionResult(
                     exit_code=1, stdout="", modified_files=[],
-                    stderr=f"ADR-112: patch[{i}] is not a dict",
+                    stderr=f" patch[{i}] is not a dict",
                     rollback_token=rollback_token,
                 )
             for key in ("file_path", "unified_diff"):
                 if key not in patch:
                     return ExecutionResult(
                         exit_code=1, stdout="", modified_files=[],
-                        stderr=f"ADR-112: patch[{i}] missing required key '{key}'",
+                        stderr=f" patch[{i}] missing required key '{key}'",
                         rollback_token=rollback_token,
                     )
 
@@ -318,7 +316,7 @@ class McpActionAgent:
                     return ExecutionResult(
                         exit_code=1, stdout="\n".join(stdout_parts),
                         modified_files=modified_files,
-                        stderr=f"Atomic write FAILED for '{file_path}': {exc}. Hard error per ADR-112.",
+                        stderr=f"Atomic write FAILED for '{file_path}': {exc}. Hard error per .",
                         rollback_token=rollback_token,
                     )
 
@@ -337,7 +335,7 @@ class McpActionAgent:
                     return ExecutionResult(
                         exit_code=1, stdout="\n".join(stdout_parts),
                         modified_files=modified_files,
-                        stderr=f"apply_diff FAILED for '{file_path}': {result.error}. Hard error per ADR-112.",
+                        stderr=f"apply_diff FAILED for '{file_path}': {result.error}. Hard error per .",
                         rollback_token=rollback_token,
                     )
 

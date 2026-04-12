@@ -1,17 +1,15 @@
-"""ChatAgentLoop — the core integration point for ChatAgentLoop v4.
+"""ChatAgentLoop — the core integration point for ChatAgentLoop v4. of ChatAgentLoop v4 . Wires together:
 
-TB-F7 of ChatAgentLoop v4 (ADR-152). Wires together:
+  - GRAQ.md system prompt bundle graq_md_loader)
+  - .graqle/settings.json policy settings_loader)
+  - ChatEvent emission + per-turn ledger streaming + turn_ledger)
+  - TCG tool ranking tool_capability_graph)
+  - RCAG ephemeral memory rcag)
+  - TurnStore CAS state machine + permissions permission_manager)
+  - Debate debate)
+  - Backend router backend_router)
 
-  - GRAQ.md system prompt bundle              (TB-F1 graq_md_loader)
-  - .graqle/settings.json policy              (TB-F1 settings_loader)
-  - ChatEvent emission + per-turn ledger      (TB-F1 streaming + turn_ledger)
-  - TCG tool ranking                          (TB-F2 tool_capability_graph)
-  - RCAG ephemeral memory                     (TB-F3 rcag)
-  - TurnStore CAS state machine + permissions (TB-F4 permission_manager)
-  - Debate                                    (TB-F5 debate)
-  - Backend router                            (TB-F6 backend_router)
-
-The 10-step turn flow (from ADR-152 §Decision)
+The 10-step turn flow (from §Decision)
 ----------------------------------------------
 
   1. begin_turn (RCAG) + create TurnCheckpoint (TurnStore) + ledger open
@@ -32,7 +30,7 @@ The 10-step turn flow (from ADR-152 §Decision)
   9. mine_workflow_patterns (probationary) from this turn's sequence
  10. end_turn (RCAG rolling summary) + transition to terminal state
 
-CGI-compatibility (ADR-153 seed)
+CGI-compatibility seed)
 --------------------------------
 Every event emitted by the loop carries the structural fields a future
 CGI Task / Session / Decision / Review node would need:
@@ -46,14 +44,13 @@ The CGI design session (post v0.50.0) can decide whether to fold
 terminal turn events into a persistent project-self-memory graph or
 keep them ephemeral. The shape is intentionally CGI-compatible TODAY
 so the migration is a classification pass, not a rewrite. This is
-the single concrete TB-F7 contribution to the ADR-153 build wave.
+the single concrete contribution to the build wave.
 """
 
 # ── graqle:intelligence ──
 # module: graqle.chat.agent_loop
 # risk: HIGH (the integration point)
-# consumers: chat.mcp_handlers (TB-F8)
-# dependencies: __future__, asyncio, dataclasses, typing,
+# consumers: chat.mcp_handlers # dependencies: __future__, asyncio, dataclasses, typing,
 #   graqle.chat.{streaming,turn_ledger,settings_loader,graq_md_loader,
 #                tool_capability_graph,rcag,permission_manager,
 #                debate,backend_router}
@@ -83,7 +80,7 @@ from graqle.chat.turn_ledger import TurnLedger
 
 logger = logging.getLogger("graqle.chat.agent_loop")
 
-# Adaptive budget (ADR-152 §Decision)
+# Adaptive budget §Decision)
 DEFAULT_TOOL_CALL_BUDGET = 25
 BURST_OVERRIDE_CEILING = 100
 DEFAULT_PER_TOOL_TIMEOUT_S = 120.0
@@ -157,8 +154,7 @@ class ChatAgentLoop:
 
     Constructed once per session. ``run_turn`` advances one user turn
     through the 10-step flow. The loop is fully unit-testable through
-    stub LLM driver + stub tool executor; production wiring lives in
-    TB-F8's MCP handlers.
+    stub LLM driver + stub tool executor; production wiring lives in 's MCP handlers.
     """
 
     def __init__(

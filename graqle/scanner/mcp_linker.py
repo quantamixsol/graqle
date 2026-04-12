@@ -4,10 +4,7 @@ Resolves MCP call sites discovered by JSAnalyzer to handler functions found
 by PythonAnalyzer, creating ``CALLS_VIA_MCP`` edges in the knowledge graph.
 
 Invoked as ``discover_mcp_links()`` in the scan pipeline after
-``_resolve_imports``.
-
-ADR-131: Cross-language MCP resolution algorithm.
-ADR-130 / TS-2: Confidence values loaded from private config, never hardcoded.
+``_resolve_imports``. Cross-language MCP resolution algorithm. / internal-pattern-B: Confidence values loaded from private config, never hardcoded.
 """
 
 # ── graqle:intelligence ──
@@ -15,7 +12,7 @@ ADR-130 / TS-2: Confidence values loaded from private config, never hardcoded.
 # risk: HIGH (impact radius: scanner pipeline, KG edge integrity)
 # consumers: scanner.pipeline, scanner.graph_builder, test_mcp_linker
 # dependencies: __future__, dataclasses, json, logging, pathlib, typing
-# constraints: ADR-131, ADR-130/TS-2 (no hardcoded confidence values)
+# constraints:  /internal-pattern-B (no hardcoded confidence values)
 # ── /graqle:intelligence ──
 
 from __future__ import annotations
@@ -34,7 +31,7 @@ class ConfigurationError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# Confidence config (ADR-130 / TS-2 compliant — NO hardcoded values)
+# Confidence config / internal-pattern-B compliant — NO hardcoded values)
 # ---------------------------------------------------------------------------
 
 _CONFIDENCE_CONFIG_PATH = Path(".graqle") / "mcp_linker_confidence.json"
@@ -58,7 +55,7 @@ def _load_confidence_config(
     """Load confidence values from private config file.
 
     Falls back to opaque defaults if the file is missing or malformed.
-    No hardcoded confidence values are used — all come from config (TS-2).
+    No hardcoded confidence values are used — all come from config (internal-pattern-B).
     """
     global _confidence_cache  # noqa: PLW0603
 
@@ -89,7 +86,7 @@ def _load_confidence_config(
         raise ConfigurationError(
             f"MCP linker confidence config missing or incomplete at {path}. "
             f"Unconfigured keys: {unconfigured}. "
-            f"Create the config per ADR-130/TS-2."
+            f"Create the config per /internal-pattern-B."
         )
 
     if config_path is None:
@@ -195,8 +192,7 @@ def resolve_cross_language(
 ) -> tuple[list[CrossLangEdge], list[UnresolvedEdge]]:
     """Resolve TS ``callTool()`` sites to Python ``_handle_*()`` handlers.
 
-    Resolution priority cascade (ADR-131):
-      a. Direct bare-name match: callTool('reason') → _handle_reason
+    Resolution priority cascade a. Direct bare-name match: callTool('reason') → _handle_reason
       b. Prefix-strip: callTool('graq_reason') → strip → _handle_reason
       c. Alias + strip: callTool('kogni_reason') → graq_reason → _handle_reason
       d. TOOL_REGISTRY fallback: registered_name → handler function

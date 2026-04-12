@@ -47,9 +47,23 @@ class TestGovernanceConfig:
         assert cfg.risk_to_int("low") == cfg.risk_to_int("LOW")
         assert cfg.risk_to_int("High") == cfg.risk_to_int("HIGH")
 
-    def test_risk_to_int_unknown_defaults_medium(self) -> None:
+    def test_risk_to_int_unknown_defaults_critical(self) -> None:
+        """CG-GOV-01-POSTFIX v0.51.0: unknown values must map to CRITICAL,
+        not MEDIUM, so the gate fails safest on malformed input."""
         cfg = GovernanceConfig()
-        assert cfg.risk_to_int("UNKNOWN") == 1  # defaults to MEDIUM
+        assert cfg.risk_to_int("UNKNOWN") == 3  # was MEDIUM (1), now CRITICAL (3)
+        assert cfg.risk_to_int("not-a-level") == 3
+        assert cfg.risk_to_int("") == 3
+
+    def test_risk_to_int_none_is_critical(self) -> None:
+        """None input must map to CRITICAL (fail-safest)."""
+        cfg = GovernanceConfig()
+        assert cfg.risk_to_int(None) == 3  # type: ignore[arg-type]
+
+    def test_risk_to_int_non_string_is_critical(self) -> None:
+        """Non-string input must map to CRITICAL (fail-safest)."""
+        cfg = GovernanceConfig()
+        assert cfg.risk_to_int(42) == 3  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

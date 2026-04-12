@@ -1,4 +1,4 @@
-"""graq_apply â deterministic insertion engine (CG-DIF-02).
+"""graq_apply â deterministic insertion engine .
 
 A first-class governed alternative to graq_edit for files where LLM-generated
 diffs are unreliable: CRITICAL hub modules, large files (>1500 lines), files
@@ -12,7 +12,7 @@ file are byte-copied verbatim â there is no LLM regeneration, so the only
 risk surface is the caller's anchor strings.
 
 Implementation of the Deterministic Insertion Pattern documented in
-.gcc/RUNBOOK-LARGE-FILE-EDITS.md and the CG-DIF-02 spec in
+.gcc/RUNBOOK-LARGE-FILE-EDITS.md and the spec in
 .gcc/OPEN-TRACKER-CAPABILITY-GAPS.md.
 
 Public API

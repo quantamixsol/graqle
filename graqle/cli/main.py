@@ -770,7 +770,7 @@ def studio(
     console.print()
     console.print("     [cyan]graq serve --port 8077[/cyan]   ← start the API backend")
     console.print("     [cyan]graqle.com/dashboard[/cyan]     ← open the modern Studio")
-    console.print("     [dim]Or run npm run dev in graqle-studio/ for local development[/dim]")
+    console.print("     [dim]Or run npm run dev in the studio frontend/ for local development[/dim]")
     console.print()
     if graph:
         console.print(f"  Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
@@ -1814,6 +1814,170 @@ def gate_install_command(
     )
 
 
+@app.command("gate-status")
+def gate_status_command(
+    path: str = typer.Argument(".", help="Project root directory"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    run_self_test: bool = typer.Option(True, "--self-test/--no-self-test", help="Run self-test"),
+) -> None:
+    """Check the health of the installed governance gate.
+
+    Reports whether the Claude Code governance gate hook is installed,
+    the interpreter is valid, and the self-test passes.
+
+    \b
+    Examples:
+        graq gate-status
+        graq gate-status --json
+        graq gate-status --no-self-test
+    """
+    import json as _json_mod
+    import subprocess as _subprocess_mod
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    root = Path(path).resolve()
+    gate_path = root / ".claude" / "hooks" / "graqle-gate.py"
+    settings_path = root / ".claude" / "settings.json"
+
+    result: dict = {
+        "installed": False, "enforcing": False, "interpreter": "",
+        "interpreter_valid": False,
+        "self_test": {"exit_code": -1, "stderr_snippet": "", "passed": False, "ran_at": ""},
+        "hook_path": str(gate_path), "settings_path": str(settings_path),
+    }
+
+    if not gate_path.exists():
+        if json_output:
+            console.print(_json_mod.dumps(result, indent=2))
+        else:
+            console.print("[red]Gate NOT installed.[/red] Run 'graq gate-install' first.")
+        raise typer.Exit(1)
+    result["installed"] = True
+
+    interpreter_cmd = ""
+    if settings_path.exists():
+        try:
+            settings = _json_mod.loads(settings_path.read_text(encoding="utf-8"))
+            for entry in settings.get("hooks", {}).get("PreToolUse", []):
+                if not isinstance(entry, dict):
+                    continue
+                for h in entry.get("hooks", []) or []:
+                    if isinstance(h, dict) and "graqle-gate" in (h.get("command") or ""):
+                        interpreter_cmd = h["command"].split()[0]
+                        break
+                if interpreter_cmd:
+                    break
+        except Exception:
+            pass
+    if not interpreter_cmd:
+        interpreter_cmd = _probe_python_interpreter()
+    result["interpreter"] = interpreter_cmd
+
+    try:
+        r = _subprocess_mod.run(
+            interpreter_cmd.split() + ["-c", "import sys; print(sys.version_info[0])"],
+            capture_output=True, text=True, timeout=5,
+        )
+        result["interpreter_valid"] = r.returncode == 0 and r.stdout.strip() == "3"
+    except Exception:
+        result["interpreter_valid"] = False
+
+    if run_self_test and result["interpreter_valid"]:
+        test_payload = _json_mod.dumps({
+            "tool_name": "Bash", "tool_input": {"command": "echo test"}, "cwd": str(root),
+        })
+        try:
+            st = _subprocess_mod.run(
+                interpreter_cmd.split() + [str(gate_path)],
+                input=test_payload, capture_output=True, text=True, timeout=5,
+            )
+            result["self_test"] = {
+                "exit_code": st.returncode,
+                "stderr_snippet": (st.stderr or "")[:200],
+                "passed": st.returncode == 2 and "GATE BLOCKED" in (st.stderr or ""),
+                "ran_at": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception as exc:
+            result["self_test"]["stderr_snippet"] = str(exc)[:200]
+
+    result["enforcing"] = (
+        result["installed"] and result["interpreter_valid"]
+        and result["self_test"].get("passed", False)
+    )
+
+    if json_output:
+        console.print(_json_mod.dumps(result, indent=2))
+        raise typer.Exit(0 if result["enforcing"] else 1)
+
+    if result["enforcing"]:
+        console.print("[bold green]ENFORCING[/bold green] — gate installed and self-test passes.")
+    elif result["installed"] and not result["interpreter_valid"]:
+        console.print("[bold yellow]INSTALLED but interpreter invalid.[/bold yellow]")
+        console.print("[yellow]Run 'graq gate-install --fix-interpreter' to fix.[/yellow]")
+    elif result["installed"] and not result["self_test"].get("passed"):
+        console.print("[bold yellow]INSTALLED but self-test FAILED.[/bold yellow]")
+        console.print("[yellow]Run 'graq gate-install --force' to reinstall.[/yellow]")
+    else:
+        console.print("[red]NOT INSTALLED.[/red] Run 'graq gate-install'.")
+    console.print(f"[dim]Interpreter: {interpreter_cmd} (valid={result['interpreter_valid']})[/dim]")
+    raise typer.Exit(0 if result["enforcing"] else 1)
+
+
+@app.command("lint-public")
+def lint_public_command(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Scan shipped files for forbidden internal references.
+
+    \b
+    Examples:
+        graq lint-public
+        graq lint-public --json
+    """
+    import json as _json_mod
+    import re
+    from pathlib import Path
+
+    pkg = Path(__file__).resolve().parent.parent
+    repo_root = pkg.parent
+    exts = {".py", ".md", ".json", ".yaml", ".yml", ".toml"}
+    # Build the pattern from fragments so the regex source code in this file
+    # does not contain any of the literal tokens as contiguous strings (which
+    # would cause the scanner to match itself — the self-reference trap).
+    _frags = [
+        r"\bTS-[1-4]\b", r"\bcrawlq\b", r"\btracegov\b",
+        r"\bgraqle-studio\b", r"\bgraqle-vscode\b",
+        r"\bADR-[0-9]+\b", r"\bTB-[A-Z][0-9]+\b", r"\bOT-[0-9]{3}\b",
+        r"\bCG-[A-Z]+(?:-[0-9]+)?\b", r"\bBLOCKER-[0-9]+\b",
+        "\\" + "$10/mo" + "nth", "pytest-xdist wor" + "kers",
+    ]
+    combined = re.compile("|".join(_frags))
+    violations: list[dict] = []
+    for p in sorted(pkg.rglob("*")):
+        if not p.is_file() or p.suffix not in exts:
+            continue
+        try:
+            content = p.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for match in combined.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            rel = p.relative_to(repo_root).as_posix()
+            violations.append({"file": rel, "line": line_num, "match": match.group()})
+
+    if json_output:
+        console.print(_json_mod.dumps({"violations": violations, "count": len(violations)}, indent=2))
+    else:
+        if violations:
+            console.print(f"[red]Found {len(violations)} forbidden strings:[/red]")
+            for v in violations[:30]:
+                console.print(f"  {v['file']}:{v['line']}: [yellow]{v['match']}[/yellow]")
+        else:
+            console.print("[green]Clean: 0 forbidden strings in shipped files.[/green]")
+    raise typer.Exit(1 if violations else 0)
+
+
 @app.command("safety-check")
 def safety_check_command(
     component: str = typer.Argument(..., help="Component or file to safety-check"),
@@ -2151,7 +2315,16 @@ def route_command(
 
     if json_output:
         import json as json_lib
-        print(json_lib.dumps(rec.to_dict(), indent=2))
+        #  shape B: recommended_tool + fallback_tools + rationale
+        # merged with existing shape A for full compatibility
+        out = rec.to_dict()
+        out["recommended_tool"] = rec.graqle_tools[0] if rec.graqle_tools else ""
+        out["fallback_tools"] = (
+            rec.graqle_tools[1:] + (rec.external_tools or [])
+            if rec.graqle_tools else rec.external_tools or []
+        )
+        out["rationale"] = rec.reasoning
+        print(json_lib.dumps(out, indent=2))
         return
 
     priority_color = {"HIGH": "green", "MEDIUM": "yellow", "LOW": "red"}
@@ -2585,6 +2758,268 @@ def _create_backend_from_config(cfg, verbose: bool = False):
         return _mock_fallback(f"Missing package: {e}. Install with: pip install graqle[api]")
     except Exception as e:
         return _mock_fallback(f"Backend init failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+#  Layer 6: chat-trace, cgi-task, cgi-checkpoint (v0.51.0 closure)
+# ---------------------------------------------------------------------------
+
+
+@app.command("chat-trace")
+def chat_trace_command(
+    session_id: str = typer.Argument("", help="Session ID (default: most recent)"),
+    list_sessions: bool = typer.Option(False, "--list", "-l", help="List available sessions"),
+    lines: int = typer.Option(20, "--lines", "-n", help="Max entries to show (recency cap)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """View chat session trace (recency-first, compact).
+
+    Shows what happened in AI chat sessions: tools called, cost, reasoning.
+    Default: most recent session, last 20 entries. Respects recency to
+    protect the context window — use --lines to see more if needed.
+
+    \b
+    Examples:
+        graq chat-trace                    # most recent, compact
+        graq chat-trace --list             # browse sessions
+        graq chat-trace --lines 50         # more detail
+        graq chat-trace <session-id>       # specific session
+    """
+    import json as _json_mod
+    from pathlib import Path
+
+    ledger_dir = Path(".graqle") / "chat" / "ledger"
+    if not ledger_dir.exists():
+        console.print("[yellow]No chat sessions found.[/yellow]")
+        raise typer.Exit(1)
+
+    sessions = sorted(ledger_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not sessions:
+        console.print("[yellow]No session files in .graqle/chat/ledger/[/yellow]")
+        raise typer.Exit(1)
+
+    if list_sessions:
+        listing = []
+        for s in sessions[:20]:
+            stat = s.stat()
+            entry_count = sum(1 for _ in open(s, encoding="utf-8", errors="replace"))
+            from datetime import datetime
+            mtime = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            listing.append({"id": s.stem, "entries": entry_count, "modified": mtime, "bytes": stat.st_size})
+        if json_output:
+            console.print(_json_mod.dumps({"sessions": listing, "count": len(listing)}, indent=2))
+        else:
+            console.print(f"[bold]Sessions[/bold] ({len(sessions)} total, showing {len(listing)}):\n")
+            for item in listing:
+                console.print(f"  {item['modified']}  {item['entries']:4d} entries  {item['id']}")
+        return
+
+    target = None
+    if session_id:
+        matches = [s for s in sessions if session_id in s.stem]
+        if not matches:
+            console.print(f"[red]No session matching '{session_id}'.[/red] Use --list.")
+            raise typer.Exit(1)
+        target = matches[0]
+    else:
+        target = sessions[0]
+
+    all_lines = target.read_text(encoding="utf-8", errors="replace").strip().splitlines()
+    recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
+    entries = []
+    for raw in recent:
+        try:
+            entries.append(_json_mod.loads(raw))
+        except _json_mod.JSONDecodeError:
+            continue
+
+    if json_output:
+        console.print(_json_mod.dumps({
+            "session_id": target.stem, "total_entries": len(all_lines),
+            "showing": len(entries), "entries": entries,
+        }, indent=2, default=str))
+        return
+
+    console.print(f"[bold]Session:[/bold] {target.stem}")
+    console.print(f"[dim]{len(all_lines)} total, showing last {len(entries)}[/dim]\n")
+    for e in entries:
+        ev = e.get("event", e.get("type", "?"))
+        tool = e.get("tool", e.get("tool_name", ""))
+        cost = e.get("cost_usd", e.get("cost", ""))
+        ts = str(e.get("timestamp", e.get("ts", "")))[:19]
+        summary = str(e.get("summary", e.get("message", e.get("action", ""))))[:80]
+        line = f"  {ts}  [{ev}]"
+        if tool:
+            line += f"  {tool}"
+        if cost:
+            line += f"  ${cost}"
+        if summary:
+            line += f"  {summary}"
+        console.print(line)
+
+
+@app.command("cgi-task")
+def cgi_task_command(
+    op: str = typer.Argument("list", help="Operation: list, show, create, update"),
+    task_id: str = typer.Argument("", help="Task ID (for show/update)"),
+    status: str = typer.Option("", "--status", "-s", help="Filter/set status"),
+    description: str = typer.Option("", "--desc", "-d", help="Description (create)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Manage CGI project self-memory tasks (.graqle/cgi.json).
+
+    \b
+    Examples:
+        graq cgi-task list
+        graq cgi-task list --status pending
+        graq cgi-task show <id>
+        graq cgi-task create --desc "Fix X" --status pending
+        graq cgi-task update <id> --status completed
+    """
+    import json as _json_mod
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    cgi_path = Path(".graqle") / "cgi.json"
+    cgi_path.parent.mkdir(parents=True, exist_ok=True)
+    if cgi_path.exists():
+        try:
+            data = _json_mod.loads(cgi_path.read_text(encoding="utf-8"))
+        except _json_mod.JSONDecodeError:
+            data = {"tasks": [], "checkpoints": []}
+    else:
+        data = {"tasks": [], "checkpoints": []}
+    tasks = data.get("tasks", [])
+
+    if op == "list":
+        filtered = [t for t in tasks if t.get("status") == status] if status else tasks
+        if json_output:
+            console.print(_json_mod.dumps({"tasks": filtered, "count": len(filtered)}, indent=2))
+        else:
+            if not filtered:
+                console.print("[dim]No tasks.[/dim]")
+            else:
+                console.print(f"[bold]CGI Tasks[/bold] ({len(filtered)}):\n")
+                for t in filtered:
+                    sc = {"pending": "yellow", "in_progress": "cyan", "completed": "green",
+                          "blocked": "red", "shipped": "bold green"}.get(t.get("status", ""), "white")
+                    console.print(f"  [{sc}]{t.get('status','?'):12s}[/{sc}]  {t.get('id','?')}  {t.get('description','')[:60]}")
+    elif op == "show":
+        if not task_id:
+            console.print("[red]Task ID required.[/red]"); raise typer.Exit(1)
+        match = [t for t in tasks if t.get("id") == task_id]
+        if not match:
+            console.print(f"[red]'{task_id}' not found.[/red]"); raise typer.Exit(1)
+        t = match[0]
+        if json_output:
+            console.print(_json_mod.dumps(t, indent=2))
+        else:
+            console.print(f"[bold]{t.get('id')}[/bold]  [{t.get('status')}]")
+            console.print(f"  {t.get('description', '')}")
+            console.print(f"  Created: {t.get('created_at', '?')}  Updated: {t.get('updated_at', '?')}")
+            if t.get("blocked_by"):
+                console.print(f"  Blocked by: {', '.join(t['blocked_by'])}")
+    elif op == "create":
+        if not description:
+            console.print("[red]--desc required.[/red]"); raise typer.Exit(1)
+        import hashlib
+        now = datetime.now(timezone.utc).isoformat()
+        new_id = f"cgi_{hashlib.sha256(f'{now}{description}'.encode()).hexdigest()[:8]}"
+        new_task = {"id": new_id, "description": description, "status": status or "pending",
+                    "created_at": now, "updated_at": now, "blocked_by": [], "artifacts": [], "sessions": []}
+        tasks.append(new_task)
+        data["tasks"] = tasks
+        cgi_path.write_text(_json_mod.dumps(data, indent=2, default=str) + "\n", encoding="utf-8")
+        if json_output:
+            console.print(_json_mod.dumps(new_task, indent=2))
+        else:
+            console.print(f"[green]Created {new_id}[/green]: {description}")
+    elif op == "update":
+        if not task_id:
+            console.print("[red]Task ID required.[/red]"); raise typer.Exit(1)
+        match = [t for t in tasks if t.get("id") == task_id]
+        if not match:
+            console.print(f"[red]'{task_id}' not found.[/red]"); raise typer.Exit(1)
+        t = match[0]
+        if status:
+            t["status"] = status
+        t["updated_at"] = datetime.now(timezone.utc).isoformat()
+        cgi_path.write_text(_json_mod.dumps(data, indent=2, default=str) + "\n", encoding="utf-8")
+        if json_output:
+            console.print(_json_mod.dumps(t, indent=2))
+        else:
+            console.print(f"[green]Updated {task_id}[/green] -> {t['status']}")
+    else:
+        console.print(f"[red]Unknown op '{op}'. Use: list, show, create, update.[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("cgi-checkpoint")
+def cgi_checkpoint_command(
+    op: str = typer.Argument("show", help="Operation: show or create"),
+    session_id: str = typer.Option("", "--session", help="Session ID (create)"),
+    brief: str = typer.Option("", "--brief", "-b", help="Continuation brief (create)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Manage CGI checkpoints (session handoff snapshots in .graqle/cgi.json).
+
+    \b
+    Examples:
+        graq cgi-checkpoint show
+        graq cgi-checkpoint create --brief "Next: ship v0.51.0"
+    """
+    import json as _json_mod
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    cgi_path = Path(".graqle") / "cgi.json"
+    cgi_path.parent.mkdir(parents=True, exist_ok=True)
+    if cgi_path.exists():
+        try:
+            data = _json_mod.loads(cgi_path.read_text(encoding="utf-8"))
+        except _json_mod.JSONDecodeError:
+            data = {"tasks": [], "checkpoints": []}
+    else:
+        data = {"tasks": [], "checkpoints": []}
+    checkpoints = data.setdefault("checkpoints", [])
+
+    if op == "show":
+        if not checkpoints:
+            console.print("[dim]No checkpoints yet.[/dim]"); raise typer.Exit(1)
+        latest = checkpoints[-1]
+        if json_output:
+            console.print(_json_mod.dumps(latest, indent=2))
+        else:
+            console.print(f"[bold]Latest checkpoint[/bold]  {latest.get('created_at', '?')}")
+            console.print(f"  Session: {latest.get('session_id', '?')}")
+            console.print(f"  Version: {latest.get('sdk_version', '?')}")
+            console.print(f"  Brief: {latest.get('brief', '(none)')}")
+            if latest.get("next_task_id"):
+                console.print(f"  Next task: {latest['next_task_id']}")
+    elif op == "create":
+        from graqle import __version__
+        import hashlib
+        now = datetime.now(timezone.utc).isoformat()
+        cp_id = f"cp_{hashlib.sha256(now.encode()).hexdigest()[:8]}"
+        tasks = data.get("tasks", [])
+        pending = [t for t in tasks if t.get("status") in ("pending", "in_progress")]
+        checkpoint = {
+            "checkpoint_id": cp_id, "session_id": session_id or "unknown",
+            "created_at": now, "sdk_version": __version__,
+            "brief": brief or "No brief provided.",
+            "next_task_id": pending[0]["id"] if pending else "",
+            "tasks_pending": len([t for t in tasks if t.get("status") == "pending"]),
+            "tasks_completed": len([t for t in tasks if t.get("status") in ("completed", "shipped")]),
+        }
+        checkpoints.append(checkpoint)
+        cgi_path.write_text(_json_mod.dumps(data, indent=2, default=str) + "\n", encoding="utf-8")
+        if json_output:
+            console.print(_json_mod.dumps(checkpoint, indent=2))
+        else:
+            console.print(f"[green]Checkpoint {cp_id} created.[/green]  Brief: {checkpoint['brief']}")
+    else:
+        console.print(f"[red]Unknown op '{op}'. Use: show, create.[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ Every file passes through all 6 gates sequentially. If a gate fails,
 auto-repair is attempted before moving to the next gate. No file exits
 the pipeline without all 6 gates passing (or being marked DEGRADED).
 
-See ADR-105 §The 6 Validation Gates.
+See §The 6 Validation Gates.
 """
 
 # ── graqle:intelligence ──

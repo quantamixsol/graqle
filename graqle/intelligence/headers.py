@@ -14,7 +14,7 @@ Markers:
 # ── /graqle:intelligence ──
   JS/TS:   // ── graqle:intelligence ──  ...  // ── /graqle:intelligence ──
 
-See ADR-105 §Layer B: Embedded Intelligence.
+See §Layer B: Embedded Intelligence.
 """
 
 from __future__ import annotations

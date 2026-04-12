@@ -156,7 +156,7 @@ class AnthropicBackend(BaseBackend):
                     tokens_used=None,
                     model=self._model,
                 )
-            # OT-028: Capture stop_reason for truncation detection
+            # Capture stop_reason for truncation detection
             stop_reason = getattr(response, "stop_reason", "") or ""
             truncated = stop_reason == "max_tokens"
             usage = getattr(response, "usage", None)
@@ -308,7 +308,7 @@ class OpenAIBackend(BaseBackend):
                     return GenerateResult(text="", model=self._model)
                 choice = response.choices[0]
                 content = choice.message.content or ""
-            # OT-028: Capture finish_reason for truncation detection
+            # Capture finish_reason for truncation detection
             finish_reason = getattr(choice, "finish_reason", "") or ""
             truncated = finish_reason == "length"
             usage = getattr(response, "usage", None)
@@ -491,7 +491,7 @@ class BedrockBackend(BaseBackend):
                     f"(cumulative: ${self.total_cost_usd:.6f})"
                 )
 
-            # OT-028: Capture stop_reason for truncation detection
+            # Capture stop_reason for truncation detection
             stop_reason = result.get("stop_reason", "") or ""
             truncated = stop_reason == "max_tokens"
 
@@ -642,7 +642,7 @@ class OllamaBackend(BaseBackend):
                         text = stripped
                     elif think_blocks:
                         text = think_blocks[-1].strip()
-                # OT-028: Capture done_reason for truncation detection
+                # Capture done_reason for truncation detection
                 done_reason = data.get("done_reason", "") or ""
                 truncated = done_reason == "length"
                 if truncated:
@@ -731,7 +731,7 @@ class CustomBackend(BaseBackend):
                     return GenerateResult(text="", model=self._model)
                 choice = choices[0]
                 message = choice.get("message", {})
-                # OT-028: Best-effort finish_reason from OpenAI-compatible API
+                # Best-effort finish_reason from OpenAI-compatible API
                 finish_reason = choice.get("finish_reason", "") or ""
                 truncated = finish_reason == "length"
                 return GenerateResult(

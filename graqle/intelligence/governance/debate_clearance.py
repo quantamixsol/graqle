@@ -1,4 +1,4 @@
-"""Clearance filter and taint propagation for multi-backend debate (ADR-139, ADR-145).
+"""Clearance filter and taint propagation for multi-backend debate  .
 
 Filters KG context based on backend clearance level before prompt
 assembly. Includes anti-laundering taint propagation to prevent

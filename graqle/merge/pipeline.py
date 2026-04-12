@@ -1,4 +1,4 @@
-"""R2 Bridge Injection Pipeline orchestrator (ADR-133).
+"""R2 Bridge Injection Pipeline orchestrator .
 
 Orchestrates the full bridge injection workflow:
 detect → validate → reconcile → inject.
@@ -10,7 +10,7 @@ detect → validate → reconcile → inject.
 # consumers: cli, mcp_dev_server
 # dependencies: __future__, dataclasses, logging, typing,
 #               graqle.analysis.bridge, graqle.merge.reconcile
-# constraints: ADR-133 R2 bridge validation protocol
+# constraints: R2 bridge validation protocol
 # ── /graqle:intelligence ──
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ADR-133 R2 success criteria thresholds
+# R2 success criteria thresholds
 _R2_MIN_CC_DELTA: int = 12
 _R2_MIN_CROSS_EDGES: int = 15
 _R2_MIN_BDS: float = 0.03
@@ -59,7 +59,7 @@ class BridgeMetrics:
 
     @property
     def meets_success_criteria(self) -> bool:
-        """Check R2 success criteria (ADR-133)."""
+        """Check R2 success criteria ."""
         return (
             self.cc_delta >= _R2_MIN_CC_DELTA
             and self.cross_edges >= _R2_MIN_CROSS_EDGES

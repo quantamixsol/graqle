@@ -22,7 +22,7 @@ one-way integrations, and hardcoded dynamic values.
 Produces CuriosityInsight objects with category=INVARIANT that surface
 alongside existing insights in the Studio Intelligence dashboard.
 
-See ADR-114 §Compile-Time Invariant Detector.
+See §Compile-Time Invariant Detector.
 """
 
 # ── graqle:intelligence ──

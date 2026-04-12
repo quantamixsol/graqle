@@ -1,6 +1,4 @@
-"""Query Reformulator — context-aware query enhancement before PCST activation.
-
-ADR-104: When GraQle runs inside an AI tool (Claude Code, Cursor, Codex),
+"""Query Reformulator — context-aware query enhancement before PCST activation. When GraQle runs inside an AI tool (Claude Code, Cursor, Codex),
 the tool already has rich conversation history and project context. The
 reformulator leverages this context to produce a clearer, more precise query
 that yields better PCST node activation and higher-quality reasoning.
@@ -554,7 +552,7 @@ class QueryReformulator:
         """Build a prompt for LLM-based query reformulation."""
         graph_hint = ""
         if self._graph_summary:
-            # ADR-151 G7: Redact graph_summary before sending to LLM
+            # G7: Redact graph_summary before sending to LLM
             # B1 fix: fail-CLOSED
             from graqle.security.content_gate import ContentSecurityGate
             _summary = ContentSecurityGate().redact_text(self._graph_summary)

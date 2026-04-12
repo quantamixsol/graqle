@@ -2747,7 +2747,7 @@ def init_command(
     else:
         plugin_lines.append(f"  [red]--[/red] API key [dim](set {BACKENDS[chosen_backend].get('api_key_env', 'API_KEY')})[/dim]")
 
-    # ── Auto-install Claude Code governance gate (CG-GATE-02, v0.50.1) ──
+    # ── Auto-install Claude Code governance gate v0.50.1) ──
     # If Claude Code is detected in this project OR user-globally, and the
     # user has not opted out, install the governance gate so that native
     # Claude Code tools (Read/Write/Edit/Bash/...) are routed through the

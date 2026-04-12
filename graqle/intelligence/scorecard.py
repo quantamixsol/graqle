@@ -4,7 +4,7 @@ Accumulates per-file validation results as the streaming scan progresses.
 Generates curiosity-peak insights that reveal interesting facts about the
 codebase during scan — keeping the user engaged while building completes.
 
-See ADR-105 §Curiosity Peak Design.
+See §Curiosity Peak Design.
 """
 
 # ── graqle:intelligence ──

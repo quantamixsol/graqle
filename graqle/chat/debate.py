@@ -1,4 +1,4 @@
-"""Concern-check subsystem — 3-role structured self-check (TB-F5, v0.50.0-round1).
+"""Concern-check subsystem — 3-role structured self-check v0.50.0-round1).
 
 Runs three neutral roles in parallel via :func:`asyncio.gather` of three
 ``reason_fn`` calls and applies an in-code deterministic classifier that
@@ -53,8 +53,7 @@ Mechanism preserved (NON-NEGOTIABLE — operator waiver condition):
 # ── graqle:intelligence ──
 # module: graqle.chat.debate
 # risk: MEDIUM (concurrent reasoning calls — must time out gracefully)
-# consumers: chat.agent_loop (TB-F7)
-# dependencies: __future__, asyncio, dataclasses, logging, re, typing
+# consumers: chat.agent_loop # dependencies: __future__, asyncio, dataclasses, logging, re, typing
 # constraints: no subprocess, no env reads, no credential handling;
 #   precedence lives in code not prompts; 3-round ceiling
 # ── /graqle:intelligence ──

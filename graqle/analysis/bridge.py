@@ -1,4 +1,4 @@
-"""R2 Bridge-Edge Detection module (ADR-133).
+"""R2 Bridge-Edge Detection module .
 
 Detects candidate bridge edges between scanner entity types
 (PythonModule, JavaScriptModule, Class, Function, TestFile) and
@@ -14,7 +14,7 @@ Language-namespaced dedup keys prevent cross-language collisions
 # risk: MEDIUM (impact radius: 3 modules)
 # consumers: merge.pipeline, scan, mcp_dev_server
 # dependencies: __future__, dataclasses, logging, re, typing
-# constraints: ADR-133 R2 bridge validation protocol
+# constraints: R2 bridge validation protocol
 # ── /graqle:intelligence ──
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ _COMPATIBLE_PAIRS: frozenset[tuple[str, str]] = frozenset({
     ("ReactComponent", "Module"),
 })
 
-# Entity-type → language mapping (ADR-133 CRITICAL for dedup namespacing)
+# Entity-type → language mapping CRITICAL for dedup namespacing)
 # NOTE: Class and Function are language-agnostic — derive_language uses
 # file-path heuristic (step 3) for these types instead of a static map.
 _ENTITY_TYPE_TO_LANGUAGE: dict[str, str] = {
@@ -170,13 +170,11 @@ def _extract_node_fields(node: Any) -> tuple[dict, str, str, str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Language derivation (ADR-133 §3 — CRITICAL for dedup key namespacing)
+# Language derivation §3 — CRITICAL for dedup key namespacing)
 # ---------------------------------------------------------------------------
 
 def derive_language(node: Any) -> str:
-    """Map a node's ``entity_type`` to a canonical language string.
-
-    ADR-133 CRITICAL — the language tag namespaces dedup keys so that
+    """Map a node's ``entity_type`` to a canonical language string. CRITICAL — the language tag namespaces dedup keys so that
     ``python::utils`` and ``javascript::utils`` remain distinct.
 
     Resolution order:
@@ -245,9 +243,7 @@ class BridgeCandidate:
 def make_dedup_key(candidate: BridgeCandidate) -> str:
     """Language-namespaced dedup key for a bridge candidate.
 
-    Format: ``{language}::{source_id}--{relationship}-->{target_id}``
-
-    ADR-133: the language prefix prevents ``python::utils`` from
+    Format: ``{language}::{source_id}--{relationship}-->{target_id}`` the language prefix prevents ``python::utils`` from
     colliding with ``javascript::utils``.
     """
     return (
@@ -265,7 +261,7 @@ class BridgeDetectionReport:
 
 
 # ---------------------------------------------------------------------------
-# R2 Bridge Validation Protocol — 8 checks (ADR-135: 6 original + 2 R2 spec)
+# R2 Bridge Validation Protocol — 8 checks 6 original + 2 R2 spec)
 # ---------------------------------------------------------------------------
 
 # R5 Provenance: valid sources for CALLS_VIA_MCP edges
@@ -287,7 +283,7 @@ def _validate_candidate(
     source_language: str = "",
     target_language: str = "",
 ) -> str | None:
-    """Run the 8-check R2 Bridge Validation Protocol (ADR-135).
+    """Run the 8-check R2 Bridge Validation Protocol .
 
     Checks 1-6: structural + soft gates (original implementation).
     Checks 7-8: R2 spec requirements (R5 Provenance, Direction).

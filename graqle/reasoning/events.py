@@ -1,6 +1,6 @@
 """Clearance-aware streaming events for reasoning coordination.
 
-Implements the event model described in ADR-150: every streaming event
+Implements the event model described in every streaming event
 carries a ``ClearanceLevel`` so that viewers only receive events they
 are permitted to see.  Complete suppression semantics — even timing
 metadata is considered leakage for above-clearance events.

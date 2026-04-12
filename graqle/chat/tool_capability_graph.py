@@ -1,6 +1,4 @@
-"""Tool Capability Graph (TCG) — the meta-context-management graph.
-
-TB-F2 of ChatAgentLoop v4 (ADR-152). The TCG is one of the three runtime
+"""Tool Capability Graph (TCG) — the meta-context-management graph. of ChatAgentLoop v4 . The TCG is one of the three runtime
 graphs in the v4 architecture (alongside GRAQ.md and RCAG). It is a
 cross-session, self-learning graph of the project's MCP tools. Nodes are
 the tools themselves plus intent / workflow-pattern / lesson classes. The
@@ -14,28 +12,27 @@ with a canonical seed at ``graqle/chat/templates/tcg_default.json`` and
 persists to ``~/.graqle/tcg.json``. First run copies the seed to the
 user directory. Tools not present in the seed are UNKNOWN until
 ``reinforce_sequence`` learns them — the seed is the single source of
-truth (BLOCKER-2 from the TB-F2 review).
+truth from the review).
 
 Runtime augmentation from ``KogniDevServer.list_tools()`` is explicitly
 FORBIDDEN. The three-graph editorial rule requires a static anchor for
 tool-selection behavior, and learning happens through reinforcement,
 not through bootstrap.
 
-CGI-compatibility note (ADR-153 seed)
+CGI-compatibility note seed)
 -------------------------------------
 The TCG is a runtime graph, not a CGI (project-self-memory) graph. But
 the seed JSON shape — flat ``{nodes, edges}`` with ``entity_type`` tags
 and typed properties — is deliberately compatible with the CGI schema
-described in ADR-153 so a future CGI loader can reuse the same
+described in so a future CGI loader can reuse the same
 ``_load_payload`` helper. Do NOT add CGI node types here — v4 ships
-first, then ADR-153 opens its own design session.
+first, then opens its own design session.
 """
 
 # ── graqle:intelligence ──
 # module: graqle.chat.tool_capability_graph
 # risk: HIGH (first chat module to cross into graqle.core.*)
-# consumers: chat.agent_loop (planned TB-F7)
-# dependencies: __future__, copy, json, logging, os, pathlib, tempfile,
+# consumers: chat.agent_loop (planned # dependencies: __future__, copy, json, logging, os, pathlib, tempfile,
 #   typing, graqle.core.{graph,node,edge,types}
 # constraints: seed is source of truth; NO runtime augmentation from
 #   list_tools; destructive-edge safety filter is non-negotiable
@@ -184,7 +181,7 @@ def load_default_seed(seed_path: Path | None = None) -> dict[str, Any]:
 class ToolCapabilityGraph(Graqle):
     """A :class:`Graqle` subclass specialized for tool selection.
 
-    Construction bypasses the Graqle enrichment branch (BLOCKER-1) by
+    Construction bypasses the Graqle enrichment branch by
     passing ``nodes=None`` and ``edges=None`` to ``super().__init__`` and
     then populating ``self.nodes`` / ``self.edges`` directly from the
     seed payload. This prevents Graqle's mandatory
@@ -200,7 +197,7 @@ class ToolCapabilityGraph(Graqle):
         config: GraqleConfig | None = None,
         settings: dict | None = None,
     ) -> None:
-        # BLOCKER-1: empty maps to super() so the
+        # empty maps to super() so the
         # `if self.nodes:` branch at graph.py:331 evaluates False
         # and enrichment never fires.
         super().__init__(nodes=None, edges=None, config=config)
@@ -229,8 +226,7 @@ class ToolCapabilityGraph(Graqle):
     def _load_payload(self, payload: dict[str, Any]) -> None:
         """Populate ``self.nodes`` / ``self.edges`` from a seed payload.
 
-        The payload shape is compatible with the CGI schema seed in
-        ADR-153 so a future CGI loader can share this helper.
+        The payload shape is compatible with the CGI schema seed in so a future CGI loader can share this helper.
         """
         self._raw_payload_meta = dict(payload.get("_meta", {}))
         raw_nodes = payload.get("nodes", {})
@@ -532,7 +528,7 @@ class ToolCapabilityGraph(Graqle):
     # ── MAJOR-R1b (Round-1): auto-create probationary unknown tools ─────
     #
     # Research review flagged that silent-skip in reinforce_sequence
-    # combined with BLOCKER-2's "no runtime list_tools() bootstrap"
+    # combined with 's "no runtime list_tools() bootstrap"
     # rule meant the 36 tools missing from the seed could never be
     # learned after ship. The fix: when reinforce_sequence encounters
     # a tool_id that isn't in the TCG, auto-create a probationary

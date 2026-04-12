@@ -4,7 +4,7 @@ Every file scanned produces a FileIntelligenceUnit — an atomic, validated
 package of nodes, edges, intelligence packet, and coverage report.
 Nothing exits the pipeline without passing all 6 validation gates.
 
-See ADR-105 §Architecture: Per-File Validation.
+See §Architecture: Per-File Validation.
 """
 
 # ── graqle:intelligence ──

@@ -1,7 +1,7 @@
-"""Shannon entropy detection for secrets — ADR-151 Layer 2.
+"""Shannon entropy detection for secrets — Layer 2.
 
 Identifies high-entropy strings that may be leaked secrets, API keys,
-or tokens.  Part of the ADR-151 multi-layer detection pipeline:
+or tokens.  Part of the multi-layer detection pipeline:
 
   Layer 1 — regex pattern matching
   Layer 2 — Shannon entropy analysis  <-- this module

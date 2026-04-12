@@ -2023,7 +2023,7 @@ def _scan_repo_impl(
         max_files=max_files,
     )
 
-    # ADR-123 Phase 5: Pull from S3 before scan so --preserve-learned has latest learned nodes.
+    # Phase 5: Pull from S3 before scan so --preserve-learned has latest learned nodes.
     # This ensures cloud-taught nodes (from other machines/sessions) are preserved too.
     out_path_check = Path(output)
     if preserve_learned:
@@ -2151,7 +2151,7 @@ def _scan_repo_impl(
                 console.print(f"    [dim]- {nid}[/dim]")
 
     # Auto cloud sync (if authenticated — silent skip otherwise)
-    # ADR-123 Phase 5: log sync failures instead of swallowing them silently.
+    # Phase 5: log sync failures instead of swallowing them silently.
     try:
         from graqle.cli.commands.cloud import auto_cloud_sync
         auto_cloud_sync(Path(path).resolve(), graph_json=data)

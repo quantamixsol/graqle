@@ -1,6 +1,4 @@
-"""MCP-aware blast radius analysis — traces cross-domain impact for MCP protocol changes.
-
-ADR-128 Phase 5: Composable enrichment for graq_impact. Does NOT replace _bfs_impact,
+"""MCP-aware blast radius analysis — traces cross-domain impact for MCP protocol changes. Phase 5: Composable enrichment for graq_impact. Does NOT replace _bfs_impact,
 enriches its results with protocol-boundary awareness.
 """
 
