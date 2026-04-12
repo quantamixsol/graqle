@@ -79,7 +79,7 @@ class StorageTiers:
     def tier1_neo4j(self) -> TierDescriptor:
         disabled_value = os.getenv("NEO4J_DISABLED", "")
         if disabled_value.lower() in _NEO4J_DISABLED_VALUES:
-            detail = "Disabled by NEO4J_DISABLED (OT-060 gate)."
+            detail = "Disabled by NEO4J_DISABLED environment variable."
             status = TierStatus.DISABLED
         else:
             # Phase 3: check backends.neo4j.enabled in graqle.yaml

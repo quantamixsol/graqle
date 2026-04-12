@@ -685,7 +685,13 @@ class Graqle:
                 graph.save(str(mirror_path))
                 logger.info("Mirrored Neo4j load to %s (%d nodes)", mirror_path, len(nodes))
             except Exception as exc:
-                logger.warning("Failed to mirror Neo4j load to %s: %s", mirror_to, exc)
+                import warnings
+                warnings.warn(
+                    f"Tier 0 mirror failed after Neo4j load — graqle.json is STALE. "
+                    f"Run 'graq scan repo .' or save manually. Error: {exc}",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         return graph
 
@@ -724,7 +730,11 @@ class Graqle:
             self.save(str(_json_path))
             logger.info("Saved Tier 0 JSON to %s before Neo4j export", _json_path)
         except Exception as exc:
-            logger.warning("Could not save Tier 0 JSON before Neo4j export: %s", exc)
+            from graqle.storage.tiers import StorageTierInvariantError
+            raise StorageTierInvariantError(
+                f"Cannot export to Neo4j: Tier 0 JSON save failed ({exc}). "
+                f"Neo4j write aborted to preserve the storage tier invariant."
+            ) from exc
 
         from graqle.connectors.neo4j import Neo4jConnector
 

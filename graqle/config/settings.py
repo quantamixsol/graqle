@@ -81,6 +81,14 @@ class BackendsConfig(BaseModel):
 
     Tier 0 (graqle.json) is always the single source of truth.
     These backends are opt-in projections, never primary.
+
+    Precedence rule (Phase 3 migration):
+      In the current release, ``graph.connector`` drives runtime connector
+      choice (read by from_neo4j/to_neo4j). The ``backends:`` section is a
+      forward-looking schema that will become the primary config in a future
+      release. If both ``graph.connector: neo4j`` AND ``backends.neo4j.enabled:
+      true`` are set, the deprecation warning fires for ``graph.connector``
+      and ``backends`` is ignored at runtime until the migration is complete.
     """
 
     neo4j: Neo4jBackendConfig = Field(default_factory=Neo4jBackendConfig)
