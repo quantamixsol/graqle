@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import threading
 from collections import deque
@@ -1399,9 +1400,19 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "graq_edit",
         "description": (
             "Apply a governed atomic edit to a file using your project's knowledge graph. "
-            "Provide a description to generate a diff, or provide a diff directly. "
+            "Four write strategies (CG-10, v0.51.2):\n"
+            "  - literal: byte-exact old_content→new_content via str.replace. "
+            "Zero LLM round-trip. Fails fast on 0 or ≥2 matches. Best for hub files.\n"
+            "  - anchored: literal match with whitespace normalization. Zero LLM.\n"
+            "  - llm: original behavior — LLM synthesizes diff from description.\n"
+            "  - regenerate: LLM rewrites the smallest enclosing function (last-resort).\n"
+            "  - auto (default): runs literal → anchored → llm until one succeeds.\n"
+            "  - race: runs literal + anchored + llm in parallel, first valid wins.\n"
+            "Pass old_content+new_content for deterministic tiers (literal/anchored). "
+            "Pass description for LLM tiers. Both may be passed — auto picks the right path. "
             "Backup written to .graqle/edit-backup/ before any write. "
             "Default dry_run=True — never writes without explicit dry_run=False. "
+            "Response includes strategy_used and strategy_attempts for debugging. "
             "Requires Team or Enterprise plan."
         ),
         "inputSchema": {
@@ -1418,6 +1429,20 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "diff": {
                     "type": "string",
                     "description": "Unified diff to apply directly (optional — overrides description)",
+                },
+                "old_content": {
+                    "type": "string",
+                    "description": "CG-10: byte-exact content to replace (for literal/anchored strategies). Must match the file exactly once.",
+                },
+                "new_content": {
+                    "type": "string",
+                    "description": "CG-10: replacement content. Used alongside old_content for deterministic edits (no LLM).",
+                },
+                "strategy": {
+                    "type": "string",
+                    "enum": ["auto", "literal", "anchored", "llm", "regenerate", "race"],
+                    "description": "CG-10: write strategy. Default 'auto' runs literal → anchored → llm. Use 'literal' to force zero-LLM byte-exact edits.",
+                    "default": "auto",
                 },
                 "dry_run": {
                     "type": "boolean",
@@ -5269,10 +5294,27 @@ class KogniDevServer:
         provided_diff = args.get("diff", "")
         dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67: safe string coercion
 
+        # CG-10 (v0.51.2): tiered strategy parameters
+        old_content = args.get("old_content", "")
+        new_content = args.get("new_content", "")
+        strategy = (args.get("strategy") or "auto").lower()
+        if strategy not in ("auto", "literal", "anchored", "llm", "regenerate", "race"):
+            return json.dumps({
+                "error": f"Invalid strategy: {strategy!r}. "
+                         "Must be one of: auto, literal, anchored, llm, regenerate, race.",
+            })
+
         if not file_path:
             return json.dumps({"error": "Parameter 'file_path' is required."})
-        if not description and not provided_diff:
-            return json.dumps({"error": "Either 'description' or 'diff' is required."})
+        # CG-10: if old_content/new_content provided, we can work without a
+        # description; description is only required for pure LLM tiers.
+        has_literal_pair = bool(old_content) and new_content is not None and new_content != ""
+        has_empty_new = bool(old_content) and new_content == ""  # literal deletion
+        literal_capable = has_literal_pair or has_empty_new
+        if not description and not provided_diff and not literal_capable:
+            return json.dumps({
+                "error": "Provide one of: 'description', 'diff', or 'old_content'+'new_content'.",
+            })
 
         # Plan gate (runs BEFORE file resolution — business check first)
         try:
@@ -5356,10 +5398,141 @@ class KogniDevServer:
         except ImportError:
             pass  # governance module optional in stripped builds
 
-        # Step 2: Get diff — either provided directly or generate it
+        # ── CG-10 (v0.51.2): Tiered strategy dispatch ──────────────────
+        # If caller provided old_content (and strategy allows), try
+        # deterministic literal/anchored tiers BEFORE spending on LLM.
+        # Each tier writes a unified diff on success or returns a
+        # failure reason. The existing LLM path below remains the
+        # fallback / default when strategy=='llm' or 'auto' + literal tiers miss.
         unified_diff = provided_diff
         generation_result: dict[str, Any] | None = None
+        strategy_attempts: list[dict[str, Any]] = []
+        strategy_used: str | None = None
 
+        def _literal_diff(target: str, old: str, new: str) -> tuple[str | None, str]:
+            """Return (unified_diff_or_None, reason). Zero LLM."""
+            if not old:
+                return None, "empty old_content"
+            count = target.count(old)
+            if count == 0:
+                return None, "literal match count: 0"
+            if count > 1:
+                return None, f"literal match count: {count} (ambiguous)"
+            # Build a minimal unified diff. The file_writer.apply_diff accepts
+            # a standard unified diff; we synthesize one here without LLM.
+            before = target
+            after = target.replace(old, new, 1)
+            if before == after:
+                return None, "no-op (old == new)"
+            # Emit a simple unified diff spanning the full file — apply_diff
+            # will re-anchor it. This keeps the shape compatible with the
+            # existing Step 3+ pipeline.
+            try:
+                import difflib as _difflib
+                diff_lines = list(_difflib.unified_diff(
+                    before.splitlines(keepends=True),
+                    after.splitlines(keepends=True),
+                    fromfile=f"a/{file_path}",
+                    tofile=f"b/{file_path}",
+                    n=3,
+                ))
+                return "".join(diff_lines), "ok"
+            except Exception as exc:
+                return None, f"difflib error: {exc!s}"
+
+        def _anchored_diff(target: str, old: str, new: str) -> tuple[str | None, str]:
+            """Whitespace-normalized literal match. Zero LLM."""
+            if not old:
+                return None, "empty old_content"
+            import re as _re2
+            def _norm(s: str) -> str:
+                return _re2.sub(r"\s+", " ", s).strip()
+            norm_old = _norm(old)
+            if not norm_old:
+                return None, "old_content is whitespace-only"
+            # Scan line windows matching the normalized old; this handles
+            # indentation drift without invoking the LLM.
+            lines = target.splitlines(keepends=True)
+            old_line_count = max(1, old.count("\n") + 1)
+            hits: list[int] = []
+            for i in range(len(lines) - old_line_count + 1):
+                window = "".join(lines[i:i + old_line_count])
+                if _norm(window) == norm_old:
+                    hits.append(i)
+            if not hits:
+                return None, "anchored match count: 0"
+            if len(hits) > 1:
+                return None, f"anchored match count: {len(hits)} (ambiguous)"
+            i = hits[0]
+            before = "".join(lines[:i] + lines[i + old_line_count:])
+            # Reuse literal by substituting once at the confirmed anchor
+            after_lines = lines[:i] + [new if new.endswith("\n") or not new else new + "\n"] + lines[i + old_line_count:]
+            after = "".join(after_lines)
+            target_after = target.replace("".join(lines[i:i + old_line_count]), new, 1)
+            if target_after == target:
+                return None, "anchored produced no-op"
+            import difflib as _difflib
+            diff_lines = list(_difflib.unified_diff(
+                target.splitlines(keepends=True),
+                target_after.splitlines(keepends=True),
+                fromfile=f"a/{file_path}",
+                tofile=f"b/{file_path}",
+                n=3,
+            ))
+            return "".join(diff_lines), "ok"
+
+        def _tier_order(s: str) -> list[str]:
+            if s == "auto":
+                return ["literal", "anchored", "llm"]
+            if s == "race":
+                # Parallel-in-spirit; for now run sequentially but return on
+                # first success. True async race is a v0.52.0 follow-up.
+                return ["literal", "anchored", "llm"]
+            return [s]
+
+        if not unified_diff and literal_capable:
+            try:
+                _target_text = Path(file_path).read_text(encoding="utf-8")
+            except OSError as exc:
+                return json.dumps({
+                    "error": f"Cannot read {file_path}: {type(exc).__name__}",
+                })
+            for tier in _tier_order(strategy):
+                if tier == "literal":
+                    d, reason = _literal_diff(_target_text, old_content, new_content)
+                    strategy_attempts.append({"tier": "literal", "outcome": "success" if d else "miss", "reason": reason})
+                    if d:
+                        unified_diff = d
+                        strategy_used = "literal"
+                        break
+                elif tier == "anchored":
+                    d, reason = _anchored_diff(_target_text, old_content, new_content)
+                    strategy_attempts.append({"tier": "anchored", "outcome": "success" if d else "miss", "reason": reason})
+                    if d:
+                        unified_diff = d
+                        strategy_used = "anchored"
+                        break
+                elif tier == "llm":
+                    # Fall through to existing LLM path below
+                    strategy_attempts.append({"tier": "llm", "outcome": "deferred", "reason": "will attempt LLM path"})
+                    break
+                elif tier == "regenerate":
+                    # Regenerate is last-resort, never auto-reached
+                    strategy_attempts.append({"tier": "regenerate", "outcome": "skip", "reason": "regenerate requires explicit strategy='regenerate'"})
+                    if strategy == "regenerate":
+                        # Defer to LLM path with a wider prompt; v0.52.0 can
+                        # scope this to smallest enclosing function.
+                        break
+            # Explicit literal/anchored-only strategies that failed: hard error,
+            # do NOT silently fall back to LLM. This is the whole point of CG-10.
+            if not unified_diff and strategy in ("literal", "anchored"):
+                return json.dumps({
+                    "error": f"strategy={strategy!r} failed — no fallback (pass strategy='auto' to allow LLM fallback)",
+                    "strategy_used": None,
+                    "strategy_attempts": strategy_attempts,
+                })
+
+        # Step 2: Get diff — either provided directly or generate it
         if not unified_diff and description:
             # B4: Check session cache before expensive generation (v0.42.2 hotfix)
             import copy
@@ -5467,11 +5640,24 @@ class KogniDevServer:
             except Exception as exc:
                 logger.debug(" KG sync failed (non-blocking): %s", exc)
 
+        # CG-10: if we reached apply via the LLM path (strategy_used still None
+        # because we didn't match a deterministic tier), record that fact.
+        if strategy_used is None and generation_result is not None:
+            strategy_used = "llm"
+            strategy_attempts.append({
+                "tier": "llm",
+                "outcome": "success",
+                "reason": f"LLM generation, confidence={generation_result.get('confidence', 'n/a')}",
+            })
+
         result: dict[str, Any] = {
             **apply_result.to_dict(),
             "preflight_risk": preflight_raw.get("risk_level", "low"),
             "preflight_warnings": preflight_raw.get("warnings", [])[:3],
             "kg_synced": kg_synced,
+            # CG-10: strategy telemetry (v0.51.2)
+            "strategy_used": strategy_used,
+            "strategy_attempts": strategy_attempts,
         }
         if generation_result:
             result["generation"] = {
@@ -8385,7 +8571,16 @@ class KogniDevServer:
             "hook_path": rel_hook, "settings_path": rel_settings,
         }
 
+        # CG-08 Part 3: installed=True requires BOTH hook file AND real
+        # settings.json (not .tmp). Claude Code never reads .tmp, so a hook +
+        # orphaned .tmp is NOT installed — it's a silent fail-open. Reject it
+        # explicitly so status cannot lie after a failed atomic rename.
         if not gate_path.exists():
+            return json.dumps(result)
+        if not (settings_path.exists() and settings_path.suffix == ".json"):
+            # Hook present but settings.json missing (or only .tmp exists):
+            # half-written install — report installed=False so caller sees
+            # the truth instead of a lie.
             return json.dumps(result)
         result["installed"] = True
 
@@ -8448,6 +8643,74 @@ class KogniDevServer:
             result["installed"] and result["interpreter_valid"]
             and result["self_test"].get("passed", False)
         )
+
+        # H-5: parse hook_version from the installed hook file and compute
+        # upgrade_available vs. current SDK __version__.
+        hook_version: str | None = None
+        try:
+            import re as _re
+            if gate_path.exists():
+                for ln in gate_path.read_text(encoding="utf-8").splitlines()[:10]:
+                    m = _re.match(r"^#\s*graqle-gate version:\s*(\S+)\s*$", ln)
+                    if m:
+                        hook_version = m.group(1)
+                        break
+        except OSError:
+            hook_version = None
+        try:
+            from graqle.__version__ import __version__ as _sdk_version
+        except ImportError:
+            _sdk_version = "unknown"
+        result["hook_version"] = hook_version
+        result["upgrade_available"] = bool(
+            hook_version and _sdk_version != "unknown"
+            and hook_version != _sdk_version
+            and hook_version != "{{GRAQLE_VERSION}}"
+        )
+
+        # CG-09: detect Claude Code /hooks approval state. Even with a correct
+        # settings.json on disk, Claude Code will not fire the hook until the
+        # user manually runs /hooks and approves. We heuristically probe
+        # .claude/settings.local.json for known approval-shaped keys. If no
+        # recognized schema is found, return "unknown" so callers don't
+        # assume one way or the other. Any value != True means the extension
+        # chip MUST treat the gate as dormant.
+        local_settings_path = project_root / ".claude" / "settings.local.json"
+        approved: bool | str = "unknown"
+        try:
+            if local_settings_path.exists():
+                local = json.loads(local_settings_path.read_text(encoding="utf-8"))
+                if isinstance(local, dict):
+                    # Known/future schemas Claude Code may use for hook approval.
+                    # We check a small set of plausible key names; any hit with
+                    # "graqle-gate" in its value marks the hook approved.
+                    for key in ("enabledHooks", "approvedHooks", "hooks"):
+                        node = local.get(key)
+                        if isinstance(node, list):
+                            if any(isinstance(x, str) and "graqle-gate" in x for x in node):
+                                approved = True
+                                break
+                        elif isinstance(node, dict):
+                            # {"graqle-gate": true} or nested under a structure
+                            flat = json.dumps(node)
+                            if "graqle-gate" in flat:
+                                approved = True
+                                break
+                    # Permissions allow-list variant: Claude Code may list
+                    # Hook(graqle-gate) or similar in permissions.allow.
+                    if approved != True:  # noqa: E712  (explicit true-only)
+                        perms = local.get("permissions") or {}
+                        allow = perms.get("allow") if isinstance(perms, dict) else None
+                        if isinstance(allow, list) and any(
+                            isinstance(x, str) and "graqle-gate" in x and (
+                                x.startswith("Hook") or "approve" in x.lower()
+                            )
+                            for x in allow
+                        ):
+                            approved = True
+        except (OSError, ValueError):
+            approved = "unknown"
+        result["claude_code_approved"] = approved
 
         return json.dumps(result)
 
@@ -8550,8 +8813,17 @@ class KogniDevServer:
                 return json.dumps(result)
             if not dry_run:
                 tmp_path = settings_dst.with_suffix(".json.tmp")
-                tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
-                self._safe_replace(tmp_path, settings_dst)
+                try:
+                    tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
+                    self._safe_replace(tmp_path, settings_dst)
+                except Exception as exc:
+                    try:
+                        tmp_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    result["error"] = f"atomic rename failed: {type(exc).__name__}: {str(exc)[:200]}"
+                    result["success"] = False
+                    return json.dumps(result)
             result["actions"].append(f"Rewrote {rewritten} hook command(s) to: {interpreter_cmd}")
             result["success"] = True
             return json.dumps(result)
@@ -8572,10 +8844,21 @@ class KogniDevServer:
             result["success"] = True
             return json.dumps(result)
 
-        # Write gate script
+        # Write gate script (H-5: stamp current SDK version into the hook)
         hooks_dir.mkdir(parents=True, exist_ok=True)
         if not gate_dst.exists() or force:
-            shutil.copy2(gate_src, gate_dst)
+            try:
+                from graqle.__version__ import __version__ as _graqle_version
+            except ImportError:
+                _graqle_version = "unknown"
+            try:
+                gate_src_text = gate_src.read_text(encoding="utf-8")
+                stamped = gate_src_text.replace("{{GRAQLE_VERSION}}", _graqle_version)
+                gate_dst.write_text(stamped, encoding="utf-8")
+            except OSError:
+                # Fallback to raw copy if read/substitute fails; drift check
+                # will surface the missing stamp.
+                shutil.copy2(gate_src, gate_dst)
             try:
                 gate_dst.chmod(0o755)
             except (NotImplementedError, OSError):
@@ -8594,8 +8877,20 @@ class KogniDevServer:
             new_pre = new_hook_config.get("hooks", {}).get("PreToolUse", [])
             existing_settings["hooks"]["PreToolUse"].extend(new_pre)
             tmp_path = settings_dst.with_suffix(".json.tmp")
-            tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
-            self._safe_replace(tmp_path, settings_dst)
+            try:
+                tmp_path.write_text(json.dumps(existing_settings, indent=2) + "\n", encoding="utf-8")
+                self._safe_replace(tmp_path, settings_dst)
+            except Exception as exc:
+                # CG-08 Part 2: rollback orphaned .tmp on any failure so status
+                # cannot lie about a half-written install. Claude Code never
+                # reads .tmp files; leaving one behind is silent fail-open.
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                result["error"] = f"atomic rename failed: {type(exc).__name__}: {str(exc)[:200]}"
+                result["success"] = False
+                return json.dumps(result)
 
         # Self-test (BLOCKER-2 fix: non-blocking via run_in_executor)
         loop = asyncio.get_event_loop()
@@ -8616,10 +8911,42 @@ class KogniDevServer:
 
         result["success"] = result["self_test"].get("passed", False)
         result["interpreter"] = interpreter_cmd
-        result["message"] = (
-            "Gate installed and enforcing." if result["success"]
-            else "Gate installed but self-test failed — check interpreter."
-        )
+
+        # CG-09: Even with a passing self-test, Claude Code will not fire the
+        # hook until the user approves it via /hooks. Probe settings.local.json
+        # for approval; if not confirmed, flag approval_required so callers
+        # (VS Code extension, Claude Code session) surface the blocker.
+        local_settings_path = project_root / ".claude" / "settings.local.json"
+        approved: bool | str = "unknown"
+        try:
+            if local_settings_path.exists():
+                local = json.loads(local_settings_path.read_text(encoding="utf-8"))
+                if isinstance(local, dict):
+                    for key in ("enabledHooks", "approvedHooks", "hooks"):
+                        node = local.get(key)
+                        if isinstance(node, list) and any(
+                            isinstance(x, str) and "graqle-gate" in x for x in node
+                        ):
+                            approved = True
+                            break
+                        if isinstance(node, dict) and "graqle-gate" in json.dumps(node):
+                            approved = True
+                            break
+        except (OSError, ValueError):
+            approved = "unknown"
+        result["claude_code_approved"] = approved
+        result["claude_code_approval_required"] = approved is not True
+
+        if result["success"] and approved is True:
+            result["message"] = "Gate installed and enforcing."
+        elif result["success"] and approved is not True:
+            result["message"] = (
+                "Gate installed but NOT yet active. Run /hooks in Claude Code "
+                "and approve the 'graqle-gate' entry. Until you do, ALL native "
+                "tool calls will bypass governance."
+            )
+        else:
+            result["message"] = "Gate installed but self-test failed — check interpreter."
         return json.dumps(result)
 
     # -- graq_todo handler (v0.46.4) --

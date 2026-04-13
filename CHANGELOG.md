@@ -4,6 +4,88 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.51.2 (2026-04-13)
+
+### Fixed
+
+- **CG-08 (BLOCKER) — `graq_gate_install` silent fail-open on NameError.** The
+  MCP handler's `_safe_replace` helper called `os.replace(...)` but the
+  module never imported `os`. Every MCP gate install raised `NameError`,
+  wrote `.claude/settings.json.tmp`, swallowed the error, and returned. Claude
+  Code never reads `.tmp` files — so the gate was silently dormant while
+  `graq_gate_status` kept reporting `installed:true, enforcing:true`. Fixed in
+  three parts: (1) added the missing `import os`; (2) wrapped both install
+  call sites in try/except that `unlink(missing_ok=True)` any orphaned `.tmp`
+  and return a sanitized failure; (3) tightened both `graq_gate_status` and
+  `graq gate-status` CLI to require `settings.json.exists()` (not `.tmp`) for
+  `installed:true`. Mirror rollback also added to the CLI install command for
+  consistency.
+
+- **CG-09 (BLOCKER) — Claude Code `/hooks` approval gap.** Even with a correct
+  `.claude/settings.json` on disk, Claude Code will not fire the hook until
+  the user runs `/hooks` and approves the `graqle-gate` entry. Most users
+  never do this, so the gate was silently dormant by default. Both
+  `graq_gate_status` and `graq gate-status` now surface a new field
+  `claude_code_approved: true | false | "unknown"`, derived from a heuristic
+  scan of `.claude/settings.local.json`. The install response also gains
+  `claude_code_approval_required: bool` and a prominent user-visible message
+  instructing the user to run `/hooks`. The CLI prints a loud yellow banner
+  after a successful install when approval cannot be confirmed.
+
+### Added
+
+- **H-5 — Gate drift detection.** The shipped hook template now carries a
+  `# graqle-gate version: {{GRAQLE_VERSION}}` marker on line 2. Both the MCP
+  `_handle_gate_install` and the CLI `gate_install_command` substitute the
+  current SDK version at write time. Both status handlers parse the installed
+  hook's marker and return new fields `hook_version: str | null` and
+  `upgrade_available: bool`.
+
+- **H-6 — Doctor drift check.** New `_check_claude_gate_drift()` in
+  `graq doctor` reports `PASS` when hook_version matches SDK, `WARN` when it
+  does not, and `INFO` when no Claude Code gate is installed in the current
+  directory. Wired into `doctor_command` after `_check_storage_tiers`.
+  Distinct from the existing `_check_governance_gate` which covers the
+  quality-gate intelligence system.
+
+- **H-7 — First-run discoverability notice.** New module
+  `graqle/_post_install_notice.py` prints a single one-line suggestion to
+  run `graq gate-install` if Claude Code is detected (`.claude/` present) but
+  the gate is missing. Silent on subsequent runs via a sentinel file at
+  `~/.graqle/.first_run_shown`. Suppressed inside `graq init` /
+  `graq gate-install` / `graq gate-status` / `graq doctor`, and via the
+  `GRAQLE_SKIP_FIRST_RUN_NOTICE` environment variable for CI use.
+
+- **CG-10 — `graq_edit` tiered strategy dispatch.** New `strategy` parameter
+  on `graq_edit` with values `auto | literal | anchored | llm | regenerate |
+  race`. The new `old_content` + `new_content` parameters enable
+  zero-LLM-round-trip literal edits: the handler runs `str.replace` with
+  byte-exact matching, fails fast on 0 or ≥2 matches, and never falls back
+  to LLM when the strategy is explicitly `literal` or `anchored`. The default
+  `auto` runs `literal → anchored → llm`. Response includes `strategy_used`
+  and `strategy_attempts: list[dict]` for debugging. Fixes the hub-file edit
+  hallucination pattern that historically forced governance-gate lifts on
+  hotfix sessions (see CG-GATES-FRICTION-01 precedent).
+
+### Internal
+
+- 17 new regression tests in `tests/test_cli/test_v0512_hotfix.py` covering
+  every deliverable (CG-08 Parts 1/2/3, H-5/H-6/H-7, CG-09, CG-10 tiers).
+
+### VS Code extension contract
+
+Once v0.51.2 is live on PyPI, the Layer 2 gate chip in
+`quantamixsol/graqle-vscode` can:
+
+- Read `claude_code_approved` directly from `graq_gate_status` instead of the
+  40-line `settings.local.json` workaround.
+- Represent a new yellow state: `"Installed but dormant — run /hooks to
+  approve"`.
+- Remove the `vscode.workspace.fs.stat` workaround that re-verified
+  `.claude/settings.json` exists (no longer needed — status tells the truth).
+
+---
+
 ## 0.51.0 (2026-04-12)
 
 ### Added

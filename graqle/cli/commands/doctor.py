@@ -787,6 +787,80 @@ def _check_governance_gate() -> list[CheckResult]:
     return results
 
 
+def _check_claude_gate_drift() -> list[CheckResult]:
+    """Check Claude Code governance gate version against installed SDK.
+
+    H-6 (v0.51.2): catches drift between the shipped gate hook version and the
+    currently-installed SDK version. This is the Claude Code hook at
+    .claude/hooks/graqle-gate.py — distinct from the quality-gate intelligence
+    checked by _check_governance_gate.
+
+    Outcomes:
+        PASS — hook version == SDK version
+        WARN — hook version older than SDK (upgrade available via 'graq gate-install --force')
+        INFO — no Claude Code hook installed in cwd
+    """
+    results: list[CheckResult] = []
+    hook_path = Path(".claude") / "hooks" / "graqle-gate.py"
+    settings_path = Path(".claude") / "settings.json"
+
+    if not hook_path.exists():
+        results.append((
+            INFO, "Claude gate: drift",
+            "no .claude/hooks/graqle-gate.py — run 'graq gate-install' if using Claude Code",
+        ))
+        return results
+
+    # CG-08 Part 3 mirror: a hook file without settings.json is a half-written
+    # install and the gate will not fire. Flag it explicitly.
+    if not settings_path.exists():
+        results.append((
+            WARN, "Claude gate: drift",
+            "hook present but .claude/settings.json missing — run 'graq gate-install --force'",
+        ))
+        return results
+
+    # Parse hook_version from the first 10 lines of the installed hook.
+    hook_version: str | None = None
+    try:
+        for ln in hook_path.read_text(encoding="utf-8").splitlines()[:10]:
+            m = re.match(r"^#\s*graqle-gate version:\s*(\S+)\s*$", ln)
+            if m:
+                hook_version = m.group(1)
+                break
+    except OSError:
+        hook_version = None
+
+    try:
+        from graqle.__version__ import __version__ as sdk_version
+    except ImportError:
+        sdk_version = "unknown"
+
+    if hook_version is None:
+        results.append((
+            WARN, "Claude gate: drift",
+            f"hook has no version marker (pre-v0.51.2) — run 'graq gate-install --force' to stamp {sdk_version}",
+        ))
+    elif hook_version == "{{GRAQLE_VERSION}}":
+        results.append((
+            WARN, "Claude gate: drift",
+            "hook contains unsubstituted {{GRAQLE_VERSION}} placeholder — reinstall",
+        ))
+    elif hook_version == sdk_version:
+        results.append((
+            PASS, "Claude gate: drift",
+            f"hook version {hook_version} matches SDK",
+        ))
+    else:
+        results.append((
+            WARN, "Claude gate: drift",
+            f"hook version {hook_version} != SDK {sdk_version} — "
+            "run 'graq gate-install --force' to upgrade",
+        ))
+
+    return results
+
+
 def _check_reasoning_smoke() -> list[CheckResult]:
     """Run a trivial reasoning smoke test if a backend + graph are available."""
     results: list[CheckResult] = []
@@ -914,6 +988,7 @@ def doctor_command(
     all_results.extend(_check_bedrock_model_id())
     all_results.extend(_check_graph_file())
     all_results.extend(_check_storage_tiers())
+    all_results.extend(_check_claude_gate_drift())
     all_results.extend(_check_mcp_registration())
     all_results.extend(_check_skill_system())
     all_results.extend(_check_neo4j_backend())

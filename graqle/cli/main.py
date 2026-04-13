@@ -76,6 +76,25 @@ def main(
     ),
 ) -> None:
     """GraQle CLI — graphs that think."""
+    # H-7 (v0.51.2): one-shot discoverability notice if Claude Code is detected
+    # but the governance gate is not installed. Silent on subsequent runs.
+    # Never raises, never blocks.
+    #
+    # Suppression rules:
+    # - `graq init` auto-installs the gate itself, so the notice would double
+    #   up — skip it by detecting the subcommand in sys.argv.
+    # - `graq gate-install` / `gate-status` / `doctor` are the fix commands
+    #   themselves; showing the notice before them is just noise.
+    # - Environment variable GRAQLE_SKIP_FIRST_RUN_NOTICE respected always.
+    try:
+        import sys as _sys
+        _suppressed_cmds = {"init", "gate-install", "gate-status", "doctor"}
+        _argv_cmd = _sys.argv[1] if len(_sys.argv) > 1 else ""
+        if _argv_cmd not in _suppressed_cmds:
+            from graqle._post_install_notice import maybe_show_first_run_notice
+            maybe_show_first_run_notice()
+    except Exception:  # pragma: no cover - defensive belt-and-braces
+        pass
 
 
 app.add_typer(scan_app, name="scan")
@@ -1668,11 +1687,24 @@ def gate_install_command(
             )
             return
         tmp_path = settings_dst.with_suffix(".json.tmp")
-        tmp_path.write_text(
-            _json_mod.dumps(existing_settings, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(str(tmp_path), str(settings_dst))
+        try:
+            tmp_path.write_text(
+                _json_mod.dumps(existing_settings, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(str(tmp_path), str(settings_dst))
+        except Exception as exc:
+            # CG-08 Part 2 CLI mirror: rollback orphaned .tmp on failure so
+            # a half-written install cannot silently fail-open.
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            console.print(
+                f"[red]--fix-interpreter failed:[/red] "
+                f"{type(exc).__name__}: {str(exc)[:200]}"
+            )
+            raise typer.Exit(1)
         console.print(
             f"[green]Rewrote {rewritten} hook command(s) to use interpreter: "
             f"[cyan]{interpreter_cmd}[/cyan][/green]"
@@ -1714,11 +1746,22 @@ def gate_install_command(
     if dry_run:
         return
 
-    # ── Write gate script ─────────────────────────────────────────
+    # ── Write gate script (H-5: stamp current SDK version into hook) ──
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     if not gate_dst.exists() or force:
-        shutil.copy2(gate_src, gate_dst)
+        try:
+            from graqle.__version__ import __version__ as _graqle_version
+        except ImportError:
+            _graqle_version = "unknown"
+        try:
+            gate_src_text = gate_src.read_text(encoding="utf-8")
+            stamped = gate_src_text.replace("{{GRAQLE_VERSION}}", _graqle_version)
+            gate_dst.write_text(stamped, encoding="utf-8")
+        except OSError:
+            # Fallback to raw copy if read/substitute fails; drift check
+            # will surface the missing stamp on next `graq doctor` run.
+            shutil.copy2(gate_src, gate_dst)
         try:
             gate_dst.chmod(0o755)
         except NotImplementedError:
@@ -1756,11 +1799,28 @@ def gate_install_command(
 
         # Atomic write via temp file + os.replace
         tmp_path = settings_dst.with_suffix(".json.tmp")
-        tmp_path.write_text(
-            _json_mod.dumps(existing_settings, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(str(tmp_path), str(settings_dst))
+        try:
+            tmp_path.write_text(
+                _json_mod.dumps(existing_settings, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(str(tmp_path), str(settings_dst))
+        except Exception as exc:
+            # CG-08 Part 2 CLI mirror: rollback orphaned .tmp on failure.
+            # Claude Code never reads .tmp; a leftover one is silent fail-open.
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            console.print(
+                f"[red]Gate install failed during settings.json atomic write:[/red] "
+                f"{type(exc).__name__}: {str(exc)[:200]}"
+            )
+            console.print(
+                "[yellow]The hook file may have been written but "
+                "settings.json was rolled back. Re-run 'graq gate-install --force'.[/yellow]"
+            )
+            raise typer.Exit(1)
 
     # ── Gate self-test: synthesize a known-blocked Bash payload ─────
     # Verifies the installed hook actually fail-closes under the probed
@@ -1805,6 +1865,28 @@ def gate_install_command(
         )
         raise typer.Exit(1)
 
+    # CG-09: Check whether Claude Code has already approved this hook. If not,
+    # the gate is installed but DORMANT — every native tool call will bypass it
+    # until the user runs /hooks in Claude Code and approves.
+    _local_path = root / ".claude" / "settings.local.json"
+    _approved: bool | str = "unknown"
+    try:
+        if _local_path.exists():
+            _local = _json_mod.loads(_local_path.read_text(encoding="utf-8"))
+            if isinstance(_local, dict):
+                for _key in ("enabledHooks", "approvedHooks", "hooks"):
+                    _node = _local.get(_key)
+                    if isinstance(_node, list) and any(
+                        isinstance(x, str) and "graqle-gate" in x for x in _node
+                    ):
+                        _approved = True
+                        break
+                    if isinstance(_node, dict) and "graqle-gate" in _json_mod.dumps(_node):
+                        _approved = True
+                        break
+    except (OSError, ValueError):
+        _approved = "unknown"
+
     console.print(
         "\n[bold green]Governance gate installed.[/bold green] "
         "Claude Code native tools are now routed through GraQle.\n"
@@ -1812,6 +1894,15 @@ def gate_install_command(
         "[dim]Run 'graq gate-install --dry-run' to verify. "
         "Remove .claude/hooks/graqle-gate.py to disable.[/dim]"
     )
+    if _approved is not True:
+        console.print(
+            "\n[bold yellow]IMPORTANT: Gate is NOT yet active in Claude Code.[/bold yellow]\n"
+            "[yellow]Run [bold]/hooks[/bold] inside Claude Code and approve the "
+            "[bold]graqle-gate[/bold] entry.\n"
+            "Until you do, ALL native tool calls (Read/Write/Edit/Bash/...) "
+            "will bypass governance.[/yellow]\n"
+            "[dim]This is a Claude Code requirement, not a GraQle bug (see CG-09).[/dim]"
+        )
 
 
 @app.command("gate-status")
@@ -1847,11 +1938,26 @@ def gate_status_command(
         "hook_path": str(gate_path), "settings_path": str(settings_path),
     }
 
+    # CG-08 Part 3: installed=True requires BOTH hook file AND real
+    # settings.json (not .tmp). Claude Code never reads .tmp, so a hook +
+    # orphaned .tmp is NOT installed — it's a silent fail-open.
     if not gate_path.exists():
         if json_output:
             console.print(_json_mod.dumps(result, indent=2))
         else:
             console.print("[red]Gate NOT installed.[/red] Run 'graq gate-install' first.")
+        raise typer.Exit(1)
+    if not (settings_path.exists() and settings_path.suffix == ".json"):
+        # Hook present but settings.json missing (or only .tmp exists):
+        # half-written install — report installed=False explicitly.
+        if json_output:
+            console.print(_json_mod.dumps(result, indent=2))
+        else:
+            console.print(
+                "[red]Gate NOT installed.[/red] Hook file present but "
+                ".claude/settings.json is missing. This is a half-written install "
+                "(possibly orphaned .tmp). Run 'graq gate-install --force' to recover."
+            )
         raise typer.Exit(1)
     result["installed"] = True
 
@@ -1905,6 +2011,62 @@ def gate_status_command(
         result["installed"] and result["interpreter_valid"]
         and result["self_test"].get("passed", False)
     )
+
+    # H-5: parse hook_version from the installed hook file and compute
+    # upgrade_available vs. current SDK __version__.
+    import re as _re
+    _hook_version = None
+    try:
+        if gate_path.exists():
+            for ln in gate_path.read_text(encoding="utf-8").splitlines()[:10]:
+                m = _re.match(r"^#\s*graqle-gate version:\s*(\S+)\s*$", ln)
+                if m:
+                    _hook_version = m.group(1)
+                    break
+    except OSError:
+        _hook_version = None
+    try:
+        from graqle.__version__ import __version__ as _sdk_version
+    except ImportError:
+        _sdk_version = "unknown"
+    result["hook_version"] = _hook_version
+    result["upgrade_available"] = bool(
+        _hook_version and _sdk_version != "unknown"
+        and _hook_version != _sdk_version
+        and _hook_version != "{{GRAQLE_VERSION}}"
+    )
+
+    # CG-09: detect Claude Code /hooks approval state via settings.local.json.
+    # Unknown if the file is absent or no recognized schema matches. Extensions
+    # should treat anything != True as dormant (yellow "needs approval" state).
+    _local_path = root / ".claude" / "settings.local.json"
+    _approved: bool | str = "unknown"
+    try:
+        if _local_path.exists():
+            _local = _json_mod.loads(_local_path.read_text(encoding="utf-8"))
+            if isinstance(_local, dict):
+                for _key in ("enabledHooks", "approvedHooks", "hooks"):
+                    _node = _local.get(_key)
+                    if isinstance(_node, list):
+                        if any(isinstance(x, str) and "graqle-gate" in x for x in _node):
+                            _approved = True
+                            break
+                    elif isinstance(_node, dict) and "graqle-gate" in _json_mod.dumps(_node):
+                        _approved = True
+                        break
+                if _approved != True:  # noqa: E712
+                    _perms = _local.get("permissions") or {}
+                    _allow = _perms.get("allow") if isinstance(_perms, dict) else None
+                    if isinstance(_allow, list) and any(
+                        isinstance(x, str) and "graqle-gate" in x and (
+                            x.startswith("Hook") or "approve" in x.lower()
+                        )
+                        for x in _allow
+                    ):
+                        _approved = True
+    except (OSError, ValueError):
+        _approved = "unknown"
+    result["claude_code_approved"] = _approved
 
     if json_output:
         console.print(_json_mod.dumps(result, indent=2))
