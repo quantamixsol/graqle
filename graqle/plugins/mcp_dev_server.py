@@ -3552,6 +3552,13 @@ class KogniDevServer:
                 "backend_status": result.backend_status,
                 "backend_error": result.backend_error,
             }
+            # v0.51.3 — surface ambiguous_options when the arbiter has
+            # detected a near-tie (VS Code extension Ambiguity Pause).
+            # Field is OPTIONAL and omitted entirely when not present,
+            # per the additive-schema contract in the extension handoff.
+            _ambiguous = (result.metadata or {}).get("ambiguous_options")
+            if _ambiguous:
+                result_dict["ambiguous_options"] = _ambiguous
             duration_ms = (_time.monotonic() - t0) * 1000
 
             # Governance audit
@@ -4026,12 +4033,150 @@ class KogniDevServer:
     async def _handle_learn(self, args: dict[str, Any]) -> str:
         mode = args.get("mode", "outcome")
 
+        # v0.51.3 — structured JSON action routing (VS Code extension
+        # Ambiguity Pause / pause_pick telemetry). When the caller passes a
+        # JSON-string action that parses to an object with a recognized
+        # 'kind' (e.g., "pause_pick"), route to the dedicated aggregator
+        # before falling through to the legacy outcome/entity/knowledge
+        # modes. Non-JSON action strings keep their existing behavior.
+        _raw_action = args.get("action", "")
+        if isinstance(_raw_action, str) and _raw_action.lstrip().startswith("{"):
+            try:
+                _parsed = json.loads(_raw_action)
+            except (ValueError, TypeError):
+                _parsed = None
+            if isinstance(_parsed, dict) and _parsed.get("kind") == "pause_pick":
+                return await self._handle_pause_pick(_parsed)
+
         if mode == "entity":
             return await self._handle_learn_entity(args)
         elif mode == "knowledge":
             return await self._handle_learn_knowledge(args)
         else:
             return await self._handle_learn_outcome(args)
+
+    async def _handle_pause_pick(self, payload: dict[str, Any]) -> str:
+        """v0.51.3 — aggregate a VS Code extension AmbiguityPause user pick.
+
+        Expected payload (from extension handoff contract):
+            {
+              "kind": "pause_pick",
+              "feature": "AmbiguityPause",
+              "stage": "reason",
+              "task_hash": "<sha256(task)[:16]>",
+              "pause_id": "pause_<ts>_<rand>",
+              "picked_index": 0,
+              "picked_label": "...",
+              "candidate_labels": [...],
+              "scores": [...],
+              "created_at": <ms>,
+              "timestamp": <ms>
+            }
+
+        Writes an `ambiguity_pick` entity node into the KG, bucketed by
+        task_hash. Idempotent on pause_id: a duplicate pause_id is a no-op
+        so the extension can safely retry. Respects the 90-day retention
+        policy via a `created_at` timestamp the daily prune task can use.
+        """
+        pause_id = payload.get("pause_id") or ""
+        task_hash = payload.get("task_hash") or ""
+        picked_label = payload.get("picked_label", "")
+        picked_index = payload.get("picked_index")
+        candidate_labels = payload.get("candidate_labels") or []
+        scores = payload.get("scores") or []
+
+        if not pause_id:
+            return json.dumps({
+                "error": "pause_pick requires a non-empty 'pause_id'.",
+            })
+
+        graph = self._load_graph()
+        if graph is None:
+            # No graph available — still acknowledge so the extension
+            # doesn't retry in a loop.
+            return json.dumps({
+                "recorded": False,
+                "kind": "pause_pick",
+                "reason": "no_graph_loaded",
+                "pause_id": pause_id,
+            })
+
+        # Idempotency: if a node with this pause_id already exists, no-op.
+        existing = self._find_node(pause_id)
+        if existing is not None:
+            return json.dumps({
+                "recorded": True,
+                "kind": "pause_pick",
+                "pause_id": pause_id,
+                "task_hash": task_hash,
+                "dedup": True,
+            })
+
+        from graqle.core.edge import CogniEdge
+        from graqle.core.node import CogniNode
+
+        node = CogniNode(
+            id=pause_id,
+            label=f"pause_pick:{(picked_label or 'n/a')[:40]}",
+            entity_type="ambiguity_pick",
+            description=(picked_label or "")[:200],
+            properties={
+                "task_hash": task_hash,
+                "picked_index": picked_index,
+                "picked_label": picked_label,
+                "candidate_labels": candidate_labels,
+                "scores": scores,
+                "feature": payload.get("feature", "AmbiguityPause"),
+                "stage": payload.get("stage", "reason"),
+                "created_at": payload.get("created_at"),
+                "timestamp": payload.get("timestamp"),
+            },
+        )
+        graph.add_node(node)
+
+        # Bucket by task_hash so the recommender can group historical picks
+        # of the same question shape. A BUCKET node is an aggregation anchor.
+        if task_hash:
+            bucket_id = f"ambiguity_bucket:{task_hash}"
+            bucket = self._find_node(bucket_id)
+            if bucket is None:
+                bucket = CogniNode(
+                    id=bucket_id,
+                    label=f"ambiguity bucket {task_hash[:8]}",
+                    entity_type="ambiguity_bucket",
+                    description=(
+                        "Aggregation bucket for AmbiguityPause picks sharing "
+                        "this task_hash. Used to train the recommender hint "
+                        "the extension renders."
+                    ),
+                    properties={
+                        "task_hash": task_hash,
+                        "pick_count": 1,
+                    },
+                )
+                graph.add_node(bucket)
+            else:
+                bucket.properties["pick_count"] = int(
+                    bucket.properties.get("pick_count", 0) or 0
+                ) + 1
+            edge = CogniEdge(
+                id=f"e_{bucket_id}_{pause_id}",
+                source_id=bucket_id,
+                target_id=pause_id,
+                relationship="CONTAINS_PICK",
+                weight=1.0,
+            )
+            graph.add_edge(edge)
+
+        self._save_graph(graph)
+
+        return json.dumps({
+            "recorded": True,
+            "kind": "pause_pick",
+            "pause_id": pause_id,
+            "task_hash": task_hash,
+            "dedup": False,
+        })
 
     async def _handle_learn_outcome(self, args: dict[str, Any]) -> str:
         """Original learn mode: record dev outcomes, adjust edge weights."""
@@ -8787,10 +8932,24 @@ class KogniDevServer:
                     "protocolVersion": "2024-11-05",
                     "capabilities": {
                         "tools": {"listChanged": False},
+                        # v0.51.3 — per-tool capability flags so clients
+                        # (e.g., the VS Code extension) can feature-detect
+                        # new response fields without version sniffing.
+                        "graq_reason": {
+                            "ambiguous_options": True,
+                        },
                     },
                     "serverInfo": {
                         "name": "graq",
                         "version": _version,
+                        # v0.51.3 — mirror per-tool capabilities inside
+                        # serverInfo for consumers that inspect server_info
+                        # instead of the top-level capabilities object.
+                        "capabilities": {
+                            "graq_reason": {
+                                "ambiguous_options": True,
+                            },
+                        },
                     },
                 },
             }

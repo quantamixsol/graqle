@@ -387,6 +387,15 @@ class Orchestrator:
                 "synthesis_stop_reason", ""
             )
 
+        # v0.51.3 — ambiguous_options (VS Code extension Ambiguity Pause).
+        # The Aggregator attaches a 'candidates' list to synthesis_trunc_info
+        # when >=2 near-tied options survive its trigger check. We surface
+        # those as ambiguous_options in the ReasoningResult metadata so the
+        # MCP layer can emit them to callers. Omitted entirely when absent.
+        _ambiguous = synthesis_trunc_info.get("candidates")
+        if _ambiguous:
+            metadata["ambiguous_options"] = _ambiguous
+
         result = ReasoningResult(
             query=query,
             answer=answer,
