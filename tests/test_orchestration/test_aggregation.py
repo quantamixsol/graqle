@@ -98,10 +98,12 @@ async def test_synthesis_clean_no_continuation() -> None:
     }
     text, trunc_info = await agg.aggregate("the query", messages, backend=backend)
     assert text == "clean synthesized answer"
-    assert trunc_info == {
-        "synthesis_truncated": False,
-        "synthesis_stop_reason": "",
-    }
+    # v0.51.3: trunc_info gained an optional 'candidates' key for the
+    # VS Code ambiguity-pause feature — assert the load-bearing truncation
+    # fields, not strict dict equality, so future additive keys don't break
+    # this test.
+    assert trunc_info.get("synthesis_truncated") is False
+    assert trunc_info.get("synthesis_stop_reason") == ""
     assert len(backend.calls) == 1
 
 

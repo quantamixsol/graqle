@@ -4,6 +4,57 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.51.3 (2026-04-14)
+
+### Added
+
+- **`ambiguous_options` field on `graq_reason` responses.** When the arbiter
+  surfaces ≥2 near-tied candidate answers (top-2 score gap ≤ 0.10, both ≥ 0.50,
+  at most 5 options with unique labels) the response now includes an
+  `ambiguous_options` array. Each option carries `option_id`, `label` (1-6
+  words, ≤60 chars), `rationale` (one sentence, ≤200 chars), `confidence`
+  (0-1), and optional `evidence_refs` (KG node IDs + lesson IDs). The field
+  is **additive and optional** — existing consumers see no change on
+  non-ambiguous queries. Unlocks the VS Code extension Ambiguity Pause UX
+  (graqle-vscode PR #7 BLOCKER-1). Trigger logic lives in
+  `Aggregator._compute_ambiguous_options` and threads through
+  `synthesis_trunc_info["candidates"]` → `ReasoningResult.metadata` →
+  `_handle_reason` response.
+- **Capability flag on MCP `initialize` response.** Both top-level
+  `capabilities.graq_reason.ambiguous_options` AND
+  `serverInfo.capabilities.graq_reason.ambiguous_options` are set to
+  `true`. Lets the VS Code extension feature-detect and auto-enable the
+  Ambiguity Pause UX on SDK upgrade without version sniffing.
+- **`graq_learn` routes JSON-string actions.** When the `action` argument
+  is a JSON object with `kind: "pause_pick"`, the handler routes to
+  `_handle_pause_pick` which writes an `ambiguity_pick` entity node to
+  the KG, bucketed by `task_hash` under a single `ambiguity_bucket:<hash>`
+  anchor node (increments `pick_count`). Idempotent on `pause_id` so the
+  extension can safely retry. Non-JSON action strings keep their legacy
+  outcome-mode behavior unchanged.
+
+### Internal
+
+- 14 new regression tests in `tests/test_plugins/test_v0513_ambiguous_options.py`
+  covering all 10 acceptance criteria from the extension team handoff
+  (Fixtures A/B/C/D + length cap + aggregate integration + JSON routing
+  + idempotency + bucket aggregation + capability flag + tools-list
+  invariant + additive schema + non-JSON backward-compat).
+- Aggregator change is purely additive: the existing `(answer, trunc_info)`
+  tuple signature is preserved (138 downstream consumers unaffected). The
+  new `candidates` key is attached to the existing `trunc_info` dict only
+  when the trigger fires.
+- No new MCP tools added (AC-10). Schema extension only.
+
+### VS Code extension contract
+
+Extension can drop its heuristic `A)/1.` text-parse fallback and remove
+the `graqle.experimental.ambiguityPause` opt-in gate in v0.4.5. Detection
+path: `capabilities.graq_reason.ambiguous_options === true` OR
+`semver.gte(serverInfo.version, '0.51.3')`.
+
+---
+
 ## 0.51.0 (2026-04-12)
 
 ### Added

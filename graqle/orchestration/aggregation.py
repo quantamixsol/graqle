@@ -123,7 +123,13 @@ class Aggregator:
         backend: ModelBackend | None = None,
         governance_context: str = "",
     ) -> tuple[str, dict]:
-        """Inner aggregation logic. Returns (answer, truncation_info)."""
+        """Inner aggregation logic. Returns (answer, truncation_info).
+
+        v0.51.3: truncation_info may also carry an optional 'candidates' key
+        containing top-N near-tied agent outputs, used by downstream layers
+        to emit the ambiguous_options field on graq_reason responses
+        (see VS Code extension Ambiguity Pause UX).
+        """
         _no_trunc = {"synthesis_truncated": False, "synthesis_stop_reason": ""}
         effective_backend = (
             self.synthesis_backend or backend or self.backend
@@ -131,6 +137,10 @@ class Aggregator:
 
         # Filter messages
         filtered = self._filter_messages(messages)
+
+        # v0.51.3 — compute ambiguity candidates BEFORE dispatching to a
+        # strategy so they're attached regardless of which synthesis path runs.
+        candidates = self._compute_ambiguous_options(filtered)
 
         if not filtered:
             # Fall back to best single message if all filtered
@@ -140,13 +150,87 @@ class Aggregator:
             return "No reasoning produced.", _no_trunc
 
         if self.strategy == "weighted_synthesis" and effective_backend:
-            return await self._weighted_synthesis(
+            answer, trunc_info = await self._weighted_synthesis(
                 query, filtered, effective_backend, governance_context
             )
         elif self.strategy == "majority_vote":
-            return self._majority_vote(filtered), _no_trunc
+            answer, trunc_info = self._majority_vote(filtered), dict(_no_trunc)
         else:
-            return self._confidence_weighted(filtered), _no_trunc
+            answer, trunc_info = self._confidence_weighted(filtered), dict(_no_trunc)
+
+        # v0.51.3 — attach candidates (empty list when trigger doesn't fire).
+        # Downstream orchestrator reads trunc_info["candidates"]; absent or
+        # empty means no ambiguous_options will be emitted.
+        if candidates:
+            trunc_info["candidates"] = candidates
+        return answer, trunc_info
+
+    def _compute_ambiguous_options(
+        self, filtered: dict[str, Message]
+    ) -> list[dict]:
+        """v0.51.3 — compute ambiguity candidates per VS Code extension contract.
+
+        Emits a list of 2-5 near-tied candidate options only when ALL hold:
+          - >= 2 filtered messages
+          - top1.confidence - top2.confidence <= 0.10 (near-tie)
+          - top1.confidence >= 0.50 (noise floor)
+          - >= 2 messages have confidence >= 0.50
+
+        Each option dict carries option_id, label (1-6 words, <=60 chars),
+        rationale (one sentence, <=200 chars), confidence (0.0-1.0), and
+        evidence_refs (list of source_node_ids + msg metadata refs).
+
+        Returns [] when ambiguity is not detected — downstream callers should
+        omit the ambiguous_options field entirely (per handoff contract).
+        """
+        if len(filtered) < 2:
+            return []
+        sorted_msgs = sorted(
+            filtered.values(), key=lambda m: m.confidence, reverse=True
+        )
+        top_n = sorted_msgs[:5]
+        if top_n[0].confidence - top_n[1].confidence > 0.10:
+            return []
+        if top_n[0].confidence < 0.50:
+            return []
+        # Need at least 2 options >= 0.50 to avoid noise triggering a pause
+        if sum(1 for m in top_n if m.confidence >= 0.50) < 2:
+            return []
+
+        seen_labels: set[str] = set()
+        options: list[dict] = []
+        for i, msg in enumerate(top_n):
+            content = (msg.content or "").strip()
+            # Rationale: first sentence, trimmed to 200 chars.
+            first_sentence = content.split(". ", 1)[0].split("\n", 1)[0].strip()
+            if not first_sentence.endswith("."):
+                first_sentence = first_sentence.rstrip(".") + "."
+            rationale = first_sentence[:200]
+            # Label: first 6 words of the content, capped at 60 chars.
+            words = content.replace("\n", " ").split()
+            label_raw = " ".join(words[:6]).strip().rstrip(",.;:") or f"Option {i + 1}"
+            label = label_raw[:60]
+            # Enforce label uniqueness — append node id suffix if collision.
+            if label in seen_labels:
+                label = (label[:54] + " [" + str(i + 1) + "]")[:60]
+            seen_labels.add(label)
+            evidence_refs: list[str] = []
+            if getattr(msg, "source_node_id", None):
+                evidence_refs.append(f"node:{msg.source_node_id}")
+            # Message.metadata may carry refs from the reasoning step.
+            msg_meta = getattr(msg, "metadata", None) or {}
+            for ref in msg_meta.get("evidence_refs", []) or []:
+                if isinstance(ref, str):
+                    evidence_refs.append(ref)
+            options.append({
+                "option_id": f"opt_{i + 1}",
+                "label": label,
+                "rationale": rationale,
+                "confidence": round(float(msg.confidence), 4),
+                "evidence_refs": evidence_refs,
+            })
+        # Contract guarantees 2 <= len <= 5
+        return options if 2 <= len(options) <= 5 else []
 
     def _filter_messages(
         self, messages: dict[str, Message]
