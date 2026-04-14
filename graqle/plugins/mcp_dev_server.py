@@ -4156,6 +4156,11 @@ class KogniDevServer:
                 )
                 graph.add_node(bucket)
             else:
+                # ASYNCIO-ATOMIC: read-modify-write with NO await between
+                # read and write is atomic under CPython's single-threaded
+                # asyncio event loop. Do NOT insert `await` anywhere inside
+                # this read-modify-write sequence, or concurrent pause_pick
+                # calls for the same task_hash could lose pick_count updates.
                 bucket.properties["pick_count"] = int(
                     bucket.properties.get("pick_count", 0) or 0
                 ) + 1
