@@ -19,6 +19,12 @@ try:
     import graqle.learning.activation_memory as _stub_mod
     if not any(hasattr(_stub_mod, a) for a in dir(_stub_mod) if not a.startswith("_")):
         raise ImportError("stub only")
+    # v0.51.4: the ``ActivationMemoryConfig`` symbol is the signal that the
+    # full (IP-protected) implementation has shipped. The lightweight stub
+    # added in v0.51.4 only exports ``ActivationMemory`` to unblock imports
+    # in graqle.core.graph and graqle.learning.ontology_refiner.
+    if not hasattr(_stub_mod, "ActivationMemoryConfig"):
+        raise ImportError("stub only (ActivationMemoryConfig missing)")
 except (ImportError, AttributeError):
     pytest.skip(
         "IP-protected module not yet implemented in this build - skipping.",

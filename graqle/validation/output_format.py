@@ -90,8 +90,16 @@ def validate_generate_output(
 
 
 def _check_balanced_delimiters(content: str, result: FormatValidation) -> None:
-    """Stack-based delimiter matching, ignoring string literals and comments."""
+    """Stack-based delimiter matching, ignoring string literals and comments.
+
+    v0.51.4 (BUG-4b): also ignore JSDoc-style lines (``* @param {T}``) that
+    appear in diff patches without the surrounding ``/** ... */`` block.
+    Diff hunks show only changed lines, so block-comment stripping via a
+    ``/\\*...\\*/`` regex misses the mid-comment continuation lines and the
+    ``{Type}`` tokens inside them were previously counted as code braces.
+    """
     cleaned = _strip_strings_and_comments(content)
+    cleaned = _strip_jsdoc_fragments(cleaned)
 
     pairs = {"{": "}", "[": "]", "(": ")"}
     closing_to_opening = {v: k for k, v in pairs.items()}
@@ -127,6 +135,29 @@ def _check_balanced_delimiters(content: str, result: FormatValidation) -> None:
         ))
         result.valid = False
         result.truncation_suspected = True
+
+
+def _strip_jsdoc_fragments(content: str) -> str:
+    """Replace braces on JSDoc-comment lines with spaces.
+
+    Handles two cases the main string/comment stripper misses:
+
+    1. Diff fragments that contain a mid-block JSDoc continuation line
+       (starts with ``*`` or ``+ *`` / ``- *``) without the surrounding
+       ``/** ... */``. Common in unified-diff patches.
+    2. Any line whose only braces are JSDoc tags like ``{@link X}``,
+       ``{@returns}``, or ``{Type}`` following ``@param``/``@return`` etc.
+    """
+    out: list[str] = []
+    jsdoc_continuation = re.compile(r"^\s*[+\-]?\s*\*(?!/)")
+    jsdoc_tag = re.compile(r"@(?:param|return[s]?|type|link|see|throws|example)\b")
+
+    for line in content.splitlines(keepends=True):
+        is_jsdoc_line = bool(jsdoc_continuation.match(line)) or bool(jsdoc_tag.search(line))
+        if is_jsdoc_line and ("{" in line or "}" in line):
+            line = line.replace("{", " ").replace("}", " ")
+        out.append(line)
+    return "".join(out)
 
 
 def _strip_strings_and_comments(content: str) -> str:

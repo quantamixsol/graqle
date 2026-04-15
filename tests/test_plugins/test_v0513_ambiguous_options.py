@@ -397,6 +397,8 @@ async def test_non_json_action_keeps_legacy_behavior(tmp_path) -> None:
     parsed = json.loads(raw)
     # Legacy validator REJECTS when outcome/components are missing.
     # That rejection is the proof we fell through to legacy path.
-    assert parsed.get("error") == (
+    # v0.51.4 (BUG-3): the error now starts with the legacy message and
+    # appends a "Missing: [...]" breakdown; preserve the prefix assertion.
+    assert parsed.get("error", "").startswith(
         "Outcome mode requires 'action', 'outcome', and 'components'."
     ), f"non-JSON action should hit legacy validator: {parsed}"
