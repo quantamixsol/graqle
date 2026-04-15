@@ -237,7 +237,7 @@ async def test_pause_pick_aggregates_into_kg_bucket(tmp_path) -> None:
     srv._kg_load_state = "LOADED"
     srv._graph_file = str(tmp_path / "kg.json")
     # Disable save-to-disk in tests (mock the graph save path)
-    srv._save_graph = MagicMock()
+    srv._save_graph = MagicMock(return_value=(True, 0))
 
     task_hash = "same_hash_1234"
     for i in range(3):
@@ -280,7 +280,7 @@ async def test_pause_pick_is_idempotent_on_pause_id(tmp_path) -> None:
     srv._graph = g
     srv._kg_load_state = "LOADED"
     srv._graph_file = str(tmp_path / "kg.json")
-    srv._save_graph = MagicMock()
+    srv._save_graph = MagicMock(return_value=(True, 0))
 
     payload = {
         "kind": "pause_pick",
