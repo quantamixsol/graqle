@@ -1454,6 +1454,17 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "LLM rounds for diff generation if description is given (default 2)",
                     "default": 2,
                 },
+                "max_gap": {
+                    "type": "integer",
+                    "description": (
+                        "v0.51.4 (BUG-4): max allowed gap in lines between "
+                        "consecutive matched context/delete lines when applying "
+                        "the diff. 0 (default) = auto heuristic max(200, n/3). "
+                        "Pass a larger value (e.g. 500) for large files where "
+                        "common tokens appear in multiple hunks."
+                    ),
+                    "default": 0,
+                },
                 "files": {
                     "type": "array",
                     "items": {
@@ -4215,9 +4226,56 @@ class KogniDevServer:
         components = args.get("components", [])
         lesson_text = args.get("lesson")
 
-        if not action or not outcome or not components:
+        # v0.51.4 (BUG-3): tolerant coercion of `components`. MCP clients
+        # sometimes send a single string, a comma-separated list, or a JSON
+        # array that was re-stringified during transport. Normalise before
+        # validating so valid calls aren't rejected by a shape mismatch.
+        if isinstance(components, str):
+            components = [c.strip() for c in components.split(",") if c.strip()]
+        elif components is None:
+            components = []
+        elif not isinstance(components, list):
+            try:
+                components = list(components)
+            except TypeError:
+                components = []
+
+        action = (action or "").strip() if isinstance(action, str) else action
+        outcome = (outcome or "").strip() if isinstance(outcome, str) else outcome
+
+        missing: list[str] = []
+        if not action:
+            missing.append("action")
+        if not outcome:
+            missing.append("outcome")
+        if not components:
+            missing.append("components")
+
+        if missing:
+            logger.debug(
+                "graq_learn outcome validation failed. missing=%s received: "
+                "mode=%r action=%r outcome=%r components_type=%s components=%r "
+                "lesson_present=%s",
+                missing,
+                args.get("mode"),
+                action,
+                outcome,
+                type(args.get("components")).__name__,
+                args.get("components"),
+                bool(lesson_text),
+            )
             return json.dumps({
-                "error": "Outcome mode requires 'action', 'outcome', and 'components'."
+                "error": (
+                    "Outcome mode requires 'action', 'outcome', and "
+                    f"'components'. Missing: {missing}."
+                ),
+                "missing": missing,
+                "received": {
+                    "action_present": bool(action),
+                    "outcome_present": bool(outcome),
+                    "components_type": type(args.get("components")).__name__,
+                    "components_len": len(components) if isinstance(components, list) else None,
+                },
             })
 
         graph = self._load_graph()
@@ -5744,11 +5802,15 @@ class KogniDevServer:
 
         # Step 4: Apply diff
         from pathlib import Path as _Path
+        # v0.51.4 (BUG-4): callers may pass max_gap to relax gap-limit on
+        # large files where common tokens appear in multiple hunks.
+        _max_gap = int(args.get("max_gap", 0) or 0)
         apply_result = apply_diff(
             _Path(file_path),
             unified_diff,
             dry_run=dry_run,
             skip_syntax_check=bool(args.get("skip_syntax_check", False)),
+            max_gap=_max_gap,
         )
 
         # AL-11: When description-generated diff fails due to context mismatch,
@@ -5776,6 +5838,7 @@ class KogniDevServer:
                             _Path(file_path), _retry_diff,
                             dry_run=dry_run,
                             skip_syntax_check=bool(args.get("skip_syntax_check", False)),
+                            max_gap=_max_gap,
                         )
                         if apply_result.success:
                             logger.info("AL-11: retry succeeded for %s", file_path)
@@ -8378,11 +8441,81 @@ class KogniDevServer:
         return None
 
     def _save_graph(self, graph: Any) -> None:
-        """Persist graph back to its source JSON file. Phase 2: After every local write, schedule a background S3 push
+        """Persist graph back to its source JSON file.
+
+        v0.51.4 (P0 data-loss hardening): before overwriting the graph file,
+        two tripwires run so a stub or partially-loaded graph cannot silently
+        destroy the full KG:
+
+        1. Rotating timestamped backup written to
+           ``.graqle/kg-backups/graqle_<ts>.json`` FIRST (last 10 retained).
+        2. SHRINK GUARD — if the incoming graph has <10% of the on-disk node
+           count (and the on-disk file has ≥100 nodes), the save is refused
+           and logged at ERROR. Override with ``GRAQLE_ALLOW_SHRINK=1``.
+
+        Phase 2: after every local write, schedule a background S3 push
         so learned nodes are never lost on restart or machine change.
         """
         if self._graph_file is None:
             return
+
+        from pathlib import Path as _Path
+        graph_path = _Path(self._graph_file)
+
+        # --- Tripwire 1: compute incoming node count ---
+        try:
+            incoming_nodes = len(getattr(graph, "nodes", []) or [])
+        except Exception:
+            incoming_nodes = -1
+
+        # --- Tripwire 2: shrink guard (compare to on-disk) ---
+        # v0.51.4: ANY shrink >1% REFUSES the save. Growth and tiny churn
+        # (<=1% shrink, absorbing normal node-replacement patterns) are
+        # allowed. Override is intentionally the same env var but now
+        # requires explicit opt-in for each session.
+        try:
+            if graph_path.exists() and incoming_nodes >= 0:
+                existing_raw = json.loads(graph_path.read_text(encoding="utf-8"))
+                existing_nodes = len(existing_raw.get("nodes", []))
+                allow_shrink = os.environ.get("GRAQLE_ALLOW_SHRINK", "") == "1"
+                if existing_nodes >= 50 and not allow_shrink:
+                    # Allow tiny churn: lose at most max(1, 1% of existing).
+                    max_allowed_loss = max(1, existing_nodes // 100)
+                    if incoming_nodes < existing_nodes - max_allowed_loss:
+                        pct_loss = (existing_nodes - incoming_nodes) * 100.0 / existing_nodes
+                        logger.error(
+                            "KG save REFUSED (shrink guard): incoming=%d nodes, "
+                            "on-disk=%d nodes (loss=%.1f%%, max allowed=1%%). "
+                            "Set GRAQLE_ALLOW_SHRINK=1 to override for this session. "
+                            "File preserved: %s",
+                            incoming_nodes, existing_nodes, pct_loss, graph_path,
+                        )
+                        return
+        except Exception as _guard_exc:
+            logger.warning("KG shrink guard check skipped: %s", _guard_exc)
+
+        # --- Rotating backup BEFORE overwrite ---
+        try:
+            if graph_path.exists():
+                backup_dir = graph_path.parent / ".graqle" / "kg-backups"
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+                backup_path = backup_dir / f"{graph_path.stem}_{ts}.json"
+                backup_path.write_bytes(graph_path.read_bytes())
+                # Retain last 10 backups only
+                backups = sorted(
+                    backup_dir.glob(f"{graph_path.stem}_*.json"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                for old in backups[10:]:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+                logger.debug("KG pre-save backup: %s", backup_path)
+        except Exception as _bk_exc:
+            logger.warning("KG pre-save backup failed (continuing): %s", _bk_exc)
 
         try:
             import networkx as nx
@@ -8391,7 +8524,7 @@ class KogniDevServer:
             data = nx.node_link_data(G, edges="links")
             from graqle.core.graph import _write_with_lock
             _write_with_lock(str(self._graph_file), json.dumps(data, indent=2, default=str))
-            logger.info("Graph saved to %s", self._graph_file)
+            logger.info("Graph saved to %s (nodes=%d)", self._graph_file, incoming_nodes)
         except Exception as exc:
             logger.error("Failed to save graph: %s", exc)
             return
@@ -8399,7 +8532,6 @@ class KogniDevServer:
         # Phase 2: background push to S3 (non-blocking, debounced)
         try:
             from graqle.core.kg_sync import schedule_push, _detect_project_name
-            from pathlib import Path as _Path
             _proj = _detect_project_name(_Path(self._graph_file).parent)
             schedule_push(self._graph_file, _proj)
         except Exception as _push_exc:
@@ -9257,6 +9389,22 @@ class KogniDevServer:
             # v0.46.8: Start background KG loading — do NOT block the handshake.
             # The 534 MB graph loads in a daemon thread; tool calls wait if needed.
             self._start_kg_load_background()
+            # v0.51.4 (BUG-1): expose sdk_caps + graph_status in the initialize
+            # response. Lets clients feature-detect without a separate probe
+            # that can race the handshake and tear down the transport.
+            _graph_status = getattr(self, "_kg_load_state", "IDLE").lower()
+            if _graph_status == "loaded":
+                _graph_status = "ready"
+            elif _graph_status == "failed":
+                _graph_status = "error"
+            elif _graph_status in ("idle", "loading"):
+                _graph_status = "loading"
+            _sdk_caps = {
+                "ambiguity_pause": True,
+                "graq_reason_ambiguous_options": True,
+                "graph_status": _graph_status,
+                "version": _version,
+            }
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -9270,10 +9418,17 @@ class KogniDevServer:
                         "graq_reason": {
                             "ambiguous_options": True,
                         },
+                        # v0.51.4 — SDK capability block surfaced in the
+                        # initialize response so the VS Code extension can
+                        # skip the separate sdk-caps probe that previously
+                        # raced the handshake (BUG-1).
+                        "sdk_caps": _sdk_caps,
                     },
                     "serverInfo": {
                         "name": "graq",
                         "version": _version,
+                        "graph_status": _graph_status,
+                        "sdk_caps": _sdk_caps,
                         # v0.51.3 — mirror per-tool capabilities inside
                         # serverInfo for consumers that inspect server_info
                         # instead of the top-level capabilities object.
@@ -9281,6 +9436,7 @@ class KogniDevServer:
                             "graq_reason": {
                                 "ambiguous_options": True,
                             },
+                            "sdk_caps": _sdk_caps,
                         },
                     },
                 },

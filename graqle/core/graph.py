@@ -223,9 +223,59 @@ def _write_with_lock(file_path: str, content: str) -> None:
     This prevents data loss if serialization or disk write fails mid-way
     (e.g. MemoryError, disk full). The original file is only replaced
     after the new content is fully written and flushed.
+
+    v0.51.4 (P0 KG protection): if the payload looks like a graqle graph
+    (JSON with a ``nodes`` key) and would shrink the existing file by
+    more than 1%, the write is REFUSED. Every save path in the codebase
+    routes through this function via per-call ``from graqle.core.graph
+    import _write_with_lock``, so the guard activates live on the next
+    call — no MCP server restart required. Override: set the environment
+    variable ``GRAQLE_ALLOW_SHRINK=1`` for the current process.
     """
     import os
     import tempfile
+    import json as _json
+
+    # --- P0 KG shrink guard (v0.51.4) ---------------------------------
+    # Only engages for JSON payloads that look like a graqle graph
+    # (object with a ``nodes`` list). Non-graph writes pass through
+    # unchanged. Failures inside the guard never block the write —
+    # corruption on the guard side must not become a new footgun.
+    try:
+        if os.environ.get("GRAQLE_ALLOW_SHRINK", "") != "1":
+            stripped = content.lstrip()
+            if stripped.startswith("{") and '"nodes"' in stripped[:4096]:
+                _new = _json.loads(content)
+                _new_nodes = _new.get("nodes")
+                if isinstance(_new_nodes, list) and os.path.exists(file_path):
+                    try:
+                        _existing_raw = open(file_path, encoding="utf-8").read()
+                        _existing = _json.loads(_existing_raw)
+                        _existing_nodes = _existing.get("nodes", [])
+                        if isinstance(_existing_nodes, list) and len(_existing_nodes) >= 50:
+                            _incoming = len(_new_nodes)
+                            _existing_n = len(_existing_nodes)
+                            _max_loss = max(1, _existing_n // 100)
+                            if _incoming < _existing_n - _max_loss:
+                                _pct = (_existing_n - _incoming) * 100.0 / _existing_n
+                                raise ValueError(
+                                    f"KG write REFUSED (shrink guard): "
+                                    f"incoming={_incoming} nodes, "
+                                    f"on-disk={_existing_n} nodes "
+                                    f"(loss={_pct:.1f}%, max allowed=1%). "
+                                    f"Set GRAQLE_ALLOW_SHRINK=1 to override. "
+                                    f"File preserved: {file_path}"
+                                )
+                    except (_json.JSONDecodeError, OSError):
+                        # Existing file unreadable — safer to let the write proceed
+                        # than to block all recovery paths.
+                        pass
+    except ValueError:
+        raise
+    except Exception:
+        # Never let the guard itself break the write path
+        pass
+    # ---------------------------------------------------------------
 
     lock_path = file_path + ".lock"
     fd = None

@@ -133,7 +133,11 @@ def _apply_patch_to_lines(
         Default 0.5 — at least half the context lines must be found.
     max_gap:
         Maximum allowed gap between consecutive matched positions (context +
-        delete lines). Default 0 means auto: max(50, len(original_lines)//5).
+        delete lines). Default 0 means auto: max(200, len(original_lines)//3).
+        v0.51.4 (BUG-4) relaxed the default from n//5 to n//3 and raised
+        the floor from 50 to 200 so common tokens like ``try {`` or
+        closing braces appearing in both halves of a file no longer
+        reject valid edits on medium-to-large files.
     """
     # --- Input validation ---
     if not 0.0 < context_match_threshold <= 1.0:
@@ -144,7 +148,7 @@ def _apply_patch_to_lines(
         raise ValueError(f"max_gap must be >= 0, got {max_gap}")
 
     n = len(original_lines)
-    effective_max_gap = max_gap if max_gap > 0 else max(50, n // 5)
+    effective_max_gap = max_gap if max_gap > 0 else max(200, n // 3)
 
     # --- Single pass: match, validate, and build result simultaneously ---
     result: list[str] = []
@@ -256,6 +260,7 @@ def apply_diff(
     *,
     dry_run: bool = True,
     skip_syntax_check: bool = False,
+    max_gap: int = 0,
 ) -> ApplyResult:
     """Apply a unified diff to file_path atomically.
 
@@ -269,6 +274,11 @@ def apply_diff(
         If True, validate and return result WITHOUT writing. Default True.
     skip_syntax_check:
         If True, skip Python AST validation of the result.
+    max_gap:
+        Maximum allowed gap between consecutive matched context lines.
+        0 (default) selects the auto heuristic in ``_apply_patch_to_lines``.
+        v0.51.4 (BUG-4): callers may pass a larger value (e.g., 500) when
+        patching large files where common tokens appear in multiple hunks.
 
     Returns
     -------
@@ -388,7 +398,9 @@ def apply_diff(
             )
 
         try:
-            new_lines = _apply_patch_to_lines(original_lines, diff_ops)
+            new_lines = _apply_patch_to_lines(
+                original_lines, diff_ops, max_gap=max_gap,
+            )
         except DiffApplicationError as e:
             return ApplyResult(
                 success=False,
