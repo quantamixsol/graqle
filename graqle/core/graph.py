@@ -212,7 +212,7 @@ def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
                 pass  # Existing file is already corrupt, allow overwrite
 
 
-def _write_with_lock(file_path: str, content: str) -> None:
+def _write_with_lock(file_path: str, content: str) -> int:
     """Write content to a file with cross-platform file locking and atomic rename.
 
     Uses ``msvcrt.locking`` on Windows and ``fcntl.flock`` on Unix to
@@ -231,9 +231,19 @@ def _write_with_lock(file_path: str, content: str) -> None:
     import _write_with_lock``, so the guard activates live on the next
     call — no MCP server restart required. Override: set the environment
     variable ``GRAQLE_ALLOW_SHRINK=1`` for the current process.
+
+    v0.51.5 (BUG-RACE-1): on Windows ``os.replace`` raises
+    ``PermissionError`` (WinError 5) when a concurrent MCP process holds
+    the destination file open. We retry with exponential backoff up to a
+    total budget controlled by ``GRAQLE_WRITE_RETRY_BUDGET_MS`` (default
+    2600 ms). Returns the number of retry attempts used (0 = first try
+    succeeded). Raises the final ``PermissionError`` if the budget is
+    exhausted; callers (notably ``_save_graph``) treat this as a write
+    failure and surface ``error_code: WRITE_COLLISION`` to the MCP client.
     """
     import os
     import tempfile
+    import time as _time
     import json as _json
 
     # --- P0 KG shrink guard (v0.51.4) ---------------------------------
@@ -280,6 +290,7 @@ def _write_with_lock(file_path: str, content: str) -> None:
     lock_path = file_path + ".lock"
     fd = None
     tmp_path = None
+    rename_attempts = 0
     try:
         fd = _acquire_lock(lock_path)
         # Write to temp file in same directory (ensures same filesystem for rename)
@@ -292,9 +303,26 @@ def _write_with_lock(file_path: str, content: str) -> None:
             tmp.write(content)
             tmp.flush()
             os.fsync(tmp.fileno())
-        # Atomic rename (POSIX) / near-atomic (Windows)
-        os.replace(tmp_path, file_path)
-        tmp_path = None  # Rename succeeded, don't clean up
+        # v0.51.5 (BUG-RACE-1): retry os.replace under PermissionError.
+        # POSIX rename(2) is atomic and never enters this loop on Linux/macOS.
+        try:
+            _budget_ms = int(os.environ.get("GRAQLE_WRITE_RETRY_BUDGET_MS", "2600"))
+        except ValueError:
+            _budget_ms = 2600
+        _delay_ms = 50.0
+        _elapsed_ms = 0.0
+        while True:
+            try:
+                os.replace(tmp_path, file_path)
+                tmp_path = None  # Rename succeeded, don't clean up
+                break
+            except PermissionError:
+                if _elapsed_ms >= _budget_ms:
+                    raise
+                _time.sleep(_delay_ms / 1000.0)
+                _elapsed_ms += _delay_ms
+                _delay_ms *= 1.5
+                rename_attempts += 1
     finally:
         # Clean up temp file if rename didn't happen
         if tmp_path is not None:
@@ -303,6 +331,7 @@ def _write_with_lock(file_path: str, content: str) -> None:
             except OSError:
                 pass
         _release_lock(fd, lock_path)
+    return rename_attempts
 
 
 def _read_modify_write(file_path: str, modify_fn) -> None:

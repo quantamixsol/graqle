@@ -40,6 +40,7 @@ Claude Code .mcp.json:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -2351,6 +2352,92 @@ class KogniDevServer:
         self._kg_load_error: Exception | None = None
         self._kg_load_state = "IDLE"  # IDLE -> LOADING -> LOADED | FAILED
 
+        # v0.51.5 GAP-1: streaming JSON-RPC notifications/progress.
+        # _stdout_lock is lazy-initialized in run_stdio() because asyncio.Lock
+        # binds to the running event loop. Single MCP session per process =>
+        # only one run_stdio call => no race on lazy init.
+        # _current_request_id propagates the JSON-RPC request id into deeply
+        # nested handlers via contextvars (per-task isolation, no thread leak).
+        # _inflight tracks in-progress tasks for GAP-10 cancel_in_flight (declared
+        # here so future edits can wire cancellation without touching __init__).
+        self._stdout_lock: asyncio.Lock | None = None
+        self._current_request_id: contextvars.ContextVar[str | None] = (
+            contextvars.ContextVar("graq_request_id", default=None)
+        )
+        self._inflight: dict[str, asyncio.Task] = {}
+
+    # ------------------------------------------------------------------
+    # GAP-1: Streaming JSON-RPC notifications
+    # ------------------------------------------------------------------
+
+    async def _emit_notification(self, method: str, params: dict[str, Any]) -> None:
+        """Emit a JSON-RPC notification (no id) to stdout, byte-serialized.
+
+        Notifications are JSON-RPC messages without an ``id`` field — they do
+        not expect a response. Used here for ``notifications/progress`` so the
+        VS Code extension can render incremental updates instead of waiting
+        the full 30-60s for the final tools/call response.
+
+        Returns silently when:
+        - ``_stdout_lock`` is None (handler invoked outside ``run_stdio``,
+          e.g. unit tests using ``KogniDevServer.__new__``)
+        - stdout is closed (BrokenPipeError, OSError, ValueError) — transport
+          tear-down mid-stream is normal during cancellation.
+        """
+        if self._stdout_lock is None:
+            return
+        msg = {"jsonrpc": "2.0", "method": method, "params": params}
+        try:
+            payload = (json.dumps(msg) + "\n").encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            logger.warning("emit_notification: non-serializable params: %s", exc)
+            return
+        try:
+            async with self._stdout_lock:
+                sys.stdout.buffer.write(payload)
+                sys.stdout.buffer.flush()
+        except (BrokenPipeError, OSError, ValueError):
+            pass  # stdout closed — drop the notification
+
+    async def _emit_progress(
+        self,
+        stage: str,
+        delta: str = "",
+        n_tokens: int = 0,
+        **extra: Any,
+    ) -> None:
+        """Emit a ``notifications/progress`` JSON-RPC notification.
+
+        Pulls the active request id from the contextvar set by
+        ``_handle_jsonrpc`` for the current ``tools/call``. If no request id
+        is active, returns silently — progress is best-effort.
+
+        Parameters
+        ----------
+        stage:
+            Coarse stage label, e.g. "activate", "reason", "generate".
+        delta:
+            Incremental text chunk emitted by the backend or stream.
+        n_tokens:
+            Running unit count (rough — whitespace-split when backend does
+            not surface a precise count). Surfaced as ``tokens_used_so_far``
+            in the wire payload for client parity.
+        **extra:
+            Additional fields merged into params (node_id, wave, etc.).
+        """
+        request_id = self._current_request_id.get()
+        if request_id is None:
+            return
+        params: dict[str, Any] = {
+            "request_id": request_id,
+            "stage": stage,
+            "delta": delta,
+            "tokens_used_so_far": n_tokens,
+        }
+        if extra:
+            params.update(extra)
+        await self._emit_notification("notifications/progress", params)
+
     # ------------------------------------------------------------------
     # Graph lifecycle
     # ------------------------------------------------------------------
@@ -4209,7 +4296,15 @@ class KogniDevServer:
             )
             graph.add_edge(edge)
 
-        self._save_graph(graph)
+        _saved, _retries = self._save_graph(graph)
+        if not _saved:
+            return json.dumps({
+                "recorded": False,
+                "kind": "pause_pick",
+                "error_code": "WRITE_COLLISION",
+                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
+                "retry_after_ms": 500,
+            })
 
         return json.dumps({
             "recorded": True,
@@ -4217,6 +4312,7 @@ class KogniDevServer:
             "pause_id": pause_id,
             "task_hash": task_hash,
             "dedup": False,
+            "retry_attempts": _retries,
         })
 
     async def _handle_learn_outcome(self, args: dict[str, Any]) -> str:
@@ -4343,7 +4439,17 @@ class KogniDevServer:
                     )
                     graph.add_edge(edge)
 
-            self._save_graph(graph)
+            _saved, _retries = self._save_graph(graph)
+            if not _saved:
+                return json.dumps({
+                    "recorded": False,
+                    "mode": "outcome",
+                    "error_code": "WRITE_COLLISION",
+                    "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
+                    "retry_after_ms": 500,
+                })
+        else:
+            _retries = 0
 
         return json.dumps({
             "recorded": True,
@@ -4353,6 +4459,7 @@ class KogniDevServer:
             "components": components,
             "edge_updates": updates,
             "lesson_node_id": lesson_node_id,
+            "retry_attempts": _retries,
         })
 
     async def _handle_learn_entity(self, args: dict[str, Any]) -> str:
@@ -4394,7 +4501,15 @@ class KogniDevServer:
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([entity_id])
 
-        self._save_graph(graph)
+        _saved, _retries = self._save_graph(graph)
+        if not _saved:
+            return json.dumps({
+                "recorded": False,
+                "mode": "entity",
+                "error_code": "WRITE_COLLISION",
+                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
+                "retry_after_ms": 500,
+            })
 
         return json.dumps({
             "recorded": True,
@@ -4405,6 +4520,7 @@ class KogniDevServer:
             "connected_to": edges_added,
             "auto_edges": auto_edges,
             "total_nodes": len(graph.nodes),
+            "retry_attempts": _retries,
         })
 
     async def _handle_learn_knowledge(self, args: dict[str, Any]) -> str:
@@ -4443,7 +4559,15 @@ class KogniDevServer:
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([node_id])
 
-        self._save_graph(graph)
+        _saved, _retries = self._save_graph(graph)
+        if not _saved:
+            return json.dumps({
+                "recorded": False,
+                "mode": "knowledge",
+                "error_code": "WRITE_COLLISION",
+                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
+                "retry_after_ms": 500,
+            })
 
         return json.dumps({
             "recorded": True,
@@ -4454,6 +4578,7 @@ class KogniDevServer:
             "tags": tags,
             "auto_edges": auto_edges,
             "total_nodes": len(graph.nodes),
+            "retry_attempts": _retries,
         })
 
     async def _handle_reload(self, args: dict[str, Any]) -> str:
@@ -8440,8 +8565,23 @@ class KogniDevServer:
             pass
         return None
 
-    def _save_graph(self, graph: Any) -> None:
+    def _save_graph(self, graph: Any) -> tuple[bool, int]:
         """Persist graph back to its source JSON file.
+
+        Returns ``(saved, retry_attempts)``:
+
+        - ``saved`` (bool): True if the bytes hit disk; False if the shrink
+          guard refused the write OR the underlying ``os.replace`` exhausted
+          its retry budget under cross-process contention (v0.51.5).
+        - ``retry_attempts`` (int): how many ``os.replace`` retries were
+          consumed (0 = first attempt succeeded). Surfaced to MCP responses
+          as ``retry_attempts`` so clients can detect high-contention
+          environments.
+
+        Existing callers that ignore the return value remain correct
+        (Python silently drops the tuple). Callers that need the
+        ``WRITE_COLLISION`` signal unpack the tuple and surface
+        ``error_code: WRITE_COLLISION`` to the MCP envelope.
 
         v0.51.4 (P0 data-loss hardening): before overwriting the graph file,
         two tripwires run so a stub or partially-loaded graph cannot silently
@@ -8457,8 +8597,9 @@ class KogniDevServer:
         so learned nodes are never lost on restart or machine change.
         """
         if self._graph_file is None:
-            return
+            return (False, 0)
 
+        import os
         from pathlib import Path as _Path
         graph_path = _Path(self._graph_file)
 
@@ -8490,7 +8631,7 @@ class KogniDevServer:
                             "File preserved: %s",
                             incoming_nodes, existing_nodes, pct_loss, graph_path,
                         )
-                        return
+                        return (False, 0)
         except Exception as _guard_exc:
             logger.warning("KG shrink guard check skipped: %s", _guard_exc)
 
@@ -8517,17 +8658,34 @@ class KogniDevServer:
         except Exception as _bk_exc:
             logger.warning("KG pre-save backup failed (continuing): %s", _bk_exc)
 
+        retry_attempts = 0
         try:
             import networkx as nx
 
             G = graph.to_networkx()
             data = nx.node_link_data(G, edges="links")
             from graqle.core.graph import _write_with_lock
-            _write_with_lock(str(self._graph_file), json.dumps(data, indent=2, default=str))
-            logger.info("Graph saved to %s (nodes=%d)", self._graph_file, incoming_nodes)
+            retry_attempts = _write_with_lock(
+                str(self._graph_file),
+                json.dumps(data, indent=2, default=str),
+            )
+            if retry_attempts:
+                logger.info(
+                    "Graph saved to %s (nodes=%d, rename retries=%d)",
+                    self._graph_file, incoming_nodes, retry_attempts,
+                )
+            else:
+                logger.info("Graph saved to %s (nodes=%d)", self._graph_file, incoming_nodes)
+        except PermissionError as exc:
+            # v0.51.5 (BUG-RACE-1): retry budget exhausted; another
+            # process held the destination file open longer than
+            # GRAQLE_WRITE_RETRY_BUDGET_MS allowed. Caller surfaces
+            # WRITE_COLLISION to the MCP envelope.
+            logger.error("Failed to save graph (rename collision): %s", exc)
+            return (False, retry_attempts)
         except Exception as exc:
             logger.error("Failed to save graph: %s", exc)
-            return
+            return (False, retry_attempts)
 
         # Phase 2: background push to S3 (non-blocking, debounced)
         try:
@@ -8536,6 +8694,8 @@ class KogniDevServer:
             schedule_push(self._graph_file, _proj)
         except Exception as _push_exc:
             logger.debug("KG background push skipped: %s", _push_exc)
+
+        return (True, retry_attempts)
 
     # ==================================================================
     # v0.45.1: Capability gap hotfix handlers

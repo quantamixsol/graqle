@@ -21,6 +21,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+
+# v0.51.5: these tests build tiny mock graphs (1-3 nodes) and call the
+# real _save_graph, which now (correctly, after the v0.51.4 import-os
+# fix landed) refuses writes that would shrink the on-disk KG by >1%.
+# Allow the shrink for the duration of this module so the tests focus
+# on handler logic, not save policy.
+@pytest.fixture(autouse=True)
+def _allow_shrink_for_mock_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GRAQLE_ALLOW_SHRINK", "1")
+
 from graqle.plugins.mcp_dev_server import (
     TOOL_DEFINITIONS,
     KogniDevServer,
