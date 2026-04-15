@@ -192,19 +192,24 @@ class TestPositionalCoherence:
         assert "# only one context line" in "".join(result)
 
     def test_auto_max_gap_scales_with_file_size(self) -> None:
-        """Default max_gap=0 auto-computes: max(50, n//5)."""
-        # 300-line file �� auto max_gap = max(50, 60) = 60
-        big_file = [f"# line {i}\n" for i in range(300)]
+        """Default max_gap=0 auto-computes: max(200, n//3).
+
+        v0.51.4 (BUG-4): default raised from max(50, n//5) to max(200, n//3)
+        so edits on medium-to-large files with repeated tokens like ``try {``
+        no longer reject valid diffs. Reject now requires a much larger gap.
+        """
+        # 900-line file → auto max_gap = max(200, 300) = 300
+        big_file = [f"# line {i}\n" for i in range(900)]
         big_file[0] = "def start():\n"
-        big_file[100] = "def middle():\n"
+        big_file[500] = "def middle():\n"
         diff_ops = [
             (" ", "def start():"),
             (" ", "def middle():"),
             ("+", "    # inserted\n"),
         ]
-        # Gap of 100 > auto max_gap of 60 → should reject
+        # Gap of 500 > auto max_gap of 300 → should reject
         with pytest.raises(DiffApplicationError, match="non-contiguous"):
-            _apply_patch_to_lines(big_file, diff_ops)  # max_gap=0 → auto=60
+            _apply_patch_to_lines(big_file, diff_ops)  # max_gap=0 → auto=300
 
 
 # ---------------------------------------------------------------------------

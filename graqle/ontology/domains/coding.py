@@ -70,16 +70,12 @@ CODING_CLASS_HIERARCHY: dict[str, str] = {
     "CodeMetric": "Coding",
     # Phase 6: agent planning
     "ExecutionPlan": "Coding",
-    # Scanner-produced aliases (map to canonical types)
-    "Function": "CodeFunction",
-    "Class": "CodeClass",
-    "Module": "CodeModule",
-    "API": "CodeAPI",
-    "Test": "CodeTest",
-    "PythonModule": "CodeModule",
-    "PythonClass": "CodeClass",
-    "PythonFunction": "CodeFunction",
-    "TestFile": "CodeTest",
+    # v0.51.4 (BUG-6): scanner-produced aliases (PythonModule, PythonClass,
+    # PythonFunction, TestFile, Function, Class) are owned exclusively by
+    # the ``engineering`` domain. Re-registering them here caused a domain
+    # overlap warning and non-deterministic routing. "Module", "API", and
+    # "Test" are also removed to stay safely non-overlapping; callers that
+    # want the coding ontology should reference the canonical Code* types.
 }
 
 # ---------------------------------------------------------------------------
