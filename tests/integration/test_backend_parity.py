@@ -1,6 +1,6 @@
 """T08 (v0.51.6) — Backend parity harness (FileConnector vs Neo4jConnector).
 
-Acceptance per .gcc/branches/hotfix-v0.51.6/EXECUTION-PATH.md §T08:
+Acceptance criteria for the backend parity harness:
 - Parametrized against two backends: file-backed Graqle, Neo4j-backed Graqle
 - Tolerance bands on node/edge counts and tool outputs
 - 3 harness bugs from 2026-04-16 original parity_test.py fixed:

@@ -1,6 +1,6 @@
 """T07 (v0.51.6) — Neo4j as first-class backend integration test.
 
-Acceptance per .gcc/branches/hotfix-v0.51.6/EXECUTION-PATH.md §T07:
+Acceptance criteria for the Neo4j backend integration test:
 - Migrate SOT graphJSON -> fresh Neo4j DB via the T02 migrator
 - Verify node/edge counts match
 - Run graq_inspect parity vs a file-backend Graqle of the same SOT

@@ -1,6 +1,6 @@
 """T04 (v0.51.6) — KG-write self-race regression.
 
-Acceptance per .gcc/branches/hotfix-v0.51.6/EXECUTION-PATH.md §T04:
+Binary acceptance for the KG-write self-race fix:
   100 sequential _write_with_lock calls from one thread = 0 WRITE_COLLISION.
 Plus a re-entrancy test: predict -> auto_grow -> learn must not deadlock
 on the module-level RLock (predict-confirmed risk).

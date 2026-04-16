@@ -27,8 +27,9 @@ All notable changes to GraQle are documented in this file.
   `graq_predict(fold_back=True)` -> `auto_grow` -> `graq_learn` no longer
   deadlocks. Retry backoff switched from fixed 50 ms * 1.5^k to random
   uniform [50, 250] ms per attempt (eliminates harmonic races). Error
-  message rewritten to name the actual caller module/func/line. Same
-  issue-tracker entry as P0-4.
+  message rewritten to name the actual caller module/func/line. Kept
+  under the same tracker entry as the v0.51.5 retry envelope regression
+  since both surface the same underlying class of bug.
 
 ### New capabilities
 

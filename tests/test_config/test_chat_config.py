@@ -1,6 +1,6 @@
 """T05 (v0.51.6) — ChatConfig acceptance tests.
 
-Binary acceptance per .gcc/branches/hotfix-v0.51.6/EXECUTION-PATH.md §T05:
+Binary acceptance for ChatConfig:
 - A graqle.yaml with a chat: block loads correctly
 - Values flow through to GraqleConfig.chat
 - Defaults preserved (backward compat with yamls that omit chat:)
