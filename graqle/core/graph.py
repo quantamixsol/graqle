@@ -672,17 +672,25 @@ class Graqle:
         password: str = "",
         database: str = "neo4j",
         config: GraqleConfig | None = None,
-        mirror_to: str | Path | None = "graqle.json",
+        mirror_to: str | Path | None = None,
+        mirror_overwrite: bool = False,
     ) -> Graqle:
         """Create a GraQle from a Neo4j database.
 
         Loads nodes and edges via Cypher, attaches chunks as node properties,
         and stores the connector for runtime Cypher vector search.
 
+        T01 (v0.51.6): from_neo4j is a strict read by default.
+        It writes ZERO files unless the caller explicitly opts in.
+        Pre-v0.51.6 silently mirrored to cwd/graqle.json after every
+        call, which corrupted the SOT during parity testing 2026-04-16.
+
         Args:
-            mirror_to: Path to write a JSON snapshot after loading. Keeps
-                       graqle.json as the source of truth (Tier 0 invariant).
-                       Set to None to skip mirroring.
+            mirror_to: Optional explicit path to write a JSON snapshot
+                       after loading. Default None = no mirror. Pass an
+                       explicit path string to opt in.
+            mirror_overwrite: If False (default) and mirror_to points to
+                              an existing file, raise FileExistsError.
         """
         # Process-scoped escape hatch. When NEO4J_DISABLED=true,
         # raise before importing Neo4jConnector or dialing bolt://.
@@ -699,6 +707,7 @@ class Graqle:
                 "see `graq upgrade neo4j`."
             )
 
+        from pathlib import Path  # T01: needed by mirror_to handling below
         from graqle.connectors.neo4j import Neo4jConnector
 
         cfg = config or GraqleConfig.default()
@@ -756,22 +765,21 @@ class Graqle:
         graph = cls(nodes=nodes, edges=edges, config=cfg)
         graph._neo4j_connector = connector
 
-        # Phase 2: mirror Neo4j load to local JSON (Tier 0 invariant).
-        # Ensures graqle.json on disk always reflects the latest graph state.
+        # T01 (v0.51.6): explicit, opt-in mirror only. Default = no write.
         if mirror_to is not None:
+            if not mirror_to:
+                raise ValueError("mirror_to must be a non-empty path or None")
+            mirror_path = Path(mirror_to)
+            if mirror_path.exists() and not mirror_overwrite:
+                raise FileExistsError(
+                    f"{mirror_path} already exists. Pass mirror_overwrite=True "
+                    f"to allow overwriting an existing snapshot."
+                )
             try:
-                from pathlib import Path as _MirrorPath
-                mirror_path = _MirrorPath(mirror_to)
                 graph.to_json(str(mirror_path))
                 logger.info("Mirrored Neo4j load to %s (%d nodes)", mirror_path, len(nodes))
             except Exception as exc:
-                import warnings
-                warnings.warn(
-                    f"Tier 0 mirror failed after Neo4j load — graqle.json is STALE. "
-                    f"Run 'graq scan repo .' or save manually. Error: {exc}",
-                    UserWarning,
-                    stacklevel=2,
-                )
+                logger.warning("Mirror to %s failed: %s", mirror_path, exc)
 
         return graph
 
