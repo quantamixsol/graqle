@@ -118,3 +118,9 @@ graqle.yaml
 .graqle/debate_config.json
 graqle/orchestration/_debate_prompts.py
 graqle/orchestration/_consensus.py
+
+# T09 (v0.51.6): ship graqle/docs/ in wheel (MCP tool inventory + future docs).
+# The bare `docs/` ignore above was for top-level repo docs; this un-ignores
+# the package-internal docs directory so the inventory travels with the SDK.
+!graqle/docs/
+!graqle/docs/*
