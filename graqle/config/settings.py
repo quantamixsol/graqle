@@ -533,6 +533,20 @@ class ScanConfig(BaseModel):
     )
 
 
+class ChatConfig(BaseModel):
+    """Chat surface configuration (T05, v0.51.6).
+
+    Controls the graq_chat_* MCP tool family and the chat agent loop.
+    Optional section in graqle.yaml; omitting it preserves all defaults
+    (backward-compat with configs predating v0.51.6).
+    """
+
+    enabled: bool = False
+    default_task_type: str = "chat_triage"
+    max_turn_seconds: int = 300
+    permission_mode: str = "ask"  # "ask", "auto_allow", "deny"
+
+
 class GraqleConfig(BaseModel):
     """Root configuration for a GraQle instance."""
 
@@ -560,6 +574,7 @@ class GraqleConfig(BaseModel):
     llm_redaction: LLMRedactionConfig = Field(default_factory=LLMRedactionConfig)
     coordinator: CoordinatorConfig = Field(default_factory=CoordinatorConfig)
     backends: BackendsConfig = Field(default_factory=BackendsConfig)
+    chat: ChatConfig = Field(default_factory=ChatConfig)
 
     @model_validator(mode="after")
     def _warn_deprecated_connector(self) -> "GraqleConfig":
