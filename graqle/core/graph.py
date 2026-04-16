@@ -212,6 +212,86 @@ def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
                 pass  # Existing file is already corrupt, allow overwrite
 
 
+# T04 (v0.51.6): Process-internal coordination layer over the OS file lock.
+# Catches the deterministic self-race that produced WRITE_COLLISION every
+# graq_learn call at session close in v0.51.5.
+import os
+import time as _time
+import threading as _threading
+import random as _random
+
+# Module-level RLock keyed by absolute file path. Re-entrant (same thread can
+# re-acquire) so graq_predict(fold_back=True) -> auto_grow -> graq_learn does
+# not deadlock against itself. Predict-confirmed deadlock chain.
+_KG_THREAD_LOCKS: dict[str, _threading.RLock] = {}
+_KG_THREAD_LOCKS_GUARD = _threading.Lock()
+
+# Diagnostic state that graq_kg_diag inspects. Bounded by _KG_DIAG_HISTORY_MAX.
+_KG_DIAG_HISTORY_MAX = 200
+_KG_DIAG_STATE: dict[str, list] = {
+    "writes": [],          # list of {"path", "ts", "elapsed_ms", "attempts", "caller", "outcome"}
+    "current_holders": {}, # path -> {"thread_id", "caller", "acquired_ts"}
+}
+_KG_DIAG_GUARD = _threading.Lock()
+
+
+def _get_thread_lock(file_path: str) -> _threading.RLock:
+    abs_path = os.path.abspath(file_path)
+    with _KG_THREAD_LOCKS_GUARD:
+        lock = _KG_THREAD_LOCKS.get(abs_path)
+        if lock is None:
+            lock = _threading.RLock()
+            _KG_THREAD_LOCKS[abs_path] = lock
+        return lock
+
+
+def _capture_caller_frame() -> dict:
+    """Walk up the stack past graph.py internals to find the actual caller."""
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        # Skip _capture_caller_frame + _write_with_lock + the immediate caller's frame
+        for _ in range(2):
+            if frame is None:
+                break
+            frame = frame.f_back
+        # Now walk up until we leave graph.py
+        while frame is not None and frame.f_code.co_filename.endswith("graph.py"):
+            frame = frame.f_back
+        if frame is None:
+            return {"module": "<unknown>", "func": "<unknown>", "line": 0}
+        return {
+            "module": os.path.basename(frame.f_code.co_filename),
+            "func": frame.f_code.co_name,
+            "line": frame.f_lineno,
+        }
+    finally:
+        del frame  # Avoid reference cycle
+
+
+def _record_diag(path: str, entry: dict) -> None:
+    with _KG_DIAG_GUARD:
+        history = _KG_DIAG_STATE["writes"]
+        history.append(entry)
+        if len(history) > _KG_DIAG_HISTORY_MAX:
+            del history[: len(history) - _KG_DIAG_HISTORY_MAX]
+
+
+def kg_diag_snapshot() -> dict:
+    """Return a read-only snapshot of the KG-write diagnostic state.
+
+    Used by the graq_kg_diag MCP tool. Cheap; no I/O.
+    """
+    with _KG_DIAG_GUARD:
+        recent = list(_KG_DIAG_STATE["writes"][-50:])
+        holders = dict(_KG_DIAG_STATE["current_holders"])
+    return {
+        "recent_writes": recent,
+        "current_holders": holders,
+        "total_writes_recorded": len(_KG_DIAG_STATE["writes"]),
+    }
+
+
 def _write_with_lock(file_path: str, content: str) -> int:
     """Write content to a file with cross-platform file locking and atomic rename.
 
@@ -287,50 +367,92 @@ def _write_with_lock(file_path: str, content: str) -> int:
         pass
     # ---------------------------------------------------------------
 
-    lock_path = file_path + ".lock"
-    fd = None
-    tmp_path = None
-    rename_attempts = 0
+    # T04 (v0.51.6): acquire process-internal RLock FIRST, then OS file lock.
+    # The RLock prevents the deterministic self-race observed at v0.51.5 where
+    # two write paths in the same process raced to os.replace() the same file.
+    # RLock is re-entrant: predict -> auto_grow -> graq_learn does not deadlock.
+    caller = _capture_caller_frame()
+    abs_path = os.path.abspath(file_path)
+    thread_lock = _get_thread_lock(file_path)
+    _t_start = _time.monotonic()
+    _thread_id = _threading.get_ident()
+    with _KG_DIAG_GUARD:
+        _KG_DIAG_STATE["current_holders"][abs_path] = {
+            "thread_id": _thread_id,
+            "caller": caller,
+            "acquired_ts": _t_start,
+        }
     try:
-        fd = _acquire_lock(lock_path)
-        # Write to temp file in same directory (ensures same filesystem for rename)
-        dir_path = os.path.dirname(file_path) or "."
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=dir_path,
-            suffix=".tmp", delete=False,
-        ) as tmp:
-            tmp_path = tmp.name
-            tmp.write(content)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-        # v0.51.5 (BUG-RACE-1): retry os.replace under PermissionError.
-        # POSIX rename(2) is atomic and never enters this loop on Linux/macOS.
-        try:
-            _budget_ms = int(os.environ.get("GRAQLE_WRITE_RETRY_BUDGET_MS", "2600"))
-        except ValueError:
-            _budget_ms = 2600
-        _delay_ms = 50.0
-        _elapsed_ms = 0.0
-        while True:
+        with thread_lock:
+            lock_path = file_path + ".lock"
+            fd = None
+            tmp_path = None
+            rename_attempts = 0
             try:
-                os.replace(tmp_path, file_path)
-                tmp_path = None  # Rename succeeded, don't clean up
-                break
-            except PermissionError:
-                if _elapsed_ms >= _budget_ms:
-                    raise
-                _time.sleep(_delay_ms / 1000.0)
-                _elapsed_ms += _delay_ms
-                _delay_ms *= 1.5
-                rename_attempts += 1
+                fd = _acquire_lock(lock_path)
+                dir_path = os.path.dirname(file_path) or "."
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=dir_path,
+                    suffix=".tmp", delete=False,
+                ) as tmp:
+                    tmp_path = tmp.name
+                    tmp.write(content)
+                    tmp.flush()
+                    os.fsync(tmp.fileno())
+                # T04 (v0.51.6): jittered retry. Random uniform [50, 250] ms
+                # between attempts breaks harmonic races where two callers on
+                # the same fixed cadence collide forever.
+                try:
+                    _budget_ms = int(os.environ.get("GRAQLE_WRITE_RETRY_BUDGET_MS", "2600"))
+                except ValueError:
+                    _budget_ms = 2600
+                _elapsed_ms = 0.0
+                while True:
+                    try:
+                        os.replace(tmp_path, file_path)
+                        tmp_path = None
+                        break
+                    except PermissionError:
+                        if _elapsed_ms >= _budget_ms:
+                            elapsed_ms = (_time.monotonic() - _t_start) * 1000.0
+                            _record_diag(abs_path, {
+                                "path": abs_path,
+                                "ts": _t_start,
+                                "elapsed_ms": elapsed_ms,
+                                "attempts": rename_attempts,
+                                "caller": caller,
+                                "outcome": "WRITE_COLLISION",
+                            })
+                            raise PermissionError(
+                                f"KG write retry budget exhausted "
+                                f"(tried {rename_attempts} times over "
+                                f"{elapsed_ms:.0f}ms). "
+                                f"caller={caller['module']}::{caller['func']}:{caller['line']}. "
+                                f"suspected_concurrent_writer=self|other (use graq_kg_diag to disambiguate)."
+                            )
+                        _jitter = _random.uniform(50.0, 250.0)
+                        _time.sleep(_jitter / 1000.0)
+                        _elapsed_ms += _jitter
+                        rename_attempts += 1
+            finally:
+                if tmp_path is not None:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+                _release_lock(fd, lock_path)
+        elapsed_ms = (_time.monotonic() - _t_start) * 1000.0
+        _record_diag(abs_path, {
+            "path": abs_path,
+            "ts": _t_start,
+            "elapsed_ms": elapsed_ms,
+            "attempts": rename_attempts,
+            "caller": caller,
+            "outcome": "OK",
+        })
     finally:
-        # Clean up temp file if rename didn't happen
-        if tmp_path is not None:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-        _release_lock(fd, lock_path)
+        with _KG_DIAG_GUARD:
+            _KG_DIAG_STATE["current_holders"].pop(abs_path, None)
     return rename_attempts
 
 

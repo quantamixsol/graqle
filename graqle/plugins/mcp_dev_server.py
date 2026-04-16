@@ -2228,6 +2228,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["todos"],
         },
     },
+    {
+        "name": "graq_kg_diag",
+        "description": (
+            "T04 (v0.51.6): KG-write diagnostic snapshot. Reports recent write "
+            "latencies, attempts, caller stacks, and current lock holders. "
+            "Use this when WRITE_COLLISION surfaces to disambiguate self-race "
+            "vs. external-process contention. Read-only; no I/O."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -3183,6 +3193,7 @@ class KogniDevServer:
             _CG01_EXEMPT = {
                 "graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect",
                 "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
+                "graq_kg_diag", "kogni_kg_diag",
             }
             if getattr(_governance, "session_gate_enabled", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg01_bypass
@@ -3260,6 +3271,7 @@ class KogniDevServer:
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
+            "graq_kg_diag": self._handle_kg_diag,
             "graq_reason": self._handle_reason,
             "graq_reason_batch": self._handle_reason_batch,
             "graq_preflight": self._handle_preflight,
@@ -3610,6 +3622,22 @@ class KogniDevServer:
         })
 
     # ── 3. graq_reason (FREE) ────────────────────────────────────────
+
+    async def _handle_kg_diag(self, args: dict[str, Any]) -> str:
+        """T04 (v0.51.6): return KG-write diagnostic snapshot.
+
+        Snapshots bounded write history and current lock holders from
+        graqle.core.graph._KG_DIAG_STATE. Cheap, no I/O. Designed to be the
+        FIRST tool called when WRITE_COLLISION surfaces — the response makes
+        clear whether the contention is self-race or external-process.
+        """
+        from graqle.core.graph import kg_diag_snapshot
+        snap = kg_diag_snapshot()
+        return json.dumps({
+            "tool": "graq_kg_diag",
+            "snapshot": snap,
+            "tool_hints": [],
+        })
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
         import time as _time
