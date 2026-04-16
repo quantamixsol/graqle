@@ -1,4 +1,4 @@
-# GraQle MCP Tool Inventory — v0.51.5
+# GraQle MCP Tool Inventory — v0.51.6
 
 Total tools: **148**
 
