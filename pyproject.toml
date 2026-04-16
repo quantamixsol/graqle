@@ -184,6 +184,7 @@ asyncio_mode = "auto"
 markers = [
     "serial: mark test to run serially (not safe for parallel execution)",
     "slow_subprocess: mark test as spawning subprocesses (inherently slow)",
+    "integration: mark test as requiring external infra (Neo4j, etc.); excluded from fast unit CI",
 ]
 # xdist: keep each file's tests on a single worker to prevent chdir() conflicts
 # Use: pytest -n auto -m "not serial"  for fast parallel run
