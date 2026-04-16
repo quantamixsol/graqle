@@ -8,10 +8,18 @@
 # ── /graqle:intelligence ──
 
 
+import importlib.util
 import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# CI fix (2026-04-16): the TestMigrateJsonToNeo4j class exercises code that
+# imports `graqle.connectors.neo4j`, which in turn imports the third-party
+# `neo4j` driver at module-load time. The driver is an optional extra
+# (`pip install graqle[api]`), not installed on the default CI matrix. Skip
+# the whole class when the driver is unavailable so CI stays green.
+_NEO4J_AVAILABLE = importlib.util.find_spec("neo4j") is not None
 
 from graqle.connectors.upgrade import (
     NODE_THRESHOLD,
@@ -154,6 +162,10 @@ class TestSanitiseForNeo4jProps:
         assert out["versions"] == ["1.0", "2.0"]
 
 
+@pytest.mark.skipif(
+    not _NEO4J_AVAILABLE,
+    reason="neo4j driver not installed (optional extra); run `pip install graqle[api]` to enable",
+)
 class TestMigrateJsonToNeo4j:
     """Hot-fix 2026-04-16: chunks must become :Chunk nodes, not scalar props.
 
