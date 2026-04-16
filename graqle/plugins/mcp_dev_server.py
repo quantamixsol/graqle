@@ -2263,18 +2263,96 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         ),
         "inputSchema": {"type": "object", "properties": {}},
     },
+    # T03 (v0.51.6) — Chat surface (ChatAgentLoop v4) handlers.
+    # Unblocks VS Code extension v0.4.9 pivot; handlers live in
+    # graqle/chat/mcp_handlers.py — see that module for semantics.
+    {
+        "name": "graq_chat_turn",
+        "description": (
+            "Start a chat turn. Drives one iteration of the chat agent loop "
+            "and returns the first batch of events plus a cursor to poll."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "turn_id": {"type": "string", "description": "Unique turn id"},
+                "message": {"type": "string", "description": "User message"},
+                "scenario": {
+                    "type": "string",
+                    "description": "Optional scenario hint for backend routing",
+                },
+            },
+            "required": ["turn_id", "message"],
+        },
+    },
+    {
+        "name": "graq_chat_poll",
+        "description": (
+            "Long-poll events from an in-flight chat turn. Returns events "
+            "since since_seq up to an optional timeout."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "turn_id": {"type": "string"},
+                "since_seq": {"type": "integer", "default": 0},
+                "timeout": {"type": "number", "default": 0.0},
+            },
+            "required": ["turn_id", "since_seq"],
+        },
+    },
+    {
+        "name": "graq_chat_resume",
+        "description": (
+            "Apply a permission decision (allow/deny/always) to a paused turn "
+            "and transition it back to ACTIVE so the loop can continue."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "turn_id": {"type": "string"},
+                "pending_id": {"type": "string"},
+                "decision": {
+                    "type": "string",
+                    "enum": ["allow", "allow_always", "deny", "deny_always"],
+                },
+            },
+            "required": ["turn_id", "pending_id", "decision"],
+        },
+    },
+    {
+        "name": "graq_chat_cancel",
+        "description": "Cancel an in-flight chat turn. Idempotent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "turn_id": {"type": "string"},
+            },
+            "required": ["turn_id"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
 # Each kogni_* tool mirrors the corresponding graq_* tool exactly.
 _KOGNI_ALIASES: list[dict[str, Any]] = []
+# T03 (v0.51.6): pre-registration assertion. If a kogni_* alias name
+# already exists as a graq_* tool, silently extending TOOL_DEFINITIONS
+# would overwrite the original handler on the next call lookup. Predict
+# flagged this as D2. Fail loudly instead.
+_existing_names = {_tool["name"] for _tool in TOOL_DEFINITIONS}
 for _tool in TOOL_DEFINITIONS:
     if _tool["name"].startswith("graq_") and _tool["name"] not in ("graq_reload", "graq_audit"):
+        _alias_name = _tool["name"].replace("graq_", "kogni_", 1)
+        assert _alias_name not in _existing_names, (
+            f"T03 alias-collision: {_alias_name!r} already registered "
+            f"(would silently overwrite handler for {_tool['name']!r})"
+        )
         _alias = dict(_tool)
-        _alias["name"] = _tool["name"].replace("graq_", "kogni_", 1)
+        _alias["name"] = _alias_name
         _KOGNI_ALIASES.append(_alias)
 TOOL_DEFINITIONS.extend(_KOGNI_ALIASES)
-del _KOGNI_ALIASES
+del _KOGNI_ALIASES, _existing_names
 
 
 # ---------------------------------------------------------------------------
@@ -3297,6 +3375,10 @@ class KogniDevServer:
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
             "graq_kg_diag": self._handle_kg_diag,
+            "graq_chat_turn": self._handle_chat_turn,
+            "graq_chat_poll": self._handle_chat_poll,
+            "graq_chat_resume": self._handle_chat_resume,
+            "graq_chat_cancel": self._handle_chat_cancel,
             "graq_reason": self._handle_reason,
             "graq_reason_batch": self._handle_reason_batch,
             "graq_preflight": self._handle_preflight,
@@ -3663,6 +3745,54 @@ class KogniDevServer:
             "snapshot": snap,
             "tool_hints": [],
         })
+
+    def _get_chat_ctx(self) -> "Any":
+        """T03 (v0.51.6): lazy ChatHandlerContext, one per server process."""
+        ctx = getattr(self, "_chat_ctx", None)
+        if ctx is None:
+            from graqle.chat.mcp_handlers import ChatHandlerContext
+            ctx = ChatHandlerContext()
+            self._chat_ctx = ctx
+        return ctx
+
+    async def _handle_chat_turn(self, args: dict[str, Any]) -> str:
+        from graqle.chat.mcp_handlers import handle_chat_turn
+        ctx = self._get_chat_ctx()
+        result = await handle_chat_turn(
+            ctx,
+            turn_id=args["turn_id"],
+            message=args["message"],
+            scenario=args.get("scenario"),
+        )
+        return json.dumps(result)
+
+    async def _handle_chat_poll(self, args: dict[str, Any]) -> str:
+        from graqle.chat.mcp_handlers import handle_chat_poll
+        ctx = self._get_chat_ctx()
+        result = await handle_chat_poll(
+            ctx,
+            turn_id=args["turn_id"],
+            since_seq=int(args.get("since_seq", 0)),
+            timeout=float(args.get("timeout", 0.0)),
+        )
+        return json.dumps(result)
+
+    async def _handle_chat_resume(self, args: dict[str, Any]) -> str:
+        from graqle.chat.mcp_handlers import handle_chat_resume
+        ctx = self._get_chat_ctx()
+        result = await handle_chat_resume(
+            ctx,
+            turn_id=args["turn_id"],
+            pending_id=args["pending_id"],
+            decision=args["decision"],
+        )
+        return json.dumps(result)
+
+    async def _handle_chat_cancel(self, args: dict[str, Any]) -> str:
+        from graqle.chat.mcp_handlers import handle_chat_cancel
+        ctx = self._get_chat_ctx()
+        result = await handle_chat_cancel(ctx, turn_id=args["turn_id"])
+        return json.dumps(result)
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
         import time as _time
