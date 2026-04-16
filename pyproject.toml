@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.51.5"
+version = "0.51.6"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
@@ -146,7 +146,10 @@ Changelog = "https://github.com/quantamixsol/graqle/releases"
 exclude = ["graqle/benchmarks/data/*", "paper/*", "patent/*"]
 
 [tool.hatch.build]
-artifacts = ["graqle/integrations/bridges/*.md"]
+artifacts = [
+    "graqle/integrations/bridges/*.md",
+    "graqle/docs/*.md",  # T09 (v0.51.6): ship MCP tool inventory in wheel
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["graqle"]
@@ -184,6 +187,7 @@ asyncio_mode = "auto"
 markers = [
     "serial: mark test to run serially (not safe for parallel execution)",
     "slow_subprocess: mark test as spawning subprocesses (inherently slow)",
+    "integration: mark test as requiring external infra (Neo4j, etc.); excluded from fast unit CI",
 ]
 # xdist: keep each file's tests on a single worker to prevent chdir() conflicts
 # Use: pytest -n auto -m "not serial"  for fast parallel run

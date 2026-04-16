@@ -213,6 +213,13 @@ class TestToolDefinitions:
             "graq_todo",
             # v0.47.0: deterministic insertion engine (CG-DIF-02)
             "graq_apply",
+            # v0.51.6: T04 write-race diagnostic
+            "graq_kg_diag",
+            # v0.51.6: T03 chat surface (unblocks VS Code v0.4.9)
+            "graq_chat_turn",
+            "graq_chat_poll",
+            "graq_chat_resume",
+            "graq_chat_cancel",
         }
         expected_kogni = {
             "kogni_context",
@@ -295,8 +302,14 @@ class TestToolDefinitions:
             "kogni_todo",
             # v0.47.0: deterministic insertion engine (CG-DIF-02)
             "kogni_apply",
+            # v0.51.6: T04 diagnostic + T03 chat surface aliases
+            "kogni_kg_diag",
+            "kogni_chat_turn",
+            "kogni_chat_poll",
+            "kogni_chat_resume",
+            "kogni_chat_cancel",
         }
-        # 57 graq_* + 57 kogni_* = 114 total (v0.38.0 Phase 10)
+        # v0.51.6: 74 graq_* + 74 kogni_* = 148 total (T04 +2, T03 +8)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -326,7 +339,9 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        assert len(tools) == 138  # +4: graq/kogni_gate_status + graq/kogni_gate_install (v0.52.0)
+        # v0.51.6: 138 -> 148 (T04 +graq/kogni_kg_diag = +2;
+        # T03 +graq/kogni_chat_{turn,poll,resume,cancel} = +8)
+        assert len(tools) == 148
 
 
 # ---------------------------------------------------------------------------

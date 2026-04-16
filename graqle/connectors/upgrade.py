@@ -180,6 +180,34 @@ def generate_migration_cypher(
     return statements
 
 
+_NODE_RESERVED_KEYS = ("id", "label", "entity_type", "type", "description", "chunks")
+_EDGE_RESERVED_KEYS = ("id", "source", "target", "relationship")
+
+
+def _sanitise_for_neo4j_props(
+    props: dict[str, Any], *, owner_id: str, owner_kind: str
+) -> dict[str, Any]:
+    # Neo4j only accepts primitives or arrays of primitives as node/edge properties.
+    # JSON-stringify anything else so the migration completes lossless instead of crashing.
+    sanitised: dict[str, Any] = {}
+    for k, v in props.items():
+        if isinstance(v, dict):
+            sanitised[k] = json.dumps(v, ensure_ascii=False)
+            logger.warning(
+                "migrator: %s %r property %r was a dict; stored as JSON string",
+                owner_kind, owner_id, k,
+            )
+        elif isinstance(v, list) and v and any(isinstance(x, (dict, list)) for x in v):
+            sanitised[k] = json.dumps(v, ensure_ascii=False)
+            logger.warning(
+                "migrator: %s %r property %r was a nested list; stored as JSON string",
+                owner_kind, owner_id, k,
+            )
+        else:
+            sanitised[k] = v
+    return sanitised
+
+
 def migrate_json_to_neo4j(
     json_path: str | Path,
     neo4j_uri: str,
@@ -204,34 +232,54 @@ def migrate_json_to_neo4j(
     raw_nodes = data.get("nodes", [])
     raw_edges = data.get("edges", data.get("links", []))
 
-    # Convert to dict format
-    nodes_list = []
+    # Convert to dict format. Pull `chunks` out so they become :Chunk nodes
+    # with [:HAS_CHUNK] edges (matching Neo4jConnector.save_chunks contract)
+    # instead of being shoved into CogniNode.chunks as a Map (which Neo4j rejects).
+    nodes_list: list[dict[str, Any]] = []
+    chunks_by_node: dict[str, list[dict[str, Any]]] = {}
     for n in raw_nodes:
+        nid = n.get("id", "")
+        chunks = n.get("chunks") or []
+        if isinstance(chunks, list) and chunks:
+            normalised: list[dict[str, Any]] = []
+            for c in chunks:
+                if isinstance(c, dict):
+                    normalised.append(c)
+                elif isinstance(c, str):
+                    normalised.append({"text": c, "type": "text"})
+            if normalised:
+                chunks_by_node[nid] = normalised
+        raw_props = {k: v for k, v in n.items() if k not in _NODE_RESERVED_KEYS}
         node_data = {
-            "id": n.get("id", ""),
-            "label": n.get("label", n.get("id", "")),
+            "id": nid,
+            "label": n.get("label", nid),
             "entity_type": n.get("entity_type", n.get("type", "")),
             "description": n.get("description", ""),
-            "properties": {k: v for k, v in n.items()
-                          if k not in ("id", "label", "entity_type", "type", "description")},
+            "properties": _sanitise_for_neo4j_props(
+                raw_props, owner_id=nid, owner_kind="node"
+            ),
         }
         nodes_list.append(node_data)
 
-    edges_list = []
+    edges_list: list[dict[str, Any]] = []
     for e in raw_edges:
+        eid = e.get("id", "")
+        raw_props = {k: v for k, v in e.items() if k not in _EDGE_RESERVED_KEYS}
         edge_data = {
-            "id": e.get("id", ""),
+            "id": eid,
             "source": e.get("source", ""),
             "target": e.get("target", ""),
             "relationship": e.get("relationship", "RELATES_TO"),
-            "properties": {k: v for k, v in e.items()
-                          if k not in ("id", "source", "target", "relationship")},
+            "properties": _sanitise_for_neo4j_props(
+                raw_props, owner_id=eid, owner_kind="edge"
+            ),
         }
         edges_list.append(edge_data)
 
     # Connect to Neo4j and migrate
     driver = neo4j_driver.GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
 
+    chunks_migrated = 0
     try:
         with driver.session(database=neo4j_database) as session:
             # Create schema
@@ -252,6 +300,27 @@ def migrate_json_to_neo4j(
             if edges_list and len(cypher_stmts) > 3:
                 session.run(cypher_stmts[3], edges=edges_list)
 
+        # Write chunks via the established Neo4jConnector contract so a later
+        # `Neo4jConnector` opened against the same DB sees the same shape that
+        # save_chunks produces. Imported lazily as a module attribute so test
+        # patches on graqle.connectors.neo4j.Neo4jConnector survive sibling-test
+        # imports that bind the symbol at module scope.
+        if chunks_by_node:
+            import graqle.connectors.neo4j as _neo4j_conn_mod  # noqa: PLC0415
+
+            connector = _neo4j_conn_mod.Neo4jConnector(
+                uri=neo4j_uri,
+                username=neo4j_user,
+                password=neo4j_password,
+                database=neo4j_database,
+            )
+            try:
+                chunks_migrated = connector.save_chunks(chunks_by_node)
+            finally:
+                # Connector owns its own driver; close it to avoid leaks.
+                close = getattr(connector, "close", None)
+                if callable(close):
+                    close()
     finally:
         driver.close()
 
@@ -263,6 +332,7 @@ def migrate_json_to_neo4j(
         "status": "migrated",
         "nodes_migrated": len(nodes_list),
         "edges_migrated": len(edges_list),
+        "chunks_migrated": chunks_migrated,
         "neo4j_uri": neo4j_uri,
         "neo4j_database": neo4j_database,
         "backup_path": str(backup_path),
