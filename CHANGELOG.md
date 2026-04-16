@@ -4,6 +4,108 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.51.6 (2026-04-16) - [unblocks-vscode-pivot]
+
+### Correctness (P0)
+
+- **T01: `Graqle.from_neo4j` is read-only by default.** The pre-v0.51.6
+  default silently mirrored the loaded graph to `cwd/graqle.json` after every
+  call, which corrupted the SOT during parity testing on 2026-04-16. New
+  default is `mirror_to=None` (zero disk writes). Explicit opt-in with
+  `mirror_to=<path>`; new `mirror_overwrite` param guards accidental clobber
+  with `FileExistsError`. Fixed a latent bug: the mirror block called
+  non-existent `graph.save()` - now correctly calls `graph.to_json()`.
+- **T02: Neo4j migrator handles dict/list properties and chunks.** Arbitrary
+  nested property values now JSON-encode cleanly; node `chunks` extract into
+  `:Chunk` nodes via `[:HAS_CHUNK]` edges (matches `Neo4jConnector.save_chunks`
+  contract) instead of crashing Neo4j. Verified end-to-end against
+  `graqle-abtest-2026-04-16` (40,900 nodes / 68,241 edges / ~64,520 chunks).
+- **T04: WRITE_COLLISION self-race eliminated.** The v0.51.5 retry envelope
+  blamed "another MCP client" even on single-client sessions - the server
+  was racing itself. Fix: module-level `threading.RLock` per absolute graph
+  path acquired **before** the OS file lock; re-entrant so
+  `graq_predict(fold_back=True)` -> `auto_grow` -> `graq_learn` no longer
+  deadlocks. Retry backoff switched from fixed 50 ms * 1.5^k to random
+  uniform [50, 250] ms per attempt (eliminates harmonic races). Error
+  message rewritten to name the actual caller module/func/line. Same
+  issue-tracker entry as P0-4.
+
+### New capabilities
+
+- **T03: `graq_chat_turn` / `graq_chat_poll` / `graq_chat_resume` /
+  `graq_chat_cancel` MCP tools registered.** Handlers already shipped in
+  `graqle/chat/mcp_handlers.py` since v0.51.4 but were dormant because MCP
+  registration was missing. Unblocks VS Code extension v0.4.9 pivot.
+  +4 `kogni_chat_*` aliases auto-generated. Pre-registration assertion in
+  the alias loop now **fails loudly** on silent handler overwrite
+  (predict-flagged D2 defect).
+- **T04b: `graq_kg_diag` MCP tool.** Returns recent KG-write latencies,
+  attempts, caller stacks, and current lock holders. CG-01 exempt so it
+  works before `session_start` (common context: debugging
+  `WRITE_COLLISION`). Cheap, no I/O.
+- **T05: `ChatConfig` in `GraqleConfig`.** Optional `chat:` block in
+  `graqle.yaml` with `enabled` / `default_task_type` / `max_turn_seconds`
+  / `permission_mode`. Backward-compat: yamls without the block keep
+  current behavior.
+
+### Testing
+
+- **T07: `tests/integration/test_neo4j_backend.py`** - integration-marked
+  suite that exercises the full Neo4j backend stack against a real DB.
+  Auto-skips when `NEO4J_URI` / `NEO4J_PARITY_PW` are unset. Unit CI stays
+  fast via `pytest -m "not integration"`.
+- **T08: `tests/integration/test_backend_parity.py`** - parametrized
+  parity harness across file and Neo4j backends with tolerance bands.
+  Fixed 3 harness bugs from the original 2026-04-16 parity_test.py: bad
+  `graqle.activation.activate` import, wrong `add_node(id=...)` kwarg,
+  `Graqle(connector=...)` -> `Graqle.from_json` / `Graqle.from_neo4j`.
+- **`tests/test_kg_writes/test_no_self_race.py`** - 100 sequential
+  `_write_with_lock` calls produce **zero retries** (T04 acceptance gate).
+  Re-entrant-deadlock test. Error-message contract test.
+- Pre-existing test `tests/test_core/test_graph_neo4j.py::TestToNeo4j`
+  fails on `private/master` (bug: `to_neo4j` calls non-existent
+  `self.save()`). Not caused by this release; noted for a future fix.
+
+### Build / docs
+
+- **T09: MCP tool inventory at build time.** New
+  `scripts/generate_mcp_inventory.py` introspects `TOOL_DEFINITIONS` and
+  emits `graqle/docs/mcp-tool-inventory-v0.51.6.md` with name / description
+  / args per tool. Shipped in the wheel via `[tool.hatch.build] artifacts`.
+  `--check` flag for CI drift gate.
+- **Tool count: 138 -> 148.** T03 adds 4 `graq_chat_*` + 4 `kogni_chat_*`
+  (= 8); T04 adds `graq_kg_diag` + `kogni_kg_diag` (= 2). T06 updates
+  assertions in `tests/test_plugins/`.
+
+### Regression budget
+
+- `test_core` + `test_connectors` + `test_config` + `test_kg_writes` +
+  `test_plugins`: **691 / 691 passing** (plus 1 skipped, 2 pre-existing
+  deselected).
+
+### Deferred (tracked for v0.52.0)
+
+- T10: `graq_edit max_gap` auto-tune (P2, nice-to-have).
+- P1-6 Neo4j docs; P1-9 SAFETY_GATE legitimate-parameter false-positive fix.
+- `to_neo4j` latent `graph.save()` crash (separate bug, out of T01 scope).
+
+---
+
+## 0.51.5 (2026-04-15)
+
+Concurrent-MCP write-collision retry envelope (BUG-RACE-1): `os.replace`
+retried with exponential backoff under `PermissionError` on Windows.
+`GRAQLE_WRITE_RETRY_BUDGET_MS` env knob. The retry loop surfaced a
+misleading "another MCP client" error - upgraded fix in v0.51.6 / T04.
+
+## 0.51.4 (2026-04-14)
+
+VS Code handoff bugs + P0 KG protection: `_write_with_lock` refuses writes
+that would shrink the graph by more than 1 percent
+(`GRAQLE_ALLOW_SHRINK=1` to override).
+
+---
+
 ## 0.51.3 (2026-04-14)
 
 ### Added
