@@ -2306,6 +2306,62 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["turn_id"],
         },
     },
+    # CG-17 / G1 (v0.52.0): governed memory-file I/O. Native Write/Edit to
+    # ~/.claude/projects/*/memory/*.md is blocked by CG-17 gate; use this tool.
+    {
+        "name": "graq_memory",
+        "description": (
+            "Governed memory-file read/write/index maintenance. Use for ALL "
+            "~/.claude/projects/*/memory/*.md operations. Native Write/Edit "
+            "to memory paths is blocked by CG-17."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "op": {
+                    "type": "string",
+                    "enum": ["read", "write", "update-index"],
+                    "description": "Operation type",
+                },
+                "file": {
+                    "type": "string",
+                    "description": (
+                        "Absolute path to memory file (.md under "
+                        "~/.claude/projects/*/memory/). Required for read/write."
+                    ),
+                },
+                "content": {
+                    "type": "string",
+                    "description": (
+                        "File content (write only). Frontmatter is overwritten "
+                        "with canonical values from type/name/description on "
+                        "new-file writes."
+                    ),
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["user", "feedback", "project", "reference"],
+                    "description": "Memory type (required for new-file writes).",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Memory name (required for new-file writes).",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Memory description (required for new-file writes).",
+                },
+                "memory_dir": {
+                    "type": "string",
+                    "description": (
+                        "Absolute path to <home>/.claude/projects/<hash>/memory "
+                        "(required for update-index op)."
+                    ),
+                },
+            },
+            "required": ["op"],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -2359,6 +2415,279 @@ _WRITE_TOOLS = frozenset({
     # v0.46.4: governed todo list
     "graq_todo", "kogni_todo",
 })
+
+
+# ---------------------------------------------------------------------------
+# CG-17 / G1 — Memory-path helpers (shared by CG-17 gate and _handle_memory)
+# ---------------------------------------------------------------------------
+# Single source of truth for memory-file path canonicalization. Both the
+# dispatcher gate and the handler use these helpers so their definitions of
+# "valid memory path" cannot drift apart. Note: mcp_dev_server.py does not
+# import os at module scope (see CG-01 NameError incident) so each helper
+# performs its own `import os as _os` locally.
+
+_MEMORY_SUFFIX = ".md"
+_MEMORY_TYPES = frozenset({"user", "feedback", "project", "reference"})
+_FRONTMATTER_MALFORMED_KEY = "__frontmatter_malformed__"
+
+
+def _resolve_memory_path(candidate):
+    """Canonicalize and validate a memory FILE path.
+
+    Returns (is_memory, canonical_abs_or_None, error_msg_or_None).
+    Fails CLOSED on any malformed input.
+
+    Layout must be exactly: <home>/.claude/projects/<project>/memory/<file>.md
+    Uses pathlib.Path.parts for exact segment-by-segment validation after
+    realpath canonicalization (resolves symlinks + .. traversal).
+    """
+    import os as _os
+    from pathlib import Path as _Path
+    if not isinstance(candidate, str) or not candidate:
+        return False, None, "path must be non-empty string"
+    try:
+        abs_path = _os.path.realpath(candidate)
+    except (OSError, ValueError) as e:
+        return False, None, f"realpath failed: {e}"
+    try:
+        home = _os.path.realpath(_os.path.expanduser("~"))
+    except (OSError, ValueError) as e:
+        return False, abs_path, f"home resolution failed: {e}"
+    try:
+        rel = _Path(abs_path).relative_to(_Path(home))
+    except ValueError:
+        return False, abs_path, "path not under home directory"
+    parts = rel.parts
+    if len(parts) != 5:
+        return False, abs_path, (
+            f"path must have exactly 5 segments under home "
+            f"(.claude/projects/<project>/memory/<file>.md); got {len(parts)}"
+        )
+    if parts[0] != ".claude":
+        return False, abs_path, "first segment must be .claude"
+    if parts[1] != "projects":
+        return False, abs_path, "second segment must be projects"
+    if parts[3] != "memory":
+        return False, abs_path, "fourth segment must be memory"
+    if not parts[4].endswith(_MEMORY_SUFFIX):
+        return False, abs_path, "file must end with .md"
+    if not parts[2] or not parts[4][:-3]:
+        return False, abs_path, "project id and filename stem must be non-empty"
+    # Verify target is a regular file when it exists (not dir/socket/device).
+    # Non-existent paths are OK (new-file creation).
+    if _os.path.exists(abs_path) and not _os.path.isfile(abs_path):
+        return False, abs_path, "target exists but is not a regular file"
+    return True, abs_path, None
+
+
+def _resolve_memory_dir(candidate):
+    """Canonicalize and validate a memory DIRECTORY path.
+
+    Returns (is_valid, canonical_abs_or_None, error_msg_or_None).
+    Accepts ONLY <home>/.claude/projects/<project>/memory exactly
+    (4 segments under home; no deeper, no fewer).
+    """
+    import os as _os
+    from pathlib import Path as _Path
+    if not isinstance(candidate, str) or not candidate:
+        return False, None, "memory_dir must be non-empty string"
+    try:
+        abs_dir = _os.path.realpath(candidate)
+    except (OSError, ValueError) as e:
+        return False, None, f"realpath failed: {e}"
+    try:
+        home = _os.path.realpath(_os.path.expanduser("~"))
+    except (OSError, ValueError) as e:
+        return False, abs_dir, f"home resolution failed: {e}"
+    try:
+        rel = _Path(abs_dir).relative_to(_Path(home))
+    except ValueError:
+        return False, abs_dir, "memory_dir not under home"
+    parts = rel.parts
+    if len(parts) != 4:
+        return False, abs_dir, (
+            f"memory_dir must have exactly 4 segments under home "
+            f"(.claude/projects/<project>/memory); got {len(parts)}"
+        )
+    if parts[0] != ".claude" or parts[1] != "projects" or parts[3] != "memory":
+        return False, abs_dir, "memory_dir structure must be .claude/projects/<project>/memory"
+    if not parts[2]:
+        return False, abs_dir, "project id must be non-empty"
+    return True, abs_dir, None
+
+
+def _parse_frontmatter(text):
+    """Parse YAML frontmatter block (--- ... ---) from file text.
+
+    Returns:
+      - {} if no frontmatter present
+      - {_FRONTMATTER_MALFORMED_KEY: True} if frontmatter started but
+        could not be parsed (callers can distinguish absent vs malformed)
+      - {key: value, ...} on success
+
+    Tolerates CRLF/LF. Prefers pyyaml.safe_load when available; falls back
+    to a strict line parser that rejects ambiguous scalars.
+    """
+    if not isinstance(text, str) or not text.lstrip().startswith("---"):
+        return {}
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    stripped = normalized.lstrip()
+    if not stripped.startswith("---\n"):
+        return {}
+    rest = stripped[4:]
+    end_idx = rest.find("\n---")
+    if end_idx < 0:
+        return {_FRONTMATTER_MALFORMED_KEY: True}
+    fm_block = rest[:end_idx]
+
+    try:
+        import yaml as _yaml
+        parsed = _yaml.safe_load(fm_block)
+        if isinstance(parsed, dict):
+            out = {}
+            for k, v in parsed.items():
+                if not isinstance(k, str):
+                    continue
+                if isinstance(v, (str, int, float, bool)):
+                    out[k] = str(v)
+            return out
+        return {_FRONTMATTER_MALFORMED_KEY: True}
+    except ImportError:
+        pass
+    except Exception:  # pylint: disable=broad-except
+        return {_FRONTMATTER_MALFORMED_KEY: True}
+
+    out = {}
+    for line in fm_block.split("\n"):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if ":" not in line:
+            return {_FRONTMATTER_MALFORMED_KEY: True}
+        k, _, v = line.partition(":")
+        k = k.strip()
+        v = v.strip()
+        if not k:
+            return {_FRONTMATTER_MALFORMED_KEY: True}
+        if ":" in v or v.startswith(("[", "{", "'", '"', "|", ">")):
+            return {_FRONTMATTER_MALFORMED_KEY: True}
+        out[k] = v
+    return out
+
+
+def _escape_md_inline(value):
+    """Escape characters that would break a Markdown pointer line."""
+    if value is None:
+        return ""
+    s = str(value)
+    s = s.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    return (s.replace("\\", "\\\\")
+              .replace("[", "\\[")
+              .replace("]", "\\]")
+              .replace("(", "\\(")
+              .replace(")", "\\)"))
+
+
+def _extract_indexed_filenames(index_text):
+    """Return the set of filenames currently registered in MEMORY.md.
+
+    Parses `- [...](<filename>) ...` lines. Rejects targets with path
+    separators (injection defense).
+    """
+    import re as _re
+    pat = _re.compile(r"^\s*-\s*\[[^\]]*\]\(([^)]+)\)")
+    found = set()
+    for line in index_text.split("\n"):
+        m = pat.match(line)
+        if not m:
+            continue
+        target = m.group(1).strip()
+        if "/" in target or "\\" in target:
+            continue
+        found.add(target)
+    return found
+
+
+class _MemoryIndexError(Exception):
+    """Raised when MEMORY.md index update fails. Caught by _handle_memory."""
+
+
+def _update_memory_index(memory_dir, filename, name, description, mem_type):
+    """Append a single pointer line to MEMORY.md under the right type section.
+
+    Idempotent (structural parse of existing index). Raises
+    _MemoryIndexError on OS failure or invalid mem_type. Returns True if
+    the index was modified, False if no change was needed.
+    """
+    import os as _os
+    from tempfile import NamedTemporaryFile
+
+    if mem_type not in _MEMORY_TYPES:
+        raise _MemoryIndexError(f"invalid mem_type: {mem_type!r}")
+
+    index_path = _os.path.join(memory_dir, "MEMORY.md")
+    existing_text = ""
+    if _os.path.exists(index_path):
+        try:
+            with open(index_path, "r", encoding="utf-8") as f:
+                existing_text = f.read()
+        except OSError as e:
+            raise _MemoryIndexError(f"could not read MEMORY.md: {e}")
+
+    if filename in _extract_indexed_filenames(existing_text):
+        return False
+
+    safe_name = _escape_md_inline(name)
+    safe_desc = _escape_md_inline(description)
+    pointer_line = f"- [{safe_name}]({filename}) \u2014 {safe_desc}"
+    section_header = f"## {mem_type.capitalize()}"
+
+    lines = existing_text.split("\n") if existing_text else ["# Memory Index", ""]
+    section_idx = None
+    for i, line in enumerate(lines):
+        if line.strip() == section_header:
+            section_idx = i
+            break
+    if section_idx is None:
+        if lines and lines[-1] != "":
+            lines.append("")
+        lines.append(section_header)
+        lines.append(pointer_line)
+        lines.append("")
+    else:
+        insert_at = len(lines)
+        for j in range(section_idx + 1, len(lines)):
+            if lines[j].startswith("## "):
+                insert_at = j
+                break
+        while insert_at > section_idx + 1 and lines[insert_at - 1].strip() == "":
+            insert_at -= 1
+        lines.insert(insert_at, pointer_line)
+
+    tmp_path = None
+    try:
+        try:
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=memory_dir,
+                delete=False, prefix=".tmp_MEMORY_", suffix=".md",
+            ) as tmp:
+                tmp.write("\n".join(lines))
+                if lines and not lines[-1].endswith("\n"):
+                    tmp.write("\n")
+                tmp.flush()
+                _os.fsync(tmp.fileno())
+                tmp_path = tmp.name
+            _os.replace(tmp_path, index_path)
+            tmp_path = None
+        finally:
+            if tmp_path and _os.path.exists(tmp_path):
+                try:
+                    _os.unlink(tmp_path)
+                except OSError:
+                    pass
+    except OSError as e:
+        raise _MemoryIndexError(f"atomic write failed: {e}")
+
+    return True
 
 
 class KogniDevServer:
@@ -3346,6 +3675,40 @@ class KogniDevServer:
                         })
                         return self._inject_tool_hints(name, err)
 
+        # CG-17: Memory-path write gate (v0.52.0 / G1).
+        # Force graq_memory for any write/edit to ~/.claude/projects/*/memory/*.md.
+        # graq_memory/kogni_memory short-circuit BEFORE any path check (they ARE the
+        # sanctioned write path). Fails CLOSED on malformed file_path inputs.
+        if name not in {"graq_memory", "kogni_memory"} and name in {
+            "graq_write", "kogni_write", "graq_edit", "kogni_edit",
+        }:
+            _cg17_target = arguments.get("file_path") if isinstance(arguments, dict) else None
+            if _cg17_target is not None and not isinstance(_cg17_target, str):
+                logger.warning("CG-17 fail-closed: non-string file_path on '%s'", name)
+                err = json.dumps({
+                    "error": "INVALID_FILE_PATH_TYPE",
+                    "tool": name,
+                    "message": f"file_path must be a string, got {type(_cg17_target).__name__}",
+                })
+                return self._inject_tool_hints(name, err)
+            if isinstance(_cg17_target, str) and _cg17_target:
+                _is_mem, _canon, _ = _resolve_memory_path(_cg17_target)
+                if _is_mem:
+                    logger.warning("CG-17 BLOCKED: %s on memory path '%s'", name, _cg17_target)
+                    err = json.dumps({
+                        "error": "CG-17_MEMORY_GATE",
+                        "tool": name,
+                        "file_path": _cg17_target,
+                        "canonicalized": _canon,
+                        "message": (
+                            f"{name} blocked for memory-path '{_cg17_target}'. "
+                            "Memory files must be written via graq_memory tool "
+                            "(maintains MEMORY.md index + frontmatter validation)."
+                        ),
+                        "remediation": "graq_memory",
+                    })
+                    return self._inject_tool_hints(name, err)
+
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
@@ -3361,6 +3724,7 @@ class KogniDevServer:
             "graq_impact": self._handle_impact,
             "graq_safety_check": self._handle_safety_check,
             "graq_learn": self._handle_learn,
+            "graq_memory": self._handle_memory,
             "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
@@ -3412,6 +3776,7 @@ class KogniDevServer:
             "kogni_impact": self._handle_impact,
             "kogni_safety_check": self._handle_safety_check,
             "kogni_learn": self._handle_learn,
+            "kogni_memory": self._handle_memory,
             "kogni_predict": self._handle_predict,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
@@ -4283,6 +4648,298 @@ class KogniDevServer:
         if content and isinstance(content, str) and content.strip():
             return content
         return json.dumps({"error": "graq_predict returned empty result"})
+
+    # ── CG-17 / G1. graq_memory (governed memory-file I/O) ─────────────────
+
+    async def _handle_memory(self, args: dict[str, Any]) -> str:
+        """CG-17/G1 — governed memory-file read/write/index maintenance.
+
+        Ops:
+          - read: returns {ok, path, content, frontmatter} or structured error
+          - write: atomic write; optional MEMORY.md index update for new files
+          - update-index: rebuild MEMORY.md from all memory files in a specific dir
+
+        Fails closed on malformed input. Never raises unhandled exceptions;
+        errors are returned as structured {ok: false, error: ..., message: ...}.
+        """
+        import os as _os_m
+        from tempfile import NamedTemporaryFile
+
+        if not isinstance(args, dict):
+            return json.dumps({
+                "ok": False,
+                "error": "INVALID_ARGUMENTS",
+                "message": "arguments must be an object",
+            })
+
+        op = args.get("op")
+        if op not in ("read", "write", "update-index"):
+            return json.dumps({
+                "ok": False,
+                "error": "INVALID_OP",
+                "message": "op must be one of: read, write, update-index",
+            })
+
+        # ── UPDATE-INDEX (directory-scoped) ────────────────────────────────
+        if op == "update-index":
+            memory_dir = args.get("memory_dir")
+            is_valid, abs_dir, err_msg = _resolve_memory_dir(memory_dir)
+            if not is_valid:
+                return json.dumps({
+                    "ok": False,
+                    "error": "INVALID_MEMORY_DIR",
+                    "message": err_msg or "invalid memory_dir",
+                    "canonicalized": abs_dir,
+                })
+            if not _os_m.path.isdir(abs_dir):
+                return json.dumps({
+                    "ok": False,
+                    "error": "MEMORY_DIR_NOT_FOUND",
+                    "path": abs_dir,
+                })
+
+            entries = []
+            skipped = []
+            try:
+                file_list = sorted(_os_m.listdir(abs_dir))
+            except OSError as e:
+                return json.dumps({
+                    "ok": False,
+                    "error": "DIR_READ_FAILED",
+                    "message": str(e),
+                })
+            for fname in file_list:
+                if not fname.endswith(".md") or fname == "MEMORY.md":
+                    continue
+                fpath = _os_m.path.join(abs_dir, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        text = f.read()
+                except OSError as e:
+                    skipped.append({"file": fname, "reason": f"read_failed: {e}"})
+                    continue
+                fm = _parse_frontmatter(text)
+                if fm.get(_FRONTMATTER_MALFORMED_KEY):
+                    skipped.append({"file": fname, "reason": "malformed_frontmatter"})
+                    continue
+                if not fm:
+                    skipped.append({"file": fname, "reason": "absent_frontmatter"})
+                    continue
+                if not fm.get("name") or not fm.get("description"):
+                    skipped.append({"file": fname, "reason": "missing_required_fields"})
+                    continue
+                mem_type_field = fm.get("type")
+                if mem_type_field not in _MEMORY_TYPES:
+                    skipped.append({
+                        "file": fname,
+                        "reason": f"invalid_type:{mem_type_field!r}",
+                    })
+                    continue
+                entries.append({
+                    "file": fname,
+                    "name": fm["name"],
+                    "description": fm["description"],
+                    "type": mem_type_field,
+                })
+
+            index_path = _os_m.path.join(abs_dir, "MEMORY.md")
+            lines = ["# Memory Index", ""]
+            by_type: dict[str, list[dict[str, str]]] = {}
+            for e in entries:
+                by_type.setdefault(e["type"], []).append(e)
+            for t in ("user", "feedback", "project", "reference"):
+                if t not in by_type:
+                    continue
+                lines.append(f"## {t.capitalize()}")
+                for e in by_type[t]:
+                    safe_name = _escape_md_inline(e["name"])
+                    safe_desc = _escape_md_inline(e["description"])
+                    lines.append(f"- [{safe_name}]({e['file']}) \u2014 {safe_desc}")
+                lines.append("")
+
+            tmp_path = None
+            try:
+                try:
+                    with NamedTemporaryFile(
+                        mode="w", encoding="utf-8", dir=abs_dir,
+                        delete=False, prefix=".tmp_MEMORY_", suffix=".md",
+                    ) as tmp:
+                        tmp.write("\n".join(lines) + "\n")
+                        tmp.flush()
+                        _os_m.fsync(tmp.fileno())
+                        tmp_path = tmp.name
+                    _os_m.replace(tmp_path, index_path)
+                    tmp_path = None
+                finally:
+                    if tmp_path and _os_m.path.exists(tmp_path):
+                        try:
+                            _os_m.unlink(tmp_path)
+                        except OSError:
+                            pass
+            except OSError as e:
+                return json.dumps({
+                    "ok": False,
+                    "error": "INDEX_WRITE_FAILED",
+                    "message": str(e),
+                })
+
+            return json.dumps({
+                "ok": True,
+                "index_path": index_path,
+                "entries_count": len(entries),
+                "skipped": skipped,
+                "partial": len(skipped) > 0,
+            })
+
+        # ── READ & WRITE share file-path validation ────────────────────────
+        file_arg = args.get("file")
+        is_mem, abs_path, err_msg = _resolve_memory_path(file_arg)
+        if not is_mem:
+            if not isinstance(file_arg, str) or not file_arg:
+                return json.dumps({
+                    "ok": False,
+                    "error": "INVALID_FILE",
+                    "message": err_msg or "file must be non-empty string",
+                })
+            return json.dumps({
+                "ok": False,
+                "error": "PATH_OUTSIDE_MEMORY_ROOT",
+                "message": err_msg or "path not in memory root",
+                "canonicalized": abs_path,
+            })
+
+        # ── READ ───────────────────────────────────────────────────────────
+        if op == "read":
+            if not _os_m.path.exists(abs_path):
+                return json.dumps({
+                    "ok": False,
+                    "error": "FILE_NOT_FOUND",
+                    "path": abs_path,
+                })
+            try:
+                with open(abs_path, "r", encoding="utf-8") as f:
+                    text = f.read()
+            except OSError as e:
+                return json.dumps({
+                    "ok": False,
+                    "error": "READ_FAILED",
+                    "message": str(e),
+                    "path": abs_path,
+                })
+            return json.dumps({
+                "ok": True,
+                "path": abs_path,
+                "content": text,
+                "frontmatter": _parse_frontmatter(text),
+            })
+
+        # ── WRITE ──────────────────────────────────────────────────────────
+        content = args.get("content")
+        if not isinstance(content, str):
+            return json.dumps({
+                "ok": False,
+                "error": "INVALID_CONTENT",
+                "message": "content must be a string",
+            })
+
+        is_new_file = not _os_m.path.exists(abs_path)
+
+        # Ordering: ALL required metadata validated BEFORE any filesystem
+        # mutation. If any check fails, no temp file written, no index touched.
+        if is_new_file:
+            mem_type = args.get("type")
+            mem_name = args.get("name")
+            mem_desc = args.get("description")
+            if mem_type not in _MEMORY_TYPES:
+                return json.dumps({
+                    "ok": False,
+                    "error": "INVALID_TYPE",
+                    "message": "type must be: user | feedback | project | reference",
+                })
+            if not isinstance(mem_name, str) or not mem_name:
+                return json.dumps({
+                    "ok": False,
+                    "error": "MISSING_NAME",
+                    "message": "name required for new memory file",
+                })
+            if not isinstance(mem_desc, str) or not mem_desc:
+                return json.dumps({
+                    "ok": False,
+                    "error": "MISSING_DESCRIPTION",
+                    "message": "description required for new memory file",
+                })
+
+            # Canonical frontmatter: strip caller-supplied frontmatter, inject fresh.
+            body = content
+            if content.lstrip().startswith("---"):
+                normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+                stripped = normalized.lstrip()
+                if stripped.startswith("---\n"):
+                    rest = stripped[4:]
+                    end_idx = rest.find("\n---")
+                    if end_idx >= 0:
+                        body = rest[end_idx + 4:].lstrip("\n")
+            content = (
+                f"---\n"
+                f"name: {mem_name}\n"
+                f"description: {mem_desc}\n"
+                f"type: {mem_type}\n"
+                f"---\n\n{body}"
+            )
+
+        parent_dir = _os_m.path.dirname(abs_path)
+        tmp_path = None
+        try:
+            _os_m.makedirs(parent_dir, exist_ok=True)
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=parent_dir,
+                delete=False, prefix=".tmp_memory_", suffix=".md",
+            ) as tmp:
+                tmp.write(content)
+                tmp.flush()
+                _os_m.fsync(tmp.fileno())
+                tmp_path = tmp.name
+            _os_m.replace(tmp_path, abs_path)
+            tmp_path = None
+        except OSError as e:
+            return json.dumps({
+                "ok": False,
+                "error": "WRITE_FAILED",
+                "message": str(e),
+                "path": abs_path,
+            })
+        finally:
+            if tmp_path and _os_m.path.exists(tmp_path):
+                try:
+                    _os_m.unlink(tmp_path)
+                except OSError:
+                    pass
+
+        index_updated = False
+        index_error = None
+        if is_new_file:
+            try:
+                index_updated = _update_memory_index(
+                    parent_dir,
+                    _os_m.path.basename(abs_path),
+                    args.get("name"),
+                    args.get("description"),
+                    args.get("type"),
+                )
+            except _MemoryIndexError as e:
+                index_error = str(e)
+            except Exception as e:  # pylint: disable=broad-except
+                index_error = f"unexpected: {e}"
+
+        result = {
+            "ok": True,
+            "path": abs_path,
+            "index_updated": index_updated,
+            "is_new_file": is_new_file,
+        }
+        if index_error is not None:
+            result["index_error"] = index_error
+        return json.dumps(result)
 
     # ── 8. graq_learn (PRO) ──────────────────────────────────────────
 

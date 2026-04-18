@@ -220,6 +220,8 @@ class TestToolDefinitions:
             "graq_chat_poll",
             "graq_chat_resume",
             "graq_chat_cancel",
+            # CG-17 / G1 (v0.52.0): governed memory-file I/O
+            "graq_memory",
         }
         expected_kogni = {
             "kogni_context",
@@ -308,8 +310,10 @@ class TestToolDefinitions:
             "kogni_chat_poll",
             "kogni_chat_resume",
             "kogni_chat_cancel",
+            # CG-17 / G1 (v0.52.0): governed memory-file I/O alias
+            "kogni_memory",
         }
-        # v0.51.6: 74 graq_* + 74 kogni_* = 148 total (T04 +2, T03 +8)
+        # v0.52.0: 75 graq_* + 75 kogni_* = 150 total (CG-17 +2)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -339,9 +343,8 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        # v0.51.6: 138 -> 148 (T04 +graq/kogni_kg_diag = +2;
-        # T03 +graq/kogni_chat_{turn,poll,resume,cancel} = +8)
-        assert len(tools) == 148
+        # v0.52.0: 148 -> 150 (CG-17 +graq/kogni_memory = +2)
+        assert len(tools) == 150
 
 
 # ---------------------------------------------------------------------------
