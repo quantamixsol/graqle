@@ -436,7 +436,40 @@ catch governance issues before review.
 
 ---
 
-## 75 MCP tools — your AI uses them automatically
+## Release Gate — the pre-publish governance gate nothing else offers
+
+The **Release Gate** is the final checkpoint before a diff becomes a public
+artifact (PyPI package, VS Code Marketplace extension). It's the only
+governance tool that combines **KG-backed diff review** with **multi-agent
+risk prediction** into a single structured verdict: **CLEAR**, **WARN**, or
+**BLOCK**.
+
+```bash
+# Gate a diff against PyPI publish
+graq release-gate --diff "$(git diff main...HEAD)" --target pypi
+
+# Or drop it into CI (GitHub Action — one-line adoption):
+# uses: graqle/release-gate@v1
+#   with: { target: pypi, strict: 'true' }
+```
+
+**Why this is unique:**
+
+| Tool | Diff review | KG-backed | Multi-agent | Pre-publish gate | Risk scoring |
+|---|---|---|---|---|---|
+| GitHub CODEOWNERS | Manual | ❌ | ❌ | ❌ | ❌ |
+| SonarQube | Rules-based | ❌ | ❌ | ❌ | ❌ |
+| Snyk | Supply chain | ❌ | ❌ | ❌ | ❌ |
+| Dependabot | Version bumps | ❌ | ❌ | ❌ | ❌ |
+| **GraQle Release Gate** | **AI + KG** | **✅** | **✅** | **✅** | **✅** |
+
+Three ways to run it — CLI, MCP tool (`graq_release_gate`), and GitHub
+Action (`graqle/release-gate@v1`). Full documentation:
+**[docs/governance.md](docs/governance.md)**.
+
+---
+
+## 76 MCP tools — your AI uses them automatically
 
 ```bash
 graq init          # Claude Code — auto-wires all 75 tools

@@ -2306,6 +2306,40 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["turn_id"],
         },
     },
+    # G2 (v0.52.0): pre-publish KG-multi-agent governance gate.
+    # Composes diff review + risk prediction into a structured verdict.
+    {
+        "name": "graq_release_gate",
+        "description": (
+            "Pre-publish governance gate. Composes a correctness-focused "
+            "diff review with a risk prediction and returns a structured "
+            "verdict (CLEAR / WARN / BLOCK) with blockers, majors, and "
+            "opaque risk + confidence scores. Use before `git tag`, `pypi` "
+            "upload, or VS Code Marketplace publish."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "diff": {
+                    "type": "string",
+                    "description": "Unified git diff text of the change to gate.",
+                },
+                "target": {
+                    "type": "string",
+                    "enum": ["pypi", "vscode-marketplace"],
+                    "description": "Publish target.",
+                },
+                "min_confidence": {
+                    "type": "number",
+                    "description": (
+                        "Optional confidence override (float between 0.0 and 1.0). "
+                        "Leave unset to use GraQle defaults."
+                    ),
+                },
+            },
+            "required": ["diff", "target"],
+        },
+    },
     # CG-17 / G1 (v0.52.0): governed memory-file I/O. Native Write/Edit to
     # ~/.claude/projects/*/memory/*.md is blocked by CG-17 gate; use this tool.
     {
@@ -3725,6 +3759,7 @@ class KogniDevServer:
             "graq_safety_check": self._handle_safety_check,
             "graq_learn": self._handle_learn,
             "graq_memory": self._handle_memory,
+            "graq_release_gate": self._handle_release_gate,
             "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
@@ -3777,6 +3812,7 @@ class KogniDevServer:
             "kogni_safety_check": self._handle_safety_check,
             "kogni_learn": self._handle_learn,
             "kogni_memory": self._handle_memory,
+            "kogni_release_gate": self._handle_release_gate,
             "kogni_predict": self._handle_predict,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
@@ -4648,6 +4684,134 @@ class KogniDevServer:
         if content and isinstance(content, str) and content.strip():
             return content
         return json.dumps({"error": "graq_predict returned empty result"})
+
+    # ── G2. graq_release_gate (pre-publish governance gate) ────────────────
+
+    async def _handle_release_gate(self, args: dict[str, Any]) -> str:
+        """G2 (v0.52.0) — pre-publish KG + multi-agent governance gate.
+
+        Composes _handle_review + _handle_predict via the ReleaseGateEngine
+        (injection pattern). Providers are constructed inline and wrap the
+        existing MCP handlers so the engine stays test-friendly.
+
+        Args:
+            diff: unified git diff text (required, non-empty str)
+            target: "pypi" | "vscode-marketplace" (required)
+            min_confidence: optional float in [0.0, 1.0]
+
+        Returns JSON string of ReleaseGateVerdict (never raises; provider
+        failures resolve to a WARN fallback).
+        """
+        from graqle.release_gate import (
+            PredictionSummary,
+            ReleaseGateEngine,
+            ReviewSummary,
+        )
+
+        if not isinstance(args, dict):
+            return json.dumps({
+                "ok": False,
+                "error": "INVALID_ARGUMENTS",
+                "message": "arguments must be an object",
+            })
+
+        diff_arg = args.get("diff")
+        target_arg = args.get("target")
+        min_conf_arg = args.get("min_confidence")
+
+        # Provider adapters — wrap _handle_review / _handle_predict so the
+        # engine sees the Protocol surface and never the raw MCP handler.
+        outer_self = self
+
+        class _ReviewAdapter:
+            async def review(self_inner, diff: str, focus: str = "correctness") -> ReviewSummary:
+                raw = await outer_self._handle_review({"diff": diff, "focus": focus})
+                try:
+                    parsed = json.loads(raw) if isinstance(raw, str) else raw
+                except (ValueError, TypeError):
+                    return ReviewSummary()
+                if not isinstance(parsed, dict):
+                    return ReviewSummary()
+                # _handle_review returns {"review": <json-stringified inner>} in some paths;
+                # accept either the unwrapped dict or the nested form.
+                inner = parsed
+                if "review" in parsed and isinstance(parsed["review"], str):
+                    try:
+                        inner = json.loads(parsed["review"])
+                    except (ValueError, TypeError):
+                        inner = parsed
+                blockers = tuple(
+                    (c.get("description") or "").strip()
+                    for c in (inner.get("comments") or [])
+                    if isinstance(c, dict) and c.get("severity") == "BLOCKER"
+                )
+                majors = tuple(
+                    (c.get("description") or "").strip()
+                    for c in (inner.get("comments") or [])
+                    if isinstance(c, dict) and c.get("severity") == "MAJOR"
+                )
+                minors = tuple(
+                    (c.get("description") or "").strip()
+                    for c in (inner.get("comments") or [])
+                    if isinstance(c, dict) and c.get("severity") == "MINOR"
+                )
+                summary_text = inner.get("summary") or inner.get("verdict") or ""
+                return ReviewSummary(
+                    blockers=tuple(b for b in blockers if b),
+                    majors=tuple(m for m in majors if m),
+                    minors=tuple(mi for mi in minors if mi),
+                    summary=str(summary_text),
+                )
+
+        class _PredictAdapter:
+            async def predict(self_inner, diff: str, target: str) -> PredictionSummary:
+                raw = await outer_self._handle_predict({
+                    "question": f"Risk of shipping this diff to {target}?",
+                    "evidence": diff,
+                })
+                try:
+                    parsed = json.loads(raw) if isinstance(raw, str) else raw
+                except (ValueError, TypeError):
+                    return PredictionSummary(risk_score=0.5, confidence=0.0)
+                if not isinstance(parsed, dict):
+                    return PredictionSummary(risk_score=0.5, confidence=0.0)
+                # _handle_predict returns a rich record; extract only opaque
+                # public-safe fields. Specific internal fields are NEVER surfaced.
+                risk = parsed.get("risk_score")
+                if risk is None:
+                    # Fall back to 1 - confidence as a naive proxy when predict
+                    # doesn't provide risk_score directly.
+                    conf_val = parsed.get("confidence") or parsed.get("activation_confidence") or 0.0
+                    try:
+                        risk = 1.0 - float(conf_val)
+                    except (TypeError, ValueError):
+                        risk = 0.5
+                conf = (
+                    parsed.get("confidence")
+                    or parsed.get("activation_confidence")
+                    or parsed.get("answer_confidence")
+                    or 0.0
+                )
+                reasons_raw = parsed.get("reasons") or parsed.get("evidence") or ()
+                if isinstance(reasons_raw, str):
+                    reasons_raw = (reasons_raw,)
+                reasons = tuple(str(r) for r in reasons_raw if r)
+                return PredictionSummary(
+                    risk_score=float(risk) if risk is not None else 0.5,
+                    confidence=float(conf) if conf is not None else 0.0,
+                    reasons=reasons,
+                )
+
+        engine = ReleaseGateEngine(
+            review_provider=_ReviewAdapter(),
+            prediction_provider=_PredictAdapter(),
+        )
+        verdict = await engine.gate(
+            diff=diff_arg,
+            target=target_arg,
+            min_confidence=min_conf_arg,
+        )
+        return json.dumps(verdict.to_dict())
 
     # ── CG-17 / G1. graq_memory (governed memory-file I/O) ─────────────────
 

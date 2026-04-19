@@ -4,6 +4,41 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.52.0-alpha (2026-04-19) - [wave-1-gap-closure]
+
+### Added
+
+- **G2: Release Gate.** Pre-publish KG-multi-agent governance gate — the
+  only tool that combines KG-backed diff review with multi-agent risk
+  prediction into a single structured verdict (`CLEAR` / `WARN` / `BLOCK`).
+  Ships as three adoption surfaces:
+    - **CLI** — `graq release-gate --diff ... --target pypi|vscode-marketplace`
+    - **MCP tool** — `graq_release_gate` (also aliased as `kogni_release_gate`)
+    - **GitHub Action** — `graqle/release-gate@v1` (Dockerfile-based,
+      one-line adoption via `.github/workflows/release-gate.yml`)
+  Engine uses the injection pattern (like R18 GovernedTrace) so tests never
+  call real LLMs. Provider failures, timeouts, and malformed payloads
+  resolve to a safe `WARN` verdict with a caller-safe reason — never
+  crashing the build. 20 engine tests + 7 MCP-dispatcher tests, all green.
+  See [docs/governance.md](docs/governance.md) and the copy-paste workflow
+  template at
+  [`.github/workflows/release-gate-example.yml`](.github/workflows/release-gate-example.yml).
+- **CG-17 / G1: `graq_memory` MCP tool + memory-write gate.** Native
+  `Write` / `Edit` on `~/.claude/projects/*/memory/*.md` is now blocked at
+  the dispatcher; memory files must route through the new `graq_memory`
+  tool (maintains `MEMORY.md` index + frontmatter validation + atomic
+  writes + markdown-safe rendering). 30 new tests (28 pass, 2
+  Windows-skipped for symlink/chmod). Zero regressions across
+  `tests/test_plugins/` (308 green). Ships with `graq_memory` +
+  `kogni_memory` (tool count 148 → 150 for CG-17, then → 152 for G2).
+
+### Changed
+
+- **MCP tool count: 148 → 152** (`graq_memory`, `kogni_memory`,
+  `graq_release_gate`, `kogni_release_gate`).
+
+---
+
 ## 0.51.6 (2026-04-16) - [unblocks-vscode-pivot]
 
 ### Correctness (P0)
