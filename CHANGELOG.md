@@ -8,6 +8,17 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **ADR-206 / SDK-B3: Impact-Radius Fast-Path.** When the chat detects
+  an unambiguous file-create intent with zero blast radius, skip the LLM
+  pipeline (reason → generate → review) and write directly. Reduces the
+  ~75s round-trip to ~0.3s on zero-impact creates. The ADR-205 safety
+  layer still evaluates first — zero blast radius does not mean zero
+  safety risk. Feature flag `fast_path_enabled` defaults ON
+  (ADR-206 Decision: unified flag-default policy); kill switch via
+  `GRAQLE_FAST_PATH_ENABLED=0`. New module `graqle/chat/fast_path.py`
+  with strict regex classifier + containment-checked path safety.
+  30+ new tests. Zero regression (739/739 green).
+  See [ADR-206](.gsm/decisions/ADR-206-fast-path-policy-and-flag-defaults.md).
 - **ADR-205: Pre-Reason Activation Layer (SDK-B2 + SDK-B4 + GOV-01 + GOV-02).**
   Every chat turn now runs through a three-layer pre-reason activation
   step before the LLM planner is invoked: (1) relevance scoring (TAMR+

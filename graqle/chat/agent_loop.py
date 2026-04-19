@@ -74,6 +74,7 @@ from graqle.activation import (
 )
 from graqle.chat.backend_router import BackendRouter
 from graqle.chat.debate import ConcernCheckRecord, ReasonFn, resolve_concern
+from graqle.chat.fast_path import FastPathIntent, is_fast_path_candidate
 from graqle.chat.permission_manager import (
     PermissionDecision,
     PermissionManager,
@@ -181,6 +182,8 @@ class ChatAgentLoop:
         burst_ceiling: int = BURST_OVERRIDE_CEILING,
         activation_layer: ActivationLayer | None = None,
         pre_reason_activation_enabled: bool = True,
+        fast_path_enabled: bool = True,
+        fast_path_cwd: Any | None = None,
     ) -> None:
         self.session_id = session_id
         self.tcg = tcg
@@ -214,6 +217,16 @@ class ChatAgentLoop:
                 )
                 self.pre_reason_activation_enabled = False
                 self.activation_layer = None
+
+        # ADR-206 — fast-path performance flag. Defaults ON per ADR-206 Policy.
+        # Env var GRAQLE_FAST_PATH_ENABLED=0 forces OFF (regression bisection only).
+        import os as _os_adr206
+        self.fast_path_enabled = (
+            fast_path_enabled
+            and _os_adr206.environ.get("GRAQLE_FAST_PATH_ENABLED", "1").strip() not in ("0", "false", "False")
+        )
+        from pathlib import Path as _Path_adr206
+        self.fast_path_cwd = fast_path_cwd if fast_path_cwd is not None else _Path_adr206.cwd()
 
     def buffer_for(self, turn_id: str) -> ChatEventBuffer:
         """Return (creating if needed) the per-turn event buffer."""
@@ -365,6 +378,78 @@ class ChatAgentLoop:
                 logger.warning(
                     "ADR-205 activation layer error (failing open): %s",
                     type(_exc).__name__,
+                )
+
+        # Step 3.75: SDK-B3 / ADR-206 — impact-radius fast-path.
+        # Preconditions: fast_path_enabled, classifier recognizes file_create,
+        # path is safe, ADR-205 activation verdict is not blocked.
+        # All rejection paths are side-effect free.
+        _fp_intent: FastPathIntent | None = None
+        if self.fast_path_enabled:
+            _v = self._last_activation_verdict
+            _verdict_ok = (
+                self._last_activation_verdict is not None
+                and not getattr(_v, "is_blocked", True)
+            ) if self.pre_reason_activation_enabled else True
+            if _verdict_ok:
+                _fp_intent = is_fast_path_candidate(
+                    user_message=user_message,
+                    cwd=self.fast_path_cwd,
+                )
+        if _fp_intent is not None:
+            _tc_id = f"fastpath_{turn_id}"
+            import os as _os_fp
+            _abs_target = _os_fp.path.abspath(
+                _os_fp.path.join(str(self.fast_path_cwd), _fp_intent.target_path),
+            )
+            try:
+                with open(_abs_target, "x", encoding="utf-8") as _f:
+                    _f.write(_fp_intent.content_hint or "")
+            except FileExistsError:
+                logger.info(
+                    "fast-path TOCTOU: %s exists, falling through",
+                    _fp_intent.target_path,
+                )
+                _fp_intent = None
+            except (OSError, ValueError) as _fp_err:
+                logger.warning(
+                    "fast-path write error (%s: %s); falling through",
+                    type(_fp_err).__name__, _fp_err,
+                )
+                _fp_intent = None
+
+            if _fp_intent is not None:
+                await self._emit(
+                    turn_id, ChatEventType.TOOL_STARTED,
+                    {"tool": "graq_write", "fast_path": True,
+                     "target": _fp_intent.target_path},
+                    tool_call_id=_tc_id,
+                )
+                await self._emit(
+                    turn_id, ChatEventType.TOOL_ENDED,
+                    {"tool": "graq_write", "fast_path": True,
+                     "target": _fp_intent.target_path, "status": "ok",
+                     "path": _abs_target},
+                    tool_call_id=_tc_id,
+                )
+                try:
+                    await self.turn_store.transition(
+                        turn_id, TurnState.ACTIVE, TurnState.COMPLETED,
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    pass
+                await self._emit(
+                    turn_id, ChatEventType.TURN_COMPLETE,
+                    {"state": TurnState.COMPLETED.value, "fast_path": True,
+                     "target": _fp_intent.target_path},
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    final_text=f"Created {_fp_intent.target_path}",
+                    state=TurnState.COMPLETED,
+                    tool_executions=[],
+                    check_records=[],
+                    cost_usd=0.0,
                 )
 
         # Step 4: tool-use loop
