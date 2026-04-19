@@ -8,6 +8,24 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **ADR-205: Pre-Reason Activation Layer (SDK-B2 + SDK-B4 + GOV-01 + GOV-02).**
+  Every chat turn now runs through a three-layer pre-reason activation
+  step before the LLM planner is invoked: (1) relevance scoring (TAMR+
+  role), (2) safety evaluation (DRACE role), (3) predictive subgraph
+  activation (PSE role). The layer is wired into
+  `ChatAgentLoop.run_turn` and applies to ALL task types (plan, code,
+  edit, debate, reason). Free tier runs in advisory mode (score visible,
+  upgrade chip on would-be-blocks); Pro/Enterprise runs in enforced mode
+  (turn transitions to FAILED on blocks). Feature flag
+  `pre_reason_activation_enabled` defaults ON (codified guard against
+  the v0.4.15 flag-never-flipped incident); kill switch via
+  `GRAQLE_PRE_REASON_ACTIVATION=0` for regression bisection. New module
+  `graqle/activation/` adds Protocol-based providers (matches R18 and G2
+  architecture). 18 new tests, 239/239 existing chat tests green, zero
+  regression. See
+  [docs/governance.md](docs/governance.md#pre-reason-activation-chat-turn-safety-gate)
+  and
+  [ADR-205](.gsm/decisions/ADR-205-pre-reason-activation-layer.md).
 - **G2: Release Gate.** Pre-publish KG-multi-agent governance gate — the
   only tool that combines KG-backed diff review with multi-agent risk
   prediction into a single structured verdict (`CLEAR` / `WARN` / `BLOCK`).

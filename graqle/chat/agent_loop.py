@@ -65,6 +65,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from graqle.activation import (
+    ActivationLayer,
+    ActivationVerdict,
+    TierMode,
+    TurnBlocked,
+    default_activation_layer,
+)
 from graqle.chat.backend_router import BackendRouter
 from graqle.chat.debate import ConcernCheckRecord, ReasonFn, resolve_concern
 from graqle.chat.permission_manager import (
@@ -172,6 +179,8 @@ class ChatAgentLoop:
         reason_fn: ReasonFn | None = None,
         tool_call_budget: int = DEFAULT_TOOL_CALL_BUDGET,
         burst_ceiling: int = BURST_OVERRIDE_CEILING,
+        activation_layer: ActivationLayer | None = None,
+        pre_reason_activation_enabled: bool = True,
     ) -> None:
         self.session_id = session_id
         self.tcg = tcg
@@ -186,6 +195,25 @@ class ChatAgentLoop:
         self.tool_call_budget = tool_call_budget
         self.burst_ceiling = burst_ceiling
         self._buffers: dict[str, ChatEventBuffer] = {}
+        # ADR-205 — pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
+        # Default ON per ADR-205 Decision 4 (lesson from v0.4.15 flag-stayed-off incident).
+        # Env var GRAQLE_PRE_REASON_ACTIVATION=0 forces OFF; useful only for regression bisection.
+        import os as _os_adr205
+        self.pre_reason_activation_enabled = (
+            pre_reason_activation_enabled
+            and _os_adr205.environ.get("GRAQLE_PRE_REASON_ACTIVATION", "1").strip() not in ("0", "false", "False")
+        )
+        self.activation_layer = activation_layer
+        if self.activation_layer is None and self.pre_reason_activation_enabled:
+            try:
+                self.activation_layer = default_activation_layer()
+            except Exception as _exc:  # pylint: disable=broad-except
+                logger.warning(
+                    "ADR-205 activation layer failed to construct; disabling for this session: %s",
+                    type(_exc).__name__,
+                )
+                self.pre_reason_activation_enabled = False
+                self.activation_layer = None
 
     def buffer_for(self, turn_id: str) -> ChatEventBuffer:
         """Return (creating if needed) the per-turn event buffer."""
@@ -251,6 +279,93 @@ class ChatAgentLoop:
                     "rationale": c.rationale,
                 },
             )
+
+        # Step 3.5: ADR-205 pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
+        # Runs BEFORE the LLM planner so every tool dispatch (plan / code / edit /
+        # debate / reason) sees a DRACE-evaluated, PSE-activated turn context.
+        #
+        # Behaviour matrix (tier_mode resolved at construction):
+        #   ADVISORY (Free) + should_block: emit upgrade chip, continue
+        #   ENFORCED (Pro+) + should_block: raise TurnBlocked → FAIL turn
+        #   any tier + !should_block: merge activated subgraph into turn_context
+        #
+        # Feature flag `pre_reason_activation_enabled` defaults ON (ADR-205
+        # Decision 4). Kill switch via GRAQLE_PRE_REASON_ACTIVATION=0 for
+        # regression bisection only. Skip entirely if disabled or layer missing.
+        self._last_activation_verdict: ActivationVerdict | None = None
+        if self.pre_reason_activation_enabled and self.activation_layer is not None:
+            _act_hints = {
+                "intent": activation.intent_label or "unknown",
+                "intent_id": activation.intent_id,
+                "candidates": [c.label for c in activation.candidates],
+                "scenario": scenario or "",
+            }
+            try:
+                self._last_activation_verdict = await self.activation_layer.run(
+                    user_message=user_message,
+                    activation_hints=_act_hints,
+                )
+                await self._emit(
+                    turn_id, ChatEventType.GOVERNANCE_CHIP,
+                    {
+                        "kind": "pre_reason_activation",
+                        "tier_mode": self._last_activation_verdict.tier_mode.value,
+                        "decision": "pass",
+                        **self._last_activation_verdict.to_dict(),
+                    },
+                )
+                # Advisory (Free tier) — emit upgrade chip if would-have-blocked
+                _advisory = self._last_activation_verdict.advisory_chip
+                if _advisory is not None:
+                    await self._emit(
+                        turn_id, ChatEventType.GOVERNANCE_CHIP,
+                        {
+                            "kind": "upgrade_to_enforce",
+                            "tier_mode": "ADVISORY",
+                            "decision": "advisory_only",
+                            **_advisory,
+                        },
+                    )
+            except TurnBlocked as _blocked:
+                # ENFORCED tier + safety gate tripped → transition turn to FAILED.
+                await self._emit(
+                    turn_id, ChatEventType.GOVERNANCE_CHIP,
+                    {
+                        "kind": "pre_reason_activation",
+                        "tier_mode": _blocked.verdict.tier_mode.value,
+                        "decision": "block",
+                        "reason": _blocked.verdict.block_reason,
+                        **_blocked.verdict.to_dict(),
+                    },
+                )
+                try:
+                    await self.turn_store.transition(
+                        turn_id, TurnState.ACTIVE, TurnState.FAILED,
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    pass
+                await self._emit(
+                    turn_id, ChatEventType.TURN_COMPLETE,
+                    {
+                        "state": TurnState.FAILED.value,
+                        "reason": "pre_reason_activation_blocked",
+                        "block_reason": _blocked.verdict.block_reason,
+                    },
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    final_text="",
+                    state=TurnState.FAILED,
+                    tool_executions=[],
+                    check_records=[],
+                    cost_usd=0.0,
+                )
+            except Exception as _exc:  # pylint: disable=broad-except
+                # Fail open on any unexpected error so the turn still runs.
+                logger.warning(
+                    "ADR-205 activation layer error (failing open): %s",
+                    type(_exc).__name__,
+                )
 
         # Step 4: tool-use loop
         results: list[ToolExecution] = []

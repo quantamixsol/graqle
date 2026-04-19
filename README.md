@@ -35,6 +35,27 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
+## Pre-Reason Activation — every chat turn, safety-checked before the LLM runs
+
+GraQle runs a three-layer pre-reason safety step on **every chat turn**
+before the LLM planner. It narrows the KG to relevant chunks, scores the
+turn with DRACE (dependency / reasoning / auditability / constraint /
+explainability), and pre-activates the predictive subgraph — all
+*before* the first tool call.
+
+- **Free tier** — advisory: full evaluation runs, score is visible, an
+  upgrade chip shows what would be blocked in enforced mode.
+- **Pro / Enterprise** — enforced: below-threshold turns halt at the turn
+  boundary, not after.
+
+The feature flag defaults **ON**. Same behavior in Claude Code, in the
+GraQle VS Code extension, and in direct SDK usage. See the
+[Pre-Reason Activation section](docs/governance.md#pre-reason-activation-chat-turn-safety-gate)
+for the full flow and the tier-aware behavior matrix. Design rationale
+is captured in [ADR-205](.gsm/decisions/ADR-205-pre-reason-activation-layer.md).
+
+---
+
 ## Governance Gate — Activate Full GraQle Autonomy
 
 > **Optional. One command. Fully reversible.** Turn any Claude Code session into a governed, architecture-aware reasoning pipeline.
