@@ -168,6 +168,293 @@ BACKENDS: dict[str, dict[str, Any]] = {
 # AI instructions content — universal across IDEs
 # ──────────────────────────────────────────────────────────────────────
 
+# ───────────────────────────────────────────────────────────────────────────
+# SDK-B1 — GRAQ.md project-local chat-routing policy
+# ───────────────────────────────────────────────────────────────────────────
+# GRAQ.md is a user-facing walk-up file that gets merged on top of the
+# built-in chat system prompt at session start. It lives at the workspace
+# root (not inside .claude/ or .graq/). Projects without a GRAQ.md fall
+# back to the generic defaults baked into the SDK.
+
+_GRAQ_MD_TEMPLATE_GENERIC = r"""# GRAQ.md — project-local chat routing
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start. You can delete this file at any time — the
+> defaults still work.
+
+## Project intent
+
+_(Optional: describe what this project is and what you usually ask
+AI to do here. 2-3 sentences is enough.)_
+
+## Tool preferences
+
+- Prefer atomic, reviewable diffs (small scope, one concern per change).
+- Run tests after code changes when a test suite exists.
+- Favor the governed tools (`graq_edit`, `graq_write`) over raw file writes.
+
+## Hard rules (optional)
+
+_(Anything the AI must NEVER do in this project goes here.)_
+
+---
+
+Created by `graq init`. Edit freely — it's your workspace.
+"""
+
+_GRAQ_MD_TEMPLATE_PYTHON = r"""# GRAQ.md — project-local chat routing (Python)
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start.
+
+## Project intent
+
+_(Describe what this Python project does. 2-3 sentences.)_
+
+## Tool preferences (Python)
+
+- Run `pytest` after code changes; scope the run to the module being
+  touched (e.g. `pytest tests/test_foo/`).
+- Prefer `graq_edit` over `graq_write` for existing `.py` files.
+- Always respect `pyproject.toml` linters (ruff / mypy / black).
+- Virtualenv: default to `.venv/`.
+
+## Hard rules
+
+- Never commit secrets to `.env` / `settings.py`.
+- Never modify tests to make failing code pass — fix the code.
+
+---
+
+Created by `graq init`. Edit freely.
+"""
+
+_GRAQ_MD_TEMPLATE_TYPESCRIPT = r"""# GRAQ.md — project-local chat routing (TypeScript)
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start.
+
+## Project intent
+
+_(Describe what this TS project does. 2-3 sentences.)_
+
+## Tool preferences (TypeScript)
+
+- Run `npm test` (or the project's test script) after code changes.
+- Respect `tsconfig.json` strictness settings — no `any` unless justified.
+- Prefer `graq_edit` over `graq_write` for existing `.ts` / `.tsx` files.
+- Package manager: match the existing lockfile (`package-lock.json` →
+  npm, `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn).
+
+## Hard rules
+
+- Never skip typecheck failures by adding `@ts-ignore`.
+
+---
+
+Created by `graq init`. Edit freely.
+"""
+
+_GRAQ_MD_TEMPLATE_JAVASCRIPT = r"""# GRAQ.md — project-local chat routing (JavaScript)
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start.
+
+## Project intent
+
+_(Describe what this JS project does. 2-3 sentences.)_
+
+## Tool preferences (JavaScript)
+
+- Run the project's test script after code changes.
+- Respect `.eslintrc` if present.
+- Prefer `graq_edit` over `graq_write` for existing `.js` / `.jsx` files.
+
+---
+
+Created by `graq init`. Edit freely.
+"""
+
+_GRAQ_MD_TEMPLATE_RUST = r"""# GRAQ.md — project-local chat routing (Rust)
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start.
+
+## Project intent
+
+_(Describe what this Rust project does. 2-3 sentences.)_
+
+## Tool preferences (Rust)
+
+- Run `cargo check` + `cargo test` after code changes.
+- Respect `clippy` warnings — prefer fixing over silencing.
+- Prefer `graq_edit` over `graq_write` for existing `.rs` files.
+
+---
+
+Created by `graq init`. Edit freely.
+"""
+
+_GRAQ_MD_TEMPLATE_GO = r"""# GRAQ.md — project-local chat routing (Go)
+
+> This file tells the GraQle chat loop how you want AI to behave in
+> **this specific project**. It's merged on top of the built-in system
+> prompt at session start.
+
+## Project intent
+
+_(Describe what this Go project does. 2-3 sentences.)_
+
+## Tool preferences (Go)
+
+- Run `go test ./...` after code changes.
+- Run `go vet` and `gofmt` before commit.
+- Prefer `graq_edit` over `graq_write` for existing `.go` files.
+
+---
+
+Created by `graq init`. Edit freely.
+"""
+
+GRAQ_MD_TEMPLATES: dict[str, str] = {
+    "python": _GRAQ_MD_TEMPLATE_PYTHON,
+    "typescript": _GRAQ_MD_TEMPLATE_TYPESCRIPT,
+    "javascript": _GRAQ_MD_TEMPLATE_JAVASCRIPT,
+    "rust": _GRAQ_MD_TEMPLATE_RUST,
+    "go": _GRAQ_MD_TEMPLATE_GO,
+    "generic": _GRAQ_MD_TEMPLATE_GENERIC,
+}
+
+
+def detect_project_type(root: Path) -> str:
+    """Return one of GRAQ_MD_TEMPLATES keys best matching the project at `root`.
+
+    Resolution order (first hit wins):
+        pyproject.toml     → "python"
+        Cargo.toml         → "rust"
+        go.mod             → "go"
+        package.json       → "typescript" if TS indicators, else "javascript"
+        (nothing matches)  → "generic"
+
+    TypeScript indicators checked (any of):
+        - "typescript" in dependencies, devDependencies, or peerDependencies
+        - tsconfig.json present alongside package.json
+
+    All IO is defensive. Malformed package.json falls back to "javascript"
+    unless tsconfig.json is present (in which case "typescript"). Any
+    other error → "generic".
+    """
+    try:
+        if not isinstance(root, Path) or not root.is_dir():
+            return "generic"
+    except OSError:
+        return "generic"
+
+    if (root / "pyproject.toml").is_file():
+        return "python"
+    if (root / "Cargo.toml").is_file():
+        return "rust"
+    if (root / "go.mod").is_file():
+        return "go"
+
+    pkg = root / "package.json"
+    tsconfig_present = (root / "tsconfig.json").is_file()
+    if pkg.is_file():
+        try:
+            with open(pkg, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError, json.JSONDecodeError):
+            # Malformed package.json — fall back conservatively.
+            return "typescript" if tsconfig_present else "javascript"
+        if isinstance(data, dict):
+            for bucket in ("dependencies", "devDependencies", "peerDependencies"):
+                deps = data.get(bucket)
+                if isinstance(deps, dict) and "typescript" in deps:
+                    return "typescript"
+        return "typescript" if tsconfig_present else "javascript"
+
+    return "generic"
+
+
+def write_graq_md(
+    root: Path,
+    project_type: str | None = None,
+    overwrite: bool = False,
+) -> bool:
+    """Atomically write GRAQ.md at workspace `root`.
+
+    Resolution order for the template selected:
+        explicit `project_type` argument  > detect_project_type(root)
+        > "generic" fallback
+
+    Behavior:
+        - If GRAQ.md already exists and `overwrite=False`: return False
+          (idempotent — safe to call repeatedly)
+        - Otherwise: atomic write (NamedTemporaryFile + fsync + os.replace)
+          with try/finally cleanup so the target is left unchanged on any
+          IO failure.
+
+    Returns:
+        True  — GRAQ.md was written (new or overwrite)
+        False — GRAQ.md already existed and overwrite=False, OR an IO
+                failure prevented the write (target left unchanged)
+    """
+    from tempfile import NamedTemporaryFile
+
+    try:
+        root = root if isinstance(root, Path) else Path(root)
+    except (TypeError, ValueError):
+        return False
+
+    target = root / "GRAQ.md"
+    if target.exists() and not overwrite:
+        return False
+
+    # Resolve template
+    resolved_type: str
+    if isinstance(project_type, str) and project_type in GRAQ_MD_TEMPLATES:
+        resolved_type = project_type
+    elif project_type is None:
+        resolved_type = detect_project_type(root)
+        if resolved_type not in GRAQ_MD_TEMPLATES:
+            resolved_type = "generic"
+    else:
+        resolved_type = "generic"
+    content = GRAQ_MD_TEMPLATES[resolved_type]
+
+    # Atomic write with try/finally cleanup.
+    tmp_path: Path | None = None
+    try:
+        try:
+            if not root.exists():
+                root.mkdir(parents=True, exist_ok=True)
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=str(root),
+                delete=False, prefix=".tmp_GRAQ_", suffix=".md",
+            ) as tmp:
+                tmp.write(content)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                tmp_path = Path(tmp.name)
+            os.replace(str(tmp_path), str(target))
+            tmp_path = None  # successfully replaced, no cleanup needed
+            return True
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
+    except OSError:
+        # Target left unchanged. Caller treats as skip.
+        return False
+
+
 AI_INSTRUCTIONS_SECTION = r"""
 # GraQle — Dev Intelligence Layer
 
@@ -2243,6 +2530,11 @@ def init_command(
     no_gcc: bool = typer.Option(
         False, "--no-gcc", help="Skip .gcc/ directory creation"
     ),
+    no_graq_md: bool = typer.Option(
+        False, "--no-graq-md",
+        help="Skip GRAQ.md (project-local chat routing) creation. "
+             "Per flag-default policy this flag defaults False (creation is ON).",
+    ),
     no_claude_md: bool = typer.Option(
         False, "--no-claude-md", help="Skip CLAUDE.md creation"
     ),
@@ -2596,6 +2888,24 @@ def init_command(
             console.print(f"  [green]+[/green] {mcp_path.relative_to(root)}")
 
     # AI instructions (IDE-specific file)
+    # SDK-B1 — project-local GRAQ.md (chat routing). Defaults ON per flag-default policy.
+    if not no_graq_md:
+        try:
+            _graq_md_written = write_graq_md(root, project_type=None, overwrite=False)
+            if _graq_md_written:
+                console.print(
+                    "  [green]+[/green] GRAQ.md (project-local chat routing)"
+                )
+            else:
+                console.print(
+                    "  [dim]GRAQ.md already present \u2014 skipping[/dim]"
+                )
+        except Exception as _graq_md_err:  # pylint: disable=broad-except
+            # Fail-open: never block init on a GRAQ.md template failure.
+            console.print(
+                f"  [yellow]GRAQ.md creation skipped ({type(_graq_md_err).__name__})[/yellow]"
+            )
+
     if not no_claude_md:
         instr_path = _get_instructions_path(root, ide)
         if _write_claude_md(root, ide):

@@ -4,6 +4,151 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.52.0-alpha (2026-04-19) - [wave-1-gap-closure]
+
+### Added
+
+- **SDK-B5: Worktree `GRAQ.md` inheritance.** `GraqMdLoader` now
+  detects git worktrees (where `.git` is a FILE containing
+  `gitdir: <path>`) and walks the main repo's chain as well so the
+  parent repo's `GRAQ.md` is inherited. Worktree-local `GRAQ.md`
+  still takes precedence (closest-to-cwd wins, same as existing
+  semantics). Defensive parsing: malformed `.git` files, empty
+  gitdir, unreadable main repo — all fail-closed (fall back to the
+  regular single-repo walk-up). New helper
+  `_resolve_worktree_main_repo()`. 10 new tests in
+  `tests/test_chat/test_graq_md_worktree_inheritance.py`. Test-driven
+  iteration caught + fixed an ordering bug with `.reverse()`
+  semantics before commit. 1198/1198 regression green. Sixth dogfood
+  of `graq_release_gate`: CLEAR (risk=0.09, conf=0.96).
+- **G3: `graq_vsce_check` — VS Code Marketplace version check.** New
+  MCP tool + `kogni_vsce_check` alias (tool count 152 → 154). Queries
+  the official Marketplace REST API (stdlib `urllib` only, no `vsce`
+  runtime dep) to verify a proposed version does NOT already exist,
+  preventing the v0.4.15 → v0.4.16 tag-collision incident class from
+  recurring. Per `graq_reason` 96% consensus: Option A (HTTPS API)
+  over Option B (shell out to `vsce show`) for minimal dependency
+  footprint, better offline testability, deterministic error mapping.
+  Returns `{exists, currentVersion, suggestedBump, versions}`.
+  Defensive payload parsing (guards every nested access), strict
+  semver validation (rejects `v`, `v1`, `0.4`, pre-release), and
+  exhaustive `urllib` exception mapping (`timeout` / `HTTPError` /
+  `URLError` / non-200 all resolve to structured errors, never raise).
+  39 new tests. 1188/1188 regression green. Fifth dogfood of
+  `graq_release_gate`: CLEAR (risk=0.12, conf=0.94).
+- **CG-09 + CG-10 + CG-11: Bash, Read, Git governance gates.** Three
+  coupled gaps closed in one commit. CG-09 (native `Bash` blocked)
+  and CG-10 (native `Read` blocked globally, including `~/.claude/**`)
+  were already enforced at the Claude Code hook template level; new
+  regression-guard tests in `tests/test_gate/` codify the invariant.
+  CG-11 (Git gate) is new MCP-side enforcement: `graq_bash` / `kogni_bash`
+  calls whose `command` begins with `git <subcmd>` are routed to the
+  dedicated `graq_git_*` tool when one exists (`status` / `commit` /
+  `branch` / `diff` / `log`); subcommands without a graq_ equivalent
+  (`push` / `pull` / `fetch` / `checkout` / ...) pass through. Wrapper
+  forms (`sudo git ...`, `env VAR=1 git ...`, `git -C repo ...`,
+  `git --git-dir ...`) are all correctly routed. 39 new tests.
+  1149/1149 regression green. Post-impl `graq_review` + dogfood
+  `graq_release_gate` verdict: CLEAR (risk=0.08, conf=0.95).
+- **Wave-1 BLOCKER hardening** (post-impl-review audit, 2026-04-20).
+  Seven hardening fixes applied across 4 files after mandatory
+  post-impl `graq_review` + `graq_predict` escalation surfaced real
+  production risks that passing tests had not caught:
+    * `mcp_dev_server.py` — B1: guarded top-level imports of
+      `_PERMITTED_RUNNERS` and `DEFAULT_SENSITIVE_KEYS` with narrow
+      `ImportError` handling + safe fail-closed fallbacks so the MCP
+      server survives degraded imports instead of failing to boot.
+    * `mcp_dev_server.py` — B2: narrowed `__version__` import from
+      bare `except Exception` to `ImportError`/`ModuleNotFoundError`;
+      non-import errors now log loudly instead of silently masking
+      packaging/release-gating failures.
+    * `release_gate/engine.py` — B3: `_INTERNAL_RISK_THRESHOLDS.get()`
+      with safe fallback instead of direct indexing, so invariant
+      drift cannot raise `KeyError` and violate the never-crash
+      contract.
+    * `release_gate/engine.py` — B4: all fallback branches + provider
+      calls + threshold lookup now use `effective_target` (the
+      validated normalized value), not raw `target`.
+    * `activation/layer.py` — B5: `TurnBlocked` raise now gated on
+      explicit `tier_mode == ENFORCED and safety.should_block` rather
+      than on `verdict.is_blocked`, preventing any future
+      `ActivationVerdict` semantics drift from blocking advisory-mode
+      turns.
+    * `chat/fast_path.py` — B6: `is_path_safe` containment now uses
+      `Path.is_relative_to()` (Python 3.9+) instead of lowercase
+      string-prefix match, closing the `/tmp/app` vs `/tmp/application`
+      confusion class.
+  Dogfooded `graq_release_gate` on the combined diff: CLEAR
+  (risk=0.10, confidence=0.96). 1,106/1,106 regression green.
+- **SDK-B1: `graq init` auto-scaffolds `GRAQ.md`.** `graq init` now
+  writes a project-type-aware `GRAQ.md` (Python / TypeScript /
+  JavaScript / Rust / Go / generic) at the workspace root. The file is
+  a user-facing walk-up that merges on top of the built-in chat system
+  disables. Existing files are never overwritten without explicit
+  `overwrite=True`. Atomic write with try/finally cleanup — target
+  remains unchanged on any IO failure. 22 new tests + 1106 regression
+  green. Also: fixed a pre-existing case-sensitivity bug in
+  `TestBuildMcpJson::test_structure` (Windows surfaces `graq.EXE`).
+  policy codifying (1) every native-tool call with a `graq_*`
+  equivalent MUST use the governed path; (2) every commit runs
+  `graq_release_gate` on the diff with verdict recorded in commit body;
+  (3) every `graq_*` tool failure logged to `.gcc/capability-gaps.md`
+  (no silent workarounds). First session-end audit: 1 violation logged
+  honestly; 4 capability gaps surfaced to the SDK team. See
+  an unambiguous file-create intent with zero blast radius, skip the LLM
+  pipeline (reason → generate → review) and write directly. Reduces the
+  layer still evaluates first — zero blast radius does not mean zero
+  safety risk. Feature flag `fast_path_enabled` defaults ON
+  `GRAQLE_FAST_PATH_ENABLED=0`. New module `graqle/chat/fast_path.py`
+  with strict regex classifier + containment-checked path safety.
+  30+ new tests. Zero regression (739/739 green).
+  Every chat turn now runs through a three-layer pre-reason activation
+  step before the LLM planner is invoked: (1) relevance scoring (TAMR+
+  role), (2) safety evaluation (DRACE role), (3) predictive subgraph
+  activation (PSE role). The layer is wired into
+  `ChatAgentLoop.run_turn` and applies to ALL task types (plan, code,
+  edit, debate, reason). Free tier runs in advisory mode (score visible,
+  upgrade chip on would-be-blocks); Pro/Enterprise runs in enforced mode
+  (turn transitions to FAILED on blocks). Feature flag
+  `pre_reason_activation_enabled` defaults ON (codified guard against
+  the v0.4.15 flag-never-flipped incident); kill switch via
+  `GRAQLE_PRE_REASON_ACTIVATION=0` for regression bisection. New module
+  `graqle/activation/` adds Protocol-based providers (matches R18 and G2
+  architecture). 18 new tests, 239/239 existing chat tests green, zero
+  regression. See
+  [docs/governance.md](docs/governance.md#pre-reason-activation-chat-turn-safety-gate)
+  and
+- **G2: Release Gate.** Pre-publish KG-multi-agent governance gate — the
+  only tool that combines KG-backed diff review with multi-agent risk
+  prediction into a single structured verdict (`CLEAR` / `WARN` / `BLOCK`).
+  Ships as three adoption surfaces:
+    - **CLI** — `graq release-gate --diff ... --target pypi|vscode-marketplace`
+    - **MCP tool** — `graq_release_gate` (also aliased as `kogni_release_gate`)
+    - **GitHub Action** — `graqle/release-gate@v1` (Dockerfile-based,
+      one-line adoption via `.github/workflows/release-gate.yml`)
+  Engine uses the injection pattern (like R18 GovernedTrace) so tests never
+  call real LLMs. Provider failures, timeouts, and malformed payloads
+  resolve to a safe `WARN` verdict with a caller-safe reason — never
+  crashing the build. 20 engine tests + 7 MCP-dispatcher tests, all green.
+  See [docs/governance.md](docs/governance.md) and the copy-paste workflow
+  template at
+  [`.github/workflows/release-gate-example.yml`](.github/workflows/release-gate-example.yml).
+- **CG-17 / G1: `graq_memory` MCP tool + memory-write gate.** Native
+  `Write` / `Edit` on `~/.claude/projects/*/memory/*.md` is now blocked at
+  the dispatcher; memory files must route through the new `graq_memory`
+  tool (maintains `MEMORY.md` index + frontmatter validation + atomic
+  writes + markdown-safe rendering). 30 new tests (28 pass, 2
+  Windows-skipped for symlink/chmod). Zero regressions across
+  `tests/test_plugins/` (308 green). Ships with `graq_memory` +
+  `kogni_memory` (tool count 148 → 150 for CG-17, then → 152 for G2).
+
+### Changed
+
+- **MCP tool count: 148 → 152** (`graq_memory`, `kogni_memory`,
+  `graq_release_gate`, `kogni_release_gate`).
+
+---
+
 ## 0.51.6 (2026-04-16) - [unblocks-vscode-pivot]
 
 ### Correctness (P0)
@@ -27,9 +172,8 @@ All notable changes to GraQle are documented in this file.
   `graq_predict(fold_back=True)` -> `auto_grow` -> `graq_learn` no longer
   deadlocks. Retry backoff switched from fixed 50 ms * 1.5^k to random
   uniform [50, 250] ms per attempt (eliminates harmonic races). Error
-  message rewritten to name the actual caller module/func/line. Kept
-  under the same tracker entry as the v0.51.5 retry envelope regression
-  since both surface the same underlying class of bug.
+  message rewritten to name the actual caller module/func/line. Same
+  issue-tracker entry as P0-4.
 
 ### New capabilities
 
@@ -155,88 +299,6 @@ Extension can drop its heuristic `A)/1.` text-parse fallback and remove
 the `graqle.experimental.ambiguityPause` opt-in gate in v0.4.5. Detection
 path: `capabilities.graq_reason.ambiguous_options === true` OR
 `semver.gte(serverInfo.version, '0.51.3')`.
-
----
-
-## 0.51.2 (2026-04-13)
-
-### Fixed
-
-- **CG-08 (BLOCKER) — `graq_gate_install` silent fail-open on NameError.** The
-  MCP handler's `_safe_replace` helper called `os.replace(...)` but the
-  module never imported `os`. Every MCP gate install raised `NameError`,
-  wrote `.claude/settings.json.tmp`, swallowed the error, and returned. Claude
-  Code never reads `.tmp` files — so the gate was silently dormant while
-  `graq_gate_status` kept reporting `installed:true, enforcing:true`. Fixed in
-  three parts: (1) added the missing `import os`; (2) wrapped both install
-  call sites in try/except that `unlink(missing_ok=True)` any orphaned `.tmp`
-  and return a sanitized failure; (3) tightened both `graq_gate_status` and
-  `graq gate-status` CLI to require `settings.json.exists()` (not `.tmp`) for
-  `installed:true`. Mirror rollback also added to the CLI install command for
-  consistency.
-
-- **CG-09 (BLOCKER) — Claude Code `/hooks` approval gap.** Even with a correct
-  `.claude/settings.json` on disk, Claude Code will not fire the hook until
-  the user runs `/hooks` and approves the `graqle-gate` entry. Most users
-  never do this, so the gate was silently dormant by default. Both
-  `graq_gate_status` and `graq gate-status` now surface a new field
-  `claude_code_approved: true | false | "unknown"`, derived from a heuristic
-  scan of `.claude/settings.local.json`. The install response also gains
-  `claude_code_approval_required: bool` and a prominent user-visible message
-  instructing the user to run `/hooks`. The CLI prints a loud yellow banner
-  after a successful install when approval cannot be confirmed.
-
-### Added
-
-- **H-5 — Gate drift detection.** The shipped hook template now carries a
-  `# graqle-gate version: {{GRAQLE_VERSION}}` marker on line 2. Both the MCP
-  `_handle_gate_install` and the CLI `gate_install_command` substitute the
-  current SDK version at write time. Both status handlers parse the installed
-  hook's marker and return new fields `hook_version: str | null` and
-  `upgrade_available: bool`.
-
-- **H-6 — Doctor drift check.** New `_check_claude_gate_drift()` in
-  `graq doctor` reports `PASS` when hook_version matches SDK, `WARN` when it
-  does not, and `INFO` when no Claude Code gate is installed in the current
-  directory. Wired into `doctor_command` after `_check_storage_tiers`.
-  Distinct from the existing `_check_governance_gate` which covers the
-  quality-gate intelligence system.
-
-- **H-7 — First-run discoverability notice.** New module
-  `graqle/_post_install_notice.py` prints a single one-line suggestion to
-  run `graq gate-install` if Claude Code is detected (`.claude/` present) but
-  the gate is missing. Silent on subsequent runs via a sentinel file at
-  `~/.graqle/.first_run_shown`. Suppressed inside `graq init` /
-  `graq gate-install` / `graq gate-status` / `graq doctor`, and via the
-  `GRAQLE_SKIP_FIRST_RUN_NOTICE` environment variable for CI use.
-
-- **CG-10 — `graq_edit` tiered strategy dispatch.** New `strategy` parameter
-  on `graq_edit` with values `auto | literal | anchored | llm | regenerate |
-  race`. The new `old_content` + `new_content` parameters enable
-  zero-LLM-round-trip literal edits: the handler runs `str.replace` with
-  byte-exact matching, fails fast on 0 or ≥2 matches, and never falls back
-  to LLM when the strategy is explicitly `literal` or `anchored`. The default
-  `auto` runs `literal → anchored → llm`. Response includes `strategy_used`
-  and `strategy_attempts: list[dict]` for debugging. Fixes the hub-file edit
-  hallucination pattern that historically forced governance-gate lifts on
-  hotfix sessions (see CG-GATES-FRICTION-01 precedent).
-
-### Internal
-
-- 17 new regression tests in `tests/test_cli/test_v0512_hotfix.py` covering
-  every deliverable (CG-08 Parts 1/2/3, H-5/H-6/H-7, CG-09, CG-10 tiers).
-
-### VS Code extension contract
-
-Once v0.51.2 is live on PyPI, the Layer 2 gate chip in
-`quantamixsol/graqle-vscode` can:
-
-- Read `claude_code_approved` directly from `graq_gate_status` instead of the
-  40-line `settings.local.json` workaround.
-- Represent a new yellow state: `"Installed but dormant — run /hooks to
-  approve"`.
-- Remove the `vscode.workspace.fs.stat` workaround that re-verified
-  `.claude/settings.json` exists (no longer needed — status tells the truth).
 
 ---
 

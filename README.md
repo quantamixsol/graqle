@@ -35,6 +35,26 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
+## Pre-Reason Activation — every chat turn, safety-checked before the LLM runs
+
+GraQle runs a three-layer pre-reason safety step on **every chat turn**
+before the LLM planner. It narrows the KG to relevant chunks, scores the
+turn with DRACE (dependency / reasoning / auditability / constraint /
+explainability), and pre-activates the predictive subgraph — all
+*before* the first tool call.
+
+- **Free tier** — advisory: full evaluation runs, score is visible, an
+  upgrade chip shows what would be blocked in enforced mode.
+- **Pro / Enterprise** — enforced: below-threshold turns halt at the turn
+  boundary, not after.
+
+The feature flag defaults **ON**. Same behavior in Claude Code, in the
+GraQle VS Code extension, and in direct SDK usage. See the
+[Pre-Reason Activation section](docs/governance.md#pre-reason-activation-chat-turn-safety-gate)
+for the full flow and the tier-aware behavior matrix. Design rationale
+
+---
+
 ## Governance Gate — Activate Full GraQle Autonomy
 
 > **Optional. One command. Fully reversible.** Turn any Claude Code session into a governed, architecture-aware reasoning pipeline.
@@ -436,7 +456,40 @@ catch governance issues before review.
 
 ---
 
-## 75 MCP tools — your AI uses them automatically
+## Release Gate — the pre-publish governance gate nothing else offers
+
+The **Release Gate** is the final checkpoint before a diff becomes a public
+artifact (PyPI package, VS Code Marketplace extension). It's the only
+governance tool that combines **KG-backed diff review** with **multi-agent
+risk prediction** into a single structured verdict: **CLEAR**, **WARN**, or
+**BLOCK**.
+
+```bash
+# Gate a diff against PyPI publish
+graq release-gate --diff "$(git diff main...HEAD)" --target pypi
+
+# Or drop it into CI (GitHub Action — one-line adoption):
+# uses: graqle/release-gate@v1
+#   with: { target: pypi, strict: 'true' }
+```
+
+**Why this is unique:**
+
+| Tool | Diff review | KG-backed | Multi-agent | Pre-publish gate | Risk scoring |
+|---|---|---|---|---|---|
+| GitHub CODEOWNERS | Manual | ❌ | ❌ | ❌ | ❌ |
+| SonarQube | Rules-based | ❌ | ❌ | ❌ | ❌ |
+| Snyk | Supply chain | ❌ | ❌ | ❌ | ❌ |
+| Dependabot | Version bumps | ❌ | ❌ | ❌ | ❌ |
+| **GraQle Release Gate** | **AI + KG** | **✅** | **✅** | **✅** | **✅** |
+
+Three ways to run it — CLI, MCP tool (`graq_release_gate`), and GitHub
+Action (`graqle/release-gate@v1`). Full documentation:
+**[docs/governance.md](docs/governance.md)**.
+
+---
+
+## 76 MCP tools — your AI uses them automatically
 
 ```bash
 graq init          # Claude Code — auto-wires all 75 tools

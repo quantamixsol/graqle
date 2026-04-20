@@ -6,10 +6,9 @@ every KG save path (``_save_graph``, ``kg_sync``, ``scan``, ``grow``,
 ``link``, ``rebuild``, ``json_graph``, ``mcp_dev_server``) picks it up
 the next time the write function is imported — no MCP restart needed.
 
-Regression: a ``graq_learn`` path was observed handing the save function
-a stub or partially-loaded graph, which silently overwrote the full
-on-disk KG. The guard refuses any write that would lose more than 1%
-of on-disk nodes.
+Regression: graqle.json shrank 12,244 → 2 nodes on 2026-04-15 through
+a ``graq_learn`` path that handed the save function a stub graph. The
+guard refuses any write that would lose more than 1% of on-disk nodes.
 """
 from __future__ import annotations
 

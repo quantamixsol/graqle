@@ -1,0 +1,58 @@
+# GraQle Release Gate — copy-paste template
+# ==========================================
+# Copy this file into your own repo as `.github/workflows/release-gate.yml`.
+#
+# Required secrets (optional for free tier):
+#   GRAQLE_LICENSE  — GraQle Pro license key (enables full KG reasoning)
+#
+# This example runs the gate on both:
+#   • release (when a release is published) — gates PyPI publish
+#   • pull_request — gates merges that modify pyproject.toml, package.json, or CHANGELOG.md
+#
+# For VS Code Marketplace publishes, add a second job with target: vscode-marketplace.
+
+name: Release Gate
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'package.json'
+      - 'CHANGELOG.md'
+      - 'src/**'
+      - 'graqle/**'
+
+jobs:
+  # PyPI gate
+  release-gate-pypi:
+    name: Release Gate (PyPI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for diff
+
+      - name: Run GraQle Release Gate
+        uses: graqle/release-gate@v1
+        with:
+          target: pypi
+          strict: 'true'
+        env:
+          GRAQLE_LICENSE: ${{ secrets.GRAQLE_LICENSE }}
+
+  # VS Code Marketplace gate (uncomment if you publish an extension)
+  # release-gate-vscode:
+  #   name: Release Gate (VS Code Marketplace)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - uses: graqle/release-gate@v1
+  #       with:
+  #         target: vscode-marketplace
+  #         strict: 'true'
+  #       env:
+  #         GRAQLE_LICENSE: ${{ secrets.GRAQLE_LICENSE }}

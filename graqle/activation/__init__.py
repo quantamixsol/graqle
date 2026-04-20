@@ -48,4 +48,33 @@ __all__ = [
     "QueryReformulator",
     "ReformulationContext",
     "ReformulationResult",
+    # pre-reason-activation design pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02)
+    "ActivationLayer",
+    "ActivationVerdict",
+    "ChunkScoringProvider",
+    "ChunkScoreResult",
+    "SafetyGateProvider",
+    "SafetyVerdict",
+    "SubgraphActivationProvider",
+    "ActivatedSubgraph",
+    "TierMode",
+    "TurnBlocked",
+    "resolve_tier_mode",
+    "default_activation_layer",
 ]
+
+# pre-reason-activation design: pre-reason activation layer exports
+from graqle.activation.providers import (  # noqa: E402
+    ActivationVerdict,
+    ActivatedSubgraph,
+    ChunkScoreResult,
+    ChunkScoringProvider,
+    SafetyGateProvider,
+    SafetyVerdict,
+    SubgraphActivationProvider,
+    TierMode,
+    TurnBlocked,
+)
+from graqle.activation.layer import ActivationLayer  # noqa: E402
+from graqle.activation.tier_gate import resolve_tier_mode  # noqa: E402
+from graqle.activation.factory import default_activation_layer  # noqa: E402

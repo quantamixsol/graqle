@@ -21,12 +21,8 @@ build/
 
 # Virtual environments
 .venv/
-.venv_*/
 venv/
 env/
-.tmp_*
-graqle.json.bak*
-"(inferred from graph)"
 
 # IDE
 .vscode/
@@ -128,3 +124,6 @@ graqle/orchestration/_consensus.py
 # the package-internal docs directory so the inventory travels with the SDK.
 !graqle/docs/
 !graqle/docs/*
+
+# alpha-validation harness generated artifact
+tests/test_alpha_validation/alpha_report.json

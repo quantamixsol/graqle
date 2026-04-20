@@ -1,6 +1,6 @@
 """T04 (v0.51.6) — KG-write self-race regression.
 
-Binary acceptance for the KG-write self-race fix:
+Acceptance criteria for the WRITE_COLLISION self-race elimination:
   100 sequential _write_with_lock calls from one thread = 0 WRITE_COLLISION.
 Plus a re-entrancy test: predict -> auto_grow -> learn must not deadlock
 on the module-level RLock (predict-confirmed risk).

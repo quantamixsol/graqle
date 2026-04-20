@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# graqle-gate version: {{GRAQLE_VERSION}}
 """Claude Code PreToolUse governance gate for GraQle.
 
 Installed by `graq gate-install`. Remove .claude/hooks/graqle-gate.py to disable.

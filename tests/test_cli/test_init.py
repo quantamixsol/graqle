@@ -268,8 +268,10 @@ class TestBuildMcpJson:
         assert "graqle" in data["mcpServers"]
         srv = data["mcpServers"]["graqle"]
         assert srv["type"] == "stdio"
-        # command is the resolved graq path — ends with "graq" or "graq.exe"
-        assert srv["command"].endswith("graq") or srv["command"].endswith("graq.exe")
+        # command is the resolved graq path — case-insensitive endswith
+        # (Windows may surface the path as 'graq.EXE' or 'graq.exe').
+        _cmd_lower = srv["command"].lower()
+        assert _cmd_lower.endswith("graq") or _cmd_lower.endswith("graq.exe")
         assert "mcp" in srv["args"]
 
 

@@ -177,12 +177,80 @@ class GraqMdLoader:
             )
         return ""
 
+    @staticmethod
+    def _resolve_worktree_main_repo(start: Path) -> Path | None:
+        """SDK-B5 — if `start` is inside a git worktree, return the main repo root.
+
+        A git worktree is identified by a `.git` *file* (not a directory) at the
+        worktree root containing `gitdir: <abs_path>`. The gitdir points at
+        `<main_repo>/.git/worktrees/<name>`, so the main repo root is two
+        parents up from the gitdir.
+
+        Returns None if `start` is not in a worktree (or detection fails —
+        fail-closed: caller falls back to regular walk-up).
+        """
+        try:
+            resolved = start.resolve()
+        except OSError:
+            return None
+
+        # Walk up from start looking for a `.git` file (not dir)
+        candidate = resolved
+        for _ in range(32):  # defensive cap same shape as _max_depth
+            git_path = candidate / ".git"
+            if git_path.is_file():
+                try:
+                    text = git_path.read_text(encoding="utf-8")
+                except OSError:
+                    return None
+                # Format: "gitdir: <abs_path>\n"
+                for line in text.splitlines():
+                    line = line.strip()
+                    if line.startswith("gitdir:"):
+                        gitdir_raw = line.split(":", 1)[1].strip()
+                        if not gitdir_raw:
+                            return None
+                        try:
+                            gitdir = Path(gitdir_raw).resolve()
+                        except OSError:
+                            return None
+                        # gitdir = <main>/.git/worktrees/<name>
+                        # main repo root = gitdir.parent.parent.parent
+                        try:
+                            main_git_dir = gitdir.parent.parent  # /.../.git
+                            main_repo = main_git_dir.parent
+                            # Sanity check: the main repo's .git should be a directory
+                            if (main_repo / ".git").is_dir():
+                                return main_repo
+                        except (OSError, IndexError):
+                            return None
+                        return None
+                return None
+            if git_path.is_dir():
+                # Regular repo, not a worktree
+                return None
+            parent = candidate.parent
+            try:
+                parent_resolved = parent.resolve()
+            except OSError:
+                return None
+            if parent_resolved == candidate:
+                return None  # reached filesystem root without finding .git
+            candidate = parent_resolved
+        return None
+
     def _walk_up_collect(self, start: Path) -> list[tuple[Path, str]]:
         """Walk UP from start_dir to filesystem root, collecting GRAQ.md files.
 
         Returns a list of (canonical_path, content) tuples in walk-up order:
         FARTHEST-parent-first, so that the closest-to-cwd file is the LAST
         entry and "wins" on ordering (matches Claude Code CLAUDE.md behavior).
+
+        SDK-B5 (2026-04-20): if `start` is inside a git worktree, the main
+        repo's walk-up chain is prepended so the main repo's GRAQ.md is
+        inherited (farther-ancestor semantics: less specific than worktree-
+        local GRAQ.md, which still wins). Worktree-local GRAQ.md takes
+        precedence because it is collected later in the list.
 
         Termination:
             - parent.resolve() == current.resolve() (filesystem root, POSIX/Windows/UNC)
@@ -191,6 +259,14 @@ class GraqMdLoader:
         """
         collected: list[tuple[Path, str]] = []
         visited: set[str] = set()
+
+        # SDK-B5 (2026-04-20): worktree-main-repo resolution.
+        # If start is inside a git worktree, record the main repo root so
+        # we can walk it AFTER the worktree walk finishes (see below —
+        # the final `.reverse()` flips near→far into far→near, so main-
+        # repo items must be appended LAST to become FARTHEST after reverse).
+        main_repo = self._resolve_worktree_main_repo(start)
+
         current = start
         try:
             current_resolved = current.resolve()
@@ -230,6 +306,41 @@ class GraqMdLoader:
             if parent_resolved == current_resolved:
                 break
             current_resolved = parent_resolved
+
+        # SDK-B5: append the main-repo walk-up chain AFTER the worktree walk.
+        # After the final `.reverse()` below, main-repo items end up at the
+        # FRONT of the returned list (farthest ancestors), so worktree-local
+        # GRAQ.md is closest-to-cwd and wins on override.
+        if main_repo is not None:
+            try:
+                _mr_current = main_repo.resolve()
+            except OSError:
+                _mr_current = main_repo
+            _mr_depth = 0
+            while _mr_depth < self._max_depth:
+                _mr_depth += 1
+                _mr_key = str(_mr_current)
+                if _mr_key in visited:
+                    break
+                visited.add(_mr_key)
+                _mr_candidate = _mr_current / GRAQ_MD_FILENAME
+                if _mr_candidate.is_file():
+                    try:
+                        _mr_content = _mr_candidate.read_text(encoding="utf-8")
+                        collected.append((_mr_candidate, _mr_content))
+                    except OSError as _mr_exc:
+                        logger.warning(
+                            "GraqMdLoader could not read main-repo %s: %s",
+                            _mr_candidate, _mr_exc,
+                        )
+                try:
+                    _mr_parent = _mr_current.parent
+                    _mr_parent_resolved = _mr_parent.resolve()
+                except OSError:
+                    break
+                if _mr_parent_resolved == _mr_current:
+                    break
+                _mr_current = _mr_parent_resolved
 
         # Reverse: walker goes near → far, we want far → near
         collected.reverse()

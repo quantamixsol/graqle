@@ -935,24 +935,16 @@ class Graqle:
         # Phase 2: save JSON first (Tier 0 invariant).
         # Ensures graqle.json is written BEFORE any Tier 1 projection,
         # so Neo4j never has state that the local file doesn't.
-        # Only save if config.graph.path is explicitly set AND the target file
-        # either does not exist OR has a matching node count (not a different graph).
-        _json_path = self.config.graph.path
-        if _json_path:
-            from pathlib import Path as _P
-            _target = _P(_json_path)
-            # Skip save if target has a larger graph (test scenarios, ephemeral graphs)
-            _should_save = not _target.exists() or _target.stat().st_size < 1024
-            if _should_save:
-                try:
-                    self.to_json(str(_json_path))
-                    logger.info("Saved Tier 0 JSON to %s before Neo4j export", _json_path)
-                except Exception as exc:
-                    from graqle.storage.tiers import StorageTierInvariantError
-                    raise StorageTierInvariantError(
-                        f"Cannot export to Neo4j: Tier 0 JSON save failed ({exc}). "
-                        f"Neo4j write aborted to preserve the storage tier invariant."
-                    ) from exc
+        _json_path = self.config.graph.path or "graqle.json"
+        try:
+            self.save(str(_json_path))
+            logger.info("Saved Tier 0 JSON to %s before Neo4j export", _json_path)
+        except Exception as exc:
+            from graqle.storage.tiers import StorageTierInvariantError
+            raise StorageTierInvariantError(
+                f"Cannot export to Neo4j: Tier 0 JSON save failed ({exc}). "
+                f"Neo4j write aborted to preserve the storage tier invariant."
+            ) from exc
 
         from graqle.connectors.neo4j import Neo4jConnector
 

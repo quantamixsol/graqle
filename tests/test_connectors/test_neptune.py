@@ -47,6 +47,9 @@ class TestSanitize:
 
 class TestCheckAvailability:
     def test_check_available(self):
+        # OT-068: check_neptune_available() returns False without gremlinpython
+        # installed. Skip cleanly when the optional driver is absent.
+        pytest.importorskip("gremlin_python")
         available, msg = check_neptune_available()
         assert available
         assert "production" in msg
@@ -66,6 +69,8 @@ class TestCheckAvailability:
 
 class TestExecuteQuery:
     def setup_method(self):
+        # OT-068: skip entire class without gremlinpython (optional extra).
+        pytest.importorskip("gremlin_python")
         reset_availability()
 
     @patch("graqle.connectors.neptune._execute_with_iam")

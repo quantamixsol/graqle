@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.51.6"
+version = "0.52.0a1"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
@@ -162,6 +162,7 @@ exclude = ["graqle/benchmarks/data/*"]
 # PyPI to reject the upload with HTTP 400 "Duplicate filename in
 # local headers". Only force-include paths OUTSIDE the packages tree.
 "examples" = "graqle/examples"
+"graqle/data/claude_gate" = "graqle/data/claude_gate"
 
 [tool.ruff]
 target-version = "py310"
