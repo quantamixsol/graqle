@@ -1,4 +1,4 @@
-"""ADR-205 — Protocols and data contracts for the pre-reason activation layer.
+"""pre-reason-activation design — Protocols and data contracts for the pre-reason activation layer.
 
 IP-scrubbed on purpose: no weights, thresholds, formulas, or internal
 constants appear in this file's docstrings, comments, or type names.

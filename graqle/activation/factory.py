@@ -1,4 +1,4 @@
-"""ADR-205 — Factory for the default production ActivationLayer.
+"""pre-reason-activation design — Factory for the default production ActivationLayer.
 
 Wires real providers (or falls back to no-op providers on any import
 failure) and resolves the tier mode from env + config.

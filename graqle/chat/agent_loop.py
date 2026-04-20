@@ -198,8 +198,8 @@ class ChatAgentLoop:
         self.tool_call_budget = tool_call_budget
         self.burst_ceiling = burst_ceiling
         self._buffers: dict[str, ChatEventBuffer] = {}
-        # ADR-205 — pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
-        # Default ON per ADR-205 Decision 4 (lesson from v0.4.15 flag-stayed-off incident).
+        # pre-reason-activation design — pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
+        # Default ON per pre-reason-activation design Decision 4 (lesson from v0.4.15 flag-stayed-off incident).
         # Env var GRAQLE_PRE_REASON_ACTIVATION=0 forces OFF; useful only for regression bisection.
         import os as _os_adr205
         self.pre_reason_activation_enabled = (
@@ -212,13 +212,13 @@ class ChatAgentLoop:
                 self.activation_layer = default_activation_layer()
             except Exception as _exc:  # pylint: disable=broad-except
                 logger.warning(
-                    "ADR-205 activation layer failed to construct; disabling for this session: %s",
+                    "pre-reason-activation design activation layer failed to construct; disabling for this session: %s",
                     type(_exc).__name__,
                 )
                 self.pre_reason_activation_enabled = False
                 self.activation_layer = None
 
-        # ADR-206 — fast-path performance flag. Defaults ON per ADR-206 Policy.
+        # flag-default policy — fast-path performance flag. Defaults ON per flag-default policy Policy.
         # Env var GRAQLE_FAST_PATH_ENABLED=0 forces OFF (regression bisection only).
         import os as _os_adr206
         self.fast_path_enabled = (
@@ -293,7 +293,7 @@ class ChatAgentLoop:
                 },
             )
 
-        # Step 3.5: ADR-205 pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
+        # Step 3.5: pre-reason-activation design pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02).
         # Runs BEFORE the LLM planner so every tool dispatch (plan / code / edit /
         # debate / reason) sees a DRACE-evaluated, PSE-activated turn context.
         #
@@ -302,7 +302,7 @@ class ChatAgentLoop:
         #   ENFORCED (Pro+) + should_block: raise TurnBlocked → FAIL turn
         #   any tier + !should_block: merge activated subgraph into turn_context
         #
-        # Feature flag `pre_reason_activation_enabled` defaults ON (ADR-205
+        # Feature flag `pre_reason_activation_enabled` defaults ON (pre-reason-activation design
         # Decision 4). Kill switch via GRAQLE_PRE_REASON_ACTIVATION=0 for
         # regression bisection only. Skip entirely if disabled or layer missing.
         self._last_activation_verdict: ActivationVerdict | None = None
@@ -376,13 +376,13 @@ class ChatAgentLoop:
             except Exception as _exc:  # pylint: disable=broad-except
                 # Fail open on any unexpected error so the turn still runs.
                 logger.warning(
-                    "ADR-205 activation layer error (failing open): %s",
+                    "pre-reason-activation design activation layer error (failing open): %s",
                     type(_exc).__name__,
                 )
 
-        # Step 3.75: SDK-B3 / ADR-206 — impact-radius fast-path.
+        # Step 3.75: SDK-B3 / flag-default policy — impact-radius fast-path.
         # Preconditions: fast_path_enabled, classifier recognizes file_create,
-        # path is safe, ADR-205 activation verdict is not blocked.
+        # path is safe, pre-reason-activation design activation verdict is not blocked.
         # All rejection paths are side-effect free.
         _fp_intent: FastPathIntent | None = None
         if self.fast_path_enabled:

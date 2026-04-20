@@ -1,4 +1,4 @@
-"""ADR-205 — ActivationLayer: orchestrates the 3 providers per chat turn.
+"""pre-reason-activation design — ActivationLayer: orchestrates the 3 providers per chat turn.
 
 Order of operations inside run():
     1. ChunkScoringProvider.score()       — TAMR+ role

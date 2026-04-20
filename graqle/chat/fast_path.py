@@ -1,13 +1,13 @@
-"""SDK-B3 / ADR-206 — Impact-radius fast-path for ChatAgentLoop.
+"""SDK-B3 / flag-default policy — Impact-radius fast-path for ChatAgentLoop.
 
 When a user turn is unambiguously a file-create intent with zero blast
 radius, bypass the LLM pipeline (reason → generate → review) and write
 the file directly. Reduces a ~75s round-trip to ~0.3s.
 
-Safety invariant (ADR-205):
-    The ADR-205 pre-reason activation layer (DRACE safety gate) runs
+Safety invariant (pre-reason-activation design):
+    The pre-reason-activation design pre-reason activation layer (DRACE safety gate) runs
     BEFORE this module is consulted. Zero blast radius != zero safety
-    risk. If ADR-205 blocks the turn, this module never runs.
+    risk. If pre-reason-activation design blocks the turn, this module never runs.
 
 Failure semantics:
     All rejection paths are side-effect free: no events emitted, no
