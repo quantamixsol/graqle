@@ -191,5 +191,11 @@ class TestDogfoodGate:
         assert "error" not in result or "not found" in result.get("error", "")
 
         scorecard = gate.get_scorecard()
+        # OT-070: is_compiled can return True (intelligence dir exists) while
+        # scorecard.json is absent — they're produced by different commands.
+        # Skip the scorecard assertion when the scorecard hasn't been generated
+        # yet rather than failing dogfood on environment drift.
+        if "error" in scorecard and "No scorecard found" in scorecard.get("error", ""):
+            pytest.skip("Scorecard not generated — run graq compile first")
         assert "error" not in scorecard
         assert scorecard.get("health") in ("HEALTHY", "WARNING", "CRITICAL")
