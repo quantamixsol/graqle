@@ -8,6 +8,19 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **SDK-B5: Worktree `GRAQ.md` inheritance.** `GraqMdLoader` now
+  detects git worktrees (where `.git` is a FILE containing
+  `gitdir: <path>`) and walks the main repo's chain as well so the
+  parent repo's `GRAQ.md` is inherited. Worktree-local `GRAQ.md`
+  still takes precedence (closest-to-cwd wins, same as existing
+  semantics). Defensive parsing: malformed `.git` files, empty
+  gitdir, unreadable main repo — all fail-closed (fall back to the
+  regular single-repo walk-up). New helper
+  `_resolve_worktree_main_repo()`. 10 new tests in
+  `tests/test_chat/test_graq_md_worktree_inheritance.py`. Test-driven
+  iteration caught + fixed an ordering bug with `.reverse()`
+  semantics before commit. 1198/1198 regression green. Sixth dogfood
+  of `graq_release_gate`: CLEAR (risk=0.09, conf=0.96).
 - **G3: `graq_vsce_check` — VS Code Marketplace version check.** New
   MCP tool + `kogni_vsce_check` alias (tool count 152 → 154). Queries
   the official Marketplace REST API (stdlib `urllib` only, no `vsce`
