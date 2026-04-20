@@ -34,7 +34,11 @@ def _ollama_available() -> bool:
         if resp.status_code != 200:
             return False
         models = [m["name"] for m in resp.json().get("models", [])]
-        return any("qwen2.5" in m for m in models)
+        # OT-069: require the EXACT model these tests use, not a substring
+        # match. Previously any "qwen2.5*" (e.g. qwen2.5-coder:7b) counted as
+        # available but `/api/generate` returned 404 because qwen2.5:0.5b was
+        # not pulled. Tighten to the exact tag.
+        return "qwen2.5:0.5b" in models
     except Exception:
         return False
 
