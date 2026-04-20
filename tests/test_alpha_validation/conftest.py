@@ -33,15 +33,16 @@ from conftest import fresh_server, server_with_session, server_with_plan  # noqa
 HARNESS_DIR = Path(__file__).parent
 REPORT_PATH = HARNESS_DIR / "alpha_report.json"
 
+# Module-level singleton — survives pytest fixture teardown so
+# pytest_sessionfinish can still flush to disk.
+_REPORT_SINGLETON: dict[str, Any] | None = None
 
-@pytest.fixture(scope="session")
-def alpha_report() -> dict[str, Any]:
-    """Session-scoped collector. Each test appends to `items`."""
+
+def _new_report() -> dict[str, Any]:
     try:
         from graqle.__version__ import __version__ as sdk_version
     except Exception:
         sdk_version = "unknown"
-
     return {
         "sdk_version": sdk_version,
         "python_version": platform.python_version(),
@@ -59,6 +60,15 @@ def alpha_report() -> dict[str, Any]:
         },
         "_start_time": time.monotonic(),
     }
+
+
+@pytest.fixture(scope="session")
+def alpha_report() -> dict[str, Any]:
+    """Session-scoped collector. Each test appends to `items`."""
+    global _REPORT_SINGLETON
+    if _REPORT_SINGLETON is None:
+        _REPORT_SINGLETON = _new_report()
+    return _REPORT_SINGLETON
 
 
 @pytest.fixture
@@ -146,20 +156,9 @@ def record(alpha_report: dict[str, Any]):
 
 def pytest_sessionfinish(session, exitstatus):
     """Flush report to alpha_report.json at session end."""
-    # Pull the fixture out of the session if it exists
-    report = None
-    if hasattr(session, "_fixturemanager"):
-        try:
-            # Try to retrieve via the finalizer path
-            for item in session.items:
-                if hasattr(item, "funcargs") and "alpha_report" in item.funcargs:
-                    report = item.funcargs["alpha_report"]
-                    break
-        except Exception:
-            pass
-
+    report = _REPORT_SINGLETON
     if report is None:
-        return  # nothing was collected
+        return  # no alpha test ran — don't write an empty report
 
     # Finalize summary
     report["runtime_seconds"] = round(time.monotonic() - report.pop("_start_time"), 2)

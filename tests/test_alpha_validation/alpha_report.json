@@ -1,0 +1,301 @@
+{
+  "sdk_version": "0.52.0a1",
+  "python_version": "3.10.11",
+  "run_timestamp": "2026-04-20T21:47:44.154624+00:00",
+  "runtime_seconds": 21.08,
+  "items": [
+    {
+      "id": "01-cg17",
+      "name": "CG-17 / G1 \u2014 graq_memory + memory-write gate",
+      "status": "PASS",
+      "assertions": 3,
+      "duration_ms": 14,
+      "evidence": {
+        "memory_path_written": "C:\\Users\\haris\\AppData\\Local\\Temp\\pytest-of-haris\\pytest-11665\\test_cg17_memory_gate0\\home\\.claude\\projects\\alpha_demo\\memory\\feedback_alpha_demo.md",
+        "read_back_ok": true,
+        "outside_root_rejected": true,
+        "reject_error": "PATH_OUTSIDE_MEMORY_ROOT"
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "02-g2",
+      "name": "G2 \u2014 graq_release_gate (engine + MCP tool)",
+      "status": "PASS",
+      "assertions": 4,
+      "duration_ms": 18906,
+      "evidence": {
+        "verdict_shape_ok": true,
+        "verdict": "BLOCK",
+        "empty_diff_rejected": true,
+        "invalid_target_handled_structured": true,
+        "invalid_target_shape": [
+          "blockers",
+          "confidence",
+          "majors",
+          "minors",
+          "prediction_reasons",
+          "review_summary",
+          "risk_score",
+          "target",
+          "timestamp",
+          "tool_hints",
+          "verdict"
+        ]
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "03-adr205",
+      "name": "ADR-205 \u2014 Pre-Reason Activation Layer",
+      "status": "PASS",
+      "assertions": 3,
+      "duration_ms": 14,
+      "evidence": {
+        "advisory_surfaces_without_raise": true,
+        "advisory_block_reason": "demo block",
+        "enforced_raise_reason": "enforced demo",
+        "safe_path_produces_verdict": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "04-adr206",
+      "name": "ADR-206 \u2014 Fast-path intent classifier + path containment",
+      "status": "PASS",
+      "assertions": 7,
+      "duration_ms": 63,
+      "evidence": {
+        "classifier_positive": true,
+        "classifier_negation_rejected": true,
+        "classifier_anti_verb_rejected": true,
+        "containment_inside_ok": true,
+        "containment_escape_blocked": true,
+        "containment_absolute_outside_blocked": true,
+        "composition_ok": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "05-adr207",
+      "name": "ADR-207 \u2014 Zero-Violation Governance Discipline (public surfaces)",
+      "status": "PASS",
+      "assertions": 4,
+      "duration_ms": 0,
+      "evidence": {
+        "release_gate_surface": [
+          "ReleaseGateEngine",
+          "ReleaseGateVerdict",
+          "ReviewSummary",
+          "PredictionSummary"
+        ],
+        "fast_path_surface": [
+          "FastPathIntent",
+          "classify_intent",
+          "is_path_safe",
+          "is_fast_path_candidate"
+        ],
+        "activation_surface": [
+          "ActivationLayer",
+          "TierMode",
+          "TurnBlocked"
+        ],
+        "tier_mode_resolver_callable": true,
+        "resolved_enforced": "TierMode.ADVISORY",
+        "resolved_advisory": "TierMode.ADVISORY"
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "06-sdk-b1",
+      "name": "SDK-B1 \u2014 graq init auto-scaffolds GRAQ.md",
+      "status": "PASS",
+      "assertions": 7,
+      "duration_ms": 47,
+      "evidence": {
+        "template_keys": [
+          "generic",
+          "go",
+          "javascript",
+          "python",
+          "rust",
+          "typescript"
+        ],
+        "graq_md_written": 6,
+        "sizes_by_type": {
+          "generic": 783,
+          "rust": 542,
+          "python": 774,
+          "go": 505,
+          "typescript": 784,
+          "javascript": 532
+        },
+        "idempotency_ok": true,
+        "overwrite_ok": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "07-wave1",
+      "name": "Wave-1 BLOCKER hardening (public-surface verification)",
+      "status": "PASS",
+      "assertions": 6,
+      "duration_ms": 0,
+      "evidence": {
+        "b1_b2_plugin_imports_ok": true,
+        "b3_b4_verdict_fields": [
+          "blockers",
+          "confidence",
+          "majors",
+          "minors",
+          "prediction_reasons",
+          "review_summary",
+          "risk_score",
+          "target",
+          "timestamp",
+          "verdict"
+        ],
+        "b3_defensive_get": true,
+        "b5_enforce_check_present": true,
+        "b6_is_relative_to_present": true,
+        "b7_code_ext_rejected": [
+          "py",
+          "js",
+          "ts"
+        ],
+        "fixes_verified": 6,
+        "fix_7_note": "NS-04 governed trace ingestion deferred to v0.52.1 (R18 dep)"
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "08-cg09",
+      "name": "CG-09 \u2014 Bash gate (Claude hook)",
+      "status": "PASS",
+      "assertions": 4,
+      "duration_ms": 0,
+      "evidence": {
+        "bash_mapped_to": "graq_bash",
+        "native_bash_blocked_rc": 2,
+        "vscode_bypass_rc": 0,
+        "graq_bash_not_blocked": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "09-cg10",
+      "name": "CG-10 \u2014 Read gate + global-scope siblings",
+      "status": "PASS",
+      "assertions": 5,
+      "duration_ms": 0,
+      "evidence": {
+        "read_mapped_to": "graq_read",
+        "native_read_blocked_rc": 2,
+        "global_scope_blocked": [
+          "Grep",
+          "Glob",
+          "Write",
+          "Edit",
+          "Agent",
+          "TodoWrite"
+        ],
+        "write_class_regex_ok": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "10-cg11",
+      "name": "CG-11 \u2014 Git gate (graq_bash \u2192 graq_git_*)",
+      "status": "PASS",
+      "assertions": 6,
+      "duration_ms": 93,
+      "evidence": {
+        "status_routed_to": "graq_git_status",
+        "commit_routed_to": "graq_git_commit",
+        "push_passthrough": true,
+        "sudo_wrapper_stripped": true,
+        "env_wrapper_stripped": true,
+        "git_C_path_stripped": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "11-g3",
+      "name": "G3 \u2014 graq_vsce_check against Marketplace",
+      "status": "PASS",
+      "assertions": 4,
+      "duration_ms": 188,
+      "evidence": {
+        "invalid_version_rejected": true,
+        "empty_version_rejected": true,
+        "prerelease_rejected": true,
+        "live_call_structured": true,
+        "live_response_keys": [
+          "currentVersion",
+          "exists",
+          "extension",
+          "ok",
+          "publisher",
+          "suggestedBump",
+          "tool_hints",
+          "version",
+          "versions"
+        ]
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "12-sdk-b5",
+      "name": "SDK-B5 \u2014 Worktree GRAQ.md inheritance",
+      "status": "PASS",
+      "assertions": 4,
+      "duration_ms": 31,
+      "evidence": {
+        "regular_dir_none": true,
+        "worktree_detected": true,
+        "main_resolved_to": "C:\\Users\\haris\\AppData\\Local\\Temp\\pytest-of-haris\\pytest-11665\\test_sdk_b5_worktree_inheritan0\\main_repo",
+        "bundle_loaded": true,
+        "walk_up_includes_worktree": true,
+        "walk_up_count": 2
+      },
+      "failure_reason": null,
+      "tracker": null
+    },
+    {
+      "id": "13-smoke",
+      "name": "Smoke \u2014 full roundtrip (5 surfaces in one server)",
+      "status": "PASS",
+      "assertions": 5,
+      "duration_ms": 15,
+      "evidence": {
+        "init_ok": true,
+        "memory_write_ok": true,
+        "fast_path_ok": true,
+        "git_gate_ok": true,
+        "vsce_fail_closed_ok": true
+      },
+      "failure_reason": null,
+      "tracker": null
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "errored": 0,
+    "gate_verdict": "CLEAR",
+    "blocked_release_targets": []
+  }
+}
