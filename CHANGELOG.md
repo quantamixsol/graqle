@@ -8,6 +8,36 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **Wave-1 BLOCKER hardening** (post-impl-review audit, 2026-04-20).
+  Seven hardening fixes applied across 4 files after mandatory
+  post-impl `graq_review` + `graq_predict` escalation surfaced real
+  production risks that passing tests had not caught:
+    * `mcp_dev_server.py` — B1: guarded top-level imports of
+      `_PERMITTED_RUNNERS` and `DEFAULT_SENSITIVE_KEYS` with narrow
+      `ImportError` handling + safe fail-closed fallbacks so the MCP
+      server survives degraded imports instead of failing to boot.
+    * `mcp_dev_server.py` — B2: narrowed `__version__` import from
+      bare `except Exception` to `ImportError`/`ModuleNotFoundError`;
+      non-import errors now log loudly instead of silently masking
+      packaging/release-gating failures.
+    * `release_gate/engine.py` — B3: `_INTERNAL_RISK_THRESHOLDS.get()`
+      with safe fallback instead of direct indexing, so invariant
+      drift cannot raise `KeyError` and violate the never-crash
+      contract.
+    * `release_gate/engine.py` — B4: all fallback branches + provider
+      calls + threshold lookup now use `effective_target` (the
+      validated normalized value), not raw `target`.
+    * `activation/layer.py` — B5: `TurnBlocked` raise now gated on
+      explicit `tier_mode == ENFORCED and safety.should_block` rather
+      than on `verdict.is_blocked`, preventing any future
+      `ActivationVerdict` semantics drift from blocking advisory-mode
+      turns.
+    * `chat/fast_path.py` — B6: `is_path_safe` containment now uses
+      `Path.is_relative_to()` (Python 3.9+) instead of lowercase
+      string-prefix match, closing the `/tmp/app` vs `/tmp/application`
+      confusion class.
+  Dogfooded `graq_release_gate` on the combined diff: CLEAR
+  (risk=0.10, confidence=0.96). 1,106/1,106 regression green.
 - **SDK-B1: `graq init` auto-scaffolds `GRAQ.md`.** `graq init` now
   writes a project-type-aware `GRAQ.md` (Python / TypeScript /
   JavaScript / Rust / Go / generic) at the workspace root. The file is

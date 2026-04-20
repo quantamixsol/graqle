@@ -137,38 +137,58 @@ class ReleaseGateEngine:
             effective_confidence = float(min_confidence)
 
         # ── Invoke review provider with timeout + exception catch.
+        # B4 (wave-1 hardening): pass `effective_target` (validated + normalized)
+        # to every _fallback_verdict call, not raw `target`. If validation order
+        # ever changes or a future refactor inserts work between normalization
+        # and provider calls, this keeps fallback targets consistent.
         try:
             review_raw = await asyncio.wait_for(
                 self._review.review(diff, focus="correctness"),
                 timeout=_PROVIDER_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
-            return self._fallback_verdict(target, reason="review_timeout")
+            return self._fallback_verdict(effective_target, reason="review_timeout")
         except Exception as exc:  # pylint: disable=broad-except
             logger.warning("release_gate review provider failed: %s", type(exc).__name__)
-            return self._fallback_verdict(target, reason="review_error")
+            return self._fallback_verdict(effective_target, reason="review_error")
 
         review = self._normalize_review(review_raw)
 
         # ── Invoke prediction provider with timeout + exception catch.
+        # B4-extended (post-round-2 review): pass effective_target to the
+        # prediction call itself, not just the fallback branches, so both
+        # providers see the same normalized target.
         try:
             prediction_raw = await asyncio.wait_for(
-                self._predict.predict(diff, target),
+                self._predict.predict(diff, effective_target),
                 timeout=_PROVIDER_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
-            return self._fallback_verdict(target, reason="prediction_timeout")
+            return self._fallback_verdict(effective_target, reason="prediction_timeout")
         except Exception as exc:  # pylint: disable=broad-except
             logger.warning("release_gate prediction provider failed: %s", type(exc).__name__)
-            return self._fallback_verdict(target, reason="prediction_error")
+            return self._fallback_verdict(effective_target, reason="prediction_error")
 
         prediction = self._normalize_prediction(prediction_raw)
 
         # ── Compose verdict. Order matters: BLOCK conditions checked first.
-        # Direct lookup (not .get with default): target is already validated to
-        # be in SUPPORTED_TARGETS, so a missing threshold here is a programming
-        # bug, not a user error — fail loudly (internal invariant check).
-        risk_threshold = _INTERNAL_RISK_THRESHOLDS[target]
+        # B3 (wave-1 hardening): defensive .get() instead of direct indexing.
+        # target is validated above, but if _INTERNAL_RISK_THRESHOLDS gets
+        # out of sync with SUPPORTED_TARGETS in a future refactor, direct
+        # indexing raises KeyError and violates the never-crash contract.
+        # Fail-open to the safer default threshold and log — better than a
+        # server-side exception leaking to the user.
+        risk_threshold = _INTERNAL_RISK_THRESHOLDS.get(effective_target)
+        if risk_threshold is None:
+            logger.error(
+                "release_gate invariant drift: target %r validated but "
+                "missing from _INTERNAL_RISK_THRESHOLDS. Falling back to "
+                "default threshold; fix the constants map.",
+                effective_target,
+            )
+            # Use the pypi threshold as the safest fallback — it's the
+            # strictest and matches the most common release surface.
+            risk_threshold = _INTERNAL_RISK_THRESHOLDS.get("pypi", 0.7)
 
         if review.blockers:
             verdict = Verdict.BLOCK

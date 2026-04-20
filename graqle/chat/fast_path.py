@@ -159,14 +159,16 @@ def is_path_safe(target, cwd) -> bool:
         return False
 
     # Containment check — the primary defense.
-    # Post-Python-3.9 we could use Path.is_relative_to, but str-prefix is
-    # portable and avoids edge cases on exotic OSes.
+    # B6 (wave-1 hardening): replace brittle lowercase string-prefix match
+    # with Path.is_relative_to() which compares resolved Path segments and
+    # is immune to the /tmp/app vs /tmp/application confusion class that
+    # the prefix approach allowed. Python 3.9+.
     try:
-        cwd_str = str(cwd_resolved).rstrip("\\/").lower()
-        tgt_str = str(target_resolved).rstrip("\\/").lower()
-        if not (tgt_str == cwd_str or tgt_str.startswith(cwd_str + "/") or tgt_str.startswith(cwd_str + "\\")):
+        if target_resolved != cwd_resolved and not target_resolved.is_relative_to(cwd_resolved):
             return False
-    except (ValueError, OSError):
+    except (AttributeError, ValueError, OSError):
+        # is_relative_to raises ValueError when paths are not comparable
+        # (e.g. different drives on Windows). Treat as fail-closed.
         return False
 
     # Secondary blocklist

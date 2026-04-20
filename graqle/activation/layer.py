@@ -85,8 +85,14 @@ class ActivationLayer:
             block_reason=block_reason,
         )
 
-        # 5. Enforce (only in ENFORCED mode + blocked)
-        if verdict.is_blocked:
+        # 5. Enforce.
+        # B5 (wave-1 hardening): explicit contract check rather than relying
+        # on verdict.is_blocked property semantics. The documented contract
+        # is "only ENFORCED + safety.should_block raises TurnBlocked." If
+        # ActivationVerdict.is_blocked semantics ever drift, the older
+        # version of this check could block advisory-mode turns incorrectly.
+        # Restate the authoritative condition here so drift is impossible.
+        if self._tier == TierMode.ENFORCED and safety.should_block:
             raise TurnBlocked(verdict)
 
         return verdict
