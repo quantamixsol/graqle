@@ -8,6 +8,20 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **CG-09 + CG-10 + CG-11: Bash, Read, Git governance gates.** Three
+  coupled gaps closed in one commit. CG-09 (native `Bash` blocked)
+  and CG-10 (native `Read` blocked globally, including `~/.claude/**`)
+  were already enforced at the Claude Code hook template level; new
+  regression-guard tests in `tests/test_gate/` codify the invariant.
+  CG-11 (Git gate) is new MCP-side enforcement: `graq_bash` / `kogni_bash`
+  calls whose `command` begins with `git <subcmd>` are routed to the
+  dedicated `graq_git_*` tool when one exists (`status` / `commit` /
+  `branch` / `diff` / `log`); subcommands without a graq_ equivalent
+  (`push` / `pull` / `fetch` / `checkout` / ...) pass through. Wrapper
+  forms (`sudo git ...`, `env VAR=1 git ...`, `git -C repo ...`,
+  `git --git-dir ...`) are all correctly routed. 39 new tests.
+  1149/1149 regression green. Post-impl `graq_review` + dogfood
+  `graq_release_gate` verdict: CLEAR (risk=0.08, conf=0.95).
 - **Wave-1 BLOCKER hardening** (post-impl-review audit, 2026-04-20).
   Seven hardening fixes applied across 4 files after mandatory
   post-impl `graq_review` + `graq_predict` escalation surfaced real

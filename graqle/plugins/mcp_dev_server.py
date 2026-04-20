@@ -3793,6 +3793,73 @@ class KogniDevServer:
                     })
                     return self._inject_tool_hints(name, err)
 
+        # CG-11: Git gate. Route `graq_bash` calls whose command starts with
+        # `git <subcmd>` to the dedicated graq_git_* tool when one exists.
+        # Subcommands without a graq_ equivalent (push/pull/fetch/clone/...)
+        # pass through unchanged — this gate is for DX, not a security rail.
+        # Defensive command parsing: None / non-string / missing → skip gate
+        # (handler will reject with its own validation error).
+        if name in {"graq_bash", "kogni_bash"}:
+            _git_blocked_subcmds = {
+                "status": "graq_git_status",
+                "commit": "graq_git_commit",
+                "branch": "graq_git_branch",
+                "diff":   "graq_git_diff",
+                "log":    "graq_git_log",
+            }
+            _cg11_cmd = arguments.get("command") if isinstance(arguments, dict) else None
+            if isinstance(_cg11_cmd, str) and _cg11_cmd.strip():
+                # Strip common shell wrappers so `sudo git status` and
+                # `env FOO=1 git status` still route correctly. Post-impl
+                # review MAJOR 1 fix.
+                _cg11_tokens = _cg11_cmd.lstrip().split()
+                _cg11_wrapper_prefixes = {"sudo", "nice", "time", "strace"}
+                while _cg11_tokens and _cg11_tokens[0] in _cg11_wrapper_prefixes:
+                    _cg11_tokens = _cg11_tokens[1:]
+                # env VAR=VAL ... git form: skip `env` + any VAR=VAL tokens.
+                if _cg11_tokens and _cg11_tokens[0] == "env":
+                    _cg11_tokens = _cg11_tokens[1:]
+                    while _cg11_tokens and "=" in _cg11_tokens[0] and not _cg11_tokens[0].startswith("-"):
+                        _cg11_tokens = _cg11_tokens[1:]
+                # Now look for git + skip option-leading forms (git -C repo status, git --help).
+                # Post-impl review MAJOR 2 fix.
+                if _cg11_tokens and _cg11_tokens[0] == "git":
+                    _cg11_idx = 1
+                    while _cg11_idx < len(_cg11_tokens) and _cg11_tokens[_cg11_idx].startswith("-"):
+                        _cg11_idx += 1
+                        # Skip option argument (e.g. `-C repo`) when it looks like a path.
+                        if (_cg11_idx < len(_cg11_tokens)
+                                and not _cg11_tokens[_cg11_idx].startswith("-")
+                                and _cg11_idx - 1 >= 1
+                                and _cg11_tokens[_cg11_idx - 1] in {"-C", "--git-dir", "--work-tree", "-c"}):
+                            _cg11_idx += 1
+                else:
+                    _cg11_idx = None
+
+                if _cg11_idx is not None and _cg11_idx < len(_cg11_tokens):
+                    _cg11_subcmd = _cg11_tokens[_cg11_idx]
+                    _cg11_replacement = _git_blocked_subcmds.get(_cg11_subcmd)
+                    if _cg11_replacement is not None:
+                        logger.warning(
+                            "CG-11 BLOCKED: %s 'git %s' → use %s",
+                            name, _cg11_subcmd, _cg11_replacement,
+                        )
+                        _cmd_preview = _cg11_cmd.strip()[:120]
+                        err = json.dumps({
+                            "error": "CG-11_GIT_GATE",
+                            "tool": name,
+                            "command": _cmd_preview,
+                            "subcommand": _cg11_subcmd,
+                            "message": (
+                                f"{name} blocked for 'git {_cg11_subcmd}'. "
+                                f"Use the dedicated {_cg11_replacement} tool "
+                                f"— it adds governance (patent scan, branch "
+                                f"policy, audit log) that bash pipes cannot."
+                            ),
+                            "remediation": _cg11_replacement,
+                        })
+                        return self._inject_tool_hints(name, err)
+
         handlers: dict[str, Any] = {
             "graq_context": self._handle_context,
             "graq_inspect": self._handle_inspect,
