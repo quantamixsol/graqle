@@ -4,6 +4,160 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.52.0-alpha (2026-04-19) - [wave-1-gap-closure]
+
+### Added
+
+- **SDK-B5: Worktree `GRAQ.md` inheritance.** `GraqMdLoader` now
+  detects git worktrees (where `.git` is a FILE containing
+  `gitdir: <path>`) and walks the main repo's chain as well so the
+  parent repo's `GRAQ.md` is inherited. Worktree-local `GRAQ.md`
+  still takes precedence (closest-to-cwd wins, same as existing
+  semantics). Defensive parsing: malformed `.git` files, empty
+  gitdir, unreadable main repo — all fail-closed (fall back to the
+  regular single-repo walk-up). New helper
+  `_resolve_worktree_main_repo()`. 10 new tests in
+  `tests/test_chat/test_graq_md_worktree_inheritance.py`. Test-driven
+  iteration caught + fixed an ordering bug with `.reverse()`
+  semantics before commit. 1198/1198 regression green. Sixth dogfood
+  of `graq_release_gate`: CLEAR (risk=0.09, conf=0.96).
+- **G3: `graq_vsce_check` — VS Code Marketplace version check.** New
+  MCP tool + `kogni_vsce_check` alias (tool count 152 → 154). Queries
+  the official Marketplace REST API (stdlib `urllib` only, no `vsce`
+  runtime dep) to verify a proposed version does NOT already exist,
+  preventing the v0.4.15 → v0.4.16 tag-collision incident class from
+  recurring. Per `graq_reason` 96% consensus: Option A (HTTPS API)
+  over Option B (shell out to `vsce show`) for minimal dependency
+  footprint, better offline testability, deterministic error mapping.
+  Returns `{exists, currentVersion, suggestedBump, versions}`.
+  Defensive payload parsing (guards every nested access), strict
+  semver validation (rejects `v`, `v1`, `0.4`, pre-release), and
+  exhaustive `urllib` exception mapping (`timeout` / `HTTPError` /
+  `URLError` / non-200 all resolve to structured errors, never raise).
+  39 new tests. 1188/1188 regression green. Fifth dogfood of
+  `graq_release_gate`: CLEAR (risk=0.12, conf=0.94).
+- **CG-09 + CG-10 + CG-11: Bash, Read, Git governance gates.** Three
+  coupled gaps closed in one commit. CG-09 (native `Bash` blocked)
+  and CG-10 (native `Read` blocked globally, including `~/.claude/**`)
+  were already enforced at the Claude Code hook template level; new
+  regression-guard tests in `tests/test_gate/` codify the invariant.
+  CG-11 (Git gate) is new MCP-side enforcement: `graq_bash` / `kogni_bash`
+  calls whose `command` begins with `git <subcmd>` are routed to the
+  dedicated `graq_git_*` tool when one exists (`status` / `commit` /
+  `branch` / `diff` / `log`); subcommands without a graq_ equivalent
+  (`push` / `pull` / `fetch` / `checkout` / ...) pass through. Wrapper
+  forms (`sudo git ...`, `env VAR=1 git ...`, `git -C repo ...`,
+  `git --git-dir ...`) are all correctly routed. 39 new tests.
+  1149/1149 regression green. Post-impl `graq_review` + dogfood
+  `graq_release_gate` verdict: CLEAR (risk=0.08, conf=0.95).
+- **Wave-1 BLOCKER hardening** (post-impl-review audit, 2026-04-20).
+  Seven hardening fixes applied across 4 files after mandatory
+  post-impl `graq_review` + `graq_predict` escalation surfaced real
+  production risks that passing tests had not caught:
+    * `mcp_dev_server.py` — B1: guarded top-level imports of
+      `_PERMITTED_RUNNERS` and `DEFAULT_SENSITIVE_KEYS` with narrow
+      `ImportError` handling + safe fail-closed fallbacks so the MCP
+      server survives degraded imports instead of failing to boot.
+    * `mcp_dev_server.py` — B2: narrowed `__version__` import from
+      bare `except Exception` to `ImportError`/`ModuleNotFoundError`;
+      non-import errors now log loudly instead of silently masking
+      packaging/release-gating failures.
+    * `release_gate/engine.py` — B3: `_INTERNAL_RISK_THRESHOLDS.get()`
+      with safe fallback instead of direct indexing, so invariant
+      drift cannot raise `KeyError` and violate the never-crash
+      contract.
+    * `release_gate/engine.py` — B4: all fallback branches + provider
+      calls + threshold lookup now use `effective_target` (the
+      validated normalized value), not raw `target`.
+    * `activation/layer.py` — B5: `TurnBlocked` raise now gated on
+      explicit `tier_mode == ENFORCED and safety.should_block` rather
+      than on `verdict.is_blocked`, preventing any future
+      `ActivationVerdict` semantics drift from blocking advisory-mode
+      turns.
+    * `chat/fast_path.py` — B6: `is_path_safe` containment now uses
+      `Path.is_relative_to()` (Python 3.9+) instead of lowercase
+      string-prefix match, closing the `/tmp/app` vs `/tmp/application`
+      confusion class.
+  Dogfooded `graq_release_gate` on the combined diff: CLEAR
+  (risk=0.10, confidence=0.96). 1,106/1,106 regression green.
+- **SDK-B1: `graq init` auto-scaffolds `GRAQ.md`.** `graq init` now
+  writes a project-type-aware `GRAQ.md` (Python / TypeScript /
+  JavaScript / Rust / Go / generic) at the workspace root. The file is
+  a user-facing walk-up that merges on top of the built-in chat system
+  prompt. Per ADR-206, creation is ON by default; `--no-graq-md`
+  disables. Existing files are never overwritten without explicit
+  `overwrite=True`. Atomic write with try/finally cleanup — target
+  remains unchanged on any IO failure. 22 new tests + 1106 regression
+  green. Also: fixed a pre-existing case-sensitivity bug in
+  `TestBuildMcpJson::test_structure` (Windows surfaces `graq.EXE`).
+- **ADR-207: Zero-Violation Governance Discipline.** Session-level
+  policy codifying (1) every native-tool call with a `graq_*`
+  equivalent MUST use the governed path; (2) every commit runs
+  `graq_release_gate` on the diff with verdict recorded in commit body;
+  (3) every `graq_*` tool failure logged to `.gcc/capability-gaps.md`
+  (no silent workarounds). First session-end audit: 1 violation logged
+  honestly; 4 capability gaps surfaced to the SDK team. See
+  [ADR-207](.gsm/decisions/ADR-207-zero-violation-governance-discipline.md).
+- **ADR-206 / SDK-B3: Impact-Radius Fast-Path.** When the chat detects
+  an unambiguous file-create intent with zero blast radius, skip the LLM
+  pipeline (reason → generate → review) and write directly. Reduces the
+  ~75s round-trip to ~0.3s on zero-impact creates. The ADR-205 safety
+  layer still evaluates first — zero blast radius does not mean zero
+  safety risk. Feature flag `fast_path_enabled` defaults ON
+  (ADR-206 Decision: unified flag-default policy); kill switch via
+  `GRAQLE_FAST_PATH_ENABLED=0`. New module `graqle/chat/fast_path.py`
+  with strict regex classifier + containment-checked path safety.
+  30+ new tests. Zero regression (739/739 green).
+  See [ADR-206](.gsm/decisions/ADR-206-fast-path-policy-and-flag-defaults.md).
+- **ADR-205: Pre-Reason Activation Layer (SDK-B2 + SDK-B4 + GOV-01 + GOV-02).**
+  Every chat turn now runs through a three-layer pre-reason activation
+  step before the LLM planner is invoked: (1) relevance scoring (TAMR+
+  role), (2) safety evaluation (DRACE role), (3) predictive subgraph
+  activation (PSE role). The layer is wired into
+  `ChatAgentLoop.run_turn` and applies to ALL task types (plan, code,
+  edit, debate, reason). Free tier runs in advisory mode (score visible,
+  upgrade chip on would-be-blocks); Pro/Enterprise runs in enforced mode
+  (turn transitions to FAILED on blocks). Feature flag
+  `pre_reason_activation_enabled` defaults ON (codified guard against
+  the v0.4.15 flag-never-flipped incident); kill switch via
+  `GRAQLE_PRE_REASON_ACTIVATION=0` for regression bisection. New module
+  `graqle/activation/` adds Protocol-based providers (matches R18 and G2
+  architecture). 18 new tests, 239/239 existing chat tests green, zero
+  regression. See
+  [docs/governance.md](docs/governance.md#pre-reason-activation-chat-turn-safety-gate)
+  and
+  [ADR-205](.gsm/decisions/ADR-205-pre-reason-activation-layer.md).
+- **G2: Release Gate.** Pre-publish KG-multi-agent governance gate — the
+  only tool that combines KG-backed diff review with multi-agent risk
+  prediction into a single structured verdict (`CLEAR` / `WARN` / `BLOCK`).
+  Ships as three adoption surfaces:
+    - **CLI** — `graq release-gate --diff ... --target pypi|vscode-marketplace`
+    - **MCP tool** — `graq_release_gate` (also aliased as `kogni_release_gate`)
+    - **GitHub Action** — `graqle/release-gate@v1` (Dockerfile-based,
+      one-line adoption via `.github/workflows/release-gate.yml`)
+  Engine uses the injection pattern (like R18 GovernedTrace) so tests never
+  call real LLMs. Provider failures, timeouts, and malformed payloads
+  resolve to a safe `WARN` verdict with a caller-safe reason — never
+  crashing the build. 20 engine tests + 7 MCP-dispatcher tests, all green.
+  See [docs/governance.md](docs/governance.md) and the copy-paste workflow
+  template at
+  [`.github/workflows/release-gate-example.yml`](.github/workflows/release-gate-example.yml).
+- **CG-17 / G1: `graq_memory` MCP tool + memory-write gate.** Native
+  `Write` / `Edit` on `~/.claude/projects/*/memory/*.md` is now blocked at
+  the dispatcher; memory files must route through the new `graq_memory`
+  tool (maintains `MEMORY.md` index + frontmatter validation + atomic
+  writes + markdown-safe rendering). 30 new tests (28 pass, 2
+  Windows-skipped for symlink/chmod). Zero regressions across
+  `tests/test_plugins/` (308 green). Ships with `graq_memory` +
+  `kogni_memory` (tool count 148 → 150 for CG-17, then → 152 for G2).
+
+### Changed
+
+- **MCP tool count: 148 → 152** (`graq_memory`, `kogni_memory`,
+  `graq_release_gate`, `kogni_release_gate`).
+
+---
+
 ## 0.51.6 (2026-04-16) - [unblocks-vscode-pivot]
 
 ### Correctness (P0)

@@ -1,0 +1,63 @@
+name: 'GraQle Release Gate'
+description: 'Pre-publish KG + multi-agent governance gate. Block bad ships before PyPI or VS Code Marketplace.'
+author: 'GraQle'
+
+branding:
+  icon: 'shield-off'
+  color: 'red'
+
+inputs:
+  target:
+    description: 'Publish target: pypi | vscode-marketplace'
+    required: true
+  github-token:
+    description: 'GitHub token for PR comments and commit status'
+    required: false
+    default: ${{ github.token }}
+  graqle-license:
+    description: 'GraQle Pro license key (optional; free tier runs in degraded mode)'
+    required: false
+    default: ''
+  min-confidence:
+    description: 'Optional confidence override (float between 0.0 and 1.0). Leave unset to use GraQle defaults.'
+    required: false
+    default: ''
+  strict:
+    description: 'Fail the check on WARN (default: only BLOCK fails)'
+    required: false
+    default: 'false'
+  diff-base:
+    description: 'Git ref to diff against (auto-inferred from event if empty)'
+    required: false
+    default: ''
+
+outputs:
+  verdict:
+    description: 'CLEAR | WARN | BLOCK'
+  risk-score:
+    description: 'Opaque risk score between 0.0 and 1.0'
+  confidence:
+    description: 'Opaque confidence score between 0.0 and 1.0'
+  target:
+    description: 'The publish target that was gated'
+  blockers:
+    description: 'JSON array of blocker descriptions'
+  majors:
+    description: 'JSON array of major-severity descriptions'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '--target'
+    - ${{ inputs.target }}
+    - '--github-token'
+    - ${{ inputs.github-token }}
+    - '--graqle-license'
+    - ${{ inputs.graqle-license }}
+    - '--min-confidence'
+    - ${{ inputs.min-confidence }}
+    - '--strict'
+    - ${{ inputs.strict }}
+    - '--diff-base'
+    - ${{ inputs.diff-base }}
