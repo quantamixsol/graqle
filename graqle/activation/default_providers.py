@@ -1,4 +1,4 @@
-"""ADR-205 — Default (fake/stub) providers for tests and fallback.
+"""pre-reason-activation design — Default (fake/stub) providers for tests and fallback.
 
 These providers are deterministic, fast, and never call an LLM. They are
 the injection targets when a test or embedded use-case does not want

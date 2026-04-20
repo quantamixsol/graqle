@@ -1,4 +1,4 @@
-"""ADR-205 — License-tier detection for the pre-reason activation layer.
+"""pre-reason-activation design — License-tier detection for the pre-reason activation layer.
 
 Rule (plain English):
     Free tier  → ADVISORY mode  (scores visible, upgrade chip shown on block-worthy turns, turn continues)

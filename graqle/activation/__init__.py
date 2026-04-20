@@ -48,7 +48,7 @@ __all__ = [
     "QueryReformulator",
     "ReformulationContext",
     "ReformulationResult",
-    # ADR-205 pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02)
+    # pre-reason-activation design pre-reason activation layer (SDK-B2 + B4 + GOV-01 + GOV-02)
     "ActivationLayer",
     "ActivationVerdict",
     "ChunkScoringProvider",
@@ -63,7 +63,7 @@ __all__ = [
     "default_activation_layer",
 ]
 
-# ADR-205: pre-reason activation layer exports
+# pre-reason-activation design: pre-reason activation layer exports
 from graqle.activation.providers import (  # noqa: E402
     ActivationVerdict,
     ActivatedSubgraph,

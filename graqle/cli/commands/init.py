@@ -2533,7 +2533,7 @@ def init_command(
     no_graq_md: bool = typer.Option(
         False, "--no-graq-md",
         help="Skip GRAQ.md (project-local chat routing) creation. "
-             "Per ADR-206 this flag defaults False (creation is ON).",
+             "Per flag-default policy this flag defaults False (creation is ON).",
     ),
     no_claude_md: bool = typer.Option(
         False, "--no-claude-md", help="Skip CLAUDE.md creation"
@@ -2888,7 +2888,7 @@ def init_command(
             console.print(f"  [green]+[/green] {mcp_path.relative_to(root)}")
 
     # AI instructions (IDE-specific file)
-    # SDK-B1 — project-local GRAQ.md (chat routing). Defaults ON per ADR-206.
+    # SDK-B1 — project-local GRAQ.md (chat routing). Defaults ON per flag-default policy.
     if not no_graq_md:
         try:
             _graq_md_written = write_graq_md(root, project_type=None, overwrite=False)

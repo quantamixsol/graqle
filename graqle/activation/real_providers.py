@@ -1,4 +1,4 @@
-"""ADR-205 — Real providers wrapping existing DRACE / TAMR+ / PSE.
+"""pre-reason-activation design — Real providers wrapping existing DRACE / TAMR+ / PSE.
 
 These are the production wirings. Each wraps an existing implementation
 that already ships in GraQle:
