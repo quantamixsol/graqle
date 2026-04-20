@@ -8,6 +8,24 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **SDK-B1: `graq init` auto-scaffolds `GRAQ.md`.** `graq init` now
+  writes a project-type-aware `GRAQ.md` (Python / TypeScript /
+  JavaScript / Rust / Go / generic) at the workspace root. The file is
+  a user-facing walk-up that merges on top of the built-in chat system
+  prompt. Per ADR-206, creation is ON by default; `--no-graq-md`
+  disables. Existing files are never overwritten without explicit
+  `overwrite=True`. Atomic write with try/finally cleanup — target
+  remains unchanged on any IO failure. 22 new tests + 1106 regression
+  green. Also: fixed a pre-existing case-sensitivity bug in
+  `TestBuildMcpJson::test_structure` (Windows surfaces `graq.EXE`).
+- **ADR-207: Zero-Violation Governance Discipline.** Session-level
+  policy codifying (1) every native-tool call with a `graq_*`
+  equivalent MUST use the governed path; (2) every commit runs
+  `graq_release_gate` on the diff with verdict recorded in commit body;
+  (3) every `graq_*` tool failure logged to `.gcc/capability-gaps.md`
+  (no silent workarounds). First session-end audit: 1 violation logged
+  honestly; 4 capability gaps surfaced to the SDK team. See
+  [ADR-207](.gsm/decisions/ADR-207-zero-violation-governance-discipline.md).
 - **ADR-206 / SDK-B3: Impact-Radius Fast-Path.** When the chat detects
   an unambiguous file-create intent with zero blast radius, skip the LLM
   pipeline (reason → generate → review) and write directly. Reduces the
