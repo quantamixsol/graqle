@@ -13,6 +13,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# CI fix: neo4j driver is an optional extra. Skip the whole module when
+# it's not installed so the default CI matrix stays green.
+pytest.importorskip("neo4j")
+
 from graqle.connectors.upgrade import (
     NODE_THRESHOLD,
     _sanitise_for_neo4j_props,
