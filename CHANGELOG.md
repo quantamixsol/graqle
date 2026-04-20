@@ -8,6 +8,21 @@ All notable changes to GraQle are documented in this file.
 
 ### Added
 
+- **G3: `graq_vsce_check` — VS Code Marketplace version check.** New
+  MCP tool + `kogni_vsce_check` alias (tool count 152 → 154). Queries
+  the official Marketplace REST API (stdlib `urllib` only, no `vsce`
+  runtime dep) to verify a proposed version does NOT already exist,
+  preventing the v0.4.15 → v0.4.16 tag-collision incident class from
+  recurring. Per `graq_reason` 96% consensus: Option A (HTTPS API)
+  over Option B (shell out to `vsce show`) for minimal dependency
+  footprint, better offline testability, deterministic error mapping.
+  Returns `{exists, currentVersion, suggestedBump, versions}`.
+  Defensive payload parsing (guards every nested access), strict
+  semver validation (rejects `v`, `v1`, `0.4`, pre-release), and
+  exhaustive `urllib` exception mapping (`timeout` / `HTTPError` /
+  `URLError` / non-200 all resolve to structured errors, never raise).
+  39 new tests. 1188/1188 regression green. Fifth dogfood of
+  `graq_release_gate`: CLEAR (risk=0.12, conf=0.94).
 - **CG-09 + CG-10 + CG-11: Bash, Read, Git governance gates.** Three
   coupled gaps closed in one commit. CG-09 (native `Bash` blocked)
   and CG-10 (native `Read` blocked globally, including `~/.claude/**`)

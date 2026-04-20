@@ -224,6 +224,8 @@ class TestToolDefinitions:
             "graq_memory",
             # G2 (v0.52.0): pre-publish governance gate
             "graq_release_gate",
+            # G3 (v0.52.0): VS Code Marketplace version check
+            "graq_vsce_check",
         }
         expected_kogni = {
             "kogni_context",
@@ -316,8 +318,10 @@ class TestToolDefinitions:
             "kogni_memory",
             # G2 (v0.52.0): pre-publish governance gate alias
             "kogni_release_gate",
+            # G3 (v0.52.0): VS Code Marketplace version check alias
+            "kogni_vsce_check",
         }
-        # v0.52.0: 76 graq_* + 76 kogni_* = 152 total (CG-17 +2, G2 +2)
+        # v0.52.0: 77 graq_* + 77 kogni_* = 154 total (CG-17 +2, G2 +2, G3 +2)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -347,8 +351,8 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        # v0.52.0: 148 -> 152 (CG-17 +graq/kogni_memory = +2; G2 +graq/kogni_release_gate = +2)
-        assert len(tools) == 152
+        # v0.52.0: 148 -> 154 (CG-17 +2 graq_memory; G2 +2 graq_release_gate; G3 +2 graq_vsce_check)
+        assert len(tools) == 154
 
 
 # ---------------------------------------------------------------------------

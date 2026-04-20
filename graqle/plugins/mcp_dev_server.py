@@ -2390,6 +2390,52 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["diff", "target"],
         },
     },
+    # G3 (v0.52.0): graq_vsce_check — query VS Code Marketplace for version
+    # existence before tagging. Prevents the v0.4.15 → v0.4.16 tag collision
+    # class of incident.
+    {
+        "name": "graq_vsce_check",
+        "description": (
+            "Check VS Code Marketplace for whether a proposed version "
+            "already exists. Returns {exists, currentVersion, "
+            "suggestedBump, versions}. Use before `git tag` + `vsce "
+            "publish` to prevent duplicate-version CI failures."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": (
+                        "Semver version to check (e.g. '0.4.15' or "
+                        "'v0.4.15'). Leading 'v' stripped."
+                    ),
+                },
+                "publisher": {
+                    "type": "string",
+                    "description": (
+                        "Marketplace publisher (default 'graqle'). Must "
+                        "match [a-z0-9-]+."
+                    ),
+                },
+                "extension": {
+                    "type": "string",
+                    "description": (
+                        "Extension slug (default 'graqle-vscode'). Must "
+                        "match [a-z0-9-]+."
+                    ),
+                },
+                "timeout": {
+                    "type": "number",
+                    "description": (
+                        "HTTP timeout seconds (default 5.0). Failures "
+                        "resolve to structured error, never raise."
+                    ),
+                },
+            },
+            "required": ["version"],
+        },
+    },
     # CG-17 / G1 (v0.52.0): governed memory-file I/O. Native Write/Edit to
     # ~/.claude/projects/*/memory/*.md is blocked by CG-17 gate; use this tool.
     {
@@ -3877,6 +3923,7 @@ class KogniDevServer:
             "graq_learn": self._handle_learn,
             "graq_memory": self._handle_memory,
             "graq_release_gate": self._handle_release_gate,
+            "graq_vsce_check": self._handle_vsce_check,
             "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
@@ -3930,6 +3977,7 @@ class KogniDevServer:
             "kogni_learn": self._handle_learn,
             "kogni_memory": self._handle_memory,
             "kogni_release_gate": self._handle_release_gate,
+            "kogni_vsce_check": self._handle_vsce_check,
             "kogni_predict": self._handle_predict,
             "kogni_runtime": self._handle_runtime,
             "kogni_route": self._handle_route,
@@ -4929,6 +4977,239 @@ class KogniDevServer:
             min_confidence=min_conf_arg,
         )
         return json.dumps(verdict.to_dict())
+
+    # ── G3. graq_vsce_check (VS Code Marketplace version existence) ────────
+
+    async def _handle_vsce_check(self, args: dict[str, Any]) -> str:
+        """G3 — check Marketplace for an existing extension version.
+
+        Fails closed on any network / parse / shape error by returning a
+        structured error dict — never raises. Uses stdlib urllib only
+        (no runtime dep on `requests` or `vsce`).
+
+        Revision 2 hardening (from post-impl spec review):
+          - strict semver regex (rejects 'v', 'v1', '0.4', pre-release tags)
+          - defensive payload parsing (guards every nested access)
+          - exhaustive urllib exception mapping
+          - suggestedBump only for stable MAJOR.MINOR.PATCH
+        """
+        import re as _re_vsce
+        import json as _json_vsce
+        import urllib.request as _urllib_req
+        import urllib.error as _urllib_err
+        import socket as _socket_vsce
+
+        if not isinstance(args, dict):
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "INVALID_ARGUMENTS",
+                "message": "arguments must be an object",
+            })
+
+        version_raw = args.get("version")
+        publisher = args.get("publisher", "graqle")
+        extension = args.get("extension", "graqle-vscode")
+        timeout = args.get("timeout", 5.0)
+
+        # Validate version — strict semver (MAJOR.MINOR.PATCH optional leading 'v').
+        if not isinstance(version_raw, str) or not version_raw.strip():
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "INVALID_VERSION",
+                "message": "version must be a non-empty string",
+            })
+        version = version_raw.strip()
+        if version.lower().startswith("v"):
+            version = version[1:]
+        if not _re_vsce.fullmatch(r"\d+\.\d+\.\d+", version):
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "INVALID_VERSION",
+                "message": (
+                    "version must be stable semver MAJOR.MINOR.PATCH "
+                    "(pre-release/build metadata not supported)"
+                ),
+                "got": version_raw,
+            })
+
+        # Validate publisher/extension — lowercase alphanumeric + hyphen only.
+        _slug = _re_vsce.compile(r"^[a-z0-9][a-z0-9-]*$")
+        if not (isinstance(publisher, str) and _slug.fullmatch(publisher)):
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "INVALID_PUBLISHER",
+                "message": "publisher must match [a-z0-9-]+",
+                "got": publisher,
+            })
+        if not (isinstance(extension, str) and _slug.fullmatch(extension)):
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "INVALID_EXTENSION",
+                "message": "extension must match [a-z0-9-]+",
+                "got": extension,
+            })
+
+        # Validate timeout
+        try:
+            timeout_f = float(timeout)
+            if timeout_f <= 0 or timeout_f > 60:
+                raise ValueError
+        except (TypeError, ValueError):
+            timeout_f = 5.0
+
+        # Query Marketplace
+        try:
+            versions = await asyncio.to_thread(
+                self._marketplace_query,
+                publisher, extension, timeout_f,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(
+                "vsce_check unexpected wrapper error: %s", type(exc).__name__,
+            )
+            return _json_vsce.dumps({
+                "ok": False,
+                "error": "marketplace_unreachable",
+                "message": f"unexpected error: {type(exc).__name__}",
+                "version": version,
+                "publisher": publisher,
+                "extension": extension,
+            })
+
+        if isinstance(versions, dict) and "error" in versions:
+            # Helper returned structured error (timeout / unreachable)
+            return _json_vsce.dumps({
+                "ok": False,
+                **versions,
+                "version": version,
+                "publisher": publisher,
+                "extension": extension,
+            })
+
+        # versions is guaranteed list[str] of semver strings at this point
+        # (the helper filters malformed entries).
+        exists = version in versions
+        current_version = versions[0] if versions else ""
+
+        # Compute suggestedBump only when exists=True and we can parse a
+        # stable semver. Find max (major, minor, patch) then +1 patch.
+        suggested_bump = ""
+        if exists and versions:
+            parsed = []
+            for v in versions:
+                m = _re_vsce.fullmatch(r"(\d+)\.(\d+)\.(\d+)", v)
+                if m:
+                    parsed.append(tuple(int(g) for g in m.groups()))
+            if parsed:
+                max_triple = max(parsed)
+                suggested_bump = f"{max_triple[0]}.{max_triple[1]}.{max_triple[2] + 1}"
+
+        return _json_vsce.dumps({
+            "ok": True,
+            "exists": exists,
+            "currentVersion": current_version,
+            "suggestedBump": suggested_bump,
+            "versions": versions[:50],
+            "version": version,
+            "publisher": publisher,
+            "extension": extension,
+        })
+
+    @staticmethod
+    def _marketplace_query(publisher: str, extension: str, timeout: float):
+        """POST to Marketplace extensionquery API and extract versions.
+
+        Returns list[str] on success, dict with {error, message} on failure.
+        Defensive parsing: every nested access guarded; empty/malformed
+        responses → {"error": "marketplace_unreachable", ...}.
+        """
+        import json as _json_m
+        import urllib.request as _urllib_req
+        import urllib.error as _urllib_err
+        import socket as _socket_m
+
+        url = (
+            "https://marketplace.visualstudio.com/_apis/public/gallery/"
+            "extensionquery?api-version=3.0-preview.1"
+        )
+        body = _json_m.dumps({
+            "filters": [{
+                "criteria": [
+                    {"filterType": 7, "value": f"{publisher}.{extension}"},
+                ],
+            }],
+            "flags": 914,
+        }).encode("utf-8")
+        req = _urllib_req.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json;api-version=3.0-preview.1",
+                "User-Agent": "graqle-vsce-check/1.0",
+            },
+            method="POST",
+        )
+        try:
+            with _urllib_req.urlopen(req, timeout=timeout) as resp:
+                status = getattr(resp, "status", 200)
+                if status != 200:
+                    return {"error": "marketplace_unreachable",
+                            "message": f"HTTP {status}"}
+                raw = resp.read()
+        except _socket_m.timeout:
+            return {"error": "marketplace_timeout",
+                    "message": f"timeout after {timeout}s"}
+        except _urllib_err.HTTPError as exc:
+            return {"error": "marketplace_unreachable",
+                    "message": f"HTTPError {exc.code}"}
+        except _urllib_err.URLError as exc:
+            reason = getattr(exc, "reason", str(exc))
+            if isinstance(reason, _socket_m.timeout):
+                return {"error": "marketplace_timeout",
+                        "message": f"timeout after {timeout}s"}
+            return {"error": "marketplace_unreachable",
+                    "message": f"URLError: {reason}"}
+        except (OSError, ValueError) as exc:
+            return {"error": "marketplace_unreachable",
+                    "message": f"{type(exc).__name__}: {exc}"}
+
+        # Parse JSON
+        try:
+            data = _json_m.loads(raw)
+        except (ValueError, TypeError) as exc:
+            return {"error": "marketplace_unreachable",
+                    "message": f"invalid JSON: {exc}"}
+
+        # Defensive shape guards — every nested access checked.
+        if not isinstance(data, dict):
+            return {"error": "marketplace_unreachable",
+                    "message": "response body is not an object"}
+        results = data.get("results")
+        if not isinstance(results, list) or not results:
+            return []  # extension not found → empty versions list
+        first = results[0]
+        if not isinstance(first, dict):
+            return []
+        extensions = first.get("extensions")
+        if not isinstance(extensions, list) or not extensions:
+            return []  # extension not found
+        ext0 = extensions[0]
+        if not isinstance(ext0, dict):
+            return []
+        versions_raw = ext0.get("versions")
+        if not isinstance(versions_raw, list):
+            return []
+
+        out = []
+        import re as _re_m
+        _semver = _re_m.compile(r"^\d+\.\d+\.\d+$")
+        for v in versions_raw:
+            if isinstance(v, dict):
+                vstr = v.get("version")
+                if isinstance(vstr, str) and _semver.fullmatch(vstr):
+                    out.append(vstr)
+        return out
 
     # ── CG-17 / G1. graq_memory (governed memory-file I/O) ─────────────────
 
