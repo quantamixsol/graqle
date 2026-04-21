@@ -5,4 +5,4 @@
 # constraints: none
 # ── /graqle:intelligence ──
 
-__version__ = "0.52.0a1"
+__version__ = "0.52.0a2"
