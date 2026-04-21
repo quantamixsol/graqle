@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+from copy import deepcopy
 import logging
 import sys
 import threading
@@ -606,6 +607,25 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "boolean",
                     "default": False,
                     "description": "Include per-node chunk details in output",
+                },
+                "client_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "default": [],
+                    "description": (
+                        "Optional client-declared capability set used to pre-filter the recommendation. "
+                        "Advisory-only: caller-controlled and not an auth boundary."
+                    ),
+                },
+                "permission_tier": {
+                    "type": "string",
+                    "enum": ["free", "pro", "enterprise"],
+                    "description": (
+                        "Optional client-declared permission tier used to pre-filter the recommendation. "
+                        "Advisory-only: caller-controlled and not an auth boundary."
+                    ),
                 },
             },
         },
@@ -6125,20 +6145,95 @@ class KogniDevServer:
     # ── 11. graq_route ──────────────────────────────────────────────
 
     async def _handle_route(self, args: dict[str, Any]) -> str:
-        """Smart query router — recommend GraQle vs external tools."""
+        """Smart query router — recommend GraQle vs external tools.
+
+        CG-19 (advisory): optional ``available_tools`` and ``permission_tier``
+        let the calling client pre-filter the recommendation to tools it can
+        actually invoke. This is NOT a server-enforced auth boundary — real
+        permission enforcement belongs in the client.
+        """
         question = args.get("question", "")
 
-        if not question:
+        if not question or not isinstance(question, str) or not question.strip():
             return json.dumps({"error": "Parameter 'question' is required."})
+
+        # CG-19: validate optional filter args strictly (reject malformed input
+        # rather than silently defaulting, per pre-impl review MAJOR findings).
+        available_tools_raw = args.get("available_tools")
+        available_set: set[str] | None = None
+        if available_tools_raw is not None:
+            if not isinstance(available_tools_raw, list) or not all(
+                isinstance(t, str) for t in available_tools_raw
+            ):
+                return json.dumps({
+                    "error": "CG-19: 'available_tools' must be a list of strings.",
+                    "tool": "graq_route",
+                })
+            available_set = {t for t in available_tools_raw if t}
+
+        tier_raw = args.get("permission_tier")
+        tier: str | None = None
+        if tier_raw is not None:
+            if tier_raw not in ("ADVISORY", "ENFORCED"):
+                return json.dumps({
+                    "error": (
+                        "CG-19: 'permission_tier' must be 'ADVISORY' or 'ENFORCED'."
+                    ),
+                    "tool": "graq_route",
+                    "received": tier_raw,
+                })
+            tier = tier_raw
 
         from graqle.runtime.router import route_question
 
-        # Check if runtime data is available
         has_runtime = True  # graq_runtime is now built-in
 
         recommendation = route_question(question, has_runtime=has_runtime)
+        payload = recommendation.to_dict() if recommendation is not None else {}
 
-        return json.dumps(recommendation.to_dict())
+        # CG-19: apply capability filter only when the caller opted in by
+        # supplying available_tools. Absent => byte-identical back-compat.
+        if available_set is not None:
+            tier_effective = tier or "ADVISORY"
+            recommended_list = payload.get("graqle_tools")
+            if not isinstance(recommended_list, list):
+                recommended_list = []
+            allowed = [t for t in recommended_list if isinstance(t, str) and t in available_set]
+            filtered = [t for t in recommended_list if isinstance(t, str) and t not in available_set]
+            reasoning = payload.get("reasoning") or ""
+            external_list = (
+                payload.get("external_tools") if isinstance(payload.get("external_tools"), list) else []
+            )
+
+            if tier_effective == "ENFORCED":
+                payload["graqle_tools"] = allowed
+                if not allowed:
+                    payload["recommendation"] = (
+                        "external_only" if external_list else "blocked"
+                    )
+                    payload["reasoning"] = (
+                        reasoning
+                        + f" [CG-19 ENFORCED: all recommended tools {filtered} are outside available_tools; "
+                        f"downgraded to {payload['recommendation']}.]"
+                    )
+                elif filtered:
+                    payload["reasoning"] = (
+                        reasoning
+                        + f" [CG-19 ENFORCED: removed {filtered} from graqle_tools "
+                        "(not in available_tools).]"
+                    )
+            else:  # ADVISORY
+                if filtered:
+                    payload["filtered_tools"] = filtered
+                    payload["reasoning"] = (
+                        reasoning
+                        + f" [CG-19 ADVISORY: {filtered} recommended but not in available_tools.]"
+                    )
+
+            payload["cg19_applied"] = True
+            payload["permission_tier"] = tier_effective
+
+        return json.dumps(payload)
 
     # ── 11b. graq_correct ─────────────────────────────────────────────
 
@@ -10832,3 +10927,5 @@ def main(config_path: str = "graqle.yaml") -> None:
 
 if __name__ == "__main__":
     main()
+
+
