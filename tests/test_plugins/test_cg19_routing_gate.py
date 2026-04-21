@@ -245,3 +245,49 @@ def test_tier_without_available_tools_is_backcompat(server):
     payload = json.loads(raw)
     # Back-compat path: no cg19_applied key
     assert "cg19_applied" not in payload
+
+# ─── CG-19 tool-schema shape regression (would have caught the 0.52.0a2 bug) ─
+
+def test_graq_route_schema_has_cg19_params():
+    """The graq_route tool schema MUST expose available_tools and permission_tier.
+
+    This test would have caught the 0.52.0a2 bug where the handler contained
+    CG-19 validation logic but the schema block was never updated — so MCP
+    clients never saw the new parameters. Tests that only exercise the
+    handler directly bypass the schema entirely and miss this class of bug.
+    """
+    from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
+    route = next((t for t in TOOL_DEFINITIONS if t["name"] == "graq_route"), None)
+    assert route is not None, "graq_route tool must be defined"
+    props = route["inputSchema"]["properties"]
+    assert "available_tools" in props, (
+        "CG-19: graq_route schema MUST expose 'available_tools'. "
+        "0.52.0a2 shipped without this; 0.52.0a3 restored it."
+    )
+    assert "permission_tier" in props, (
+        "CG-19: graq_route schema MUST expose 'permission_tier'."
+    )
+
+
+def test_available_tools_schema_is_array_of_strings():
+    from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
+    route = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_route")
+    at = route["inputSchema"]["properties"]["available_tools"]
+    assert at["type"] == "array"
+    assert at["items"] == {"type": "string"}
+
+
+def test_permission_tier_schema_is_strict_enum():
+    from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
+    route = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_route")
+    pt = route["inputSchema"]["properties"]["permission_tier"]
+    assert pt["type"] == "string"
+    assert set(pt["enum"]) == {"ADVISORY", "ENFORCED"}
+
+
+def test_question_still_the_only_required_field():
+    """CG-19 fields are optional — back-compat guarantee at the schema layer."""
+    from graqle.plugins.mcp_dev_server import TOOL_DEFINITIONS
+    route = next(t for t in TOOL_DEFINITIONS if t["name"] == "graq_route")
+    assert route["inputSchema"]["required"] == ["question"]
+

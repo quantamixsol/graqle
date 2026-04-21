@@ -808,7 +808,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "Smart query router — classifies your question and recommends "
             "whether to use GraQle tools or external tools (CloudWatch, grep, git). "
             "Call this BEFORE investigating to get the most efficient tool strategy. "
-            "Returns: category, recommended tools, confidence, and reasoning."
+            "Returns: category, recommended tools, confidence, and reasoning. "
+            "CG-19: pass available_tools (and optionally permission_tier) to pre-filter "
+            "the recommendation to tools the calling client can actually invoke."
         ),
         "inputSchema": {
             "type": "object",
@@ -816,6 +818,27 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "question": {
                     "type": "string",
                     "description": "The question or investigation topic to route",
+                },
+                "available_tools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "CG-19 (advisory): list of tool names the calling client is permitted to invoke. "
+                        "When provided, the recommendation's graqle_tools is intersected with this set and "
+                        "filtered tools are surfaced separately. This is NOT a server-enforced auth boundary "
+                        "— the client owns real permission enforcement; this field only helps the router "
+                        "recommend tools the client can actually call."
+                    ),
+                },
+                "permission_tier": {
+                    "type": "string",
+                    "enum": ["ADVISORY", "ENFORCED"],
+                    "description": (
+                        "CG-19 (advisory): how to present the filter result. "
+                        "ADVISORY (default): keep full recommendation, annotate with filtered_tools. "
+                        "ENFORCED: replace graqle_tools with the filtered subset; if empty, downgrade the "
+                        "recommendation to external_only / blocked. Requires available_tools to take effect."
+                    ),
                 },
             },
             "required": ["question"],
