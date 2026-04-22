@@ -576,6 +576,15 @@ def build_accept_response(file: str, approver: str) -> dict[str, Any]:
     }
 
 
+_SANITIZE_EXTRA_FIELDS: tuple[str, ...] = (
+    "file_path",
+    "matched_pattern",
+    "suggestion",
+    "hint",
+    "fix",
+)
+
+
 def build_error_envelope(
     error_code: str,
     message: str,
@@ -583,10 +592,17 @@ def build_error_envelope(
 ) -> dict[str, Any]:
     """Single entry point for all user-facing error envelopes.
 
-    Sanitizes the message field unconditionally. Extra fields are
-    passed through as-is; callers must sanitize those themselves if
-    they carry exception text.
+    Sanitizes the ``message`` field unconditionally. Additionally sanitizes
+    the following allowlisted extra fields if present and string-valued:
+    ``file_path``, ``matched_pattern``, ``suggestion``, ``hint``, ``fix``.
+
+    Non-allowlisted extra fields pass through as-is; callers must
+    sanitize those themselves if they may carry paths or exception text.
     """
     env: dict[str, Any] = {"error": error_code, "message": _sanitize(message)}
-    env.update(extra)
+    for key, value in extra.items():
+        if key in _SANITIZE_EXTRA_FIELDS and isinstance(value, str):
+            env[key] = _sanitize(value)
+        else:
+            env[key] = value
     return env

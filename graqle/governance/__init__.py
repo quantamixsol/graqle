@@ -11,10 +11,16 @@ from graqle.governance.config_drift import (
     DriftRecord,
     FileReadError,
 )
+from graqle.governance.kg_write_gate import (
+    check_kg_block,
+    check_protected_path,
+)
 
 __all__ = [
     "BaselineCorruptedError",
     "ConfigDriftAuditor",
     "DriftRecord",
     "FileReadError",
+    "check_kg_block",
+    "check_protected_path",
 ]

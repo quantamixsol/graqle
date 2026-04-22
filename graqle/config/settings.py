@@ -576,6 +576,19 @@ class GraqleConfig(BaseModel):
     backends: BackendsConfig = Field(default_factory=BackendsConfig)
     chat: ChatConfig = Field(default_factory=ChatConfig)
 
+    # G4 (Wave 2 Phase 4): additional protected file patterns requiring
+    # reviewer approval on write. Extends CG-14 defaults (graqle.yaml,
+    # pyproject.toml, .mcp.json, .claude/settings.json) additively.
+    # Patterns use fnmatch glob syntax (*, ?, [seq], **).
+    # Example: ["deploy/**/*.yml", "terraform/**", ".env.production"]
+    protected_paths: list[str] = Field(
+        default_factory=list,
+        description=(
+            "G4: Additional file path patterns requiring reviewer approval on "
+            "write. Extends CG-14 defaults. fnmatch glob syntax."
+        ),
+    )
+
     @model_validator(mode="after")
     def _warn_deprecated_connector(self) -> "GraqleConfig":
         """Emit deprecation warning if graph.connector is neo4j/neptune."""

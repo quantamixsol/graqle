@@ -7246,6 +7246,23 @@ class KogniDevServer:
         import time
         from pathlib import Path
 
+        # CG-15 + G4 (Wave 2 Phase 4): defense in depth — if a future caller
+        # invokes _handle_edit_literal directly (bypassing _handle_edit),
+        # the gates still apply. Normal path: _handle_edit already ran them.
+        from graqle.governance.kg_write_gate import (
+            check_kg_block as _cg15_check,
+            check_protected_path as _g4_check,
+        )
+        _allowed, _env = _cg15_check(file_path)
+        if not _allowed:
+            return json.dumps(_env)
+        _allowed, _env = _g4_check(
+            file_path,
+            config=getattr(self, "_config", None),
+        )
+        if not _allowed:
+            return json.dumps(_env)
+
         # Step 1: read current content
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -7394,6 +7411,25 @@ class KogniDevServer:
         """
         from graqle.core.file_writer import apply_diff
         from graqle.cloud.credentials import load_credentials
+
+        # CG-15 + G4 (Wave 2 Phase 4): write-gate checks run BEFORE any
+        # other logic. Applied to single-file edits; batch-mode entries
+        # are independently gated by the recursive self._handle_edit call.
+        _single_path = args.get("file_path", "")
+        if _single_path and not args.get("files"):
+            from graqle.governance.kg_write_gate import (
+                check_kg_block, check_protected_path,
+            )
+            _allowed, _env = check_kg_block(_single_path)
+            if not _allowed:
+                return json.dumps(_env)
+            _allowed, _env = check_protected_path(
+                _single_path,
+                config=getattr(self, "_config", None),
+                approved_by=args.get("approved_by"),
+            )
+            if not _allowed:
+                return json.dumps(_env)
 
         # CG-04: Batch mode — process multiple files sequentially
         batch_files = args.get("files", [])
@@ -8606,6 +8642,23 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'file_path' is required."})
         if content is None:
             return json.dumps({"error": "Parameter 'content' is required."})
+
+        # CG-15 + G4 (Wave 2 Phase 4): write-gate checks run BEFORE any
+        # other logic. CG-15 is fail-fast on KG files (no bypass). G4 is
+        # approval-gated on user-configured protected_paths.
+        from graqle.governance.kg_write_gate import (
+            check_kg_block, check_protected_path,
+        )
+        _allowed, _env = check_kg_block(file_path)
+        if not _allowed:
+            return json.dumps(_env)
+        _allowed, _env = check_protected_path(
+            file_path,
+            config=getattr(self, "_config", None),
+            approved_by=args.get("approved_by"),
+        )
+        if not _allowed:
+            return json.dumps(_env)
 
         # Patent scan — block if trade secrets detected in content
         # Word boundaries prevent false positives on CSS (rgba 0.16), SVG, etc.
