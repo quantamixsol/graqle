@@ -587,6 +587,42 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_config_audit",
+        "description": (
+            "CG-14: Audit protected config files (graqle.yaml, pyproject.toml, "
+            ".mcp.json, .claude/settings.json) for drift via SHA-256 "
+            "fingerprinting. action='audit' returns drift records; "
+            "action='accept' marks a file's current state as approved. "
+            "Shared primitive for CG-15 KG-write gate and G4 "
+            "protected_paths policy. Single-process thread-safe."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["audit", "accept"],
+                    "default": "audit",
+                    "description": "Audit for drift, or accept a file's current state.",
+                },
+                "file": {
+                    "type": "string",
+                    "description": (
+                        "Protected file path (relative to repo root). "
+                        "Required for action='accept'; ignored for action='audit'."
+                    ),
+                },
+                "approver": {
+                    "type": "string",
+                    "description": (
+                        "Identifier of human reviewer. Required for action='accept'."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "graq_audit",
         "description": (
             "Deep health audit of knowledge graph chunk coverage. "
@@ -3993,6 +4029,7 @@ class KogniDevServer:
             "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
+            "graq_config_audit": self._handle_config_audit,
             "graq_runtime": self._handle_runtime,
             "graq_route": self._handle_route,
             "graq_correct": self._handle_correct,
@@ -6080,6 +6117,117 @@ class KogniDevServer:
             del report["hollow_nodes"]
 
         return json.dumps(report, indent=2)
+
+    # -- 9b. graq_config_audit (CG-14) --------------------------------
+
+    async def _handle_config_audit(self, args: dict[str, Any]) -> str:
+        """CG-14 config drift audit.
+
+        Validates request shape, delegates to ConfigDriftAuditor, wraps
+        every typed exception in a stable error envelope. Never leaks
+        raw paths or stack traces (see build_error_envelope sanitization).
+        """
+        from graqle.governance.config_drift import (
+            BaselineCorruptedError,
+            ConfigDriftAuditor,
+            FileReadError,
+            build_accept_response,
+            build_audit_response,
+            build_error_envelope,
+        )
+
+        # Step 1: validate request shape (handler responsibility)
+        action = args.get("action", "audit")
+        if action not in ("audit", "accept"):
+            return json.dumps(build_error_envelope(
+                "CG-14_INVALID_ACTION",
+                f"action must be 'audit' or 'accept', got {action!r}",
+            ))
+
+        file = args.get("file") or ""
+        approver = args.get("approver") or ""
+        if action == "accept":
+            if not isinstance(file, str) or not file.strip():
+                return json.dumps(build_error_envelope(
+                    "CG-14_VALIDATION",
+                    "action=accept requires non-empty 'file'",
+                    field="file",
+                ))
+            if not isinstance(approver, str) or not approver.strip():
+                return json.dumps(build_error_envelope(
+                    "CG-14_VALIDATION",
+                    "action=accept requires non-empty 'approver'",
+                    field="approver",
+                ))
+            file = file.strip()
+            approver = approver.strip()
+            # Path-traversal / absolute-path guard (MAJOR 2 hardening)
+            _normalized = file.replace("\\", "/")
+            if (
+                ".." in _normalized.split("/")
+                or _normalized.startswith("/")
+                or Path(file).is_absolute()
+                or (len(file) >= 2 and file[1] == ":")  # Windows drive (C:\...)
+            ):
+                return json.dumps(build_error_envelope(
+                    "CG-14_INVALID_FILE_PATH",
+                    "file must be a relative path without '..' traversal",
+                    field="file",
+                ))
+
+        # Step 2: invoke auditor, map typed exceptions to envelopes
+        try:
+            root = None
+            if getattr(self, "_graph_file", None):
+                from pathlib import Path as _Path
+                root = _Path(self._graph_file).resolve().parent
+            auditor = ConfigDriftAuditor(root=root)
+
+            if action == "audit":
+                records = auditor.audit()
+                return json.dumps(build_audit_response(records))
+
+            # action == "accept"
+            try:
+                auditor.accept(file, approver)
+            except ValueError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_UNKNOWN_FILE",
+                    str(exc),
+                    file=file,
+                ))
+            except FileNotFoundError:
+                return json.dumps(build_error_envelope(
+                    "CG-14_FILE_MISSING",
+                    f"protected file not found: {file}",
+                    file=file,
+                ))
+            except FileReadError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_FILE_UNREADABLE",
+                    str(exc),
+                    file=file,
+                ))
+            except BaselineCorruptedError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_BASELINE_CORRUPTED",
+                    str(exc),
+                ))
+            except OSError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_BASELINE_IO",
+                    f"{type(exc).__name__}: {exc}",
+                ))
+            return json.dumps(build_accept_response(file, approver))
+
+        except Exception as exc:
+            logger.error(
+                "graq_config_audit unexpected failure: %s", exc, exc_info=True
+            )
+            return json.dumps(build_error_envelope(
+                "CG-14_RUNTIME",
+                f"{type(exc).__name__}: {exc}",
+            ))
 
     # ── 10. graq_runtime ────────────────────────────────────────────
 
