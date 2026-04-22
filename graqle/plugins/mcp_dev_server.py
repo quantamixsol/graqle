@@ -2397,7 +2397,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "graq_chat_turn",
         "description": (
             "Start a chat turn. Drives one iteration of the chat agent loop "
-            "and returns the first batch of events plus a cursor to poll."
+            "and returns the first batch of events plus a cursor to poll. "
+            "CHAT-01: accepts optional permission_tier for advisory tier "
+            "gating. CHAT-02: accepts optional intent_hint for fast-path "
+            "short-circuit on known values (echo/status/clarify)."
         ),
         "inputSchema": {
             "type": "object",
@@ -2407,6 +2410,26 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "scenario": {
                     "type": "string",
                     "description": "Optional scenario hint for backend routing",
+                },
+                "permission_tier": {
+                    "type": "string",
+                    "enum": ["free", "pro", "enterprise"],
+                    "default": "free",
+                    "description": (
+                        "CHAT-01: Advisory permission tier. Validated at "
+                        "turn boundary. Omitted defaults to 'free'. Invalid "
+                        "values return CHAT-01_INVALID_TIER envelope "
+                        "without running the agent loop."
+                    ),
+                },
+                "intent_hint": {
+                    "type": "string",
+                    "description": (
+                        "CHAT-02: Optional fast-path hint. Known values "
+                        "(echo/status/clarify) short-circuit the full agent "
+                        "loop. Unknown values fall through to full pipeline "
+                        "(back-compat). No enum constraint — future-extensible."
+                    ),
                 },
             },
             "required": ["turn_id", "message"],
@@ -4400,13 +4423,47 @@ class KogniDevServer:
         return ctx
 
     async def _handle_chat_turn(self, args: dict[str, Any]) -> str:
+        # CHAT-01 + CHAT-02: defensive request validation BEFORE indexing args.
+        # Prevents KeyError surfacing on missing required fields and ensures
+        # extra/unknown fields (including future schema additions) pass
+        # through safely.
+        if not isinstance(args, dict):
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_INVALID_ARGS",
+                "message": "args must be a dict",
+            })
+        turn_id = args.get("turn_id")
+        message = args.get("message")
+        if not isinstance(turn_id, str) or not turn_id:
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_MISSING_TURN_ID",
+                "message": "turn_id is required (non-empty string)",
+            })
+        if not isinstance(message, str):
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_MISSING_MESSAGE",
+                "message": "message is required (string)",
+            })
+
         from graqle.chat.mcp_handlers import handle_chat_turn
         ctx = self._get_chat_ctx()
+        # Only thread permission_tier/intent_hint when explicitly provided
+        # so the handler's sentinel-based omitted-detection works correctly.
+        _extra: dict[str, Any] = {}
+        if "permission_tier" in args:
+            _extra["permission_tier"] = args["permission_tier"]
+        if "intent_hint" in args:
+            _extra["intent_hint"] = args["intent_hint"]
+
         result = await handle_chat_turn(
             ctx,
-            turn_id=args["turn_id"],
-            message=args["message"],
+            turn_id=turn_id,
+            message=message,
             scenario=args.get("scenario"),
+            **_extra,
         )
         return json.dumps(result)
 
