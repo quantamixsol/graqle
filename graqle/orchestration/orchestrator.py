@@ -396,6 +396,14 @@ class Orchestrator:
         if _ambiguous:
             metadata["ambiguous_options"] = _ambiguous
 
+        # CG-REASON-DIAG-01 — missing-LLM-SDK diagnostic pass-through.
+        # Aggregator attaches a sorted list at the zero-success fallback
+        # branch. We promote it to metadata; MCP handler renders the
+        # user-facing diagnostic. Type-guarded to reject malformed values.
+        _missing_sdks = synthesis_trunc_info.get("missing_llm_sdks")
+        if isinstance(_missing_sdks, list) and _missing_sdks:
+            metadata["missing_llm_sdks"] = list(_missing_sdks)
+
         result = ReasoningResult(
             query=query,
             answer=answer,

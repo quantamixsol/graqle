@@ -4447,6 +4447,20 @@ class KogniDevServer:
             _ambiguous = (result.metadata or {}).get("ambiguous_options")
             if _ambiguous:
                 result_dict["ambiguous_options"] = _ambiguous
+            # CG-REASON-DIAG-01 — missing-LLM-SDK diagnostic (success envelope
+            # only). Error envelopes are built in a disjoint try/except
+            # branch below and never touch these keys. Fields are optional
+            # and additive per the VS Code extension schema contract.
+            _missing_sdks_md = (result.metadata or {}).get("missing_llm_sdks")
+            if _missing_sdks_md:
+                _missing_list = list(_missing_sdks_md)
+                result_dict["diagnostic"] = (
+                    "Missing LLM SDK(s): "
+                    + ", ".join(_missing_list)
+                    + ". Install with: pip install graqle[api]"
+                )
+                result_dict["diagnostic_code"] = "MISSING_LLM_SDK"
+                result_dict["missing_sdks"] = _missing_list
             duration_ms = (_time.monotonic() - t0) * 1000
 
             # Governance audit
@@ -10959,6 +10973,7 @@ class KogniDevServer:
                         # new response fields without version sniffing.
                         "graq_reason": {
                             "ambiguous_options": True,
+                            "missing_sdks_diagnostic": True,
                         },
                         # v0.51.4 — SDK capability block surfaced in the
                         # initialize response so the VS Code extension can
