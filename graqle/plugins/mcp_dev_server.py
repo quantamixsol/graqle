@@ -1546,6 +1546,29 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                     "description": "CG-04: Batch mode — list of {path, description} for coordinated multi-file edits. Overrides file_path/description.",
                 },
+                "strategy": {
+                    "type": "string",
+                    "enum": ["literal", "diff"],
+                    "description": (
+                        "CG-EDIT-WRONG-LOCATION-01: how to apply the edit. "
+                        "'literal' = exact old_content -> new_content replacement "
+                        "(no LLM, fails on 0 or 2+ matches). 'diff' (default) = "
+                        "LLM-generated unified diff via description or provided diff."
+                    ),
+                },
+                "old_content": {
+                    "type": "string",
+                    "description": (
+                        "Required if strategy='literal'. Exact string to find. "
+                        "Must appear exactly once in the target file."
+                    ),
+                },
+                "new_content": {
+                    "type": "string",
+                    "description": (
+                        "Required if strategy='literal'. Replacement string."
+                    ),
+                },
             },
             "required": ["file_path"],
         },
@@ -7035,6 +7058,163 @@ class KogniDevServer:
     # v0.38.0 — governed atomic file edit
     # Phase 2 of feature-coding-assistant plan
 
+    async def _handle_edit_literal(
+        self,
+        *,
+        file_path: str,
+        old_content: str,
+        new_content: str,
+        dry_run: bool,
+    ) -> str:
+        """CG-EDIT-WRONG-LOCATION-01: exact literal-replacement mode.
+
+        Deterministic alternative to LLM-driven diff generation. Reads the
+        file, requires ``old_content`` to appear EXACTLY ONCE, writes the
+        file atomically with ``new_content`` substituted at that location,
+        then reads back from disk to verify. Fails closed on 0 matches or
+        2+ matches rather than guessing.
+
+        Backup written to .graqle/edit-backup/ before any real write. Temp
+        file is cleaned up in a finally block. Callers must not bypass
+        plan-gate + preflight + governance — those run in ``_handle_edit``
+        before dispatching to this helper.
+        """
+        import os
+        import tempfile
+        import time
+        from pathlib import Path
+
+        # Step 1: read current content
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                current = f.read()
+        except FileNotFoundError:
+            return json.dumps({
+                "error": "CG-EDIT literal: file not found.",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+        except PermissionError as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: read permission denied: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: read failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+
+        # Step 2: count occurrences (fail closed on 0 or 2+)
+        matches = current.count(old_content)
+        if matches == 0:
+            return json.dumps({
+                "error": "CG-EDIT literal: 'old_content' not found in file.",
+                "file_path": file_path,
+                "strategy": "literal",
+                "matches": 0,
+            })
+        if matches >= 2:
+            return json.dumps({
+                "error": "CG-EDIT literal: 'old_content' is ambiguous (must appear exactly once).",
+                "file_path": file_path,
+                "strategy": "literal",
+                "matches": matches,
+            })
+
+        # Step 3: compute new content
+        new_file = current.replace(old_content, new_content, 1)
+        lines_before = len(current.splitlines())
+        lines_after = len(new_file.splitlines())
+        bytes_delta = len(new_file) - len(current)
+
+        # Step 4: dry-run preview
+        if dry_run:
+            return json.dumps({
+                "success": True,
+                "strategy": "literal",
+                "dry_run": True,
+                "file_path": file_path,
+                "matches": 1,
+                "lines_changed": abs(lines_after - lines_before),
+                "bytes_delta": bytes_delta,
+            })
+
+        # Step 5: write backup before touching the target
+        backup_dir = Path(".graqle/edit-backup")
+        backup_path: Path | None = None
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            ts = int(time.time() * 1000)
+            backup_path = backup_dir / f"{ts}_{Path(file_path).name}.literal.bak"
+            backup_path.write_text(current, encoding="utf-8")
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: backup failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+
+        # Step 6: atomic write via tempfile + fsync + os.replace
+        target_dir = os.path.dirname(file_path) or "."
+        fd, tmp = tempfile.mkstemp(dir=target_dir, prefix=".graqle-edit-", suffix=".tmp")
+        wrote_temp = True
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tf:
+                tf.write(new_file)
+                tf.flush()
+                os.fsync(tf.fileno())
+            os.replace(tmp, file_path)
+            wrote_temp = False  # os.replace moved it; nothing to clean up
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: atomic write failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+        finally:
+            if wrote_temp:
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass  # temp cleanup is best-effort
+
+        # Step 7: disk-verify — read back and compare. The whole point of
+        # CG-EDIT-WRONG-LOCATION-01 is to never trust the write without
+        # verifying the file on disk matches exactly what we intended.
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                verified = f.read()
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: post-write read failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+        if verified != new_file:
+            return json.dumps({
+                "error": "CG-EDIT literal: disk verification failed — file on disk does not match intended content.",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+
+        return json.dumps({
+            "success": True,
+            "strategy": "literal",
+            "dry_run": False,
+            "file_path": file_path,
+            "matches": 1,
+            "lines_changed": abs(lines_after - lines_before),
+            "bytes_delta": bytes_delta,
+            "backup_path": str(backup_path) if backup_path else None,
+            "disk_verified": True,
+        })
+
     async def _handle_edit(self, args: dict[str, Any]) -> str:
         """Read a file, apply a unified diff, write back atomically.
 
@@ -7097,9 +7277,31 @@ class KogniDevServer:
         provided_diff = args.get("diff", "")
         dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67: safe string coercion
 
+        # CG-EDIT-WRONG-LOCATION-01: validate strategy + literal-mode args BEFORE
+        # branching. Keep the validation cheap; actual gates (plan/preflight/
+        # governance) still run below for both strategies so literal cannot
+        # bypass policy.
+        _strategy = args.get("strategy", "diff")
+        if _strategy not in ("literal", "diff"):
+            return json.dumps({
+                "error": "CG-EDIT: 'strategy' must be 'literal' or 'diff'.",
+                "received": _strategy,
+            })
+        _old_content = args.get("old_content")
+        _new_content = args.get("new_content")
+        if _strategy == "literal":
+            if not isinstance(_old_content, str) or _old_content == "":
+                return json.dumps({
+                    "error": "CG-EDIT literal: 'old_content' is required and must be a non-empty string.",
+                })
+            if not isinstance(_new_content, str):
+                return json.dumps({
+                    "error": "CG-EDIT literal: 'new_content' is required and must be a string.",
+                })
+
         if not file_path:
             return json.dumps({"error": "Parameter 'file_path' is required."})
-        if not description and not provided_diff:
+        if _strategy == "diff" and not description and not provided_diff:
             return json.dumps({"error": "Either 'description' or 'diff' is required."})
 
         # Plan gate (runs BEFORE file resolution — business check first)
@@ -7125,6 +7327,18 @@ class KogniDevServer:
             file_path = self._resolve_file_path(file_path)
         except (PermissionError, FileNotFoundError):
             pass  # Resolution is best-effort; actual file I/O catches real errors
+
+        # CG-EDIT-WRONG-LOCATION-01: literal-mode dispatch runs AFTER plan gate
+        # (above) and path resolution but BEFORE the LLM preflight/diff-gen
+        # pipeline below. Literal mode still goes through the governance chain
+        # via _handle_edit_literal itself (which runs preflight + gov_gate).
+        if _strategy == "literal":
+            return await self._handle_edit_literal(
+                file_path=file_path,
+                old_content=_old_content,
+                new_content=_new_content,
+                dry_run=dry_run,
+            )
 
         # Step 1: Preflight
         preflight_raw = json.loads(await self._handle_preflight({
