@@ -162,45 +162,171 @@ class ChatHandlerContext:
 # ──────────────────────────────────────────────────────────────────────
 
 
+# CHAT-01 + CHAT-02 (Wave 2 Phase 5)
+_VALID_PERMISSION_TIERS: tuple[str, ...] = ("free", "pro", "enterprise")
+_KNOWN_INTENT_HINTS: tuple[str, ...] = ("echo", "status", "clarify")
+_CLARIFY_REPLY: str = "What would you like me to clarify?"
+_SENTINEL_TIER = object()  # distinguishes omitted from explicit None
+
+# Canonical response-envelope keys shared by full-turn and fast-path.
+# Contract tests verify BOTH paths emit these exactly.
+_TURN_RESPONSE_KEYS: frozenset[str] = frozenset({
+    "status", "turn_id", "state", "events", "next_seq",
+    "done", "tool_executions", "permission_tier",
+})
+
+
+def _fast_path_response(
+    ctx: "ChatHandlerContext",
+    turn_id: str,
+    message: str,
+    intent_hint: str,
+    permission_tier: str,
+) -> dict[str, Any]:
+    """CHAT-02 fast-path: minimal envelope matching full-turn shape.
+
+    No LLM, no tool execution, no turn_store write, no audit log.
+    Phase 5 decision: fast-path is ADVISORY observability only; future
+    phases will add append-only decision trail.
+    """
+    payloads = {
+        "echo": {"echo": message},
+        "status": {
+            "status": "ok",
+            "session_id": ctx.session_id,
+            "loops": len(ctx.loops),
+        },
+        "clarify": {"clarify": _CLARIFY_REPLY},
+    }
+    event = {
+        "seq": 0,
+        "type": f"chat.intent.{intent_hint}",
+        "payload": payloads[intent_hint],
+    }
+    return {
+        "status": "ok",
+        "turn_id": turn_id,
+        "state": "COMPLETED",
+        "events": [event],
+        "next_seq": 1,
+        "done": True,
+        "tool_executions": [],
+        "permission_tier": permission_tier,
+        "fast_path": intent_hint,
+    }
+
+
 async def handle_chat_turn(
     ctx: ChatHandlerContext,
     *,
     turn_id: str,
     message: str,
     scenario: str | None = None,
+    permission_tier: Any = _SENTINEL_TIER,  # CHAT-01 (default "free" when omitted)
+    intent_hint: str | None = None,         # CHAT-02 (None = no fast-path)
     llm_driver: LLMDriver | None = None,
     tool_executor: ToolExecutor | None = None,
 ) -> dict[str, Any]:
     """Handle ``graq_chat_turn(message, ...)``.
 
-    Drives one turn through the loop and returns the first batch of
-    events plus the next-cursor for the long-poll handler.
+    CHAT-01: Validates ``permission_tier`` at the turn boundary. Returns
+    a structured error envelope on invalid tier BEFORE any loop creation
+    or LLM side-effect. Omitted tier defaults to "free"; explicit None
+    is rejected as invalid (distinct from omitted).
+
+    CHAT-02: If ``intent_hint`` matches a known fast-path value
+    ("echo", "status", "clarify"), short-circuits before the full agent
+    loop and returns a minimal envelope with the same canonical keys as
+    a full turn. Unknown intent_hint values fall through (back-compat).
+
+    Privacy note: the "status" fast-path payload includes session_id +
+    loop count. These are observability signals at the same trust level
+    as the MCP transport. No tool payloads or user messages are echoed
+    in error envelopes.
     """
-    loop = ctx.get_or_create_loop(
-        llm_driver=llm_driver, tool_executor=tool_executor,
-    )
-    result = await loop.run_turn(
-        turn_id=turn_id, user_message=message, scenario=scenario,
-    )
-    buf = loop.buffer_for(turn_id)
-    snap = buf.snapshot_since(0)
-    return {
-        "status": "ok",
-        "turn_id": turn_id,
-        "state": result.state.value,
-        "events": [e.to_dict() for e in snap.events],
-        "next_seq": snap.next_seq,
-        "done": snap.done,
-        "tool_executions": [
-            {
-                "tool": r.tool_name,
-                "status": r.status,
-                "summary": r.payload_summary,
-                "latency_ms": r.latency_ms,
-            }
-            for r in result.tool_executions
-        ],
-    }
+    import asyncio
+
+    # CHAT-01: permission_tier handling (sentinel distinguishes omitted)
+    if permission_tier is _SENTINEL_TIER:
+        permission_tier = "free"  # default for omitted
+    if (
+        not isinstance(permission_tier, str)
+        or permission_tier not in _VALID_PERMISSION_TIERS
+    ):
+        return {
+            "status": "invalid_permission_tier",
+            "turn_id": turn_id,
+            "error": "CHAT-01_INVALID_TIER",
+            "message": (
+                f"permission_tier must be one of {_VALID_PERMISSION_TIERS}, "
+                f"got {permission_tier!r}"
+            ),
+            "permission_tier": None,
+        }
+
+    # CHAT-02: intent_hint fast-path (only after tier validates)
+    if isinstance(intent_hint, str) and intent_hint in _KNOWN_INTENT_HINTS:
+        _fp_result = _fast_path_response(ctx, turn_id, message, intent_hint, permission_tier)
+        # NS-07: record fast-path turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="fast-path")
+        except Exception as _exc:
+            logger.debug("NS-07 record_turn (fast-path) failed: %s", _exc)
+        return _fp_result
+
+    # Full pipeline (existing behavior, now wrapped in try/except)
+    try:
+        loop = ctx.get_or_create_loop(
+            llm_driver=llm_driver, tool_executor=tool_executor,
+        )
+        result = await loop.run_turn(
+            turn_id=turn_id, user_message=message, scenario=scenario,
+        )
+        buf = loop.buffer_for(turn_id)
+        snap = buf.snapshot_since(0)
+        _ok_result = {
+            "status": "ok",
+            "turn_id": turn_id,
+            "state": result.state.value,
+            "events": [e.to_dict() for e in snap.events],
+            "next_seq": snap.next_seq,
+            "done": snap.done,
+            "tool_executions": [
+                {
+                    "tool": r.tool_name,
+                    "status": r.status,
+                    "summary": r.payload_summary,
+                    "latency_ms": r.latency_ms,
+                }
+                for r in result.tool_executions
+            ],
+            "permission_tier": permission_tier,
+        }
+        # NS-07: record successful turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="completed")
+        except Exception as _exc:
+            logger.debug("NS-07 record_turn (ok) failed: %s", _exc)
+        return _ok_result
+    except asyncio.CancelledError:
+        raise  # propagate cancellation — never swallow
+    except Exception as exc:
+        logger.error("handle_chat_turn failure: %s", exc, exc_info=True)
+        # NS-07: record error turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="error")
+        except Exception as _rec_exc:
+            logger.debug("NS-07 record_turn (error) failed: %s", _rec_exc)
+        return {
+            "status": "error",
+            "turn_id": turn_id,
+            "error": "CHAT_TURN_FAILURE",
+            "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+            "permission_tier": permission_tier,
+        }
 
 
 async def handle_chat_poll(

@@ -1538,6 +1538,9 @@ def _probe_python_interpreter() -> str:
     return sys.executable  # last-resort fallback
 
 
+_VALID_GATE_TARGETS: tuple[str, ...] = ("claude", "vscode-extension", "all")
+
+
 @app.command("gate-install")
 def gate_install_command(
     path: str = typer.Argument(".", help="Project root directory"),
@@ -1549,22 +1552,80 @@ def gate_install_command(
         "--fix-interpreter",
         help="Re-probe the Python interpreter and rewrite the gate hook command in settings.json only (no other changes).",
     ),
+    target: str = typer.Option(
+        "claude",
+        "--target",
+        help="Gate target: claude (default) | vscode-extension | all. "
+             "G5 Wave 2 Phase 7: vscode-extension scaffolds .vscode/ + .mcp.json.",
+    ),
 ) -> None:
-    """Install the GraQle governance gate for Claude Code.
+    """Install the GraQle governance gate for Claude Code and/or VS Code.
 
-    Creates .claude/hooks/graqle-gate.py and .claude/settings.json so that
-    Claude Code native tools (Read, Write, Edit, Bash, etc.) are blocked in
-    favour of governed graq_* equivalents.
+    Default target ``claude`` creates .claude/hooks/graqle-gate.py and
+    .claude/settings.json so that Claude Code native tools (Read, Write,
+    Edit, Bash, etc.) are blocked in favour of governed graq_* equivalents.
 
-    Safe to re-run: existing settings.json hooks are merged, not overwritten.
+    G5 (Wave 2 Phase 7) adds ``--target=vscode-extension`` which scaffolds
+    .vscode/{settings,tasks,extensions}.json and workspace-root .mcp.json
+    for a GraQle-integrated VS Code workspace. Use ``--target=all`` to
+    install both in one command.
+
+    Safe to re-run: existing settings are merged, not overwritten. User
+    keys always win on collision.
     The GraQle VS Code extension is never blocked (GRAQLE_CLIENT_MODE=vscode).
 
     \b
     Examples:
-        graq gate-install              # install in current directory
-        graq gate-install /path/to/project --force
-        graq gate-install --dry-run    # preview only
+        graq gate-install                           # install Claude hooks
+        graq gate-install --target=vscode-extension # scaffold .vscode/
+        graq gate-install --target=all --force      # both, overwrite
+        graq gate-install --dry-run                 # preview only
     """
+    # G5: validate --target enum early
+    if target not in _VALID_GATE_TARGETS:
+        console.print(
+            f"[red]Invalid --target value: {target!r}. "
+            f"Must be one of: {', '.join(_VALID_GATE_TARGETS)}[/red]"
+        )
+        raise typer.Exit(1)
+
+    # G5: vscode-extension target runs via helper and returns early.
+    # (target="all" falls through; we run it at the end after Claude install.)
+    if target == "vscode-extension":
+        from pathlib import Path as _P
+        _root = _P(path).resolve()
+        if not _root.exists():
+            console.print(f"[red]Path not found: {_root}[/red]")
+            raise typer.Exit(1)
+        from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+        _pkg_data = _P(__file__).parent.parent / "data" / "vscode_gate"
+        _result = install_vscode_extension_target(
+            _root, _pkg_data, force=force, dry_run=dry_run,
+            interpreter_cmd=_probe_python_interpreter(),
+        )
+        if json_output:
+            import json as _j
+            console.print(_j.dumps(_result, indent=2))
+        else:
+            console.print(
+                f"[bold]G5 vscode-extension {'(dry-run)' if dry_run else ''}[/bold]"
+            )
+            for action in _result.get("actions", []):
+                status = action.get("status", "?")
+                color = {
+                    "ok": "green", "created": "green", "merged": "green",
+                    "would-write": "yellow", "skipped": "dim",
+                    "error": "red",
+                }.get(status, "white")
+                console.print(
+                    f"  [{color}]{status:12s}[/{color}] {action.get('file', '?'):30s} "
+                    f"{action.get('reason', '')}"
+                )
+        any_error = any(
+            a.get("status") == "error" for a in _result.get("actions", [])
+        )
+        raise typer.Exit(1 if any_error else 0)
+
     import json as _json_mod
     import shutil
     from pathlib import Path
@@ -1814,6 +1875,30 @@ def gate_install_command(
         "[dim]Run 'graq gate-install --dry-run' to verify. "
         "Remove .claude/hooks/graqle-gate.py to disable.[/dim]"
     )
+
+    # G5 (Wave 2 Phase 7): --target=all also runs the vscode-extension
+    # scaffolder after the Claude hooks succeed.
+    if target == "all":
+        from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+        _vs_pkg = Path(__file__).parent.parent / "data" / "vscode_gate"
+        _vs_result = install_vscode_extension_target(
+            root, _vs_pkg, force=force, dry_run=dry_run,
+            interpreter_cmd=interpreter_cmd,
+        )
+        console.print(
+            f"\n[bold]G5 vscode-extension {'(dry-run)' if dry_run else ''}[/bold]"
+        )
+        for action in _vs_result.get("actions", []):
+            status = action.get("status", "?")
+            color = {
+                "ok": "green", "created": "green", "merged": "green",
+                "would-write": "yellow", "skipped": "dim",
+                "error": "red",
+            }.get(status, "white")
+            console.print(
+                f"  [{color}]{status:12s}[/{color}] {action.get('file', '?'):30s} "
+                f"{action.get('reason', '')}"
+            )
 
 
 @app.command("gate-status")

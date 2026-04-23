@@ -587,6 +587,89 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_deps_install",
+        "description": (
+            "CG-13 (Wave 2 Phase 6): Supply-chain-guarded package install. "
+            "Validates manager + packages + typosquat + known-bad BEFORE "
+            "running pip/npm/yarn. dry_run=True by default (safe); live "
+            "install requires explicit approved_by. Managers: pip, npm, yarn. "
+            "Rejects git+/URL/local-path package specs."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "manager": {
+                    "type": "string",
+                    "enum": ["pip", "npm", "yarn"],
+                    "description": "Package manager (enforced enum).",
+                },
+                "packages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Package specs. Supported forms: 'name', "
+                        "'name==version', 'name>=X,<Y'. pip [extras] "
+                        "and npm @scope/name supported. git+/URL/path "
+                        "refs rejected."
+                    ),
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": (
+                        "True (default) returns the approved plan without "
+                        "installing. False requires approved_by."
+                    ),
+                },
+                "approved_by": {
+                    "type": "string",
+                    "description": (
+                        "Reviewer identifier. Preferred format: "
+                        "'<actor>:<ISO-8601-timestamp>'. Legacy bare "
+                        "identifier (length >= 3) accepted."
+                    ),
+                },
+            },
+            "required": ["manager", "packages"],
+        },
+    },
+    {
+        "name": "graq_config_audit",
+        "description": (
+            "CG-14: Audit protected config files (graqle.yaml, pyproject.toml, "
+            ".mcp.json, .claude/settings.json) for drift via SHA-256 "
+            "fingerprinting. action='audit' returns drift records; "
+            "action='accept' marks a file's current state as approved. "
+            "Shared primitive for CG-15 KG-write gate and G4 "
+            "protected_paths policy. Single-process thread-safe."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["audit", "accept"],
+                    "default": "audit",
+                    "description": "Audit for drift, or accept a file's current state.",
+                },
+                "file": {
+                    "type": "string",
+                    "description": (
+                        "Protected file path (relative to repo root). "
+                        "Required for action='accept'; ignored for action='audit'."
+                    ),
+                },
+                "approver": {
+                    "type": "string",
+                    "description": (
+                        "Identifier of human reviewer. Required for action='accept'."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "graq_audit",
         "description": (
             "Deep health audit of knowledge graph chunk coverage. "
@@ -1546,6 +1629,29 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                     "description": "CG-04: Batch mode — list of {path, description} for coordinated multi-file edits. Overrides file_path/description.",
                 },
+                "strategy": {
+                    "type": "string",
+                    "enum": ["literal", "diff"],
+                    "description": (
+                        "CG-EDIT-WRONG-LOCATION-01: how to apply the edit. "
+                        "'literal' = exact old_content -> new_content replacement "
+                        "(no LLM, fails on 0 or 2+ matches). 'diff' (default) = "
+                        "LLM-generated unified diff via description or provided diff."
+                    ),
+                },
+                "old_content": {
+                    "type": "string",
+                    "description": (
+                        "Required if strategy='literal'. Exact string to find. "
+                        "Must appear exactly once in the target file."
+                    ),
+                },
+                "new_content": {
+                    "type": "string",
+                    "description": (
+                        "Required if strategy='literal'. Replacement string."
+                    ),
+                },
             },
             "required": ["file_path"],
         },
@@ -2252,6 +2358,17 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Only fix the Python interpreter path in settings.json (default false)",
                     "default": False,
                 },
+                "target": {
+                    "type": "string",
+                    "enum": ["claude", "vscode-extension", "all"],
+                    "default": "claude",
+                    "description": (
+                        "G5 (Wave 2 Phase 7): Gate target. 'claude' (default) "
+                        "installs .claude/hooks/ + settings.json. "
+                        "'vscode-extension' scaffolds .vscode/{settings,tasks,"
+                        "extensions}.json + .mcp.json. 'all' runs both."
+                    ),
+                },
             },
         },
     },
@@ -2338,7 +2455,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "graq_chat_turn",
         "description": (
             "Start a chat turn. Drives one iteration of the chat agent loop "
-            "and returns the first batch of events plus a cursor to poll."
+            "and returns the first batch of events plus a cursor to poll. "
+            "CHAT-01: accepts optional permission_tier for advisory tier "
+            "gating. CHAT-02: accepts optional intent_hint for fast-path "
+            "short-circuit on known values (echo/status/clarify)."
         ),
         "inputSchema": {
             "type": "object",
@@ -2348,6 +2468,26 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "scenario": {
                     "type": "string",
                     "description": "Optional scenario hint for backend routing",
+                },
+                "permission_tier": {
+                    "type": "string",
+                    "enum": ["free", "pro", "enterprise"],
+                    "default": "free",
+                    "description": (
+                        "CHAT-01: Advisory permission tier. Validated at "
+                        "turn boundary. Omitted defaults to 'free'. Invalid "
+                        "values return CHAT-01_INVALID_TIER envelope "
+                        "without running the agent loop."
+                    ),
+                },
+                "intent_hint": {
+                    "type": "string",
+                    "description": (
+                        "CHAT-02: Optional fast-path hint. Known values "
+                        "(echo/status/clarify) short-circuit the full agent "
+                        "loop. Unknown values fall through to full pipeline "
+                        "(back-compat). No enum constraint — future-extensible."
+                    ),
                 },
             },
             "required": ["turn_id", "message"],
@@ -2397,6 +2537,37 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "turn_id": {"type": "string"},
             },
             "required": ["turn_id"],
+        },
+    },
+    # NS-07 (Wave 2 Phase 9): graq_session_list — list past conversation turns
+    {
+        "name": "graq_session_list",
+        "description": (
+            "NS-07: List chat conversation history (most-recent first). "
+            "Reads append-only JSONL from .graqle/conversations.jsonl. "
+            "Returns {conversations: [{id, last_active, summary, "
+            "workspace_fingerprint, turn_count, status}], count: N}. "
+            "Optional filters: workspace_fingerprint (exact), limit "
+            "(default 50, max 500)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace_fingerprint": {
+                    "type": "string",
+                    "description": (
+                        "Exact-match filter for workspace_fingerprint "
+                        "(SHA-256 of project root)."
+                    ),
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Max results. Clamped to [1, 500].",
+                },
+            },
         },
     },
     # G2 (v0.52.0): pre-publish KG-multi-agent governance gate.
@@ -3954,6 +4125,7 @@ class KogniDevServer:
             "graq_inspect": self._handle_inspect,
             "graq_kg_diag": self._handle_kg_diag,
             "graq_chat_turn": self._handle_chat_turn,
+            "graq_session_list": self._handle_session_list,
             "graq_chat_poll": self._handle_chat_poll,
             "graq_chat_resume": self._handle_chat_resume,
             "graq_chat_cancel": self._handle_chat_cancel,
@@ -3970,6 +4142,8 @@ class KogniDevServer:
             "graq_predict": self._handle_predict,
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
+            "graq_config_audit": self._handle_config_audit,
+            "graq_deps_install": self._handle_deps_install,
             "graq_runtime": self._handle_runtime,
             "graq_route": self._handle_route,
             "graq_correct": self._handle_correct,
@@ -4340,13 +4514,47 @@ class KogniDevServer:
         return ctx
 
     async def _handle_chat_turn(self, args: dict[str, Any]) -> str:
+        # CHAT-01 + CHAT-02: defensive request validation BEFORE indexing args.
+        # Prevents KeyError surfacing on missing required fields and ensures
+        # extra/unknown fields (including future schema additions) pass
+        # through safely.
+        if not isinstance(args, dict):
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_INVALID_ARGS",
+                "message": "args must be a dict",
+            })
+        turn_id = args.get("turn_id")
+        message = args.get("message")
+        if not isinstance(turn_id, str) or not turn_id:
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_MISSING_TURN_ID",
+                "message": "turn_id is required (non-empty string)",
+            })
+        if not isinstance(message, str):
+            return json.dumps({
+                "status": "error",
+                "error": "CHAT_MISSING_MESSAGE",
+                "message": "message is required (string)",
+            })
+
         from graqle.chat.mcp_handlers import handle_chat_turn
         ctx = self._get_chat_ctx()
+        # Only thread permission_tier/intent_hint when explicitly provided
+        # so the handler's sentinel-based omitted-detection works correctly.
+        _extra: dict[str, Any] = {}
+        if "permission_tier" in args:
+            _extra["permission_tier"] = args["permission_tier"]
+        if "intent_hint" in args:
+            _extra["intent_hint"] = args["intent_hint"]
+
         result = await handle_chat_turn(
             ctx,
-            turn_id=args["turn_id"],
-            message=args["message"],
+            turn_id=turn_id,
+            message=message,
             scenario=args.get("scenario"),
+            **_extra,
         )
         return json.dumps(result)
 
@@ -4377,6 +4585,61 @@ class KogniDevServer:
         ctx = self._get_chat_ctx()
         result = await handle_chat_cancel(ctx, turn_id=args["turn_id"])
         return json.dumps(result)
+
+    # -- NS-07 (Wave 2 Phase 9): graq_session_list ---------------------
+
+    async def _handle_session_list(self, args: dict[str, Any]) -> str:
+        """NS-07: list chat conversation history.
+
+        Reads append-only JSONL from .graqle/conversations.jsonl and
+        returns most-recent-first sessions with optional workspace
+        filter + limit. Never raises — load failure returns empty list.
+        """
+        if not isinstance(args, dict):
+            args = {}
+        workspace_fingerprint = args.get("workspace_fingerprint")
+        if workspace_fingerprint is not None and not isinstance(
+            workspace_fingerprint, str,
+        ):
+            workspace_fingerprint = None
+
+        raw_limit = args.get("limit", 50)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = 50
+
+        try:
+            from graqle.chat.conversation_index import (
+                ConversationIndex,
+                build_session_list_response,
+            )
+            # Use the graph-file parent as root if known, else cwd
+            _raw = getattr(self, "_graph_file", None)
+            if _raw and isinstance(_raw, (str, Path)):
+                try:
+                    root = Path(str(_raw)).resolve().parent
+                except OSError:
+                    root = None
+            else:
+                root = None
+
+            idx = ConversationIndex(root=root)
+            sessions = idx.list_sessions(
+                workspace_fingerprint=workspace_fingerprint,
+                limit=limit,
+            )
+            return json.dumps(build_session_list_response(sessions))
+        except Exception as exc:
+            logger.error(
+                "graq_session_list unexpected failure: %s", exc, exc_info=True,
+            )
+            return json.dumps({
+                "error": "NS-07_RUNTIME",
+                "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+                "conversations": [],
+                "count": 0,
+            })
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
         import time as _time
@@ -4424,6 +4687,20 @@ class KogniDevServer:
             _ambiguous = (result.metadata or {}).get("ambiguous_options")
             if _ambiguous:
                 result_dict["ambiguous_options"] = _ambiguous
+            # CG-REASON-DIAG-01 — missing-LLM-SDK diagnostic (success envelope
+            # only). Error envelopes are built in a disjoint try/except
+            # branch below and never touch these keys. Fields are optional
+            # and additive per the VS Code extension schema contract.
+            _missing_sdks_md = (result.metadata or {}).get("missing_llm_sdks")
+            if _missing_sdks_md:
+                _missing_list = list(_missing_sdks_md)
+                result_dict["diagnostic"] = (
+                    "Missing LLM SDK(s): "
+                    + ", ".join(_missing_list)
+                    + ". Install with: pip install graqle[api]"
+                )
+                result_dict["diagnostic_code"] = "MISSING_LLM_SDK"
+                result_dict["missing_sdks"] = _missing_list
             duration_ms = (_time.monotonic() - t0) * 1000
 
             # Governance audit
@@ -6044,6 +6321,161 @@ class KogniDevServer:
 
         return json.dumps(report, indent=2)
 
+    # -- 9b. graq_config_audit (CG-14) --------------------------------
+
+    async def _handle_config_audit(self, args: dict[str, Any]) -> str:
+        """CG-14 config drift audit.
+
+        Validates request shape, delegates to ConfigDriftAuditor, wraps
+        every typed exception in a stable error envelope. Never leaks
+        raw paths or stack traces (see build_error_envelope sanitization).
+        """
+        from graqle.governance.config_drift import (
+            BaselineCorruptedError,
+            ConfigDriftAuditor,
+            FileReadError,
+            build_accept_response,
+            build_audit_response,
+            build_error_envelope,
+        )
+
+        # Step 1: validate request shape (handler responsibility)
+        action = args.get("action", "audit")
+        if action not in ("audit", "accept"):
+            return json.dumps(build_error_envelope(
+                "CG-14_INVALID_ACTION",
+                f"action must be 'audit' or 'accept', got {action!r}",
+            ))
+
+        file = args.get("file") or ""
+        approver = args.get("approver") or ""
+        if action == "accept":
+            if not isinstance(file, str) or not file.strip():
+                return json.dumps(build_error_envelope(
+                    "CG-14_VALIDATION",
+                    "action=accept requires non-empty 'file'",
+                    field="file",
+                ))
+            if not isinstance(approver, str) or not approver.strip():
+                return json.dumps(build_error_envelope(
+                    "CG-14_VALIDATION",
+                    "action=accept requires non-empty 'approver'",
+                    field="approver",
+                ))
+            file = file.strip()
+            approver = approver.strip()
+            # Path-traversal / absolute-path guard (MAJOR 2 hardening)
+            _normalized = file.replace("\\", "/")
+            if (
+                ".." in _normalized.split("/")
+                or _normalized.startswith("/")
+                or Path(file).is_absolute()
+                or (len(file) >= 2 and file[1] == ":")  # Windows drive (C:\...)
+            ):
+                return json.dumps(build_error_envelope(
+                    "CG-14_INVALID_FILE_PATH",
+                    "file must be a relative path without '..' traversal",
+                    field="file",
+                ))
+
+        # Step 2: invoke auditor, map typed exceptions to envelopes
+        try:
+            root = None
+            if getattr(self, "_graph_file", None):
+                from pathlib import Path as _Path
+                root = _Path(self._graph_file).resolve().parent
+            auditor = ConfigDriftAuditor(root=root)
+
+            if action == "audit":
+                records = auditor.audit()
+                return json.dumps(build_audit_response(records))
+
+            # action == "accept"
+            try:
+                auditor.accept(file, approver)
+            except ValueError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_UNKNOWN_FILE",
+                    str(exc),
+                    file=file,
+                ))
+            except FileNotFoundError:
+                return json.dumps(build_error_envelope(
+                    "CG-14_FILE_MISSING",
+                    f"protected file not found: {file}",
+                    file=file,
+                ))
+            except FileReadError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_FILE_UNREADABLE",
+                    str(exc),
+                    file=file,
+                ))
+            except BaselineCorruptedError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_BASELINE_CORRUPTED",
+                    str(exc),
+                ))
+            except OSError as exc:
+                return json.dumps(build_error_envelope(
+                    "CG-14_BASELINE_IO",
+                    f"{type(exc).__name__}: {exc}",
+                ))
+            return json.dumps(build_accept_response(file, approver))
+
+        except Exception as exc:
+            logger.error(
+                "graq_config_audit unexpected failure: %s", exc, exc_info=True
+            )
+            return json.dumps(build_error_envelope(
+                "CG-14_RUNTIME",
+                f"{type(exc).__name__}: {exc}",
+            ))
+
+    # -- 9c. graq_deps_install (CG-13, Wave 2 Phase 6) ----------------
+
+    async def _handle_deps_install(self, args: dict[str, Any]) -> str:
+        """CG-13 supply-chain-guarded package install.
+
+        Validates request via check_deps_install (manager enum + packages
+        list + unsupported-ref rejection + known-bad + typosquat +
+        approval). On pass, returns a dry-run plan (default) or the
+        approved live-plan envelope (when dry_run=False + approved_by).
+        """
+        from graqle.governance.config_drift import build_error_envelope
+        from graqle.governance.deps_gate import (
+            build_deps_dry_run_response,
+            build_deps_live_response,
+            check_deps_install,
+        )
+
+        if not isinstance(args, dict):
+            return json.dumps(build_error_envelope(
+                "CG-13_INVALID_ARGS", "args must be a dict",
+            ))
+        manager = args.get("manager")
+        packages = args.get("packages")
+        dry_run = bool(args.get("dry_run", True))
+        approved_by = args.get("approved_by")
+
+        allowed, env = check_deps_install(
+            manager,
+            packages,
+            dry_run=dry_run,
+            approved_by=approved_by,
+        )
+        if not allowed:
+            return json.dumps(env)
+
+        if dry_run:
+            return json.dumps(build_deps_dry_run_response(manager, packages))
+
+        # Phase 6: execution deferred — return the approved plan. Future
+        # phase will wire subprocess execution through CG-15-class gating.
+        return json.dumps(build_deps_live_response(
+            manager, packages, str(approved_by),
+        ))
+
     # ── 10. graq_runtime ────────────────────────────────────────────
 
     async def _handle_runtime(self, args: dict[str, Any]) -> str:
@@ -7035,6 +7467,180 @@ class KogniDevServer:
     # v0.38.0 — governed atomic file edit
     # Phase 2 of feature-coding-assistant plan
 
+    async def _handle_edit_literal(
+        self,
+        *,
+        file_path: str,
+        old_content: str,
+        new_content: str,
+        dry_run: bool,
+    ) -> str:
+        """CG-EDIT-WRONG-LOCATION-01: exact literal-replacement mode.
+
+        Deterministic alternative to LLM-driven diff generation. Reads the
+        file, requires ``old_content`` to appear EXACTLY ONCE, writes the
+        file atomically with ``new_content`` substituted at that location,
+        then reads back from disk to verify. Fails closed on 0 matches or
+        2+ matches rather than guessing.
+
+        Backup written to .graqle/edit-backup/ before any real write. Temp
+        file is cleaned up in a finally block. Callers must not bypass
+        plan-gate + preflight + governance — those run in ``_handle_edit``
+        before dispatching to this helper.
+        """
+        import os
+        import tempfile
+        import time
+        from pathlib import Path
+
+        # CG-15 + G4 (Wave 2 Phase 4): defense in depth — if a future caller
+        # invokes _handle_edit_literal directly (bypassing _handle_edit),
+        # the gates still apply. Normal path: _handle_edit already ran them.
+        from graqle.governance.kg_write_gate import (
+            check_kg_block as _cg15_check,
+            check_protected_path as _g4_check,
+        )
+        _allowed, _env = _cg15_check(file_path)
+        if not _allowed:
+            return json.dumps(_env)
+        _allowed, _env = _g4_check(
+            file_path,
+            config=getattr(self, "_config", None),
+        )
+        if not _allowed:
+            return json.dumps(_env)
+
+        # Step 1: read current content
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                current = f.read()
+        except FileNotFoundError:
+            return json.dumps({
+                "error": "CG-EDIT literal: file not found.",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+        except PermissionError as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: read permission denied: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: read failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+
+        # Step 2: count occurrences (fail closed on 0 or 2+)
+        matches = current.count(old_content)
+        if matches == 0:
+            return json.dumps({
+                "error": "CG-EDIT literal: 'old_content' not found in file.",
+                "file_path": file_path,
+                "strategy": "literal",
+                "matches": 0,
+            })
+        if matches >= 2:
+            return json.dumps({
+                "error": "CG-EDIT literal: 'old_content' is ambiguous (must appear exactly once).",
+                "file_path": file_path,
+                "strategy": "literal",
+                "matches": matches,
+            })
+
+        # Step 3: compute new content
+        new_file = current.replace(old_content, new_content, 1)
+        lines_before = len(current.splitlines())
+        lines_after = len(new_file.splitlines())
+        bytes_delta = len(new_file) - len(current)
+
+        # Step 4: dry-run preview
+        if dry_run:
+            return json.dumps({
+                "success": True,
+                "strategy": "literal",
+                "dry_run": True,
+                "file_path": file_path,
+                "matches": 1,
+                "lines_changed": abs(lines_after - lines_before),
+                "bytes_delta": bytes_delta,
+            })
+
+        # Step 5: write backup before touching the target
+        backup_dir = Path(".graqle/edit-backup")
+        backup_path: Path | None = None
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            ts = int(time.time() * 1000)
+            backup_path = backup_dir / f"{ts}_{Path(file_path).name}.literal.bak"
+            backup_path.write_text(current, encoding="utf-8")
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: backup failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+            })
+
+        # Step 6: atomic write via tempfile + fsync + os.replace
+        target_dir = os.path.dirname(file_path) or "."
+        fd, tmp = tempfile.mkstemp(dir=target_dir, prefix=".graqle-edit-", suffix=".tmp")
+        wrote_temp = True
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tf:
+                tf.write(new_file)
+                tf.flush()
+                os.fsync(tf.fileno())
+            os.replace(tmp, file_path)
+            wrote_temp = False  # os.replace moved it; nothing to clean up
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: atomic write failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+        finally:
+            if wrote_temp:
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass  # temp cleanup is best-effort
+
+        # Step 7: disk-verify — read back and compare. The whole point of
+        # CG-EDIT-WRONG-LOCATION-01 is to never trust the write without
+        # verifying the file on disk matches exactly what we intended.
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                verified = f.read()
+        except Exception as exc:
+            return json.dumps({
+                "error": f"CG-EDIT literal: post-write read failed: {exc}",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+        if verified != new_file:
+            return json.dumps({
+                "error": "CG-EDIT literal: disk verification failed — file on disk does not match intended content.",
+                "file_path": file_path,
+                "strategy": "literal",
+                "backup_path": str(backup_path) if backup_path else None,
+            })
+
+        return json.dumps({
+            "success": True,
+            "strategy": "literal",
+            "dry_run": False,
+            "file_path": file_path,
+            "matches": 1,
+            "lines_changed": abs(lines_after - lines_before),
+            "bytes_delta": bytes_delta,
+            "backup_path": str(backup_path) if backup_path else None,
+            "disk_verified": True,
+        })
+
     async def _handle_edit(self, args: dict[str, Any]) -> str:
         """Read a file, apply a unified diff, write back atomically.
 
@@ -7052,6 +7658,25 @@ class KogniDevServer:
         """
         from graqle.core.file_writer import apply_diff
         from graqle.cloud.credentials import load_credentials
+
+        # CG-15 + G4 (Wave 2 Phase 4): write-gate checks run BEFORE any
+        # other logic. Applied to single-file edits; batch-mode entries
+        # are independently gated by the recursive self._handle_edit call.
+        _single_path = args.get("file_path", "")
+        if _single_path and not args.get("files"):
+            from graqle.governance.kg_write_gate import (
+                check_kg_block, check_protected_path,
+            )
+            _allowed, _env = check_kg_block(_single_path)
+            if not _allowed:
+                return json.dumps(_env)
+            _allowed, _env = check_protected_path(
+                _single_path,
+                config=getattr(self, "_config", None),
+                approved_by=args.get("approved_by"),
+            )
+            if not _allowed:
+                return json.dumps(_env)
 
         # CG-04: Batch mode — process multiple files sequentially
         batch_files = args.get("files", [])
@@ -7097,9 +7722,31 @@ class KogniDevServer:
         provided_diff = args.get("diff", "")
         dry_run = _coerce_bool(args.get("dry_run"), default=True)  # GH-67: safe string coercion
 
+        # CG-EDIT-WRONG-LOCATION-01: validate strategy + literal-mode args BEFORE
+        # branching. Keep the validation cheap; actual gates (plan/preflight/
+        # governance) still run below for both strategies so literal cannot
+        # bypass policy.
+        _strategy = args.get("strategy", "diff")
+        if _strategy not in ("literal", "diff"):
+            return json.dumps({
+                "error": "CG-EDIT: 'strategy' must be 'literal' or 'diff'.",
+                "received": _strategy,
+            })
+        _old_content = args.get("old_content")
+        _new_content = args.get("new_content")
+        if _strategy == "literal":
+            if not isinstance(_old_content, str) or _old_content == "":
+                return json.dumps({
+                    "error": "CG-EDIT literal: 'old_content' is required and must be a non-empty string.",
+                })
+            if not isinstance(_new_content, str):
+                return json.dumps({
+                    "error": "CG-EDIT literal: 'new_content' is required and must be a string.",
+                })
+
         if not file_path:
             return json.dumps({"error": "Parameter 'file_path' is required."})
-        if not description and not provided_diff:
+        if _strategy == "diff" and not description and not provided_diff:
             return json.dumps({"error": "Either 'description' or 'diff' is required."})
 
         # Plan gate (runs BEFORE file resolution — business check first)
@@ -7125,6 +7772,18 @@ class KogniDevServer:
             file_path = self._resolve_file_path(file_path)
         except (PermissionError, FileNotFoundError):
             pass  # Resolution is best-effort; actual file I/O catches real errors
+
+        # CG-EDIT-WRONG-LOCATION-01: literal-mode dispatch runs AFTER plan gate
+        # (above) and path resolution but BEFORE the LLM preflight/diff-gen
+        # pipeline below. Literal mode still goes through the governance chain
+        # via _handle_edit_literal itself (which runs preflight + gov_gate).
+        if _strategy == "literal":
+            return await self._handle_edit_literal(
+                file_path=file_path,
+                old_content=_old_content,
+                new_content=_new_content,
+                dry_run=dry_run,
+            )
 
         # Step 1: Preflight
         preflight_raw = json.loads(await self._handle_preflight({
@@ -8230,6 +8889,23 @@ class KogniDevServer:
             return json.dumps({"error": "Parameter 'file_path' is required."})
         if content is None:
             return json.dumps({"error": "Parameter 'content' is required."})
+
+        # CG-15 + G4 (Wave 2 Phase 4): write-gate checks run BEFORE any
+        # other logic. CG-15 is fail-fast on KG files (no bypass). G4 is
+        # approval-gated on user-configured protected_paths.
+        from graqle.governance.kg_write_gate import (
+            check_kg_block, check_protected_path,
+        )
+        _allowed, _env = check_kg_block(file_path)
+        if not _allowed:
+            return json.dumps(_env)
+        _allowed, _env = check_protected_path(
+            file_path,
+            config=getattr(self, "_config", None),
+            approved_by=args.get("approved_by"),
+        )
+        if not _allowed:
+            return json.dumps(_env)
 
         # Patent scan — block if trade secrets detected in content
         # Word boundaries prevent false positives on CSS (rgba 0.16), SVG, etc.
@@ -10090,13 +10766,28 @@ class KogniDevServer:
             return await self._web_search_query(query, reason, max_results, learn)
 
     async def _web_fetch_url(self, url: str, reason: str, learn: bool) -> str:
-        """Fetch a specific URL and extract text content."""
+        """Fetch a specific URL and extract text content. CG-12 gated."""
         import urllib.request
         import urllib.error
 
+        # CG-12 (Wave 2 Phase 6): URL gate runs BEFORE any network I/O.
+        from graqle.governance.web_gate import (
+            RedirectBlocked,
+            _NoRedirectHandler,
+            check_web_url,
+            sanitize_response_content,
+            _sanitize_record,
+        )
+        from graqle.governance.config_drift import build_error_envelope
+
+        allowed, env = check_web_url(url, config=getattr(self, "_config", None))
+        if not allowed:
+            return json.dumps(env)
+
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            opener = urllib.request.build_opener(_NoRedirectHandler())
+            with opener.open(req, timeout=15) as resp:
                 content_type = resp.headers.get("Content-Type", "")
                 raw = resp.read().decode("utf-8", errors="replace")
 
@@ -10111,6 +10802,9 @@ class KogniDevServer:
 
                 # Truncate
                 text = raw[:5000]
+
+                # CG-12: sanitize secrets from response body BEFORE return
+                text = sanitize_response_content(text)
 
                 result = {
                     "url": url,
@@ -10136,22 +10830,47 @@ class KogniDevServer:
 
                 return json.dumps(result)
 
+        except RedirectBlocked as exc:
+            # CG-12: reject redirect responses — they are SSRF bypass vectors
+            return json.dumps(build_error_envelope(
+                "CG-12_REDIRECT_BLOCKED",
+                f"server returned {exc.code} redirect; CG-12 rejects redirects to prevent SSRF bypass",
+                location=str(exc.location or ""),
+                url=url,
+                hint="If the redirect target is legitimate, call graq_web_search with that URL directly.",
+            ))
         except (urllib.error.URLError, OSError) as exc:
             return json.dumps({"error": f"Fetch failed: {exc}", "url": url})
 
     async def _web_search_query(self, query: str, reason: str, max_results: int, learn: bool) -> str:
-        """Search using DuckDuckGo HTML (no API key required)."""
+        """Search using DuckDuckGo HTML (no API key required). CG-12 gated."""
         import urllib.request
         import urllib.parse
         import urllib.error
         import re
 
+        # CG-12: gate the SEARCH PROVIDER URL (not individual result URLs).
+        # Result URLs are advisory; caller re-runs CG-12 when fetching them.
+        from graqle.governance.web_gate import (
+            RedirectBlocked,
+            _NoRedirectHandler,
+            _sanitize_record,
+            check_web_url,
+            sanitize_response_content,
+        )
+        from graqle.governance.config_drift import build_error_envelope
+
         encoded = urllib.parse.quote_plus(query)
         url = f"https://html.duckduckgo.com/html/?q={encoded}"
 
+        allowed, env = check_web_url(url, config=getattr(self, "_config", None))
+        if not allowed:
+            return json.dumps(env)
+
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            opener = urllib.request.build_opener(_NoRedirectHandler())
+            with opener.open(req, timeout=15) as resp:
                 html = resp.read().decode("utf-8", errors="replace")
 
             # Extract result links and snippets from DuckDuckGo HTML
@@ -10172,6 +10891,11 @@ class KogniDevServer:
                 if "uddg=" in href:
                     href = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
                 results.append({"title": title, "url": href, "snippet": snippet})
+
+            # CG-12: sanitize each result (title, url, snippet) recursively
+            # Result URLs are advisory — if caller fetches one via
+            # _web_fetch_url, CG-12 re-runs there.
+            results = _sanitize_record(results)
 
             response = {
                 "query": query,
@@ -10196,6 +10920,13 @@ class KogniDevServer:
 
             return json.dumps(response)
 
+        except RedirectBlocked as exc:
+            return json.dumps(build_error_envelope(
+                "CG-12_REDIRECT_BLOCKED",
+                f"search provider returned {exc.code} redirect; blocked",
+                location=str(exc.location or ""),
+                url=url,
+            ))
         except (urllib.error.URLError, OSError) as exc:
             return json.dumps({"error": f"Search failed: {exc}", "query": query})
 
@@ -10391,7 +11122,12 @@ class KogniDevServer:
     # -- graq_gate_install handler (v0.52.0) --
 
     async def _handle_gate_install(self, args: dict[str, Any]) -> str:
-        """S-010: Install/upgrade governance gate via MCP transport."""
+        """S-010 + G5: Install/upgrade governance gate via MCP transport.
+
+        G5 (Wave 2 Phase 7): accepts ``target`` argument with enum
+        ``claude | vscode-extension | all``. Default ``claude`` preserves
+        back-compat. ``vscode-extension`` scaffolds .vscode/ + .mcp.json.
+        """
         import asyncio
         import functools
         import platform
@@ -10402,6 +11138,16 @@ class KogniDevServer:
         force = args.get("force", False)
         dry_run = args.get("dry_run", False)
         fix_interpreter = args.get("fix_interpreter", False)
+        target = args.get("target", "claude")
+
+        # G5: validate target
+        _VALID = ("claude", "vscode-extension", "all")
+        if target not in _VALID:
+            return json.dumps({
+                "error": "CG-G5_INVALID_TARGET",
+                "message": f"target must be one of {_VALID}, got {target!r}",
+                "valid_targets": list(_VALID),
+            })
 
         _raw = getattr(self, "_graph_file", None)
         if _raw and isinstance(_raw, (str, Path)):
@@ -10411,6 +11157,20 @@ class KogniDevServer:
                 project_root = Path.cwd().resolve()
         else:
             project_root = Path.cwd().resolve()
+
+        # G5: vscode-extension target dispatches to the helper and returns early
+        if target == "vscode-extension":
+            from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+            _vs_pkg = Path(__file__).parent.parent / "data" / "vscode_gate"
+            _result = install_vscode_extension_target(
+                project_root, _vs_pkg, force=force, dry_run=dry_run,
+                interpreter_cmd=sys.executable or "python",
+            )
+            _result["success"] = not any(
+                a.get("status") == "error"
+                for a in _result.get("actions", [])
+            )
+            return json.dumps(_result)
 
         claude_dir = project_root / ".claude"
         hooks_dir = claude_dir / "hooks"
@@ -10557,6 +11317,17 @@ class KogniDevServer:
             "Gate installed and enforcing." if result["success"]
             else "Gate installed but self-test failed — check interpreter."
         )
+
+        # G5 (Wave 2 Phase 7): target="all" also scaffolds vscode-extension
+        if target == "all":
+            from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+            _vs_pkg = Path(__file__).parent.parent / "data" / "vscode_gate"
+            _vs_result = install_vscode_extension_target(
+                project_root, _vs_pkg, force=force, dry_run=dry_run,
+                interpreter_cmd=interpreter_cmd,
+            )
+            result["vscode_extension"] = _vs_result
+
         return json.dumps(result)
 
     # -- graq_todo handler (v0.46.4) --
@@ -10745,6 +11516,7 @@ class KogniDevServer:
                         # new response fields without version sniffing.
                         "graq_reason": {
                             "ambiguous_options": True,
+                            "missing_sdks_diagnostic": True,
                         },
                         # v0.51.4 — SDK capability block surfaced in the
                         # initialize response so the VS Code extension can

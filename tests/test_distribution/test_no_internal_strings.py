@@ -89,6 +89,9 @@ EXEMPT_PATHS: set[str] = {
     "graqle/ontology/domains/coding.py",     # CG-GOV-03 v0.51.0
     "graqle/ontology/domains/mcp.py",        # CG-GOV-04 v0.51.0
     "graqle/plugins/mcp_dev_server.py",      # CG-GOV-05 v0.51.0 (schema desc)
+    # Wave 2 0.52.0b1: Phase 2 CG-REASON-DIAG-01 informational comments
+    "graqle/orchestration/aggregation.py",   # CG-GOV-06 (Wave 2 Phase 2 comment tags)
+    "graqle/orchestration/orchestrator.py",  # CG-GOV-07 (Wave 2 Phase 2 comment tags)
 }
 
 # Modules whose TS-2 compliance comments are informational, not pattern
