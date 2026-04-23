@@ -266,7 +266,14 @@ async def handle_chat_turn(
 
     # CHAT-02: intent_hint fast-path (only after tier validates)
     if isinstance(intent_hint, str) and intent_hint in _KNOWN_INTENT_HINTS:
-        return _fast_path_response(ctx, turn_id, message, intent_hint, permission_tier)
+        _fp_result = _fast_path_response(ctx, turn_id, message, intent_hint, permission_tier)
+        # NS-07: record fast-path turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="fast-path")
+        except Exception as _exc:
+            logger.debug("NS-07 record_turn (fast-path) failed: %s", _exc)
+        return _fp_result
 
     # Full pipeline (existing behavior, now wrapped in try/except)
     try:
@@ -278,7 +285,7 @@ async def handle_chat_turn(
         )
         buf = loop.buffer_for(turn_id)
         snap = buf.snapshot_since(0)
-        return {
+        _ok_result = {
             "status": "ok",
             "turn_id": turn_id,
             "state": result.state.value,
@@ -296,10 +303,23 @@ async def handle_chat_turn(
             ],
             "permission_tier": permission_tier,
         }
+        # NS-07: record successful turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="completed")
+        except Exception as _exc:
+            logger.debug("NS-07 record_turn (ok) failed: %s", _exc)
+        return _ok_result
     except asyncio.CancelledError:
         raise  # propagate cancellation — never swallow
     except Exception as exc:
         logger.error("handle_chat_turn failure: %s", exc, exc_info=True)
+        # NS-07: record error turn (fire-and-forget)
+        try:
+            from graqle.chat.conversation_index import record_turn
+            record_turn(turn_id=turn_id, message=message, status="error")
+        except Exception as _rec_exc:
+            logger.debug("NS-07 record_turn (error) failed: %s", _rec_exc)
         return {
             "status": "error",
             "turn_id": turn_id,

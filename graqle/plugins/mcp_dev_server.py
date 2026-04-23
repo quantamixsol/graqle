@@ -2539,6 +2539,37 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["turn_id"],
         },
     },
+    # NS-07 (Wave 2 Phase 9): graq_session_list — list past conversation turns
+    {
+        "name": "graq_session_list",
+        "description": (
+            "NS-07: List chat conversation history (most-recent first). "
+            "Reads append-only JSONL from .graqle/conversations.jsonl. "
+            "Returns {conversations: [{id, last_active, summary, "
+            "workspace_fingerprint, turn_count, status}], count: N}. "
+            "Optional filters: workspace_fingerprint (exact), limit "
+            "(default 50, max 500)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace_fingerprint": {
+                    "type": "string",
+                    "description": (
+                        "Exact-match filter for workspace_fingerprint "
+                        "(SHA-256 of project root)."
+                    ),
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Max results. Clamped to [1, 500].",
+                },
+            },
+        },
+    },
     # G2 (v0.52.0): pre-publish KG-multi-agent governance gate.
     # Composes diff review + risk prediction into a structured verdict.
     {
@@ -4094,6 +4125,7 @@ class KogniDevServer:
             "graq_inspect": self._handle_inspect,
             "graq_kg_diag": self._handle_kg_diag,
             "graq_chat_turn": self._handle_chat_turn,
+            "graq_session_list": self._handle_session_list,
             "graq_chat_poll": self._handle_chat_poll,
             "graq_chat_resume": self._handle_chat_resume,
             "graq_chat_cancel": self._handle_chat_cancel,
@@ -4553,6 +4585,61 @@ class KogniDevServer:
         ctx = self._get_chat_ctx()
         result = await handle_chat_cancel(ctx, turn_id=args["turn_id"])
         return json.dumps(result)
+
+    # -- NS-07 (Wave 2 Phase 9): graq_session_list ---------------------
+
+    async def _handle_session_list(self, args: dict[str, Any]) -> str:
+        """NS-07: list chat conversation history.
+
+        Reads append-only JSONL from .graqle/conversations.jsonl and
+        returns most-recent-first sessions with optional workspace
+        filter + limit. Never raises — load failure returns empty list.
+        """
+        if not isinstance(args, dict):
+            args = {}
+        workspace_fingerprint = args.get("workspace_fingerprint")
+        if workspace_fingerprint is not None and not isinstance(
+            workspace_fingerprint, str,
+        ):
+            workspace_fingerprint = None
+
+        raw_limit = args.get("limit", 50)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = 50
+
+        try:
+            from graqle.chat.conversation_index import (
+                ConversationIndex,
+                build_session_list_response,
+            )
+            # Use the graph-file parent as root if known, else cwd
+            _raw = getattr(self, "_graph_file", None)
+            if _raw and isinstance(_raw, (str, Path)):
+                try:
+                    root = Path(str(_raw)).resolve().parent
+                except OSError:
+                    root = None
+            else:
+                root = None
+
+            idx = ConversationIndex(root=root)
+            sessions = idx.list_sessions(
+                workspace_fingerprint=workspace_fingerprint,
+                limit=limit,
+            )
+            return json.dumps(build_session_list_response(sessions))
+        except Exception as exc:
+            logger.error(
+                "graq_session_list unexpected failure: %s", exc, exc_info=True,
+            )
+            return json.dumps({
+                "error": "NS-07_RUNTIME",
+                "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+                "conversations": [],
+                "count": 0,
+            })
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
         import time as _time
