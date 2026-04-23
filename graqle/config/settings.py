@@ -589,6 +589,20 @@ class GraqleConfig(BaseModel):
         ),
     )
 
+    # CG-12 (Wave 2 Phase 6): web fetch/search hostname allowlist.
+    # Empty list preserves legacy allow-all behavior for back-compat;
+    # SSRF-adjacent checks (IP literal blocking, redirect blocking,
+    # scheme enforcement) ALWAYS run regardless of this setting.
+    # Patterns use fnmatch glob syntax on hostname only (no port/path).
+    # Example: ["github.com", "*.github.com", "docs.python.org"]
+    web_allowlist: list[str] = Field(
+        default_factory=list,
+        description=(
+            "CG-12: Hostname allowlist for graq_web_search/graq_web_fetch. "
+            "Empty = legacy allow-all (SSRF checks still run)."
+        ),
+    )
+
     @model_validator(mode="after")
     def _warn_deprecated_connector(self) -> "GraqleConfig":
         """Emit deprecation warning if graph.connector is neo4j/neptune."""

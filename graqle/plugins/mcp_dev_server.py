@@ -587,6 +587,53 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "graq_deps_install",
+        "description": (
+            "CG-13 (Wave 2 Phase 6): Supply-chain-guarded package install. "
+            "Validates manager + packages + typosquat + known-bad BEFORE "
+            "running pip/npm/yarn. dry_run=True by default (safe); live "
+            "install requires explicit approved_by. Managers: pip, npm, yarn. "
+            "Rejects git+/URL/local-path package specs."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "manager": {
+                    "type": "string",
+                    "enum": ["pip", "npm", "yarn"],
+                    "description": "Package manager (enforced enum).",
+                },
+                "packages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Package specs. Supported forms: 'name', "
+                        "'name==version', 'name>=X,<Y'. pip [extras] "
+                        "and npm @scope/name supported. git+/URL/path "
+                        "refs rejected."
+                    ),
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": (
+                        "True (default) returns the approved plan without "
+                        "installing. False requires approved_by."
+                    ),
+                },
+                "approved_by": {
+                    "type": "string",
+                    "description": (
+                        "Reviewer identifier. Preferred format: "
+                        "'<actor>:<ISO-8601-timestamp>'. Legacy bare "
+                        "identifier (length >= 3) accepted."
+                    ),
+                },
+            },
+            "required": ["manager", "packages"],
+        },
+    },
+    {
         "name": "graq_config_audit",
         "description": (
             "CG-14: Audit protected config files (graqle.yaml, pyproject.toml, "
@@ -4053,6 +4100,7 @@ class KogniDevServer:
             "graq_reload": self._handle_reload,
             "graq_audit": self._handle_audit,
             "graq_config_audit": self._handle_config_audit,
+            "graq_deps_install": self._handle_deps_install,
             "graq_runtime": self._handle_runtime,
             "graq_route": self._handle_route,
             "graq_correct": self._handle_correct,
@@ -6285,6 +6333,50 @@ class KogniDevServer:
                 "CG-14_RUNTIME",
                 f"{type(exc).__name__}: {exc}",
             ))
+
+    # -- 9c. graq_deps_install (CG-13, Wave 2 Phase 6) ----------------
+
+    async def _handle_deps_install(self, args: dict[str, Any]) -> str:
+        """CG-13 supply-chain-guarded package install.
+
+        Validates request via check_deps_install (manager enum + packages
+        list + unsupported-ref rejection + known-bad + typosquat +
+        approval). On pass, returns a dry-run plan (default) or the
+        approved live-plan envelope (when dry_run=False + approved_by).
+        """
+        from graqle.governance.config_drift import build_error_envelope
+        from graqle.governance.deps_gate import (
+            build_deps_dry_run_response,
+            build_deps_live_response,
+            check_deps_install,
+        )
+
+        if not isinstance(args, dict):
+            return json.dumps(build_error_envelope(
+                "CG-13_INVALID_ARGS", "args must be a dict",
+            ))
+        manager = args.get("manager")
+        packages = args.get("packages")
+        dry_run = bool(args.get("dry_run", True))
+        approved_by = args.get("approved_by")
+
+        allowed, env = check_deps_install(
+            manager,
+            packages,
+            dry_run=dry_run,
+            approved_by=approved_by,
+        )
+        if not allowed:
+            return json.dumps(env)
+
+        if dry_run:
+            return json.dumps(build_deps_dry_run_response(manager, packages))
+
+        # Phase 6: execution deferred — return the approved plan. Future
+        # phase will wire subprocess execution through CG-15-class gating.
+        return json.dumps(build_deps_live_response(
+            manager, packages, str(approved_by),
+        ))
 
     # ── 10. graq_runtime ────────────────────────────────────────────
 
@@ -10576,13 +10668,28 @@ class KogniDevServer:
             return await self._web_search_query(query, reason, max_results, learn)
 
     async def _web_fetch_url(self, url: str, reason: str, learn: bool) -> str:
-        """Fetch a specific URL and extract text content."""
+        """Fetch a specific URL and extract text content. CG-12 gated."""
         import urllib.request
         import urllib.error
 
+        # CG-12 (Wave 2 Phase 6): URL gate runs BEFORE any network I/O.
+        from graqle.governance.web_gate import (
+            RedirectBlocked,
+            _NoRedirectHandler,
+            check_web_url,
+            sanitize_response_content,
+            _sanitize_record,
+        )
+        from graqle.governance.config_drift import build_error_envelope
+
+        allowed, env = check_web_url(url, config=getattr(self, "_config", None))
+        if not allowed:
+            return json.dumps(env)
+
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            opener = urllib.request.build_opener(_NoRedirectHandler())
+            with opener.open(req, timeout=15) as resp:
                 content_type = resp.headers.get("Content-Type", "")
                 raw = resp.read().decode("utf-8", errors="replace")
 
@@ -10597,6 +10704,9 @@ class KogniDevServer:
 
                 # Truncate
                 text = raw[:5000]
+
+                # CG-12: sanitize secrets from response body BEFORE return
+                text = sanitize_response_content(text)
 
                 result = {
                     "url": url,
@@ -10622,22 +10732,47 @@ class KogniDevServer:
 
                 return json.dumps(result)
 
+        except RedirectBlocked as exc:
+            # CG-12: reject redirect responses — they are SSRF bypass vectors
+            return json.dumps(build_error_envelope(
+                "CG-12_REDIRECT_BLOCKED",
+                f"server returned {exc.code} redirect; CG-12 rejects redirects to prevent SSRF bypass",
+                location=str(exc.location or ""),
+                url=url,
+                hint="If the redirect target is legitimate, call graq_web_search with that URL directly.",
+            ))
         except (urllib.error.URLError, OSError) as exc:
             return json.dumps({"error": f"Fetch failed: {exc}", "url": url})
 
     async def _web_search_query(self, query: str, reason: str, max_results: int, learn: bool) -> str:
-        """Search using DuckDuckGo HTML (no API key required)."""
+        """Search using DuckDuckGo HTML (no API key required). CG-12 gated."""
         import urllib.request
         import urllib.parse
         import urllib.error
         import re
 
+        # CG-12: gate the SEARCH PROVIDER URL (not individual result URLs).
+        # Result URLs are advisory; caller re-runs CG-12 when fetching them.
+        from graqle.governance.web_gate import (
+            RedirectBlocked,
+            _NoRedirectHandler,
+            _sanitize_record,
+            check_web_url,
+            sanitize_response_content,
+        )
+        from graqle.governance.config_drift import build_error_envelope
+
         encoded = urllib.parse.quote_plus(query)
         url = f"https://html.duckduckgo.com/html/?q={encoded}"
 
+        allowed, env = check_web_url(url, config=getattr(self, "_config", None))
+        if not allowed:
+            return json.dumps(env)
+
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "GraQle/0.45 (+https://graqle.com)"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            opener = urllib.request.build_opener(_NoRedirectHandler())
+            with opener.open(req, timeout=15) as resp:
                 html = resp.read().decode("utf-8", errors="replace")
 
             # Extract result links and snippets from DuckDuckGo HTML
@@ -10658,6 +10793,11 @@ class KogniDevServer:
                 if "uddg=" in href:
                     href = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
                 results.append({"title": title, "url": href, "snippet": snippet})
+
+            # CG-12: sanitize each result (title, url, snippet) recursively
+            # Result URLs are advisory — if caller fetches one via
+            # _web_fetch_url, CG-12 re-runs there.
+            results = _sanitize_record(results)
 
             response = {
                 "query": query,
@@ -10682,6 +10822,13 @@ class KogniDevServer:
 
             return json.dumps(response)
 
+        except RedirectBlocked as exc:
+            return json.dumps(build_error_envelope(
+                "CG-12_REDIRECT_BLOCKED",
+                f"search provider returned {exc.code} redirect; blocked",
+                location=str(exc.location or ""),
+                url=url,
+            ))
         except (urllib.error.URLError, OSError) as exc:
             return json.dumps({"error": f"Search failed: {exc}", "query": query})
 
