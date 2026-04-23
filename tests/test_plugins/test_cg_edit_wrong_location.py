@@ -30,6 +30,26 @@ import pytest
 from graqle.plugins.mcp_dev_server import KogniDevServer, TOOL_DEFINITIONS
 
 
+@pytest.fixture(autouse=True)
+def _force_team_plan(monkeypatch):
+    """Wave 2 fix-up: CI runners have no Team credentials, so the plan gate
+    in _handle_edit short-circuits with PLAN_GATE before reaching the literal
+    logic under test. Stub load_credentials at its import site to return a
+    Team-tier credential so every test in this module exercises the real
+    code path regardless of the runner's plan.
+    """
+    from types import SimpleNamespace
+
+    def _team_creds():
+        return SimpleNamespace(plan="team")
+
+    monkeypatch.setattr(
+        "graqle.cloud.credentials.load_credentials",
+        _team_creds,
+        raising=True,
+    )
+
+
 @pytest.fixture
 def server(tmp_path):
     s = KogniDevServer(config_path=None)
