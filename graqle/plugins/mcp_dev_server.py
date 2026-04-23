@@ -2358,6 +2358,17 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Only fix the Python interpreter path in settings.json (default false)",
                     "default": False,
                 },
+                "target": {
+                    "type": "string",
+                    "enum": ["claude", "vscode-extension", "all"],
+                    "default": "claude",
+                    "description": (
+                        "G5 (Wave 2 Phase 7): Gate target. 'claude' (default) "
+                        "installs .claude/hooks/ + settings.json. "
+                        "'vscode-extension' scaffolds .vscode/{settings,tasks,"
+                        "extensions}.json + .mcp.json. 'all' runs both."
+                    ),
+                },
             },
         },
     },
@@ -11024,7 +11035,12 @@ class KogniDevServer:
     # -- graq_gate_install handler (v0.52.0) --
 
     async def _handle_gate_install(self, args: dict[str, Any]) -> str:
-        """S-010: Install/upgrade governance gate via MCP transport."""
+        """S-010 + G5: Install/upgrade governance gate via MCP transport.
+
+        G5 (Wave 2 Phase 7): accepts ``target`` argument with enum
+        ``claude | vscode-extension | all``. Default ``claude`` preserves
+        back-compat. ``vscode-extension`` scaffolds .vscode/ + .mcp.json.
+        """
         import asyncio
         import functools
         import platform
@@ -11035,6 +11051,16 @@ class KogniDevServer:
         force = args.get("force", False)
         dry_run = args.get("dry_run", False)
         fix_interpreter = args.get("fix_interpreter", False)
+        target = args.get("target", "claude")
+
+        # G5: validate target
+        _VALID = ("claude", "vscode-extension", "all")
+        if target not in _VALID:
+            return json.dumps({
+                "error": "CG-G5_INVALID_TARGET",
+                "message": f"target must be one of {_VALID}, got {target!r}",
+                "valid_targets": list(_VALID),
+            })
 
         _raw = getattr(self, "_graph_file", None)
         if _raw and isinstance(_raw, (str, Path)):
@@ -11044,6 +11070,20 @@ class KogniDevServer:
                 project_root = Path.cwd().resolve()
         else:
             project_root = Path.cwd().resolve()
+
+        # G5: vscode-extension target dispatches to the helper and returns early
+        if target == "vscode-extension":
+            from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+            _vs_pkg = Path(__file__).parent.parent / "data" / "vscode_gate"
+            _result = install_vscode_extension_target(
+                project_root, _vs_pkg, force=force, dry_run=dry_run,
+                interpreter_cmd=sys.executable or "python",
+            )
+            _result["success"] = not any(
+                a.get("status") == "error"
+                for a in _result.get("actions", [])
+            )
+            return json.dumps(_result)
 
         claude_dir = project_root / ".claude"
         hooks_dir = claude_dir / "hooks"
@@ -11190,6 +11230,17 @@ class KogniDevServer:
             "Gate installed and enforcing." if result["success"]
             else "Gate installed but self-test failed — check interpreter."
         )
+
+        # G5 (Wave 2 Phase 7): target="all" also scaffolds vscode-extension
+        if target == "all":
+            from graqle.cli.commands.vscode_gate import install_vscode_extension_target
+            _vs_pkg = Path(__file__).parent.parent / "data" / "vscode_gate"
+            _vs_result = install_vscode_extension_target(
+                project_root, _vs_pkg, force=force, dry_run=dry_run,
+                interpreter_cmd=interpreter_cmd,
+            )
+            result["vscode_extension"] = _vs_result
+
         return json.dumps(result)
 
     # -- graq_todo handler (v0.46.4) --
