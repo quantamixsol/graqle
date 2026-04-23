@@ -39,6 +39,108 @@ if TYPE_CHECKING:
 logger = logging.getLogger("graqle.aggregation")
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# CG-REASON-DIAG-01 — missing-LLM-SDK diagnostic
+#
+# When graq_reason produces zero-successful-message output AND none of
+# openai / anthropic / boto3 is importable, surface a diagnostic in the
+# MCP response envelope. Detection lives here (aggregator has the zero-
+# success signal); emission is wired through orchestrator metadata and
+# the MCP handler. Never fires on happy path, rate-limit errors, or when
+# [api] extras are installed.
+# ─────────────────────────────────────────────────────────────────────────
+import importlib.util as _importlib_util
+from threading import Lock as _Lock
+
+_LLM_SDK_NAMES = ("anthropic", "boto3", "openai")  # sorted canonical
+_missing_sdks_cache: list[str] | None = None
+_missing_sdks_lock = _Lock()
+
+
+def _detect_missing_llm_sdks() -> list[str]:
+    """Return sorted list of LLM SDK module names that cannot be imported.
+
+    Memoized for process lifetime (SDK availability is STATIC per process
+    contract for production MCP server deployments). Thread-safe
+    double-checked init. ImportError/ValueError from find_spec are
+    caught and treated as "present" (fail-closed: no spurious
+    diagnostic); any other exception propagates as a real bug.
+
+    ENVIRONMENT CONTRACT: The probe assumes SDK import availability is
+    static for the process lifetime. Out of scope: mid-process pip
+    install/uninstall, custom importlib meta_path hooks that lazy-load,
+    namespace packages that materialize post-probe, pytest monkeypatch
+    of sys.modules without calling _reset_missing_sdks_cache().
+
+    Test-only invalidation: _reset_missing_sdks_cache().
+    """
+    global _missing_sdks_cache
+    cached = _missing_sdks_cache
+    if cached is not None:
+        return list(cached)
+    with _missing_sdks_lock:
+        if _missing_sdks_cache is not None:
+            return list(_missing_sdks_cache)
+        missing: list[str] = []
+        for name in _LLM_SDK_NAMES:
+            try:
+                spec = _importlib_util.find_spec(name)
+            except (ImportError, ValueError) as exc:
+                logger.debug(
+                    "CG-REASON-DIAG-01: find_spec(%s) failed (%s); "
+                    "treating as present (fail-closed)",
+                    name, exc,
+                )
+                continue  # fail-closed: do not flag as missing
+            if spec is None:
+                missing.append(name)
+        _missing_sdks_cache = missing
+        return list(missing)
+
+
+def _reset_missing_sdks_cache() -> None:
+    """Test-only helper: clear the memoized SDK-availability cache."""
+    global _missing_sdks_cache
+    with _missing_sdks_lock:
+        _missing_sdks_cache = None
+
+
+def _is_zero_success_fallback(
+    messages: dict[str, "Message"],
+) -> bool:
+    """True iff the aggregator has no usable agent output.
+
+    Uses aggregator outcome state (the raw messages dict), not content
+    heuristics. Returns True when:
+      1. messages is empty (no agents ran — e.g. empty graph)
+      2. every message is an observer report (source_node_id ==
+         "__observer__")
+
+    Returns False when at least one non-observer message exists, even
+    if that message has low or zero confidence. Low-confidence-but-
+    produced is a DIFFERENT failure mode (handled by the existing
+    best-of-messages fallback) and MUST NOT trigger the diagnostic.
+
+    MESSAGE PROVENANCE CONTRACT:
+      - source_node_id: non-empty string in production; "__observer__"
+        is the reserved observer sentinel. Unknown/missing/non-string
+        values are treated as AGENT-produced (pessimistic — prefer
+        false-negative silence over false-positive diagnostic).
+      - confidence: float 0.0-1.0.
+      - content: string, may be empty on error returns.
+    """
+    if not messages:
+        return True
+    non_observer_exists = False
+    for m in messages.values():
+        src = getattr(m, "source_node_id", None)
+        if src == "__observer__":
+            continue
+        non_observer_exists = True
+        break
+    return not non_observer_exists
+
+
 # Legacy prompt (backward compatible)
 AGGREGATION_PROMPT = """You are a reasoning aggregator. Multiple specialized agents have analyzed a query from different perspectives. Synthesize their outputs into a single, coherent answer.
 
@@ -143,11 +245,20 @@ class Aggregator:
         candidates = self._compute_ambiguous_options(filtered)
 
         if not filtered:
+            # CG-REASON-DIAG-01 — attach diagnostic only on true zero-success.
+            # trunc_info is the existing metadata carrier (see `candidates`
+            # wiring above). Orchestrator promotes it to ReasoningResult
+            # metadata; MCP handler surfaces it in the response envelope.
+            diag_trunc = dict(_no_trunc)
+            if _is_zero_success_fallback(messages):
+                _missing = _detect_missing_llm_sdks()
+                if _missing:
+                    diag_trunc["missing_llm_sdks"] = _missing
             # Fall back to best single message if all filtered
             if messages:
                 best = max(messages.values(), key=lambda m: m.confidence)
-                return best.content, _no_trunc
-            return "No reasoning produced.", _no_trunc
+                return best.content, diag_trunc
+            return "No reasoning produced.", diag_trunc
 
         if self.strategy == "weighted_synthesis" and effective_backend:
             answer, trunc_info = await self._weighted_synthesis(

@@ -1,0 +1,25 @@
+{
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests/"],
+  "editor.formatOnSave": false,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "graqle.mcp.enabled": true,
+  "graqle.gate.enforceOnSave": false,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.graqle/edit-backup": true
+  },
+  "search.exclude": {
+    "**/graqle.json": true,
+    "**/graqle.json.*.bak": true,
+    "**/graqle_CORRUPT_*.json": true
+  }
+}

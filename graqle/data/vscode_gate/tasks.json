@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "graq: doctor",
+      "type": "shell",
+      "command": "graq",
+      "args": ["doctor"],
+      "group": "test",
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "graq: scan repo",
+      "type": "shell",
+      "command": "graq",
+      "args": ["scan", "repo", "."],
+      "group": "build",
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "graq: serve (studio)",
+      "type": "shell",
+      "command": "graq",
+      "args": ["serve", "--port", "8077"],
+      "isBackground": true,
+      "presentation": {"reveal": "always", "panel": "dedicated"},
+      "problemMatcher": []
+    },
+    {
+      "label": "graq: config audit",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-c",
+        "from graqle.governance import ConfigDriftAuditor; from pathlib import Path; r = ConfigDriftAuditor(root=Path.cwd()).audit(); [print(f'{x.file_path}: {x.drift_type} ({x.severity})') for x in r] or print('clean')"
+      ],
+      "group": "test",
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "pytest", "tests/", "-q"],
+      "group": {"kind": "test", "isDefault": true},
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    }
+  ]
+}

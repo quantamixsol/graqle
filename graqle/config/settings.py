@@ -576,6 +576,33 @@ class GraqleConfig(BaseModel):
     backends: BackendsConfig = Field(default_factory=BackendsConfig)
     chat: ChatConfig = Field(default_factory=ChatConfig)
 
+    # G4 (Wave 2 Phase 4): additional protected file patterns requiring
+    # reviewer approval on write. Extends CG-14 defaults (graqle.yaml,
+    # pyproject.toml, .mcp.json, .claude/settings.json) additively.
+    # Patterns use fnmatch glob syntax (*, ?, [seq], **).
+    # Example: ["deploy/**/*.yml", "terraform/**", ".env.production"]
+    protected_paths: list[str] = Field(
+        default_factory=list,
+        description=(
+            "G4: Additional file path patterns requiring reviewer approval on "
+            "write. Extends CG-14 defaults. fnmatch glob syntax."
+        ),
+    )
+
+    # CG-12 (Wave 2 Phase 6): web fetch/search hostname allowlist.
+    # Empty list preserves legacy allow-all behavior for back-compat;
+    # SSRF-adjacent checks (IP literal blocking, redirect blocking,
+    # scheme enforcement) ALWAYS run regardless of this setting.
+    # Patterns use fnmatch glob syntax on hostname only (no port/path).
+    # Example: ["github.com", "*.github.com", "docs.python.org"]
+    web_allowlist: list[str] = Field(
+        default_factory=list,
+        description=(
+            "CG-12: Hostname allowlist for graq_web_search/graq_web_fetch. "
+            "Empty = legacy allow-all (SSRF checks still run)."
+        ),
+    )
+
     @model_validator(mode="after")
     def _warn_deprecated_connector(self) -> "GraqleConfig":
         """Emit deprecation warning if graph.connector is neo4j/neptune."""

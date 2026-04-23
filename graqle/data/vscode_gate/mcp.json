@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "graqle": {
+      "command": "{{PYTHON_INTERPRETER}}",
+      "args": ["-m", "graqle.plugins.mcp_dev_server"],
+      "env": {
+        "GRAQLE_CLIENT_MODE": "vscode"
+      }
+    }
+  }
+}
