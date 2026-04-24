@@ -79,6 +79,8 @@ api = [
     "openai>=1.0",
     "boto3>=1.28",
     "httpx>=0.25",
+    "pyshacl>=0.25.0",
+    "rdflib>=7.0.0",
 ]
 server = [
     "fastapi>=0.100",

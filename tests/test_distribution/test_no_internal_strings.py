@@ -109,6 +109,8 @@ EXEMPT_PATHS: set[str] = {
     "graqle/governance/similarity.py",       # R21 ADR-204 spec annotations
     "graqle/governance/__init__.py",         # R18-R21 combined exports (ADR refs in docstring)
     "graqle/cli/commands/calibrate_governance.py",  # R20 CLI — ADR ref in module docstring
+    # R22 (ADR-205): SHACL governance completeness verification — ADR refs are spec annotations
+    "graqle/governance/shacl/",                     # R22 ADR-205 spec annotations + shapes.ttl
 }
 
 # Modules whose TS-2 compliance comments are informational, not pattern
