@@ -88,7 +88,11 @@ class CalibrationStore:
             "n_samples": model.n_samples,
             "ece": model.ece,
             "ece_passed": model.ece_passed,
-            "created_at": model.created_at.isoformat() if isinstance(model.created_at, datetime) else str(model.created_at),
+            "created_at": (
+                model.created_at.isoformat()
+                if isinstance(model.created_at, datetime)
+                else str(model.created_at)
+            ),
             "file": f"{version}.json",
         })
 

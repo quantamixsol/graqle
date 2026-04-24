@@ -331,7 +331,7 @@ def extract_features(
         if cl in _CLEARANCE_ORDINAL:
             levels_seen.add(cl)
     if levels_seen:
-        ordinals = sorted(_CLEARANCE_ORDINAL[l] for l in levels_seen)
+        ordinals = sorted(_CLEARANCE_ORDINAL[lvl] for lvl in levels_seen)
         gaps = [ordinals[i + 1] - ordinals[i] for i in range(len(ordinals) - 1)]
         features.clearance = ClearanceMetrics(
             escalation_gap_mean=statistics.mean(gaps) if gaps else 0.0,
@@ -353,7 +353,10 @@ def extract_features(
     )
 
     # Latency metrics
-    latencies = [t.get("latency_ms", 0.0) for t in traces if isinstance(t.get("latency_ms"), (int, float))]
+    latencies = [
+        t.get("latency_ms", 0.0) for t in traces
+        if isinstance(t.get("latency_ms"), (int, float))
+    ]
     if latencies:
         mean_lat = statistics.mean(latencies)
         std_lat = statistics.stdev(latencies) if len(latencies) > 1 else 0.0
@@ -362,7 +365,7 @@ def extract_features(
             p50_ms=_percentile(latencies, 50),
             p95_ms=_percentile(latencies, 95),
             max_ms=max(latencies),
-            anomaly_count=sum(1 for l in latencies if l > anomaly_threshold),
+            anomaly_count=sum(1 for lat in latencies if lat > anomaly_threshold),
         )
 
     return features

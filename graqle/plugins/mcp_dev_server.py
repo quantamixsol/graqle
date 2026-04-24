@@ -3174,6 +3174,8 @@ class KogniDevServer:
 
     def _ensure_trace_store(self) -> None:
         """Lazily initialize the governed trace store (R18 GETC)."""
+        if not hasattr(self, "_trace_store"):
+            self._trace_store = None
         if self._trace_store is not None:
             return
         try:

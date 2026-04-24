@@ -156,7 +156,9 @@ def _build_candidate_chains(features: GovernanceFailureFeatures) -> list[CausalC
                            risk_score=features.tool.failure_rate),
             ],
             edges=[
-                CausalEdge(source="high_block_rate", target="escalation_gap", relation="escalates_to"),
+                CausalEdge(
+                    source="high_block_rate", target="escalation_gap", relation="escalates_to"
+                ),
                 CausalEdge(source="escalation_gap", target="tool_failure", relation="causes"),
             ],
             root_cause="high_block_rate",
@@ -169,8 +171,12 @@ def _build_candidate_chains(features: GovernanceFailureFeatures) -> list[CausalC
         chain = CausalChainDAG(
             chain=["latency_anomaly", "timeout_risk", "workflow_blocked"],
             nodes=[
-                CausalNode(id="latency_anomaly", label="Latency anomaly detected", kind="tool",
-                           risk_score=min(features.latency.anomaly_count / max(features.tool.total_calls, 1), 1.0)),
+                CausalNode(
+                    id="latency_anomaly", label="Latency anomaly detected", kind="tool",
+                    risk_score=min(
+                        features.latency.anomaly_count / max(features.tool.total_calls, 1), 1.0
+                    ),
+                ),
                 CausalNode(id="timeout_risk", label="Timeout risk elevated", kind="tool",
                            risk_score=features.latency.p95_ms / max(features.latency.max_ms, 1.0)),
                 CausalNode(id="workflow_blocked", label="Workflow blocked by timeout", kind="gate",
@@ -190,16 +196,36 @@ def _build_candidate_chains(features: GovernanceFailureFeatures) -> list[CausalC
         chain = CausalChainDAG(
             chain=["low_governance_coverage", "undetected_violation", "compliance_failure"],
             nodes=[
-                CausalNode(id="low_governance_coverage", label="Low governance topology coverage", kind="topology",
-                           risk_score=1.0 - min(features.decision_patterns.decision_entropy / 1.585, 1.0)),
-                CausalNode(id="undetected_violation", label="Potential undetected violation", kind="gate",
-                           risk_score=features.gate.warn_ratio),
-                CausalNode(id="compliance_failure", label="Compliance failure risk", kind="gate",
-                           risk_score=max(features.gate.block_ratio, features.tool.failure_rate)),
+                CausalNode(
+                    id="low_governance_coverage",
+                    label="Low governance topology coverage",
+                    kind="topology",
+                    risk_score=1.0 - min(
+                        features.decision_patterns.decision_entropy / 1.585, 1.0
+                    ),
+                ),
+                CausalNode(
+                    id="undetected_violation",
+                    label="Potential undetected violation",
+                    kind="gate",
+                    risk_score=features.gate.warn_ratio,
+                ),
+                CausalNode(
+                    id="compliance_failure", label="Compliance failure risk", kind="gate",
+                    risk_score=max(features.gate.block_ratio, features.tool.failure_rate),
+                ),
             ],
             edges=[
-                CausalEdge(source="low_governance_coverage", target="undetected_violation", relation="causes"),
-                CausalEdge(source="undetected_violation", target="compliance_failure", relation="escalates_to"),
+                CausalEdge(
+                    source="low_governance_coverage",
+                    target="undetected_violation",
+                    relation="causes",
+                ),
+                CausalEdge(
+                    source="undetected_violation",
+                    target="compliance_failure",
+                    relation="escalates_to",
+                ),
             ],
             root_cause="low_governance_coverage",
             leaf_failure="compliance_failure",
@@ -213,14 +239,22 @@ def _build_candidate_chains(features: GovernanceFailureFeatures) -> list[CausalC
             nodes=[
                 CausalNode(id="override_pattern", label="Frequent human overrides", kind="gate",
                            risk_score=features.gate.override_rate),
-                CausalNode(id="weakened_governance", label="Governance effectiveness degraded", kind="topology",
-                           risk_score=features.gate.override_rate * 2),
+                CausalNode(
+                    id="weakened_governance",
+                    label="Governance effectiveness degraded",
+                    kind="topology",
+                    risk_score=features.gate.override_rate * 2,
+                ),
                 CausalNode(id="repeated_failure", label="Repeated governance failure", kind="tool",
                            risk_score=features.tool.failure_rate),
             ],
             edges=[
-                CausalEdge(source="override_pattern", target="weakened_governance", relation="causes"),
-                CausalEdge(source="weakened_governance", target="repeated_failure", relation="triggers"),
+                CausalEdge(
+                    source="override_pattern", target="weakened_governance", relation="causes"
+                ),
+                CausalEdge(
+                    source="weakened_governance", target="repeated_failure", relation="triggers"
+                ),
             ],
             root_cause="override_pattern",
             leaf_failure="repeated_failure",
@@ -231,7 +265,9 @@ def _build_candidate_chains(features: GovernanceFailureFeatures) -> list[CausalC
     if not chains:
         chains.append(CausalChainDAG(
             chain=["baseline"],
-            nodes=[CausalNode(id="baseline", label="Baseline governance state", kind="topology", risk_score=0.0)],
+            nodes=[CausalNode(
+                id="baseline", label="Baseline governance state", kind="topology", risk_score=0.0
+            )],
             edges=[],
             root_cause="baseline",
             leaf_failure="baseline",
