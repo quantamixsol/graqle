@@ -1652,6 +1652,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "Required if strategy='literal'. Replacement string."
                     ),
                 },
+                "approved_by": {
+                    "type": "string",
+                    "default": "",
+                    "description": (
+                        "CG-EDIT-APPROVED_BY-01: Approver identity for G4 protected-path "
+                        "edits (e.g. 'harish'). Required when editing pyproject.toml, "
+                        "graqle.yaml, .mcp.json, or .claude/settings.json. "
+                        "Length >= 3 to be valid."
+                    ),
+                },
             },
             "required": ["file_path"],
         },
@@ -2706,6 +2716,48 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["op"],
         },
     },
+    # R20 AGGC (ADR-203): audit-grade calibration of governance scores
+    {
+        "name": "graq_calibrate_governance",
+        "description": (
+            "R20 AGGC: Audit-grade calibration of governance scores against real outcomes. "
+            "Fits a Platt or isotonic calibration model on (score, outcome) pairs from "
+            "trace history. Returns calibrated risk with Expected Calibration Error (ECE) "
+            "metric and confidence intervals. "
+            "Requires N>=1000 traces for valid calibration."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["fit", "predict", "status"],
+                    "default": "status",
+                    "description": (
+                        "fit=fit new model from traces, "
+                        "predict=risk for a score, "
+                        "status=current model info"
+                    ),
+                },
+                "method": {
+                    "type": "string",
+                    "enum": ["platt", "isotonic"],
+                    "default": "isotonic",
+                    "description": "Calibration method (only used for action=fit)",
+                },
+                "score": {
+                    "type": "number",
+                    "description": "Governance score 0-100 (required for action=predict)",
+                },
+                "bootstrap_b": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Bootstrap samples for CI (action=fit only)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 # Backward-compat: register kogni_* aliases so old .mcp.json configs still work.
@@ -3101,6 +3153,46 @@ class KogniDevServer:
             contextvars.ContextVar("graq_request_id", default=None)
         )
         self._inflight: dict[str, asyncio.Task] = {}
+
+        # R18 GETC (ADR-201): governed trace persistence — lazy-initialized on first use
+        self._trace_store: Any = None
+
+    # ------------------------------------------------------------------
+    # R18 GETC: Trace store lifecycle
+    # ------------------------------------------------------------------
+
+    def _on_trace_kg_ingest(self, trace: Any) -> None:
+        """Ingest a governed trace into the KG via graq_learn (R18 M2)."""
+        try:
+            g = self._get_graph()
+            if g is None:
+                return
+            g.learn(
+                entity_id=f"trace_{trace.id}",
+                label=f"TRACE: {trace.tool_name} ({trace.outcome.value})",
+                description=(
+                    f"Governed execution trace for {trace.tool_name}. "
+                    f"Outcome: {trace.outcome.value}, "
+                    f"confidence: {trace.confidence:.2f}, "
+                    f"latency: {trace.latency_ms:.0f}ms, "
+                    f"gates: {len(trace.governance_decisions)}"
+                ),
+                entity_type="TRACE",
+            )
+        except Exception:
+            logger.debug("R18 GETC: KG ingest failed", exc_info=True)
+
+    def _ensure_trace_store(self) -> None:
+        """Lazily initialize the governed trace store (R18 GETC)."""
+        if not hasattr(self, "_trace_store"):
+            self._trace_store = None
+        if self._trace_store is not None:
+            return
+        try:
+            from graqle.governance.trace_store import TraceStore
+            self._trace_store = TraceStore(on_trace=self._on_trace_kg_ingest)
+        except Exception:
+            logger.debug("R18 GETC: TraceStore init deferred", exc_info=True)
 
     # ------------------------------------------------------------------
     # GAP-1: Streaming JSON-RPC notifications
@@ -4275,6 +4367,9 @@ class KogniDevServer:
             # v0.46.4: governed todo list
             "graq_todo": self._handle_todo,
             "kogni_todo": self._handle_todo,
+            # R20 AGGC (ADR-203): governance score calibration
+            "graq_calibrate_governance": self._handle_calibrate_governance,
+            "kogni_calibrate_governance": self._handle_calibrate_governance,
         }
 
         handler = handlers.get(name)
@@ -4291,6 +4386,17 @@ class KogniDevServer:
                 metrics.record_query(f"mcp:{name}", 0, caller=caller)
             except Exception:
                 pass  # Never fail on metrics tracking
+
+        # R18 GETC: Governed trace capture — wrap every governed tool call
+        self._ensure_trace_store()
+        try:
+            from graqle.governance.trace_capture import TraceCapture, is_governed
+            if is_governed(name) and self._trace_store is not None:
+                async with TraceCapture(name, arguments, self._trace_store) as _tc:
+                    result = await handler(arguments)
+                    return self._inject_tool_hints(name, result)
+        except Exception:
+            pass  # TraceCapture failure must never block tool execution
 
         try:
             result = await handler(arguments)
@@ -5152,10 +5258,166 @@ class KogniDevServer:
             "reasoning": reasoning_result,
         })
 
+    # ── R20 AGGC: graq_calibrate_governance ─────────────────────────
+
+    async def _handle_calibrate_governance(self, args: dict[str, Any]) -> str:
+        """R20 AGGC: Governance score calibration handler (ADR-203)."""
+        try:
+            from graqle.governance.calibration import Calibrator, MIN_SAMPLES
+            from graqle.governance.calibration_store import CalibrationStore
+
+            action = args.get("action", "status")
+            store = CalibrationStore()
+
+            if action == "status":
+                current = store.load_current()
+                if current is None:
+                    return json.dumps({"status": "no_model", "message": "No active calibration model"})
+                return json.dumps({
+                    "status": current.status,
+                    "version": current.version,
+                    "method": current.method,
+                    "n_samples": current.n_samples,
+                    "ece": current.ece,
+                    "ece_passed": current.ece_passed,
+                    "created_at": (
+                        current.created_at.isoformat()
+                        if hasattr(current.created_at, "isoformat")
+                        else str(current.created_at)
+                    ),
+                })
+
+            if action == "predict":
+                score = args.get("score")
+                if score is None:
+                    return json.dumps({"error": "score parameter required for action=predict"})
+                current = store.load_current()
+                if current is None:
+                    return json.dumps({"status": "uncalibrated", "message": "No active model"})
+                cal = Calibrator()
+                cal.load_model(current)
+                pred = cal.predict(float(score))
+                return json.dumps({
+                    "score": pred.score,
+                    "risk": pred.risk,
+                    "ci_lower": pred.ci_lower,
+                    "ci_upper": pred.ci_upper,
+                    "status": pred.status,
+                })
+
+            if action == "fit":
+                self._ensure_trace_store()
+                if self._trace_store is None:
+                    return json.dumps({"error": "Trace store unavailable"})
+                traces = []
+                for date in self._trace_store.list_dates()[-30:]:
+                    traces.extend(self._trace_store.read_traces(date=date, limit=1000))
+                pairs = []
+                for t in traces:
+                    conf = t.get("confidence", 0.0)
+                    if not isinstance(conf, (int, float)):
+                        continue
+                    score_val = float(conf) * 100.0
+                    outcome = 1 if t.get("outcome") in ("FAILURE", "BLOCKED") else 0
+                    pairs.append((score_val, outcome))
+                if len(pairs) < MIN_SAMPLES:
+                    return json.dumps({
+                        "status": "insufficient_traces",
+                        "n_available": len(pairs),
+                        "n_required": MIN_SAMPLES,
+                        "message": f"Only {len(pairs)} traces available, need {MIN_SAMPLES}",
+                    })
+                method = args.get("method", "isotonic")
+                bootstrap_b = int(args.get("bootstrap_b", 100))
+                cal = Calibrator()
+                model = cal.fit(pairs, method=method, bootstrap_b=bootstrap_b)
+                store.save(model)
+                return json.dumps({
+                    "status": model.status,
+                    "version": model.version,
+                    "method": model.method,
+                    "n_samples": model.n_samples,
+                    "ece": model.ece,
+                    "ece_passed": model.ece_passed,
+                })
+
+            return json.dumps({"error": f"Unknown action: {action}"})
+        except Exception as exc:
+            logger.exception("R20 calibration failed")
+            return json.dumps({"error": str(exc)})
+
+    # ── R19 CGFCP: causal failure chain predictor ─────────────────
+
+    async def _handle_predict_causal_chain(self, args: dict[str, Any]) -> str:
+        """R19 CGFCP: Predict governance failure chains from trace history (ADR-202)."""
+        try:
+            from graqle.governance.failure_predictor import predict_governance_failures
+            self._ensure_trace_store()
+            traces = []
+            if self._trace_store is not None:
+                for date in self._trace_store.list_dates()[-7:]:
+                    traces.extend(self._trace_store.read_traces(date=date, limit=500))
+            topology_edges = None
+            try:
+                graph = self._load_graph()
+                if graph is not None:
+                    gov_types = {"GOVERNANCE", "COMPLIANCE", "POLICY", "LESSON"}
+                    gov_nodes = {
+                        n for n, d in graph.graph.nodes(data=True)
+                        if d.get("entity_type") in gov_types
+                    }
+                    topology_edges = [
+                        {
+                            "source": u, "target": v,
+                            "relation": d.get("relation", "GOVERNS"),
+                            "properties": dict(d),
+                        }
+                        for u, v, d in graph.graph.edges(data=True)
+                        if u in gov_nodes or v in gov_nodes
+                    ][:200]
+            except Exception:
+                pass
+            threshold = float(args.get("confidence_threshold", 0.3))
+            result = predict_governance_failures(
+                topology_edges=topology_edges,
+                traces=traces,
+                threshold=threshold,
+            )
+            return json.dumps({
+                "mode": "causal_chain",
+                "predictions": [
+                    {
+                        "rank": p.rank,
+                        "probability": round(p.probability, 4),
+                        "chain": p.chain.chain,
+                        "root_cause": p.chain.root_cause,
+                        "leaf_failure": p.chain.leaf_failure,
+                        "nodes": [
+                            {"id": n.id, "label": n.label, "kind": n.kind,
+                             "risk_score": round(n.risk_score, 4)}
+                            for n in p.chain.nodes
+                        ],
+                        "edges": [
+                            {"source": e.source, "target": e.target, "relation": e.relation}
+                            for e in p.chain.edges
+                        ],
+                    }
+                    for p in result.predictions
+                ],
+                "trace_count": result.trace_count,
+                "confidence": round(result.confidence, 4),
+            })
+        except Exception as exc:
+            logger.exception("R19 CGFCP failed")
+            return json.dumps({"error": str(exc), "mode": "causal_chain"})
+
     # ── 7. graq_predict (PRO) ────────────────────────────────────────
 
     async def _handle_predict(self, args: dict[str, Any]) -> str:
-        """Delegate to MCPServer._handle_predict (Layer A fold-back logic lives there)."""
+        """Delegate to MCPServer._handle_predict. R19 causal_chain mode routed here."""
+        # R19 CGFCP: causal_chain mode goes to the governance failure predictor
+        if args.get("mode") == "causal_chain":
+            return await self._handle_predict_causal_chain(args)
         from graqle.plugins.mcp_server import MCPServer, MCPConfig
         if self._graph is None:
             self._load_graph()  # make sure dev server graph is loaded first
