@@ -230,6 +230,8 @@ class TestToolDefinitions:
             "graq_config_audit",
             "graq_deps_install",
             "graq_session_list",
+            # R20 (0.52.0b2): governance calibration tool
+            "graq_calibrate_governance",
         }
         expected_kogni = {
             "kogni_context",
@@ -328,8 +330,10 @@ class TestToolDefinitions:
             "kogni_config_audit",
             "kogni_deps_install",
             "kogni_session_list",
+            # R20 (0.52.0b2): governance calibration alias
+            "kogni_calibrate_governance",
         }
-        # v0.52.0b1: 80 graq_* + 80 kogni_* = 160 total (Wave 2 +6: CG-14, CG-13, NS-07 with aliases)
+        # v0.52.0b2: 81 graq_* + 81 kogni_* = 162 total (R20 adds graq_calibrate_governance)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -359,8 +363,8 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        # v0.52.0b1: 154 -> 160 (Wave 2 +6: CG-14 graq_config_audit, CG-13 graq_deps_install, NS-07 graq_session_list + kogni aliases)
-        assert len(tools) == 160
+        # v0.52.0b2: 160 -> 162 (R20 +2: graq_calibrate_governance + kogni_calibrate_governance)
+        assert len(tools) == 162
 
 
 # ---------------------------------------------------------------------------
