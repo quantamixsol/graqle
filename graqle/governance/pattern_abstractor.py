@@ -86,7 +86,8 @@ def _contains_forbidden(value: Any, allow_sha256: bool = True) -> bool:
         return False
     if isinstance(value, str):
         # Allow SHA-256 hashes (64 hex chars exactly)
-        if allow_sha256 and len(value) == 64 and all(c in "0123456789abcdef" for c in value.lower()):
+        hex_chars = "0123456789abcdef"
+        if allow_sha256 and len(value) == 64 and all(c in hex_chars for c in value.lower()):
             return False
         for pattern in _FORBIDDEN_PATTERNS:
             if pattern.search(value):
@@ -249,7 +250,11 @@ def _hash_trace_batch(traces: list[dict[str, Any]]) -> str:
 
 def _abstract_trace_class(tool_name: str) -> str:
     """Map tool_name to abstract trace class, stripping kogni_ prefix."""
-    canonical = tool_name.replace("kogni_", "graq_", 1) if tool_name.startswith("kogni_") else tool_name
+    canonical = (
+        tool_name.replace("kogni_", "graq_", 1)
+        if tool_name.startswith("kogni_")
+        else tool_name
+    )
     return _TRACE_CLASS_MAP.get(canonical, "other")
 
 

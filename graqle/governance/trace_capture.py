@@ -129,7 +129,11 @@ def is_governed(tool_name: str) -> bool:
 
     Kogni aliases (kogni_*) are mapped to their graq_* equivalents.
     """
-    canonical = tool_name.replace("kogni_", "graq_", 1) if tool_name.startswith("kogni_") else tool_name
+    canonical = (
+        tool_name.replace("kogni_", "graq_", 1)
+        if tool_name.startswith("kogni_")
+        else tool_name
+    )
     return canonical in GOVERNED_TOOLS
 
 
@@ -208,14 +212,18 @@ class TraceCapture:
         if self.trace is not None:
             self.trace.context_nodes = nodes
 
-    def add_tool_call(self, tool: str, args: dict[str, Any] | None = None, summary: str | None = None) -> None:
+    def add_tool_call(
+        self, tool: str, args: dict[str, Any] | None = None, summary: str | None = None
+    ) -> None:
         """Record a nested tool invocation."""
         if self.trace is not None:
             self.trace.tool_calls.append(
                 ToolCall(tool=tool, args=args or {}, result_summary=summary)
             )
 
-    async def __aexit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any) -> bool:
+    async def __aexit__(
+        self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> bool:
         elapsed_ms = (time.monotonic() - self._start_time) * 1000
 
         if self.trace is None:
