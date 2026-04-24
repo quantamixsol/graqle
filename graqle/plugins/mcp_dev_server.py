@@ -1652,6 +1652,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "Required if strategy='literal'. Replacement string."
                     ),
                 },
+                "approved_by": {
+                    "type": "string",
+                    "default": "",
+                    "description": (
+                        "CG-EDIT-APPROVED_BY-01: Approver identity for G4 protected-path "
+                        "edits (e.g. 'harish'). Required when editing pyproject.toml, "
+                        "graqle.yaml, .mcp.json, or .claude/settings.json. "
+                        "Length >= 3 to be valid."
+                    ),
+                },
             },
             "required": ["file_path"],
         },
