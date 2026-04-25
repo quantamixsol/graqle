@@ -71,7 +71,12 @@ class ShaclValidator:
     def __init__(self, shapes_path: Path | None = None) -> None:
         self._shapes_path = shapes_path or _DEFAULT_SHAPES
         self._shapes_graph = Graph()
-        self._shapes_graph.parse(str(self._shapes_path), format="turtle")
+        try:
+            self._shapes_graph.parse(str(self._shapes_path), format="turtle")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"R22 shapes file not found: {self._shapes_path}")
+        except Exception as exc:
+            raise ValueError(f"R22 shapes file could not be parsed: {self._shapes_path}: {exc}") from exc
         self._shapes_hash = _sha256_file(self._shapes_path)
 
     @property
@@ -85,7 +90,12 @@ class ShaclValidator:
 
     def validate_graph(self, data_graph: Graph) -> ShaclValidationResult:
         """Low-level entry point: validate an already-built RDF graph."""
-        import pyshacl  # deferred — caller must have [api] extras
+        try:
+            import pyshacl  # deferred — caller must have [api] extras
+        except ImportError:
+            raise ImportError(
+                "R22 SHACL gate requires pyshacl: pip install 'graqle[api]'"
+            )
 
         conforms, results_graph, _ = pyshacl.validate(
             data_graph,
@@ -193,7 +203,9 @@ def _trace_to_rdf(trace: GovernedTrace) -> Graph:
 def _parse_float_from_summary(summary: str, key: str, default: float) -> float:
     """Extract a float value from a result_summary string."""
     import re
-    pattern = rf"{re.escape(key)}[^\d]*([0-9]+(?:\.[0-9]+)?)"
+    # ReDoS guard: cap input length before regex
+    summary = summary[:500]
+    pattern = rf"{re.escape(key)}[^\d]{{0,20}}([0-9]{{1,10}}(?:\.[0-9]{{1,10}})?)"
     m = re.search(pattern, summary, re.IGNORECASE)
     if m:
         try:
@@ -228,4 +240,7 @@ def _get_shape_set_version(shapes_graph: Graph) -> str:
 
 
 def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except (FileNotFoundError, PermissionError, MemoryError) as exc:
+        raise OSError(f"R22 cannot hash shapes file {path}: {exc}") from exc
