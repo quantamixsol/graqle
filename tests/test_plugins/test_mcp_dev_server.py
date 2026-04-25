@@ -382,7 +382,9 @@ class TestHandleTool:
     @pytest.mark.asyncio
     async def test_dispatches_free_tool(self, server):
         """graq_inspect should work without license check."""
-        with patch.object(server, "_read_active_branch", return_value=None):
+        import graqle.plugins.mcp_dev_server as _mds
+        with patch.object(server, "_read_active_branch", return_value=None), \
+             patch.object(_mds, "_SHACL_GATE_ENABLED", False):
             result = await server.handle_tool("graq_inspect", {"stats": True})
         data = json.loads(result)
         assert "total_nodes" in data

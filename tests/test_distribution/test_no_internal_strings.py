@@ -92,6 +92,25 @@ EXEMPT_PATHS: set[str] = {
     # Wave 2 0.52.0b1: Phase 2 CG-REASON-DIAG-01 informational comments
     "graqle/orchestration/aggregation.py",   # CG-GOV-06 (Wave 2 Phase 2 comment tags)
     "graqle/orchestration/orchestrator.py",  # CG-GOV-07 (Wave 2 Phase 2 comment tags)
+    # R18-R21 (ADR-201..204): governance research modules — ADR refs are spec annotations
+    "graqle/governance/trace_schema.py",     # R18 ADR-201 spec annotations
+    "graqle/governance/trace_capture.py",    # R18 ADR-201 spec annotations
+    "graqle/governance/trace_store.py",      # R18 ADR-201 spec annotations
+    "graqle/governance/failure_features.py", # R19 ADR-202 spec annotations
+    "graqle/governance/failure_predictor.py",# R19 ADR-202 spec annotations
+    "graqle/governance/calibration.py",      # R20 ADR-203 spec annotations
+    "graqle/governance/calibration_store.py",# R20 ADR-203 spec annotations
+    "graqle/governance/reliability_diagram.py",  # R20 ADR-203 spec annotations
+    "graqle/governance/near_miss_store.py",  # R20 ADR-203 spec annotations
+    "graqle/governance/federated_transfer.py",   # R21 ADR-204 spec annotations
+    "graqle/governance/pattern_abstractor.py",   # R21 ADR-204 spec annotations
+    "graqle/governance/pattern_registry.py", # R21 ADR-204 spec annotations
+    "graqle/governance/adaptation.py",       # R21 ADR-204 spec annotations
+    "graqle/governance/similarity.py",       # R21 ADR-204 spec annotations
+    "graqle/governance/__init__.py",         # R18-R21 combined exports (ADR refs in docstring)
+    "graqle/cli/commands/calibrate_governance.py",  # R20 CLI — ADR ref in module docstring
+    # R22 (ADR-205): SHACL governance completeness verification — ADR refs are spec annotations
+    "graqle/governance/shacl/",                     # R22 ADR-205 spec annotations + shapes.ttl
 }
 
 # Modules whose TS-2 compliance comments are informational, not pattern

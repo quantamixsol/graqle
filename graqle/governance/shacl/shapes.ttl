@@ -1,0 +1,361 @@
+# R22 SGCV — SHACL Governance Completeness Verification Shapes
+# Shape Set Version: 1.1.0
+# ADR-205
+#
+# B3 fix: namespace changed to opaque URN (not a resolvable public URI).
+# B1 fix: 10 shapes covering all 8 protocol steps; GovernanceTraceShape uses
+#         sh:qualifiedMinCount to enforce one of each mandatory step type.
+# N3 fix: PreflightStepShape decision allows PASS/BLOCK/WARN (enum only);
+#         runtime fail-closed logic lives in check_output_gate, not SHACL.
+
+@prefix gq:  <urn:graqle:gov:shapes:> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+# ---------------------------------------------------------------------------
+# Shape set metadata
+# ---------------------------------------------------------------------------
+
+gq:ShapeSetMetadata
+    a gq:ShapeSet ;
+    gq:shapeSetVersion "1.1.0"^^xsd:string ;
+    gq:description "R22 SGCV — 10 shapes verifying governance completeness of GovernedTrace"^^xsd:string .
+
+# ---------------------------------------------------------------------------
+# Shape 1: GovernanceTraceShape — top-level trace
+# B1 fix: require one of each mandatory step type by qualified shape,
+#         not by bare minCount (which allowed 8 identical inspect steps).
+# ---------------------------------------------------------------------------
+
+gq:GovernanceTraceShape
+    a sh:NodeShape ;
+    sh:targetClass gq:GovernedTrace ;
+
+    # Require at least one node of each mandatory step type
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:InspectStep ] ;
+        sh:message "Governance trace must include at least one graq_inspect step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:ContextStep ] ;
+        sh:message "Governance trace must include at least one graq_context step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:ImpactStep ] ;
+        sh:message "Governance trace must include at least one graq_impact step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:PreflightStep ] ;
+        sh:message "Governance trace must include at least one graq_preflight step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:ReasonStep ] ;
+        sh:message "Governance trace must include at least one graq_reason step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:GenerateStep ] ;
+        sh:message "Governance trace must include at least one graq_generate step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:ReviewStep ] ;
+        sh:message "Governance trace must include at least one graq_review step" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:hasGateStep ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedValueShape [ sh:class gq:LearnStep ] ;
+        sh:message "Governance trace must include at least one graq_learn step" ;
+    ] ;
+
+    # clearance_level must be one of the four valid values
+    sh:property [
+        sh:path gq:clearanceLevel ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "PUBLIC"^^xsd:string "INTERNAL"^^xsd:string "CONFIDENTIAL"^^xsd:string "RESTRICTED"^^xsd:string ) ;
+        sh:message "clearance_level must be one of: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED" ;
+    ] ;
+
+    # confidence score must be in [0.0, 1.0]
+    sh:property [
+        sh:path gq:confidence ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:double ;
+        sh:minInclusive "0.0"^^xsd:double ;
+        sh:maxInclusive "1.0"^^xsd:double ;
+        sh:message "confidence must be a finite value in [0.0, 1.0]" ;
+    ] ;
+
+    # outcome must be present and valid
+    sh:property [
+        sh:path gq:outcome ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "SUCCESS"^^xsd:string "PARTIAL"^^xsd:string "FAILURE"^^xsd:string "BLOCKED"^^xsd:string ) ;
+        sh:message "outcome must be one of: SUCCESS, PARTIAL, FAILURE, BLOCKED" ;
+    ] ;
+
+    # tool_name must be present and non-empty
+    sh:property [
+        sh:path gq:toolName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "tool_name must be a non-empty string" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 2: GateDecisionShape — each governance gate decision
+# ---------------------------------------------------------------------------
+
+gq:GateDecisionShape
+    a sh:NodeShape ;
+    sh:targetClass gq:GateDecision ;
+
+    sh:property [
+        sh:path gq:decision ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "PASS"^^xsd:string "BLOCK"^^xsd:string "WARN"^^xsd:string ) ;
+        sh:message "decision must be one of: PASS, BLOCK, WARN" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:gateType ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "CLEARANCE"^^xsd:string "IP_TRADE"^^xsd:string "GIT_GOVERNANCE"^^xsd:string "BUDGET"^^xsd:string ) ;
+        sh:message "gate_type must be one of: CLEARANCE, IP_TRADE, GIT_GOVERNANCE, BUDGET" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:gateId ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "gate_id must be a non-empty string" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 3: InspectStepShape — graq_inspect step
+# ---------------------------------------------------------------------------
+
+gq:InspectStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:InspectStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_inspect"^^xsd:string ) ;
+        sh:message "InspectStep must have tool_call.name = 'graq_inspect'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:stepStatus ;
+        sh:minCount 1 ;
+        sh:in ( "PASS"^^xsd:string ) ;
+        sh:message "InspectStep must have status = PASS" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 4: ContextStep — graq_context step (B1: previously missing)
+# ---------------------------------------------------------------------------
+
+gq:ContextStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:ContextStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_context"^^xsd:string ) ;
+        sh:message "ContextStep must have tool_call.name = 'graq_context'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:stepStatus ;
+        sh:minCount 1 ;
+        sh:in ( "PASS"^^xsd:string ) ;
+        sh:message "ContextStep must have status = PASS" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 5: ImpactStep — graq_impact step (B1: previously missing)
+# ---------------------------------------------------------------------------
+
+gq:ImpactStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:ImpactStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_impact"^^xsd:string ) ;
+        sh:message "ImpactStep must have tool_call.name = 'graq_impact'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:stepStatus ;
+        sh:minCount 1 ;
+        sh:in ( "PASS"^^xsd:string ) ;
+        sh:message "ImpactStep must have status = PASS" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 6: PreflightStepShape — graq_preflight step
+# N3 fix: allow PASS/BLOCK/WARN (decision validation); fail-closed logic
+#         lives in check_output_gate at runtime, not in SHACL.
+# ---------------------------------------------------------------------------
+
+gq:PreflightStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:PreflightStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_preflight"^^xsd:string ) ;
+        sh:message "PreflightStep must have tool_call.name = 'graq_preflight'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:safetyScore ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:double ;
+        sh:message "PreflightStep must have a safety_score" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:decision ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "PASS"^^xsd:string "BLOCK"^^xsd:string "WARN"^^xsd:string ) ;
+        sh:message "PreflightStep decision must be one of: PASS, BLOCK, WARN" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 7: ReasonStepShape — graq_reason step
+# ---------------------------------------------------------------------------
+
+gq:ReasonStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:ReasonStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_reason"^^xsd:string ) ;
+        sh:message "ReasonStep must have tool_call.name = 'graq_reason'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:answerConfidence ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:double ;
+        sh:minInclusive "0.0"^^xsd:double ;
+        sh:maxInclusive "1.0"^^xsd:double ;
+        sh:message "ReasonStep must have answer_confidence in [0.0, 1.0]" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 8: GenerateStep — graq_generate step (B1: previously missing)
+# ---------------------------------------------------------------------------
+
+gq:GenerateStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:GenerateStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_generate"^^xsd:string ) ;
+        sh:message "GenerateStep must have tool_call.name = 'graq_generate'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:stepStatus ;
+        sh:minCount 1 ;
+        sh:in ( "PASS"^^xsd:string ) ;
+        sh:message "GenerateStep must have status = PASS" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 9: ReviewStepShape — graq_review step
+# ---------------------------------------------------------------------------
+
+gq:ReviewStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:ReviewStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_review"^^xsd:string ) ;
+        sh:message "ReviewStep must have tool_call.name = 'graq_review'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:approved ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( true ) ;
+        sh:message "ReviewStep must have approved = true" ;
+    ] .
+
+# ---------------------------------------------------------------------------
+# Shape 10: LearnStepShape — graq_learn step
+# ---------------------------------------------------------------------------
+
+gq:LearnStepShape
+    a sh:NodeShape ;
+    sh:targetClass gq:LearnStep ;
+
+    sh:property [
+        sh:path gq:toolCallName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( "graq_learn"^^xsd:string ) ;
+        sh:message "LearnStep must have tool_call.name = 'graq_learn'" ;
+    ] ;
+
+    sh:property [
+        sh:path gq:learnOutcome ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "LearnStep must have a recorded outcome (non-empty string)" ;
+    ] .
