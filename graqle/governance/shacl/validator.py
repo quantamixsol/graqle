@@ -19,7 +19,7 @@ from rdflib.namespace import XSD
 
 from graqle.governance.trace_schema import GovernedTrace
 
-_GQ = Namespace("https://graqle.io/governance/shapes#")
+_GQ = Namespace("urn:graqle:gov:shapes:")
 _DEFAULT_SHAPES = Path(__file__).parent / "shapes.ttl"
 
 
@@ -136,10 +136,14 @@ def _trace_to_rdf(trace: GovernedTrace) -> Graph:
         g.add((trace_uri, _GQ.hasGateStep, gd_uri))
 
     # Tool calls as step nodes (typed by tool name)
+    # B1 fix: all 8 protocol steps are mapped (context + impact + generate added)
     _STEP_TYPE_MAP = {
         "graq_inspect": _GQ.InspectStep,
+        "graq_context": _GQ.ContextStep,
+        "graq_impact": _GQ.ImpactStep,
         "graq_preflight": _GQ.PreflightStep,
         "graq_reason": _GQ.ReasonStep,
+        "graq_generate": _GQ.GenerateStep,
         "graq_review": _GQ.ReviewStep,
         "graq_learn": _GQ.LearnStep,
     }
@@ -154,13 +158,20 @@ def _trace_to_rdf(trace: GovernedTrace) -> Graph:
 
         # Tool-specific fields from result_summary
         summary = tc.result_summary or ""
-        if step_type == _GQ.InspectStep:
+        if step_type in (_GQ.InspectStep, _GQ.ContextStep, _GQ.ImpactStep, _GQ.GenerateStep):
             status = "PASS" if "error" not in summary.lower() else "FAIL"
             g.add((step_uri, _GQ.stepStatus, Literal(status, datatype=XSD.string)))
 
         elif step_type == _GQ.PreflightStep:
             safety_score = _parse_float_from_summary(summary, "safety_score", 1.0)
-            decision = "BLOCK" if "BLOCK" in summary.upper() else "PASS"
+            # N3 fix: decision is PASS/BLOCK/WARN enum — default PASS, detect BLOCK/WARN from summary
+            summary_upper = summary.upper()
+            if "BLOCK" in summary_upper:
+                decision = "BLOCK"
+            elif "WARN" in summary_upper:
+                decision = "WARN"
+            else:
+                decision = "PASS"
             g.add((step_uri, _GQ.safetyScore, Literal(safety_score, datatype=XSD.double)))
             g.add((step_uri, _GQ.decision, Literal(decision, datatype=XSD.string)))
 

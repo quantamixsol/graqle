@@ -37,7 +37,7 @@ from graqle.governance.trace_schema import (
     ToolCall,
 )
 
-_GQ = Namespace("https://graqle.io/governance/shapes#")
+_GQ = Namespace("urn:graqle:gov:shapes:")
 _SHAPES_PATH = Path(__file__).parent.parent.parent / "graqle" / "governance" / "shacl" / "shapes.ttl"
 
 
@@ -56,6 +56,7 @@ def _make_gate(gate_id: str, gate_type: GateType = GateType.CLEARANCE) -> Govern
 
 
 def _make_valid_trace(**overrides) -> GovernedTrace:
+    """Build a valid 8-step trace covering the full governance protocol."""
     defaults = dict(
         tool_name="graq_reason",
         query="test query for R22 SGCV",
@@ -63,9 +64,13 @@ def _make_valid_trace(**overrides) -> GovernedTrace:
         confidence=0.9,
         clearance_level=ClearanceLevel.INTERNAL,
         tool_calls=[
+            # B1 fix: all 8 mandatory step types must be present
             ToolCall(tool="graq_inspect", result_summary="OK"),
+            ToolCall(tool="graq_context", result_summary="OK"),
+            ToolCall(tool="graq_impact", result_summary="OK"),
             ToolCall(tool="graq_preflight", result_summary="safety_score 0.95"),
             ToolCall(tool="graq_reason", result_summary="answer_confidence 0.85"),
+            ToolCall(tool="graq_generate", result_summary="OK"),
             ToolCall(tool="graq_review", result_summary="APPROVED"),
             ToolCall(tool="graq_learn", result_summary="lesson recorded"),
         ],
@@ -103,17 +108,17 @@ def test_shapes_file_valid(shapes_graph):
     assert len(shapes_graph) > 0
 
 
-def test_shapes_file_has_seven_shapes(shapes_graph):
-    """shapes.ttl must declare exactly 7 NodeShape instances."""
+def test_shapes_file_has_ten_shapes(shapes_graph):
+    """shapes.ttl must declare exactly 10 NodeShape instances (B1: 8 step shapes + GateDecision + GovernanceTrace)."""
     from rdflib.namespace import RDF, SH
     shapes = list(shapes_graph.subjects(RDF.type, SH.NodeShape))
-    assert len(shapes) == 7, f"Expected 7 shapes, found {len(shapes)}: {shapes}"
+    assert len(shapes) == 10, f"Expected 10 shapes, found {len(shapes)}: {shapes}"
 
 
 def test_shapes_file_has_version_triple(shapes_graph):
-    """shapes.ttl must have shapeSetVersion triple = '1.0.0'."""
+    """shapes.ttl must have shapeSetVersion triple = '1.1.0'."""
     version = shapes_graph.value(_GQ.ShapeSetMetadata, _GQ.shapeSetVersion)
-    assert str(version) == "1.0.0"
+    assert str(version) == "1.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +162,24 @@ def test_valid_trace_shape_set_version_in_result(validator):
     """Validation result must carry the shape set version."""
     trace = _make_valid_trace()
     result = validator.validate(trace)
-    assert result.shape_set_version == "1.0.0"
+    assert result.shape_set_version == "1.1.0"
+
+
+# ---------------------------------------------------------------------------
+# B1 anti-vacuity regression: 8 identical inspect steps must NOT pass
+# ---------------------------------------------------------------------------
+
+
+def test_b1_eight_identical_inspect_steps_fail(validator):
+    """B1 regression: sh:qualifiedMinCount by type means 8 inspects != 8 distinct step types."""
+    trace = _make_valid_trace(
+        tool_calls=[ToolCall(tool="graq_inspect", result_summary="OK")] * 8
+    )
+    result = validator.validate(trace)
+    assert result.conforms is False, (
+        "B1 regression: 8 identical inspect steps must fail — "
+        "GovernanceTraceShape requires one of each mandatory step type"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +341,7 @@ def test_proof_report_has_required_fields(validator):
     required = {"trace_id", "shape_set_version", "conforms", "violations", "validated_at", "shapes_file_hash"}
     assert required.issubset(report.keys())
     assert report["shapes_file_hash"] == validator.shapes_file_hash
-    assert report["shape_set_version"] == "1.0.0"
+    assert report["shape_set_version"] == "1.1.0"
 
 
 def test_proof_report_save_and_reload(tmp_path, validator):

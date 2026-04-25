@@ -76,6 +76,32 @@ except Exception as _ver_exc:  # pylint: disable=broad-except
 
 
 # ---------------------------------------------------------------------------
+# R22 SGCV: SHACL output gate — runtime-toggleable via env var
+# ---------------------------------------------------------------------------
+
+import os as _os_r22
+
+_SHACL_GATE_ENABLED: bool = (
+    _os_r22.environ.get("GRAQLE_SHACL_GATE", "").lower() in {"1", "true", "yes"}
+)
+
+_shacl_validator_singleton: "Any | None" = None
+
+
+def _get_shacl_validator() -> "Any | None":
+    """Return a cached ShaclValidator, or None if unavailable."""
+    global _shacl_validator_singleton
+    if _shacl_validator_singleton is not None:
+        return _shacl_validator_singleton
+    try:
+        from graqle.governance.shacl import ShaclValidator
+        _shacl_validator_singleton = ShaclValidator()
+    except Exception:
+        pass
+    return _shacl_validator_singleton
+
+
+# ---------------------------------------------------------------------------
 # GH-67 Fix 3: Safe bool coercion for MCP arguments
 # ---------------------------------------------------------------------------
 
@@ -4394,7 +4420,35 @@ class KogniDevServer:
             if is_governed(name) and self._trace_store is not None:
                 async with TraceCapture(name, arguments, self._trace_store) as _tc:
                     result = await handler(arguments)
-                    return self._inject_tool_hints(name, result)
+                # R22 SGCV: Output gate — checked after TraceCapture records the trace
+                try:
+                    if _tc.trace is not None and _SHACL_GATE_ENABLED:
+                        from graqle.governance.shacl import ShaclValidator, check_output_gate
+                        _validator = _get_shacl_validator()
+                        if _validator is not None:
+                            _gate = check_output_gate(_tc.trace, _validator)
+                            if not _gate.passed:
+                                _viol_msgs = "; ".join(
+                                    v.message for v in _gate.report.violations[:3]
+                                )
+                                logger.warning(
+                                    "R22 SHACL gate BLOCKED tool '%s': %s", name, _viol_msgs
+                                )
+                                err = json.dumps({
+                                    "error": "R22_SHACL_GATE",
+                                    "tool": name,
+                                    "message": (
+                                        f"Output gate blocked: governance trace does not conform "
+                                        f"to SHACL shapes. Violations: {_viol_msgs}"
+                                    ),
+                                    "violations": [v.message for v in _gate.report.violations],
+                                })
+                                return self._inject_tool_hints(name, err)
+                except ImportError:
+                    pass  # pyshacl not installed — gate skipped (not fail-closed at server level)
+                except Exception:
+                    pass  # Gate failure must never block tool execution
+                return self._inject_tool_hints(name, result)
         except Exception:
             pass  # TraceCapture failure must never block tool execution
 
