@@ -9,13 +9,11 @@ Covers:
 from __future__ import annotations
 
 import importlib
-import os
 import sys
 
 import pytest
 
 from graqle.embeddings.governance_dataset import GovernanceDataset
-
 
 # ---------------------------------------------------------------------------
 # B3: GSEFT_TRAINING_DEFERRED env-injectable
@@ -125,12 +123,8 @@ class TestB4ZeroHyperparamGuard:
 
 class TestB2NoBedrockImports:
     def test_embeddings_package_has_no_boto3(self):
-        import graqle.embeddings
-        import graqle.embeddings.model_registry
-        import graqle.embeddings.governance_dataset
-        import graqle.embeddings.contrastive_trainer
-        import graqle.embeddings.governance_eval
         import ast
+
         for mod_name, mod in sys.modules.items():
             if mod_name.startswith("graqle.embeddings"):
                 src = getattr(mod, "__file__", "") or ""
@@ -146,3 +140,79 @@ class TestB2NoBedrockImports:
                             for name in names:
                                 assert "boto3" not in name, f"boto3 import in {src}"
                                 assert "bedrock" not in name.lower(), f"bedrock import in {src}"
+
+
+# ---------------------------------------------------------------------------
+# N1: best_fine_tuned mrr tie-break
+# ---------------------------------------------------------------------------
+
+class TestN1BestFineTunedMrrTieBreak:
+    def test_returns_none_on_empty_registry(self):
+        from graqle.embeddings.model_registry import EmbeddingModelRegistry
+        reg = EmbeddingModelRegistry()
+        assert reg.best_fine_tuned() is None
+
+    def test_returns_none_when_no_fine_tuned(self):
+        from graqle.embeddings.model_registry import EmbeddingModelEntry, EmbeddingModelRegistry
+        reg = EmbeddingModelRegistry()
+        reg.register(EmbeddingModelEntry(model_id="base", base_model="m", is_fine_tuned=False))
+        assert reg.best_fine_tuned() is None
+
+    def test_picks_highest_f1(self):
+        from graqle.embeddings.model_registry import EmbeddingModelEntry, EmbeddingModelRegistry
+        reg = EmbeddingModelRegistry()
+        reg.register(EmbeddingModelEntry(
+            "m1", "base", eval_metrics={"f1": 0.7, "mrr": 0.5}, is_fine_tuned=True
+        ))
+        reg.register(EmbeddingModelEntry(
+            "m2", "base", eval_metrics={"f1": 0.9, "mrr": 0.3}, is_fine_tuned=True
+        ))
+        assert reg.best_fine_tuned().model_id == "m2"
+
+    def test_mrr_breaks_f1_tie(self):
+        from graqle.embeddings.model_registry import EmbeddingModelEntry, EmbeddingModelRegistry
+        reg = EmbeddingModelRegistry()
+        reg.register(EmbeddingModelEntry(
+            "low-mrr", "base", eval_metrics={"f1": 0.8, "mrr": 0.4}, is_fine_tuned=True
+        ))
+        reg.register(EmbeddingModelEntry(
+            "high-mrr", "base", eval_metrics={"f1": 0.8, "mrr": 0.9}, is_fine_tuned=True
+        ))
+        assert reg.best_fine_tuned().model_id == "high-mrr"
+
+    def test_missing_metrics_default_to_zero(self):
+        from graqle.embeddings.model_registry import EmbeddingModelEntry, EmbeddingModelRegistry
+        reg = EmbeddingModelRegistry()
+        reg.register(EmbeddingModelEntry(
+            "no-metrics", "base", eval_metrics={}, is_fine_tuned=True
+        ))
+        reg.register(EmbeddingModelEntry(
+            "has-f1", "base", eval_metrics={"f1": 0.1}, is_fine_tuned=True
+        ))
+        assert reg.best_fine_tuned().model_id == "has-f1"
+
+
+# ---------------------------------------------------------------------------
+# N4: GovernanceDataset.from_kg raises NotImplementedError when deferred
+# ---------------------------------------------------------------------------
+
+class TestN4FromKgRaisesWhenDeferred:
+    def test_raises_not_implemented_when_deferred(self, monkeypatch):
+        monkeypatch.delenv("GRAQLE_GSEFT_TRAINING_ENABLED", raising=False)
+        import importlib
+
+        import graqle.embeddings.governance_dataset as gd
+        importlib.reload(gd)
+        assert gd.GSEFT_TRAINING_DEFERRED is True
+        with pytest.raises(NotImplementedError, match="R24"):
+            gd.GovernanceDataset.from_kg([])
+
+    def test_raises_not_implemented_even_with_nodes(self, monkeypatch):
+        monkeypatch.delenv("GRAQLE_GSEFT_TRAINING_ENABLED", raising=False)
+        import importlib
+
+        import graqle.embeddings.governance_dataset as gd
+        importlib.reload(gd)
+        assert gd.GSEFT_TRAINING_DEFERRED is True
+        with pytest.raises(NotImplementedError):
+            gd.GovernanceDataset.from_kg([{"id": "n1", "label": "test"}])

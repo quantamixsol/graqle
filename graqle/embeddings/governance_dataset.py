@@ -45,16 +45,14 @@ class GovernanceDataset:
     def from_kg(cls, kg_nodes: list[dict[str, Any]]) -> GovernanceDataset:
         """Build triplets from KG node list.
 
-        Deferred until R24: returns empty dataset with a runtime warning.
+        Raises NotImplementedError when deferred (GSEFT_TRAINING_DEFERRED=True) so
+        callers get an unambiguous signal — not a silent empty dataset.
         """
         if GSEFT_TRAINING_DEFERRED:
-            import warnings
-            warnings.warn(
-                "GovernanceDataset.from_kg: GSEFT training deferred (R24 milestone). "
-                "Returning empty dataset.",
-                stacklevel=2,
+            raise NotImplementedError(
+                "GovernanceDataset.from_kg: GSEFT training deferred until R24. "
+                "Set GRAQLE_GSEFT_TRAINING_ENABLED=1 to enable (requires R24 dataset)."
             )
-            return cls([])
         # R24 implementation placeholder — replace with actual triplet mining
         raise NotImplementedError("GovernanceDataset.from_kg not yet implemented (R24)")
 

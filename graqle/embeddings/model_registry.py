@@ -35,8 +35,11 @@ class EmbeddingModelRegistry:
         return list(self._models.keys())
 
     def best_fine_tuned(self) -> EmbeddingModelEntry | None:
-        """Return highest-scoring fine-tuned model by eval_metrics['f1'], or None."""
+        """Return highest-scoring fine-tuned model by f1 (mrr as tie-break), or None."""
         candidates = [e for e in self._models.values() if e.is_fine_tuned]
         if not candidates:
             return None
-        return max(candidates, key=lambda e: e.eval_metrics.get("f1", 0.0))
+        return max(
+            candidates,
+            key=lambda e: (e.eval_metrics.get("f1", 0.0), e.eval_metrics.get("mrr", 0.0)),
+        )
