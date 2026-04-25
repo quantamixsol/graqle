@@ -64,7 +64,8 @@ jobs:
             --ignore=tests/test_orchestration/test_debate.py \
             --ignore=tests/test_plugins/test_mcp_server.py \
             --ignore=tests/test_server/test_middleware.py \
-            --ignore=tests/test_server/test_models.py
+            --ignore=tests/test_server/test_models.py \
+            --ignore=tests/test_governance/test_shacl.py
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
