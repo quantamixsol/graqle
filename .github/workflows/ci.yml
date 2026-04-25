@@ -59,6 +59,7 @@ jobs:
             --ignore=tests/test_ontology/test_governance_v3.py \
             --ignore=tests/test_ontology/test_ontology_generator.py \
             --ignore=tests/test_ontology/test_semantic_shacl_gate.py \
+            --ignore=tests/test_governance/test_shacl.py \
             --ignore=tests/test_ontology/test_shacl_gate.py \
             --ignore=tests/test_orchestration/test_confidence_calibration.py \
             --ignore=tests/test_orchestration/test_debate.py \

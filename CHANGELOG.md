@@ -4,6 +4,26 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.52.0 (2026-04-26) - [session-continuity-and-gseft-scaffold]
+
+### Added
+
+- **NS-08: `graq_session_compact` / `kogni_session_compact`** — atomically compacts the oldest turns of a conversation session in `conversations.jsonl` into a single rolled-up summary record. Keeps JSONL history bounded so it never grows unbounded. Idempotent: running twice yields the same result. Atomic rewrite via `tempfile` + `os.replace`. Configurable `keep_last` (default 10) and `threshold` (default 20). Returns `{compacted, retained, session_id, skipped}`.
+- **NS-09: `graq_session_resume` / `kogni_session_resume`** — loads a prior session's full turn history as a structured context bundle suitable for injection into a system prompt. Read-only; never modifies `conversations.jsonl`. Bounded by `max_chars` (default 2000) for token safety. Handles compacted records gracefully. Returns `{found, session_id, last_active, turn_count, status, summary, context_bundle}`.
+- **R23 GSEFT scaffold** (`graqle/embeddings/` — ADR-206) — Governance-Supervised Embedding Fine-Tuning infrastructure, deferred pending R24 dataset curation:
+  - `EmbeddingModelRegistry` — register, retrieve, and rank fine-tuned governance embedding models. `best_fine_tuned()` ranks by `(f1, mrr)` with mrr as tie-break.
+  - `GovernanceDataset` / `GovernanceTriplet` — contrastive (anchor, positive, negative) triplet dataset builder. `from_kg()` raises `NotImplementedError` when training is deferred, giving callers an unambiguous signal.
+  - `ContrastiveTrainer` / `TrainerConfig` — GSEFT training loop stub. Hyperparameters (`batch_size`, `learning_rate`) injected via `GRAQLE_GSEFT_BATCH_SIZE` / `GRAQLE_GSEFT_LEARNING_RATE` env vars (no hardcoded defaults). B4 guard: raises `ValueError` on zero hyperparams when training is active.
+  - `GovernanceEvaluator` / `EvalResult` — evaluation harness for governance retrieval metrics (precision@1, recall@5, f1, mrr).
+  - `GSEFT_TRAINING_DEFERRED` flag: `True` by default; env-injectable via `GRAQLE_GSEFT_TRAINING_ENABLED=1` for R24 flip without a code change. Zero boto3/Bedrock imports in package.
+- **MCP tool count**: 162 → 166 (+4: `graq_session_compact`, `kogni_session_compact`, `graq_session_resume`, `kogni_session_resume`)
+
+### Fixed
+
+- CI: added `tests/test_governance/test_shacl.py` to pytest ignore list (`rdflib`/`pyshacl` are `[api]` extras, not `[dev]`; CI installs `.[dev]` only)
+
+---
+
 ## 0.52.0-alpha (2026-04-19) - [wave-1-gap-closure]
 
 ### Added
