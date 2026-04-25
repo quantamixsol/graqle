@@ -155,7 +155,13 @@ artifacts = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["graqle"]
-exclude = ["graqle/benchmarks/data/*"]
+exclude = [
+    "graqle/benchmarks/data/*",
+    # B3/S2: shapes.ttl excluded from wheel — structural SHACL logic is
+    # readable even with opaque URNs; keep it server-side only until ADR-206
+    # documents accepted disclosure posture before public PyPI.
+    "graqle/governance/shacl/shapes.ttl",
+]
 
 [tool.hatch.build.targets.wheel.force-include]
 # NOTE: graqle/data/claude_gate is covered by packages=["graqle"] above.

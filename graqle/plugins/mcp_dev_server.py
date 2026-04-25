@@ -96,8 +96,10 @@ def _get_shacl_validator() -> "Any | None":
     try:
         from graqle.governance.shacl import ShaclValidator
         _shacl_validator_singleton = ShaclValidator()
-    except Exception:
-        pass
+    except ImportError:
+        logger.debug("R22 SHACL gate: pyshacl not installed, gate disabled")
+    except Exception as _exc:
+        logger.warning("R22 SHACL gate: validator init failed, gate disabled: %s", _exc)
     return _shacl_validator_singleton
 
 
