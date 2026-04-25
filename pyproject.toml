@@ -131,6 +131,8 @@ dev = [
     "httpx>=0.25",
     "boto3>=1.28",
     "requests>=2.28",
+    "rdflib>=7.0.0",
+    "pyshacl>=0.25.0",
 ]
 
 [project.scripts]
