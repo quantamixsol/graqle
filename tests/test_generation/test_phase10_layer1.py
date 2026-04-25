@@ -17,6 +17,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_shacl_gate():
+    """Disable SHACL gate for all tests in this module."""
+    import graqle.plugins.mcp_dev_server
+    original = graqle.plugins.mcp_dev_server._SHACL_GATE_ENABLED
+    graqle.plugins.mcp_dev_server._SHACL_GATE_ENABLED = False
+    yield
+    graqle.plugins.mcp_dev_server._SHACL_GATE_ENABLED = original
+
 # ──────────────────────────────────────────────────────────────────────────────
 # 1. GovernanceMiddleware — cumulative radius anti-gaming
 # ──────────────────────────────────────────────────────────────────────────────

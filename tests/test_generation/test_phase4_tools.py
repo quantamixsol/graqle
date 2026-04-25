@@ -70,6 +70,15 @@ def _build_mock_graph() -> MagicMock:
     return graph
 
 
+@pytest.fixture(autouse=True)
+def _disable_shacl_gate():
+    import graqle.plugins.mcp_dev_server as _mds
+    old = _mds._SHACL_GATE_ENABLED
+    _mds._SHACL_GATE_ENABLED = False
+    yield
+    _mds._SHACL_GATE_ENABLED = old
+
+
 @pytest.fixture
 def server(tmp_path):
     srv = KogniDevServer.__new__(KogniDevServer)
