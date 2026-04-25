@@ -6,6 +6,7 @@ Dataset construction deferred: requires curated governance node labels (R24).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -13,9 +14,9 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # Deferred training marker
 # ---------------------------------------------------------------------------
-# GSEFT_TRAINING_DEFERRED: dataset curation milestone not yet reached (R24).
-# When R24 completes, replace this constant with actual dataset loading logic.
-GSEFT_TRAINING_DEFERRED = True
+# B3 fix: env-injectable so R24 can flip without a code change.
+# Default True (deferred) unless GRAQLE_GSEFT_TRAINING_ENABLED=1 is set.
+GSEFT_TRAINING_DEFERRED: bool = os.environ.get("GRAQLE_GSEFT_TRAINING_ENABLED", "0") != "1"
 
 
 @dataclass
