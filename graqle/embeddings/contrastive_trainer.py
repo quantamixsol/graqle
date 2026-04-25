@@ -6,6 +6,7 @@ R24 dataset is ready and compute budget is approved.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -20,8 +21,15 @@ class TrainerConfig:
     base_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     output_dir: str = ".graqle/gseft-checkpoints"
     epochs: int = 3
-    batch_size: int = 32
-    learning_rate: float = 2e-5
+    # B1 (TS-2): training hyperparameters externalized — no hardcoded defaults.
+    # Set via GRAQLE_GSEFT_BATCH_SIZE / GRAQLE_GSEFT_LEARNING_RATE env vars,
+    # or pass explicitly when constructing TrainerConfig.
+    batch_size: int = field(
+        default_factory=lambda: int(os.environ.get("GRAQLE_GSEFT_BATCH_SIZE", "0") or "0")
+    )
+    learning_rate: float = field(
+        default_factory=lambda: float(os.environ.get("GRAQLE_GSEFT_LEARNING_RATE", "0") or "0")
+    )
     warmup_steps: int = 100
     eval_steps: int = 200
     extra: dict = field(default_factory=dict)
