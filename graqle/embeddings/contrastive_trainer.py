@@ -21,7 +21,7 @@ class TrainerConfig:
     base_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     output_dir: str = ".graqle/gseft-checkpoints"
     epochs: int = 3
-    # B1 (TS-2): training hyperparameters externalized — no hardcoded defaults.
+    # B1: training hyperparameters externalized — no hardcoded defaults.
     # Set via GRAQLE_GSEFT_BATCH_SIZE / GRAQLE_GSEFT_LEARNING_RATE env vars,
     # or pass explicitly when constructing TrainerConfig.
     batch_size: int = field(
