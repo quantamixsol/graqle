@@ -18,7 +18,7 @@ Every change is impact-analysed, gate-checked, and taught back — automatically
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
 [![Tests: 4,150+](https://img.shields.io/badge/tests-4%2C150%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
-[![MCP Tools: 122](https://img.shields.io/badge/MCP%20tools-122-06b6d4.svg)]()
+[![MCP Tools: 166](https://img.shields.io/badge/MCP%20tools-166-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
 [![Governed Reasoning](https://img.shields.io/badge/governed-reasoning-06b6d4.svg)]()
 [![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-06b6d4.svg)](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode)
@@ -77,29 +77,22 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.46.7
+## What's New in v0.52.0
 
-### Multi-Agent Governed Reasoning
+### Session Continuity — Never Lose Context Again
 
-> **Your codebase is not a collection of files. It's a network of reasoning agents.**
+- **`graq_session_compact`** — atomically compacts the oldest turns of a conversation into a rolled-up summary, keeping `conversations.jsonl` bounded. Idempotent. Atomic rewrite via `tempfile` + `os.replace`. Configurable `keep_last` and `threshold`.
+- **`graq_session_resume`** — loads a prior session's full turn history as a structured context bundle for system-prompt injection. Read-only, bounded by `max_chars` for token safety. Handles compacted records transparently.
 
-- **ReasoningCoordinator** — decompose complex queries into specialist subtasks, dispatch to multiple graph nodes simultaneously, synthesize answers with clearance-level governance. Not a chatbot. An architecture-aware reasoning network.
-- **Governed synthesis** — every answer passes through GovernanceMiddleware. Trade secret patterns are unconditionally blocked. Clearance levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) propagate through the reasoning chain.
-- **BudgetAwareSemaphore** — cost-conscious concurrency. The graph reasons within your budget, decays costs across rounds, and stops before overspending.
-- **Feature-flagged** — `coordinator.enabled=false` by default. Zero disruption. Enable when ready: `graq run "your question" --coordinator`
+### R23 GSEFT — Governance Embedding Infrastructure
 
-### Self-Validating Code Generation
+- **`graqle/embeddings/`** — scaffold for Governance-Supervised Embedding Fine-Tuning (ADR-206). Includes `EmbeddingModelRegistry`, `GovernanceDataset` (contrastive triplets), `ContrastiveTrainer`, and `GovernanceEvaluator`. Training deferred to R24 (dataset curation); all paths safely gated. Zero new runtime dependencies.
+- **`EmbeddingModelRegistry.best_fine_tuned()`** — ranks fine-tuned models by `(f1, mrr)` with MRR as tie-break.
+- **Env-injectable training flag** — flip `GRAQLE_GSEFT_TRAINING_ENABLED=1` in R24 without a code change.
 
-- **The AI validates its own output before writing.** `ast.parse()` catches syntax errors. `difflib` catches drifted context lines. Auto-reanchoring fixes minor drift without burning an LLM call. CWE-22 containment on all file reads.
-- **`graq auto`** — autonomous loop: plan, generate, write, test, diagnose, fix, retry. All governed.
+### 14 LLM Backends. 166 MCP Tools. 4,150+ Tests.
 
-### Intelligent First-Run
-
-- **No knowledge graph? No crash.** GraQle detects your LLM backend, profiles your project (languages, frameworks, file count), and guides you through 3 questions to build your first graph. Your original question is auto-answered after the scan completes.
-
-### 14 LLM Backends. 122 MCP Tools. 4,150+ Tests.
-
-Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Now with think-tag fallback and num_predict auto-scale for local reasoning models.
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers.
 
 [Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
