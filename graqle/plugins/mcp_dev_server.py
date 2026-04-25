@@ -82,7 +82,7 @@ except Exception as _ver_exc:  # pylint: disable=broad-except
 import os as _os_r22
 
 _SHACL_GATE_ENABLED: bool = (
-    _os_r22.environ.get("GRAQLE_SHACL_GATE", "").lower() in {"1", "true", "yes"}
+    _os_r22.environ.get("GRAQLE_SHACL_GATE", "1").lower() not in {"0", "false", "no"}
 )
 
 _shacl_validator_singleton: "Any | None" = None
@@ -4445,9 +4445,10 @@ class KogniDevServer:
                                 })
                                 return self._inject_tool_hints(name, err)
                 except ImportError:
-                    pass  # pyshacl not installed — gate skipped (not fail-closed at server level)
-                except Exception:
-                    pass  # Gate failure must never block tool execution
+                    pass  # pyshacl not installed — gate skipped gracefully
+                except Exception as _gate_exc:
+                    logger.error("R22 SHACL gate error (AC-3 fail-closed): %s", _gate_exc)
+                    raise  # re-raise — gate errors must never silently pass
                 return self._inject_tool_hints(name, result)
         except Exception:
             pass  # TraceCapture failure must never block tool execution
