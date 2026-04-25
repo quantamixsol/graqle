@@ -64,6 +64,18 @@ class ContrastiveTrainer:
                 trained=False,
                 skipped_reason="GSEFT_TRAINING_DEFERRED — R24 dataset not yet curated",
             )
+        # B4: guard against silent degenerate training run when env vars are unset.
+        # batch_size=0 or learning_rate=0.0 would produce a nonsensical training run.
+        if self.config.batch_size <= 0:
+            raise ValueError(
+                "TrainerConfig.batch_size must be > 0. "
+                "Set GRAQLE_GSEFT_BATCH_SIZE env var or pass batch_size explicitly."
+            )
+        if self.config.learning_rate <= 0.0:
+            raise ValueError(
+                "TrainerConfig.learning_rate must be > 0. "
+                "Set GRAQLE_GSEFT_LEARNING_RATE env var or pass learning_rate explicitly."
+            )
         if len(dataset) == 0:
             return TrainResult(trained=False, skipped_reason="empty dataset")
         return self._run_training(dataset)
