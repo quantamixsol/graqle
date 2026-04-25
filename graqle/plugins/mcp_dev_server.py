@@ -2608,6 +2608,72 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    # NS-08 (Wave 3): graq_session_compact — bounded history with summary rollup
+    {
+        "name": "graq_session_compact",
+        "description": (
+            "NS-08: Compact a conversation's turn history by rolling up the N "
+            "oldest turns into a single summarised record. Keeps conversations.jsonl "
+            "bounded. Returns {compacted: N, retained: M, session_id, skipped}. "
+            "skipped=true when turn_count < threshold (default 20). "
+            "keep_last controls how many recent turns are preserved (default 10)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "The conversation/session ID to compact.",
+                },
+                "keep_last": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Number of most-recent turns to preserve (default 10).",
+                },
+                "threshold": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 2,
+                    "description": (
+                        "Minimum turn_count before compaction runs (default 20). "
+                        "Sessions below this threshold are skipped."
+                    ),
+                },
+            },
+            "required": ["session_id"],
+        },
+    },
+    # NS-09 (Wave 3): graq_session_resume — load prior session into active context
+    {
+        "name": "graq_session_resume",
+        "description": (
+            "NS-09: Load a prior conversation's context for injection into the "
+            "current session. Returns {found, session_id, last_active, turn_count, "
+            "status, summary, context_bundle}. context_bundle is a formatted text "
+            "block suitable for prepending to a system prompt. Returns found=false "
+            "when session_id is unknown."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "The conversation/session ID to resume.",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "default": 2000,
+                    "minimum": 100,
+                    "description": (
+                        "Maximum characters for context_bundle (default 2000). "
+                        "Bounded for token safety."
+                    ),
+                },
+            },
+            "required": ["session_id"],
+        },
+    },
     # G2 (v0.52.0): pre-publish KG-multi-agent governance gate.
     # Composes diff review + risk prediction into a structured verdict.
     {
@@ -4246,6 +4312,8 @@ class KogniDevServer:
             "graq_kg_diag": self._handle_kg_diag,
             "graq_chat_turn": self._handle_chat_turn,
             "graq_session_list": self._handle_session_list,
+            "graq_session_compact": self._handle_session_compact,
+            "graq_session_resume": self._handle_session_resume,
             "graq_chat_poll": self._handle_chat_poll,
             "graq_chat_resume": self._handle_chat_resume,
             "graq_chat_cancel": self._handle_chat_cancel,
@@ -4398,6 +4466,9 @@ class KogniDevServer:
             # R20 AGGC (ADR-203): governance score calibration
             "graq_calibrate_governance": self._handle_calibrate_governance,
             "kogni_calibrate_governance": self._handle_calibrate_governance,
+            # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume kogni aliases
+            "kogni_session_compact": self._handle_session_compact,
+            "kogni_session_resume": self._handle_session_resume,
         }
 
         handler = handlers.get(name)
@@ -4802,6 +4873,74 @@ class KogniDevServer:
                 "message": f"{type(exc).__name__}: {str(exc)[:200]}",
                 "conversations": [],
                 "count": 0,
+            })
+
+    # -- NS-08 (Wave 3): graq_session_compact ----------------------------------
+
+    async def _handle_session_compact(self, args: dict[str, Any]) -> str:
+        """NS-08: compact oldest turns for a session into a rolled-up summary."""
+        if not isinstance(args, dict):
+            args = {}
+        session_id = args.get("session_id", "")
+        if not session_id:
+            return json.dumps({"error": "NS-08_MISSING_PARAM", "message": "session_id is required"})
+        keep_last = int(args.get("keep_last", 10))
+        threshold = int(args.get("threshold", 20))
+        try:
+            from graqle.chat.session_compact import compact_session
+            _raw = getattr(self, "_graph_file", None)
+            root = None
+            if _raw and isinstance(_raw, (str, Path)):
+                try:
+                    root = Path(str(_raw)).resolve().parent
+                except OSError:
+                    pass
+            result = compact_session(
+                session_id,
+                root=root,
+                keep_last=keep_last,
+                threshold=threshold,
+            )
+            return json.dumps(result)
+        except Exception as exc:
+            logger.error("graq_session_compact unexpected failure: %s", exc, exc_info=True)
+            return json.dumps({
+                "error": "NS-08_RUNTIME",
+                "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+                "compacted": 0,
+                "retained": 0,
+                "skipped": True,
+            })
+
+    # -- NS-09 (Wave 3): graq_session_resume ------------------------------------
+
+    async def _handle_session_resume(self, args: dict[str, Any]) -> str:
+        """NS-09: load prior session context for injection into current turn."""
+        if not isinstance(args, dict):
+            args = {}
+        session_id = args.get("session_id", "")
+        if not session_id:
+            return json.dumps({"error": "NS-09_MISSING_PARAM", "message": "session_id is required"})
+        max_chars = int(args.get("max_chars", 2000))
+        try:
+            from graqle.chat.session_resume import resume_session
+            _raw = getattr(self, "_graph_file", None)
+            root = None
+            if _raw and isinstance(_raw, (str, Path)):
+                try:
+                    root = Path(str(_raw)).resolve().parent
+                except OSError:
+                    pass
+            result = resume_session(session_id, root=root, max_chars=max_chars)
+            return json.dumps(result)
+        except Exception as exc:
+            logger.error("graq_session_resume unexpected failure: %s", exc, exc_info=True)
+            return json.dumps({
+                "error": "NS-09_RUNTIME",
+                "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+                "found": False,
+                "session_id": session_id,
+                "context_bundle": "",
             })
 
     async def _handle_reason(self, args: dict[str, Any]) -> str:
