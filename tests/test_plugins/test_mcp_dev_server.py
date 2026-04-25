@@ -232,6 +232,9 @@ class TestToolDefinitions:
             "graq_session_list",
             # R20 AGGC (ADR-203): governance score calibration
             "graq_calibrate_governance",
+            # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume
+            "graq_session_compact",
+            "graq_session_resume",
         }
         expected_kogni = {
             "kogni_context",
@@ -332,8 +335,11 @@ class TestToolDefinitions:
             "kogni_session_list",
             # R20 AGGC (ADR-203): governance score calibration alias
             "kogni_calibrate_governance",
+            # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume aliases
+            "kogni_session_compact",
+            "kogni_session_resume",
         }
-        # R18-R21 rebase: 80 graq_* + 80 kogni_* = 160 + 2 (graq_calibrate_governance + alias) = 162
+        # 0.52.0 final: 84 graq_* + 82 kogni_* = 166 total (NS-08/NS-09 +4) (R20 adds graq_calibrate_governance)
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -363,8 +369,8 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        # R18-R21 rebase: 160 (Wave 2) + 2 (graq_calibrate_governance + kogni alias) = 162
-        assert len(tools) == 162
+        # 0.52.0 final: 162 -> 166 (NS-08/NS-09 +4: session_compact + session_resume)
+        assert len(tools) == 166
 
 
 # ---------------------------------------------------------------------------
