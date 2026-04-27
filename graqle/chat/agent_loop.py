@@ -312,6 +312,7 @@ class ChatAgentLoop:
                 "intent_id": activation.intent_id,
                 "candidates": [c.label for c in activation.candidates],
                 "scenario": scenario or "",
+                "graph": getattr(self, "graph", None),
             }
             try:
                 self._last_activation_verdict = await self.activation_layer.run(
