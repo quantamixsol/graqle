@@ -48,9 +48,12 @@ class RealChunkScoringProvider:
         if not scorer:
             return ChunkScoreResult(summary="chunk scorer unavailable")
         try:
-            # ChunkScorer has a synchronous `score` method on most branches.
-            # Call it defensively; fall back to empty result on any failure.
-            raw = scorer.score(user_message) if hasattr(scorer, "score") else None
+            # ChunkScorer.score(graph, query) requires the loaded KG as first arg.
+            # graph is injected via activation_hints by ChatAgentLoop._act_hints.
+            graph = activation_hints.get("graph") if activation_hints else None
+            if graph is None:
+                return ChunkScoreResult(summary="chunk scorer unavailable: no graph in activation_hints")
+            raw = scorer.score(graph, user_message) if hasattr(scorer, "score") else None
             if raw is None:
                 return ChunkScoreResult(summary="chunk scorer returned None")
             # Normalize to our public shape
