@@ -1038,3 +1038,258 @@ class TestBug008ReloadCG01Exempt:
         assert result["graph_loaded"] is True
         assert srv._session_started is True
 
+
+# ---------------------------------------------------------------------------
+# BUG-006: Orphan node detection
+# ---------------------------------------------------------------------------
+
+class TestBug006OrphanDetection:
+    """BUG-006: graq_inspect(orphans=True) and graq_reason activation_warning for orphan seeds."""
+
+    def _make_server_with_orphans(self):
+        import threading
+        from unittest.mock import MagicMock
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv.config_path = "graqle.yaml"
+        srv.read_only = False
+        srv._config = None
+        srv._graph_file = "graqle.json"
+        srv._graph_mtime = 9999999999.0
+        srv._kg_load_lock = threading.Lock()
+        srv._kg_loaded = threading.Event()
+        srv._kg_load_error = None
+        srv._kg_load_state = "LOADED"
+        srv._gov = None
+        nodes = {
+            "orphan-lesson": MockNode(id="orphan-lesson", label="Orphan Lesson Node", entity_type="LESSON", description="isolated lesson", degree=0),
+            "orphan-knowledge": MockNode(id="orphan-knowledge", label="Orphan Knowledge Node", entity_type="KNOWLEDGE", description="A" * 250, degree=0),
+            "connected-lesson": MockNode(id="connected-lesson", label="Connected Lesson Node", entity_type="LESSON", description="connected", degree=2),
+            "connected-service": MockNode(id="connected-service", label="Connected Service Node", entity_type="service", description="service", degree=3),
+            "no-entity-type": MockNode(id="no-entity-type", label="No Entity Type", entity_type="", description="missing type", degree=0),
+            "none-description": MockNode(id="none-description", label="None Description Node", entity_type="LESSON", description=None, degree=0),
+        }
+        graph = MagicMock()
+        graph.nodes = nodes
+        srv._graph = graph
+        return srv
+
+    def _make_server_no_orphans(self):
+        import threading
+        from unittest.mock import MagicMock
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv.config_path = "graqle.yaml"
+        srv.read_only = False
+        srv._config = None
+        srv._graph_file = "graqle.json"
+        srv._graph_mtime = 9999999999.0
+        srv._kg_load_lock = threading.Lock()
+        srv._kg_loaded = threading.Event()
+        srv._kg_load_error = None
+        srv._kg_load_state = "LOADED"
+        srv._gov = None
+        nodes = {
+            "connected-1": MockNode(id="connected-1", label="Connected One", entity_type="LESSON", description="connected", degree=2),
+            "connected-2": MockNode(id="connected-2", label="Connected Two", entity_type="KNOWLEDGE", description="connected", degree=1),
+        }
+        graph = MagicMock()
+        graph.nodes = nodes
+        srv._graph = graph
+        return srv
+
+    def _make_server_empty_graph(self):
+        import threading
+        from unittest.mock import MagicMock
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv.config_path = "graqle.yaml"
+        srv.read_only = False
+        srv._config = None
+        srv._graph_file = "graqle.json"
+        srv._graph_mtime = 9999999999.0
+        srv._kg_load_lock = threading.Lock()
+        srv._kg_loaded = threading.Event()
+        srv._kg_load_error = None
+        srv._kg_load_state = "LOADED"
+        srv._gov = None
+        graph = MagicMock()
+        graph.nodes = {}
+        srv._graph = graph
+        return srv
+
+    # --- _handle_inspect(orphans=True) ---
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_returns_lesson_node(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert any(n["id"] == "orphan-lesson" for n in data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_returns_knowledge_node(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert any(n["id"] == "orphan-knowledge" for n in data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_excludes_connected_lesson(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert not any(n["id"] == "connected-lesson" for n in data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_excludes_connected_service(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert not any(n["id"] == "connected-service" for n in data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_excludes_non_kg_entity_type(self):
+        """Nodes with entity_type not in (KNOWLEDGE, LESSON) must be excluded."""
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert not any(n["id"] == "no-entity-type" for n in data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_sorted_by_label(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        labels = [n["label"] for n in data["orphans"]]
+        assert labels == sorted(labels)
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_count_matches_list(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert data["orphan_count"] == len(data["orphans"])
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_hint_present(self):
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert "hint" in data
+        assert len(data["hint"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_empty_graph_returns_empty(self):
+        srv = self._make_server_empty_graph()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert data["orphans"] == []
+        assert data["orphan_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_no_orphans_returns_empty(self):
+        srv = self._make_server_no_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        assert data["orphans"] == []
+        assert data["orphan_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_description_truncated_to_200(self):
+        """Description longer than 200 chars must be truncated — no ellipsis added."""
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        knowledge = next(n for n in data["orphans"] if n["id"] == "orphan-knowledge")
+        assert len(knowledge["description"]) == 200
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_none_description_safe(self):
+        """None description must not raise — must return empty string."""
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": True}))
+        none_desc = next(n for n in data["orphans"] if n["id"] == "none-description")
+        assert none_desc["description"] == ""
+
+    @pytest.mark.asyncio
+    async def test_inspect_orphans_false_does_not_return_orphan_keys(self):
+        """orphans=False must fall through to normal inspect — no orphan_count key."""
+        srv = self._make_server_with_orphans()
+        data = json.loads(await srv._handle_inspect({"orphans": False}))
+        assert "orphan_count" not in data
+
+    # --- _handle_reason activation_warning ---
+
+    def _make_reasoning_result(self, active_nodes, **kwargs):
+        from graqle.core.types import ReasoningResult
+        defaults = dict(
+            query="q", answer="a", confidence=0.8, rounds_completed=2,
+            message_trace=[], cost_usd=0.01, latency_ms=100.0,
+            backend_status="ok", backend_error=None, reasoning_mode="full",
+        )
+        defaults.update(kwargs)
+        return ReasoningResult(active_nodes=active_nodes, **defaults)
+
+    @pytest.mark.asyncio
+    async def test_reason_single_orphan_adds_activation_warning(self):
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["orphan-lesson"]))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" in data
+        assert "orphan-lesson" in data["activation_warning"]
+        assert "orphan" in data["activation_warning"].lower()
+
+    @pytest.mark.asyncio
+    async def test_reason_single_connected_seed_no_warning(self):
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["connected-service"]))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" not in data
+
+    @pytest.mark.asyncio
+    async def test_reason_multiple_active_nodes_no_warning(self):
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["orphan-lesson", "connected-service"]))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" not in data
+
+    @pytest.mark.asyncio
+    async def test_reason_env_fallback_disabled_suppresses_warning(self):
+        from unittest.mock import AsyncMock, patch
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["orphan-lesson"]))
+        with patch.dict("os.environ", {"GRAQLE_ORPHAN_FALLBACK": "0"}):
+            data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" not in data
+
+    @pytest.mark.asyncio
+    async def test_reason_env_fallback_unset_defaults_enabled(self):
+        from unittest.mock import AsyncMock, patch
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["orphan-lesson"]))
+        env = {k: v for k, v in __import__("os").environ.items() if k != "GRAQLE_ORPHAN_FALLBACK"}
+        with patch.dict("os.environ", env, clear=True):
+            data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" in data
+
+    @pytest.mark.asyncio
+    async def test_reason_node_id_not_in_graph_no_keyerror(self):
+        """Node ID returned by areason but absent from graph.nodes must not raise."""
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["nonexistent-node-xyz"]))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert "activation_warning" not in data
+
+    @pytest.mark.asyncio
+    async def test_reason_existing_result_fields_preserved(self):
+        """Orphan check must not mutate existing result_dict fields."""
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(return_value=self._make_reasoning_result(["orphan-lesson"], answer="exact answer", confidence=0.77))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert data["answer"] == "exact answer"
+        assert data["confidence"] == 0.77
+        assert data["nodes_used"] == 1
+
+    @pytest.mark.asyncio
+    async def test_reason_backend_error_path_unaffected(self):
+        """Backend error response must not contain activation_warning."""
+        from unittest.mock import AsyncMock
+        srv = self._make_server_with_orphans()
+        srv._graph.areason = AsyncMock(side_effect=RuntimeError("backend down"))
+        data = json.loads(await srv._handle_reason({"question": "q"}))
+        assert data["error"] == "REASONING_BACKEND_UNAVAILABLE"
+        assert data["confidence"] == 0.0
+        assert "activation_warning" not in data
+
