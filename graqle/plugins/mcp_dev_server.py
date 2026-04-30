@@ -2486,6 +2486,43 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         ),
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "graq_graph_health",
+        "description": (
+            "GraQle Graph Health Check & Rebuild. Diagnoses the knowledge graph "
+            "backend (local JSON/NetworkX or Neo4j), reports node/edge counts, "
+            "activation strategy (chunk-level semantic vs keyword fallback), "
+            "NPZ cache status, zero-vector count, and estimated reasoning latency. "
+            "Optionally rebuilds the chunk_embeddings.npz incrementally (only "
+            "embeds NEW chunks — never regresses existing vectors) and injects "
+            "ADR→code REFERENCES and ADR↔ADR RELATED_TO links. "
+            "Works for any user's project: auto-detects config from graqle.yaml."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["check", "rebuild", "links", "full"],
+                    "default": "check",
+                    "description": (
+                        "check = health report only (no writes); "
+                        "rebuild = health + incremental NPZ rebuild; "
+                        "links = health + ADR link injection; "
+                        "full = health + rebuild + links"
+                    ),
+                },
+                "graph_path": {
+                    "type": "string",
+                    "description": "Override path to graqle.json (auto-detected if omitted)",
+                },
+                "config_path": {
+                    "type": "string",
+                    "description": "Override path to graqle.yaml (searches upward if omitted)",
+                },
+            },
+        },
+    },
     # T03 (v0.51.6) — Chat surface (ChatAgentLoop v4) handlers.
     # Unblocks VS Code extension v0.4.9 pivot; handlers live in
     # graqle/chat/mcp_handlers.py — see that module for semantics.
@@ -4131,6 +4168,8 @@ class KogniDevServer:
                 "graq_lifecycle", "kogni_lifecycle", "graq_inspect", "kogni_inspect",
                 "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
                 "graq_kg_diag", "kogni_kg_diag",
+                "graq_graph_health", "kogni_graph_health",
+                "graq_reload", "kogni_reload",
             }
             if getattr(_governance, "session_gate_enabled", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg01_bypass
@@ -4469,6 +4508,9 @@ class KogniDevServer:
             # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume kogni aliases
             "kogni_session_compact": self._handle_session_compact,
             "kogni_session_resume": self._handle_session_resume,
+            # Graph Health Check & Rebuild (graqle.tools.graph_health)
+            "graq_graph_health": self._handle_graph_health,
+            "kogni_graph_health": self._handle_graph_health,
         }
 
         handler = handlers.get(name)
@@ -4738,6 +4780,70 @@ class KogniDevServer:
             "tool_hints": [],
         })
 
+    async def _handle_graph_health(self, args: dict[str, Any]) -> str:
+        """GraQle Graph Health Check & Rebuild MCP handler.
+
+        Delegates to graqle.tools.graph_health.GraphHealthEngine.
+        Works for any user's project — auto-detects backend and config.
+        """
+        from pathlib import Path as _Path
+        from graqle.tools.graph_health import GraphHealthEngine
+
+        mode = str(args.get("mode", "check")).lower()
+        graph_path = _Path(args["graph_path"]) if args.get("graph_path") else None
+        config_path = _Path(args["config_path"]) if args.get("config_path") else None
+
+        do_rebuild = mode in ("rebuild", "full")
+        do_links = mode in ("links", "full")
+
+        try:
+            engine = GraphHealthEngine(
+                graph_path=graph_path,
+                config_path=config_path,
+            )
+            report = engine.run(
+                rebuild=do_rebuild,
+                inject_links=do_links,
+                dry_run=False,
+            )
+            return json.dumps({
+                "tool": "graq_graph_health",
+                "mode": mode,
+                "report": report.to_dict(),
+                "tool_hints": [
+                    {
+                        "tool": "graq_graph_health",
+                        "reason": "Run with mode='rebuild' to embed new chunks",
+                    }
+                ] if report.cache_status.get("new_chunks_available", 0) > 0 else [],
+            })
+        except Exception as exc:
+            logger.exception("graq_graph_health failed")
+            return json.dumps({
+                "tool": "graq_graph_health",
+                "error": str(exc),
+                "tool_hints": [],
+            })
+
+    def _project_root_from_graph_file(self, graph_file: "str | None") -> "Path":
+        """Resolve project root from _graph_file, safely handling non-filesystem URIs.
+
+        When Neo4j/Neptune is active, _graph_file is set to a URI like
+        'neo4j://bolt://localhost:7687'. Path() on that string produces an
+        invalid Windows path (WinError 123). Detect any URI scheme and fall
+        back to GRAQLE_SERVE_CWD env var (set by mcp_serve()) or cwd().
+        """
+        import os as _os
+        if graph_file and isinstance(graph_file, (str, Path)) and "://" not in str(graph_file):
+            try:
+                return Path(str(graph_file)).resolve().parent
+            except OSError:
+                pass
+        serve_cwd = _os.environ.get("GRAQLE_SERVE_CWD", "")
+        if serve_cwd:
+            return Path(serve_cwd).resolve()
+        return Path.cwd().resolve()
+
     def _get_chat_ctx(self) -> "Any":
         """T03 (v0.51.6): lazy ChatHandlerContext, one per server process."""
         ctx = getattr(self, "_chat_ctx", None)
@@ -4773,8 +4879,61 @@ class KogniDevServer:
                 "message": "message is required (string)",
             })
 
-        from graqle.chat.mcp_handlers import handle_chat_turn
+        from graqle.chat.mcp_handlers import handle_chat_turn, _GraqleBackedDriver
         ctx = self._get_chat_ctx()
+
+        # Build a real LLM driver on first turn (loop not yet created).
+        # Subsequent turns reuse the cached loop via get_or_create_loop.
+        _llm_driver = None
+        if ctx.session_id not in ctx.loops:
+            try:
+                _cfg = self._config
+                if _cfg is None:
+                    from graqle.config.settings import GraqleConfig
+                    from pathlib import Path as _Path
+                    _cfg_path = _Path(self.config_path) if hasattr(self, "config_path") else None
+                    if _cfg_path is not None and _cfg_path.exists():
+                        _cfg = GraqleConfig.from_yaml(str(_cfg_path))
+                    else:
+                        _cfg = GraqleConfig.default()
+                # Build backend directly to avoid CLI console.print() polluting stdout/JSON-RPC.
+                import os as _os_chat
+                _bname = getattr(getattr(_cfg, "model", None), "backend", "anthropic")
+                _mname = getattr(getattr(_cfg, "model", None), "model", "claude-sonnet-4-6")
+                _akey = getattr(getattr(_cfg, "model", None), "api_key", None)
+                if isinstance(_akey, str) and _akey.startswith("${") and _akey.endswith("}"):
+                    _akey = _os_chat.environ.get(_akey[2:-1])
+                _backend = None
+                if _bname == "anthropic":
+                    if not _akey:
+                        _akey = _os_chat.environ.get("ANTHROPIC_API_KEY")
+                    if _akey:
+                        from graqle.backends.api import AnthropicBackend
+                        _backend = AnthropicBackend(model=_mname, api_key=_akey)
+                elif _bname == "bedrock":
+                    _region = (
+                        getattr(getattr(_cfg, "model", None), "region", None)
+                        or _os_chat.environ.get("AWS_DEFAULT_REGION")
+                        or _os_chat.environ.get("AWS_REGION")
+                        or "us-east-1"
+                    )
+                    from graqle.backends.api import BedrockBackend
+                    _backend = BedrockBackend(model=_mname, region=_region)
+                elif _bname == "openai":
+                    if not _akey:
+                        _akey = _os_chat.environ.get("OPENAI_API_KEY")
+                    if _akey:
+                        from graqle.backends.api import OpenAIBackend
+                        _backend = OpenAIBackend(model=_mname, api_key=_akey)
+                if _backend is not None:
+                    _llm_driver = _GraqleBackedDriver(_backend, self._graph)
+                else:
+                    logger.warning("chat: no backend configured, responses will be empty")
+            except Exception as _drv_exc:
+                logger.warning(
+                    "chat: failed to build real LLM driver, using noop: %s", _drv_exc
+                )
+
         # Only thread permission_tier/intent_hint when explicitly provided
         # so the handler's sentinel-based omitted-detection works correctly.
         _extra: dict[str, Any] = {}
@@ -4782,6 +4941,8 @@ class KogniDevServer:
             _extra["permission_tier"] = args["permission_tier"]
         if "intent_hint" in args:
             _extra["intent_hint"] = args["intent_hint"]
+        if _llm_driver is not None:
+            _extra["llm_driver"] = _llm_driver
 
         result = await handle_chat_turn(
             ctx,
@@ -6838,10 +6999,7 @@ class KogniDevServer:
 
         # Step 2: invoke auditor, map typed exceptions to envelopes
         try:
-            root = None
-            if getattr(self, "_graph_file", None):
-                from pathlib import Path as _Path
-                root = _Path(self._graph_file).resolve().parent
+            root = self._project_root_from_graph_file(getattr(self, "_graph_file", None))
             auditor = ConfigDriftAuditor(root=root)
 
             if action == "audit":
@@ -7254,7 +7412,12 @@ class KogniDevServer:
         if not event:
             return json.dumps({"error": "Parameter 'event' is required."})
 
-        graph = self._load_graph()
+        # session_start always forces a fresh disk read so it picks up any
+        # graph changes made since the MCP server started (e.g. after graq learn).
+        if event == "session_start":
+            graph = self._load_graph_impl()
+        else:
+            graph = self._load_graph()
         response: dict[str, Any] = {
             "event": event,
             "graph_loaded": graph is not None,
@@ -11485,13 +11648,7 @@ class KogniDevServer:
         run_self_test = args.get("self_test", True)
 
         _raw = getattr(self, "_graph_file", None)
-        if _raw and isinstance(_raw, (str, Path)):
-            try:
-                project_root = Path(str(_raw)).resolve().parent
-            except OSError:
-                project_root = Path.cwd().resolve()
-        else:
-            project_root = Path.cwd().resolve()
+        project_root = self._project_root_from_graph_file(_raw)
 
         gate_path = project_root / ".claude" / "hooks" / "graqle-gate.py"
         settings_path = project_root / ".claude" / "settings.json"
@@ -11608,13 +11765,7 @@ class KogniDevServer:
             })
 
         _raw = getattr(self, "_graph_file", None)
-        if _raw and isinstance(_raw, (str, Path)):
-            try:
-                project_root = Path(str(_raw)).resolve().parent
-            except OSError:
-                project_root = Path.cwd().resolve()
-        else:
-            project_root = Path.cwd().resolve()
+        project_root = self._project_root_from_graph_file(_raw)
 
         # G5: vscode-extension target dispatches to the helper and returns early
         if target == "vscode-extension":
