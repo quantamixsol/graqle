@@ -235,6 +235,8 @@ class TestToolDefinitions:
             # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume
             "graq_session_compact",
             "graq_session_resume",
+            # ADR-208 (0.53.0): graph health check + rebuild MCP tool
+            "graq_graph_health",
         }
         expected_kogni = {
             "kogni_context",
@@ -338,8 +340,10 @@ class TestToolDefinitions:
             # NS-08/NS-09 (Wave 3 / 0.52.0): session compact + resume aliases
             "kogni_session_compact",
             "kogni_session_resume",
+            # ADR-208 (0.53.0): graph health check + rebuild MCP tool alias
+            "kogni_graph_health",
         }
-        # 0.52.0 final: 84 graq_* + 82 kogni_* = 166 total (NS-08/NS-09 +4) (R20 adds graq_calibrate_governance)
+        # 0.53.0: +2 tools (graq_graph_health + kogni_graph_health) = 168 total
         assert expected_graq | expected_kogni == names
 
     def test_all_tools_have_schema(self):
@@ -369,8 +373,8 @@ class TestToolDefinitions:
 class TestListTools:
     def test_returns_all_definitions(self, server):
         tools = server.list_tools()
-        # 0.52.0 final: 162 -> 166 (NS-08/NS-09 +4: session_compact + session_resume)
-        assert len(tools) == 166
+        # 0.53.0: 166 -> 168 (ADR-208: +graq_graph_health + kogni_graph_health)
+        assert len(tools) == 168
 
 
 # ---------------------------------------------------------------------------
@@ -921,4 +925,116 @@ class TestInitializeClientInfoBypass:
         assert srv_other._cg01_bypass is False
         assert srv_other._cg02_bypass is False
         assert srv_other._cg03_bypass is False
+
+
+class TestBug008ReloadCG01Exempt:
+    """BUG-008: graq_reload and kogni_reload must be exempt from CG-01_SESSION_GATE.
+    graq_lifecycle(session_start) must call _load_graph_impl() unconditionally.
+    """
+
+    def _make_governed_server(self):
+        """Build a server with governance enabled and session NOT started."""
+        from graqle.plugins.mcp_dev_server import KogniDevServer
+        from unittest.mock import MagicMock
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._session_started = False
+        srv._plan_active = False
+        srv._cg01_bypass = False
+        srv._cg02_bypass = False
+        srv._cg03_bypass = False
+        srv._graph = None
+        srv._graph_file = None
+        srv._graph_mtime = 0.0
+        srv._start_kg_load_background = lambda: None
+        # Governance config with session gate enabled
+        gov = MagicMock()
+        gov.session_gate_enabled = True
+        gov.plan_mandatory = False
+        gov.edit_enforcement = False
+        gov.edit_batch_max = 10
+        gov.ts_hard_block = False
+        config = MagicMock()
+        config.governance = gov
+        srv._config = config
+        return srv
+
+    @pytest.mark.asyncio
+    async def test_reload_before_session_start_not_blocked(self):
+        """graq_reload must NOT be blocked by CG-01 before session_start."""
+        from graqle.plugins.mcp_dev_server import KogniDevServer
+        from unittest.mock import AsyncMock, patch
+        srv = self._make_governed_server()
+        # Patch _handle_reload to avoid actual graph loading
+        srv._handle_reload = AsyncMock(return_value='{"reloaded": true}')
+        srv._inject_tool_hints = lambda name, result: result
+
+        request = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "graq_reload", "arguments": {}},
+        }
+        with patch.object(srv, "_load_graph", return_value=None):
+            response = await srv._handle_jsonrpc(request)
+
+        result_text = response.get("result", {}).get("content", [{}])[0].get("text", "")
+        assert "CG-01_SESSION_GATE" not in result_text, (
+            "graq_reload must be exempt from CG-01 — got blocked before session_start"
+        )
+
+    @pytest.mark.asyncio
+    async def test_kogni_reload_before_session_start_not_blocked(self):
+        """kogni_reload alias must also be exempt from CG-01."""
+        from unittest.mock import AsyncMock, patch
+        srv = self._make_governed_server()
+        srv._handle_reload = AsyncMock(return_value='{"reloaded": true}')
+        srv._inject_tool_hints = lambda name, result: result
+
+        request = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "kogni_reload", "arguments": {}},
+        }
+        with patch.object(srv, "_load_graph", return_value=None):
+            response = await srv._handle_jsonrpc(request)
+
+        result_text = response.get("result", {}).get("content", [{}])[0].get("text", "")
+        assert "CG-01_SESSION_GATE" not in result_text, (
+            "kogni_reload must be exempt from CG-01 — got blocked before session_start"
+        )
+
+    @pytest.mark.asyncio
+    async def test_session_start_calls_load_graph_impl(self):
+        """graq_lifecycle(session_start) must call _load_graph_impl(), not _load_graph()."""
+        from graqle.plugins.mcp_dev_server import KogniDevServer
+        from unittest.mock import MagicMock, patch
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._session_started = False
+        srv._cg01_bypass = False
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.session_gate_enabled = False
+
+        mock_graph = MagicMock()
+        mock_graph.stats.total_nodes = 100
+        mock_graph.stats.total_edges = 200
+        mock_graph.stats.connected_components = 5
+        mock_graph.stats.hub_nodes = []
+
+        impl_called = []
+
+        def fake_impl():
+            impl_called.append(True)
+            return mock_graph
+
+        srv._load_graph_impl = fake_impl
+        srv._load_graph = lambda: mock_graph
+        srv._check_backend_status = lambda g: {"status": "ok"}
+        srv._read_active_branch = lambda: None
+        srv._find_lesson_nodes = lambda *a, **kw: []
+
+        result_json = await srv._handle_lifecycle({"event": "session_start", "context": "", "files": []})
+        import json as _json
+        result = _json.loads(result_json)
+
+        assert impl_called, "session_start must call _load_graph_impl() for unconditional fresh load"
+        assert result["graph_loaded"] is True
+        assert srv._session_started is True
 
