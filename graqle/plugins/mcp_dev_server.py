@@ -4192,10 +4192,11 @@ class KogniDevServer:
                 "graq_plan", "kogni_plan", "graq_learn", "kogni_learn",
                 "graq_lifecycle", "kogni_lifecycle",
                 "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
+                "graq_reload", "kogni_reload",   # BUG-003: reload is read-only, no destructive side effects
             }
             if getattr(_governance, "plan_mandatory", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg02_bypass
-                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False):
+                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False) and not (name in {"graq_bash", "kogni_bash"} and arguments and arguments.get("dry_run") is True):
                     logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
                     err = json.dumps({
                         "error": "CG-02_PLAN_GATE",

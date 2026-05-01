@@ -1293,3 +1293,143 @@ class TestBug006OrphanDetection:
         assert data["confidence"] == 0.0
         assert "activation_warning" not in data
 
+
+class TestBug003CG02BashExempt:
+    """BUG-003: graq_bash dry_run carve-out + graq_reload exempt from CG-02."""
+
+    def _make_server(self, *, plan_mandatory=True, plan_active=False, cg02_bypass=False):
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        # CG-02 gate reads: getattr(getattr(self, "_config", None), "governance", None)
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = plan_mandatory
+        srv._config.governance.session_gate_enabled = True
+        srv._config.governance.edit_enforcement = False
+        # Simulate session already started so CG-01 doesn't fire before CG-02
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = plan_active
+        srv._cg02_bypass = cg02_bypass
+        return srv
+
+    # ── graq_bash dry_run carve-out ────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_true_passes_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "git log", "dry_run": True})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_false_blocked_by_cg02(self):
+        srv = self._make_server()
+        # Use a non-git command to avoid CG-11 gate intercepting before CG-02
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_bash_dry_run_true_passes_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("kogni_bash", {"command": "echo hello", "dry_run": True})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_bash_dry_run_false_blocked_by_cg02(self):
+        srv = self._make_server()
+        # Use a non-git command to avoid CG-11 gate intercepting before CG-02
+        result = await srv.handle_tool("kogni_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── dry_run edge cases ─────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_key_absent_blocked(self):
+        """Missing dry_run key defaults to False — must be blocked."""
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello"})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_string_true_blocked(self):
+        """dry_run='true' (string) is not `is True` — must be blocked."""
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": "true"})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── graq_reload / kogni_reload exempt ─────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_reload_exempt_from_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_reload", return_value='{"status": "reloaded"}'):
+            result = await srv.handle_tool("graq_reload", {})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_reload_exempt_from_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_reload", return_value='{"status": "reloaded"}'):
+            result = await srv.handle_tool("kogni_reload", {})
+        assert "CG-02_PLAN_GATE" not in result
+
+    # ── gate inactive paths ────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg02_bypass_allows_bash_dry_run_false(self):
+        """When _cg02_bypass=True the gate is skipped entirely."""
+        srv = self._make_server(cg02_bypass=True)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_plan_mandatory_false_gate_not_triggered(self):
+        """When plan_mandatory=False the CG-02 gate is entirely inactive."""
+        srv = self._make_server(plan_mandatory=False)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_plan_active_allows_bash_dry_run_false(self):
+        """With an active plan, graq_bash(dry_run=False) is allowed through."""
+        srv = self._make_server(plan_active=True)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    # ── regression: other write tools still blocked ────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_edit_still_blocked_without_plan(self):
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_edit", {"file_path": "test.py", "description": "test"})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_graq_generate_still_blocked_without_plan(self):
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_generate", {"description": "test"})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── regression: existing exemptions preserved ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_plan_still_exempt(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_plan", return_value='{"status": "planned"}'):
+            result = await srv.handle_tool("graq_plan", {"goal": "test"})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_graq_learn_still_exempt(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_learn", return_value='{"status": "learned"}'):
+            result = await srv.handle_tool("graq_learn", {"action": "test"})
+        assert "CG-02_PLAN_GATE" not in result
+
