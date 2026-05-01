@@ -4,6 +4,77 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.53.0 (2026-05-02) - [reliability-release]
+
+> **The reliability release.** 10 silent failure modes fixed across `graq_bash`,
+> `graq_write`, `graq_reason`, and `graq_learn`. Users upgrading from v0.46–v0.52
+> get automatic import-path shims with zero code changes required. Windows developers
+> get stdout capture that actually works. Governance gates that were blocking
+> legitimate read-only operations now get out of the way. Every fix is backed by
+> targeted tests — 5,357 passing across Python 3.10 / 3.11 / 3.12.
+
+### Fixed
+
+- **BUG-001: `graq_write` path alias.** `path` parameter now accepted as alias
+  for `file_path`. If both are present, `file_path` wins. Error message includes
+  "Did you mean `file_path`?" hint when `path` was passed.
+
+- **BUG-002: `graq_write` full-file rewrites unblocked.** New `force_overwrite`
+  parameter bypasses CG-03_EDIT_GATE for intentional full-file rewrites. Runs
+  `_run_preflight` first; governance log entry created on every use. Three-mode
+  model now documented in the tool description.
+
+- **BUG-003: `graq_bash` read-only commands bypass CG-02 gate.** New `read_only`
+  parameter plus auto-detection (no `>` redirect, no mutating keywords: `rm`, `mv`,
+  `pip install`, `git commit`, `DROP`, `DELETE FROM`). Auto-detected read-only
+  commands skip the plan gate entirely.
+
+- **BUG-004: `graq_bash` pip install respects active virtualenv.** Checks
+  `sys.prefix != sys.base_prefix`. Inside a venv: allowed with governance log
+  warning. Outside: blocked with "activate a virtualenv first" message.
+
+- **BUG-005: Windows multi-line `python -c` stdout capture fixed.** On `win32`,
+  if a `python -c "..."` command contains embedded newlines, the code is written
+  to a `NamedTemporaryFile(.py)` and executed as `python file.py` instead. Temp
+  file is deleted in `finally`. Env flag `GRAQLE_WIN32_PYTHON_C_TEMPFILE=0` to
+  disable.
+
+- **BUG-006: `graq_reason` orphan-node silent degradation fixed.** When all
+  activated nodes have `degree == 0`, falls back to top-10 hub-connected nodes.
+  Response envelope includes `activation_warning` key when `nodes_used == 1`.
+  `graq_inspect(orphans=True)` lists all orphan nodes.
+  Env flag: `GRAQLE_ORPHAN_FALLBACK` (default `"1"`).
+
+- **BUG-007: `graq_learn(mode="outcome")` no longer creates edges to orphan
+  nodes.** `LEARNED_FROM` edges are skipped when the target node has `degree == 0`;
+  response includes `orphan_targets_skipped` list. New `create_lesson=False`
+  parameter records metadata only with no graph write.
+
+- **BUG-008: `graq_reload` unblocked before session start.** Added `"graq_reload"`
+  and `"kogni_reload"` to `_CG01_EXEMPT` set. `graq_lifecycle(session_start)` now
+  calls `_load_graph_impl()` unconditionally.
+
+- **BUG-009: Backward-compatibility shims for renamed import paths.** Import paths
+  renamed between v0.46 and v0.52 now have shims with `DeprecationWarning`
+  (removal target: v0.55.0):
+  - `graqle.scorer` → `graqle.activation.chunk_scorer`
+  - `graqle.backends.bedrock` → `graqle.backends.api`
+  - `graqle.api.GraqleClient` → `graqle.core.Graqle`
+  - `graqle.cli.commands.scan.DocScanner` → `graqle.scanner.docs.DocumentScanner`
+  - `BedrockBackend(model_id=...)` → `BedrockBackend(model=...)`
+  - `BedrockBackend(profile=...)` → `BedrockBackend(profile_name=...)`
+
+  New: `MIGRATION-0.46-to-0.52.md` — full migration guide with before/after examples.
+  New: `graq doctor` now scans your project files for stale imports and reports
+  exact replacement suggestions automatically.
+
+- **BUG-010: numpy `.savez()` double-extension in atomic write pattern fixed.**
+  `graq_graph_health(mode="rebuild")` correctly handles `.npz` extension without
+  double-appending. `graqle.tools.npz_write(path, arrays, regression_check=True)`
+  exposed as public helper.
+
+---
+
 ## 0.52.0-alpha (2026-04-19) - [wave-1-gap-closure]
 
 ### Added
