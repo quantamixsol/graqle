@@ -2257,3 +2257,314 @@ class TestBug007LearnOrphanSkip:
         assert props["create_lesson"]["type"] == "boolean"
         assert props["create_lesson"]["default"] is True
 
+
+# ---------------------------------------------------------------------------
+# BUG-005 — graq_bash Windows multi-line python -c swallows stdout
+# ---------------------------------------------------------------------------
+
+class TestBug005WindowsPythonC:
+    """graq_bash must route multi-line python -c through a temp .py file on Windows."""
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+
+    def _make_bash_server(self):
+        """Minimal KogniDevServer with _load_graph mocked out."""
+        server = KogniDevServer.__new__(KogniDevServer)
+        server._graph_path = "graqle.json"
+        server._session_active = True
+        server._plan_approved = True
+        server._plan_goal = "test"
+        server._graph = MagicMock()
+        server._logger = MagicMock()
+        server._cg01_session_gate_active = False
+        return server
+
+    def _make_subprocess_result(self, stdout="", stderr="", returncode=0):
+        result = MagicMock()
+        result.stdout = stdout
+        result.stderr = stderr
+        result.returncode = returncode
+        return result
+
+    # ── 1. Non-Windows: no temp file, command unchanged ─────────────────────
+
+    @pytest.mark.asyncio
+    async def test_non_windows_single_line_no_rewrite(self):
+        """On non-Windows platforms, single-line python -c must NOT be rewritten."""
+        server = self._make_bash_server()
+        command = "python -c 'print(42)'"
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return self._make_subprocess_result(stdout="42\n")
+
+        with patch("sys.platform", "linux"), \
+             patch("subprocess.run", side_effect=fake_run):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0
+        assert captured["cmd"] == command, "Command must not be rewritten on non-Windows"
+
+    # ── 2. Windows + single-line -c: no temp file (no newline in code) ──────
+
+    @pytest.mark.asyncio
+    async def test_windows_single_line_no_rewrite(self):
+        """Windows single-line python -c (no embedded newline) must NOT be rewritten."""
+        server = self._make_bash_server()
+        command = 'python -c "print(42)"'
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return self._make_subprocess_result(stdout="42\n")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0
+        assert captured["cmd"] == command, "Single-line command must not be rewritten"
+
+    # ── 3. Windows + multi-line double-quoted: rewrite to temp file ──────────
+
+    @pytest.mark.asyncio
+    async def test_windows_multiline_double_quoted_rewrites(self):
+        """Windows multi-line python -c with double quotes must be rewritten to temp .py."""
+        server = self._make_bash_server()
+        multiline_code = "x = 1\nprint(x)\n"
+        command = f'python -c "{multiline_code}"'
+        captured = {}
+        written_content = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            # Simulate reading the temp file to verify its contents
+            if cmd.startswith("python "):
+                tmp_path = cmd.split('"')[1]
+                try:
+                    with open(tmp_path, encoding="utf-8") as f:
+                        written_content["body"] = f.read()
+                except FileNotFoundError:
+                    pass
+            return self._make_subprocess_result(stdout="1\n")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0
+        assert captured["cmd"] != command, "Command must be rewritten to temp file path"
+        assert captured["cmd"].startswith("python "), "Rewritten command starts with python"
+        assert captured["cmd"].endswith('.py"'), "Rewritten command ends with .py\""
+        assert written_content.get("body") == multiline_code, \
+            "Temp file must contain the extracted multi-line code"
+
+    # ── 4. Windows + multi-line single-quoted: rewrite to temp file ──────────
+
+    @pytest.mark.asyncio
+    async def test_windows_multiline_single_quoted_rewrites(self):
+        """Windows multi-line python -c with single quotes must also be rewritten."""
+        server = self._make_bash_server()
+        multiline_code = "import os\nprint(os.getcwd())\n"
+        command = f"python -c '{multiline_code}'"
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return self._make_subprocess_result(stdout="/some/path\n")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0
+        assert ".py" in captured["cmd"], "Rewritten command must reference a .py file"
+
+    # ── 5. Windows + no -c: no rewrite ───────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_windows_no_c_flag_no_rewrite(self):
+        """Windows command without -c must not be rewritten."""
+        server = self._make_bash_server()
+        command = "python myscript.py"
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return self._make_subprocess_result(stdout="done\n")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            await server._handle_bash({"command": command})
+
+        assert captured["cmd"] == command
+
+    # ── 6. Windows + multi-line but no quote wrapper: safe no-op ─────────────
+
+    @pytest.mark.asyncio
+    async def test_windows_multiline_no_quotes_no_rewrite(self):
+        """If regex can't extract quoted -c body, command must NOT be rewritten (safe fallback)."""
+        server = self._make_bash_server()
+        # No quotes around the -c argument — regex won't match
+        command = "python -c import sys; print(sys.version)"
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return self._make_subprocess_result(stdout="3.10\n")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            await server._handle_bash({"command": command})
+
+        assert captured["cmd"] == command, "Unquoted -c must not be rewritten"
+
+    # ── 7. Temp file deleted after success ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_temp_file_deleted_after_success(self):
+        """Temp .py file must be deleted in finally block after successful run."""
+        server = self._make_bash_server()
+        multiline_code = "x = 2\nprint(x)\n"
+        command = f'python -c "{multiline_code}"'
+        deleted_paths = []
+        created_paths = []
+
+        original_unlink = __import__("os").unlink
+
+        def fake_run(cmd, **kwargs):
+            # Capture the temp file path from the rewritten command
+            if '"' in cmd:
+                path = cmd.split('"')[1]
+                created_paths.append(path)
+            return self._make_subprocess_result(stdout="2\n")
+
+        def fake_unlink(path):
+            deleted_paths.append(path)
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run), \
+             patch("os.unlink", side_effect=fake_unlink):
+            await server._handle_bash({"command": command})
+
+        assert len(created_paths) == 1, "One temp file path must be captured"
+        assert created_paths[0] in deleted_paths, "Temp file must be deleted after success"
+
+    # ── 8. Temp file deleted after TimeoutExpired ─────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_temp_file_deleted_after_timeout(self):
+        """Temp .py file must be deleted even when subprocess times out."""
+        import subprocess as _subprocess
+        server = self._make_bash_server()
+        multiline_code = "import time\ntime.sleep(999)\n"
+        command = f'python -c "{multiline_code}"'
+        deleted_paths = []
+
+        def fake_run(cmd, **kwargs):
+            raise _subprocess.TimeoutExpired(cmd, 30)
+
+        def fake_unlink(path):
+            deleted_paths.append(path)
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run), \
+             patch("os.unlink", side_effect=fake_unlink):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert "timed out" in result.get("error", "").lower(), \
+            "TimeoutExpired must produce timeout error"
+        assert len(deleted_paths) == 1, "Temp file must be deleted after timeout"
+
+    # ── 9. Temp file deleted after general exception ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_temp_file_deleted_after_exception(self):
+        """Temp .py file must be deleted even when subprocess raises a general exception."""
+        server = self._make_bash_server()
+        multiline_code = "raise ValueError('boom')\n"
+        command = f'python -c "{multiline_code}"'
+        deleted_paths = []
+
+        def fake_run(cmd, **kwargs):
+            raise RuntimeError("subprocess failed hard")
+
+        def fake_unlink(path):
+            deleted_paths.append(path)
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run), \
+             patch("os.unlink", side_effect=fake_unlink):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert "Bash failed" in result.get("error", ""), \
+            "General exception must produce Bash failed error"
+        assert len(deleted_paths) == 1, "Temp file must be deleted after exception"
+
+    # ── 10. No temp file created when rewrite does not trigger ───────────────
+
+    @pytest.mark.asyncio
+    async def test_no_temp_file_when_no_rewrite(self):
+        """When no rewrite is triggered, os.unlink must never be called."""
+        server = self._make_bash_server()
+        command = "echo hello"
+        unlink_calls = []
+
+        def fake_run(cmd, **kwargs):
+            return self._make_subprocess_result(stdout="hello\n")
+
+        def fake_unlink(path):
+            unlink_calls.append(path)
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run), \
+             patch("os.unlink", side_effect=fake_unlink):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0
+        assert len(unlink_calls) == 0, "os.unlink must NOT be called when no temp file created"
+
+    # ── 11. Stdout is correctly captured via temp file path ──────────────────
+
+    @pytest.mark.asyncio
+    async def test_stdout_captured_from_temp_file_run(self):
+        """stdout from the rewritten temp-file command must appear in the response."""
+        server = self._make_bash_server()
+        multiline_code = "x = 99\nprint(x)\n"
+        command = f'python -c "{multiline_code}"'
+
+        def fake_run(cmd, **kwargs):
+            return self._make_subprocess_result(stdout="99\n", returncode=0)
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run):
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["stdout"] == "99\n"
+        assert result["exit_code"] == 0
+        assert result["success"] is True
+
+    # ── 12. OSError during unlink is swallowed ────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_oserror_during_unlink_is_swallowed(self):
+        """If os.unlink raises OSError (e.g. file already gone), it must be silently swallowed."""
+        server = self._make_bash_server()
+        multiline_code = "print('hello')\nprint('world')\n"
+        command = f'python -c "{multiline_code}"'
+
+        def fake_run(cmd, **kwargs):
+            return self._make_subprocess_result(stdout="hello\nworld\n")
+
+        def failing_unlink(path):
+            raise OSError("already deleted")
+
+        with patch("sys.platform", "win32"), \
+             patch("subprocess.run", side_effect=fake_run), \
+             patch("os.unlink", side_effect=failing_unlink):
+            # Must not raise — OSError is caught in finally block
+            result = json.loads(await server._handle_bash({"command": command}))
+
+        assert result["exit_code"] == 0, "OSError in unlink must not surface to caller"
+

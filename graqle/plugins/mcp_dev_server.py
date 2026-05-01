@@ -9917,6 +9917,29 @@ class KogniDevServer:
                 "BUG-004-GATE: pip install inside venv — governance log entry created. command=%r", command
             )
 
+        # BUG-005: Windows multi-line python -c swallows stdout — write to temp file
+        import sys as _sys_b005
+        _cleanup_tmp_b005: str | None = None
+        if _sys_b005.platform == "win32" and "python" in command.lower() and "-c" in command:
+            import re as _re_b005, tempfile as _tf_b005, logging as _log_b005
+            _c_match = _re_b005.search(r'python\s+-c\s+["\'](.+)["\']', command, _re_b005.DOTALL)
+            if _c_match and "\n" in _c_match.group(1):
+                try:
+                    import os as _os_tmp_b005
+                    _tmp = _tf_b005.NamedTemporaryFile(
+                        suffix=".py", delete=False, mode="w", encoding="utf-8"
+                    )
+                    _tmp.write(_c_match.group(1))
+                    _tmp.close()
+                    _os_tmp_b005.chmod(_tmp.name, 0o600)
+                    _cleanup_tmp_b005 = _tmp.name
+                    command = f'python "{_tmp.name}"'
+                except OSError as _e_b005:
+                    _log_b005.getLogger(__name__).warning(
+                        "BUG-005: could not create temp file for python -c rewrite — running original command",
+                        exc_info=True,
+                    )
+
         try:
             result = subprocess.run(
                 command,
@@ -9940,6 +9963,15 @@ class KogniDevServer:
             return json.dumps({"error": f"Command timed out after {timeout}s", "command": command})
         except Exception as exc:
             return json.dumps({"error": f"Bash failed: {exc}", "command": command})
+        finally:
+            if _cleanup_tmp_b005:
+                import os as _os_b005, logging as _log_fin_b005
+                try:
+                    _os_b005.unlink(_cleanup_tmp_b005)
+                except OSError as _e_fin:
+                    _log_fin_b005.getLogger(__name__).debug(
+                        "BUG-005: temp file cleanup failed (%s) — %s", _cleanup_tmp_b005, _e_fin
+                    )
 
     # ── Phase 3.5: Git tools ─────────────────────────────────────────────
 
