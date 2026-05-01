@@ -531,6 +531,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "[outcome mode] Optional new lesson learned",
                 },
+                "create_lesson": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "[outcome mode] When false: record metadata and edge weights only — no lesson node and no LEARNED_FROM edges written. Default true.",
+                },
                 "entity_id": {
                     "type": "string",
                     "description": "[entity mode] Unique entity ID (e.g. 'the regulatory product', 'Philips')",
@@ -1823,6 +1828,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "file_path": {"type": "string", "description": "Path to write"},
                 "content": {"type": "string", "description": "Full file content to write"},
                 "dry_run": {"type": "boolean", "description": "Preview only, do not write (default true)", "default": True},
+                "force_overwrite": {"type": "boolean", "description": "Bypass CG-03 edit-gate for full-file rewrites. Runs governance log entry. Use when graq_edit is not suitable (e.g. full-file generation). Default false.", "default": False},
             },
             "required": ["file_path", "content"],
         },
@@ -4192,10 +4198,11 @@ class KogniDevServer:
                 "graq_plan", "kogni_plan", "graq_learn", "kogni_learn",
                 "graq_lifecycle", "kogni_lifecycle",
                 "graq_gate_status", "kogni_gate_status", "graq_gate_install", "kogni_gate_install",
+                "graq_reload", "kogni_reload",   # BUG-003: reload is read-only, no destructive side effects
             }
             if getattr(_governance, "plan_mandatory", False):
                 # the VS Code extension bypass — skip if initialize handler set _cg02_bypass
-                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False):
+                if name in _WRITE_TOOLS and name not in _CG02_EXEMPT and not getattr(self, "_plan_active", False) and not getattr(self, "_cg02_bypass", False) and not (name in {"graq_bash", "kogni_bash"} and arguments and arguments.get("dry_run") is True):
                     logger.warning("CG-02 BLOCKED: write tool '%s' without prior graq_plan", name)
                     err = json.dumps({
                         "error": "CG-02_PLAN_GATE",
@@ -4207,6 +4214,15 @@ class KogniDevServer:
                         "remediation": "graq_plan",
                     })
                     return self._inject_tool_hints(name, err)
+
+            # BUG-001: normalize 'path' alias → 'file_path' for graq_write/kogni_write
+            # Must happen before CG-03 reads arguments.get("file_path") below.
+            # Drop 'path' key in all cases so downstream only ever sees 'file_path'.
+            if name in ("graq_write", "kogni_write") and "path" in arguments:
+                _b001_path = arguments["path"]
+                arguments = {k: v for k, v in arguments.items() if k != "path"}
+                if "file_path" not in arguments:
+                    arguments = {**arguments, "file_path": _b001_path}
 
             # CG-03: Edit enforcement — BLOCK graq_write for files that should use graq_edit
             # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
@@ -4230,7 +4246,10 @@ class KogniDevServer:
                         for prefix in (".tmp_", "scripts/", "tests/")
                     )
                     _is_code = any(_target.endswith(ext) for ext in _CODE_EXTS)
-                    if _is_code and not _is_new_file and not _in_scratch:
+                    # BUG-002: force_overwrite bypasses CG-03 for full-file rewrites.
+                    # Governance log entry is created in _handle_write.
+                    _force_overwrite = bool(arguments.get("force_overwrite", False))
+                    if _is_code and not _is_new_file and not _in_scratch and not _force_overwrite:
                         logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
                         err = json.dumps({
                             "error": "CG-03_EDIT_GATE",
@@ -4238,7 +4257,8 @@ class KogniDevServer:
                             "file_path": _target,
                             "message": (
                                 f"graq_write blocked for code file '{_target}'. "
-                                "Use graq_edit instead — it runs preflight, governance, and diff application."
+                                "Use graq_edit instead — it runs preflight, governance, and diff application. "
+                                "Pass force_overwrite=true to bypass CG-03 for full-file rewrites."
                             ),
                             "remediation": "graq_edit",
                         })
@@ -6698,6 +6718,10 @@ class KogniDevServer:
                 },
             })
 
+        # BUG-007: read create_lesson flag — when False, skip lesson node + LEARNED_FROM edges entirely
+        create_lesson = bool(args.get("create_lesson", True))
+        orphan_targets_skipped: list[str] = []
+
         graph = self._load_graph()
         updates: list[dict[str, Any]] = []
         lesson_node_id: str | None = None
@@ -6730,7 +6754,7 @@ class KogniDevServer:
                             "delta": round(weight_delta, 4),
                         })
 
-            if lesson_text:
+            if lesson_text and create_lesson:
                 from graqle.core.edge import CogniEdge
                 from graqle.core.node import CogniNode
 
@@ -6754,6 +6778,11 @@ class KogniDevServer:
                 graph.add_node(lesson_node)
 
                 for idx, nid in enumerate(component_ids):
+                    # BUG-007: skip LEARNED_FROM edge to orphan nodes (degree==0)
+                    _target_node = graph.nodes.get(nid)
+                    if getattr(_target_node, "degree", None) == 0:
+                        orphan_targets_skipped.append(nid)
+                        continue
                     edge = CogniEdge(
                         id=f"e_{lesson_node_id}_{nid}_{idx}",
                         source_id=lesson_node_id,
@@ -6783,6 +6812,7 @@ class KogniDevServer:
             "components": components,
             "edge_updates": updates,
             "lesson_node_id": lesson_node_id,
+            "orphan_targets_skipped": orphan_targets_skipped,
             "retry_attempts": _retries,
         })
 
@@ -9535,12 +9565,34 @@ class KogniDevServer:
         import tempfile
         import os as _os
 
+        # BUG-001: normalize 'path' alias → 'file_path' (defensive; handle_tool already does this
+        # for the governed path, but _handle_write may be called directly in tests).
+        # Snapshot original presence BEFORE mutation so the error hint logic is correct.
+        _caller_sent_path = "path" in args
+        _caller_sent_file_path = "file_path" in args
+        if _caller_sent_path:
+            _path_alias_val = args["path"]
+            args = {k: v for k, v in args.items() if k != "path"}
+            if not _caller_sent_file_path:
+                args = {**args, "file_path": _path_alias_val}
+            # if file_path already present, drop 'path' only (file_path wins)
+
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         dry_run = bool(args.get("dry_run", True))
+        force_overwrite = bool(args.get("force_overwrite", False))
+
+        # BUG-002: governance log entry when force_overwrite bypasses CG-03
+        if force_overwrite:
+            logger.warning(
+                "BUG-002-GATE: graq_write force_overwrite=True bypassed CG-03 on '%s' — governance log entry created.",
+                file_path,
+            )
 
         if not file_path:
-            return json.dumps({"error": "Parameter 'file_path' is required."})
+            # Show hint only when the caller passed neither 'path' nor 'file_path'
+            _hint = " Did you mean 'file_path'?" if not _caller_sent_path and not _caller_sent_file_path else ""
+            return json.dumps({"error": f"Parameter 'file_path' is required.{_hint}"})
         if content is None:
             return json.dumps({"error": "Parameter 'content' is required."})
 
@@ -9841,6 +9893,29 @@ class KogniDevServer:
 
         if dry_run:
             return json.dumps({"command": command, "dry_run": True, "message": "dry_run=True — pass dry_run=False to execute."})
+
+        # BUG-004: venv-aware pip install gate (runs after dry_run short-circuit)
+        import sys as _sys_b004
+        import os as _os_b004
+        if "pip install" in command.lower():
+            _in_venv = (
+                _sys_b004.prefix != _sys_b004.base_prefix
+                or bool(_os_b004.environ.get("VIRTUAL_ENV"))
+                or bool(_os_b004.environ.get("CONDA_DEFAULT_ENV"))
+            )
+            if not _in_venv:
+                return json.dumps({
+                    "error": "BLOCKED_COMMAND",
+                    "message": (
+                        "pip install blocked: no active virtualenv detected. "
+                        "Activate a venv first, or use graq_deps_install for governed package installs."
+                    ),
+                    "command": command,
+                })
+            import logging as _log_b004
+            _log_b004.getLogger(__name__).warning(
+                "BUG-004-GATE: pip install inside venv — governance log entry created. command=%r", command
+            )
 
         try:
             result = subprocess.run(

@@ -1293,3 +1293,967 @@ class TestBug006OrphanDetection:
         assert data["confidence"] == 0.0
         assert "activation_warning" not in data
 
+
+class TestBug003CG02BashExempt:
+    """BUG-003: graq_bash dry_run carve-out + graq_reload exempt from CG-02."""
+
+    def _make_server(self, *, plan_mandatory=True, plan_active=False, cg02_bypass=False):
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        # CG-02 gate reads: getattr(getattr(self, "_config", None), "governance", None)
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = plan_mandatory
+        srv._config.governance.session_gate_enabled = True
+        srv._config.governance.edit_enforcement = False
+        # Simulate session already started so CG-01 doesn't fire before CG-02
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = plan_active
+        srv._cg02_bypass = cg02_bypass
+        return srv
+
+    # ── graq_bash dry_run carve-out ────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_true_passes_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "git log", "dry_run": True})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_false_blocked_by_cg02(self):
+        srv = self._make_server()
+        # Use a non-git command to avoid CG-11 gate intercepting before CG-02
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_bash_dry_run_true_passes_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("kogni_bash", {"command": "echo hello", "dry_run": True})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_bash_dry_run_false_blocked_by_cg02(self):
+        srv = self._make_server()
+        # Use a non-git command to avoid CG-11 gate intercepting before CG-02
+        result = await srv.handle_tool("kogni_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── dry_run edge cases ─────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_key_absent_blocked(self):
+        """Missing dry_run key defaults to False — must be blocked."""
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello"})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_graq_bash_dry_run_string_true_blocked(self):
+        """dry_run='true' (string) is not `is True` — must be blocked."""
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": "true"})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── graq_reload / kogni_reload exempt ─────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_reload_exempt_from_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_reload", return_value='{"status": "reloaded"}'):
+            result = await srv.handle_tool("graq_reload", {})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_kogni_reload_exempt_from_cg02(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_reload", return_value='{"status": "reloaded"}'):
+            result = await srv.handle_tool("kogni_reload", {})
+        assert "CG-02_PLAN_GATE" not in result
+
+    # ── gate inactive paths ────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg02_bypass_allows_bash_dry_run_false(self):
+        """When _cg02_bypass=True the gate is skipped entirely."""
+        srv = self._make_server(cg02_bypass=True)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_plan_mandatory_false_gate_not_triggered(self):
+        """When plan_mandatory=False the CG-02 gate is entirely inactive."""
+        srv = self._make_server(plan_mandatory=False)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_plan_active_allows_bash_dry_run_false(self):
+        """With an active plan, graq_bash(dry_run=False) is allowed through."""
+        srv = self._make_server(plan_active=True)
+        with patch.object(srv, "_handle_bash", return_value='{"ok": true}'):
+            result = await srv.handle_tool("graq_bash", {"command": "echo hello", "dry_run": False})
+        assert "CG-02_PLAN_GATE" not in result
+
+    # ── regression: other write tools still blocked ────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_edit_still_blocked_without_plan(self):
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_edit", {"file_path": "test.py", "description": "test"})
+        assert "CG-02_PLAN_GATE" in result
+
+    @pytest.mark.asyncio
+    async def test_graq_generate_still_blocked_without_plan(self):
+        srv = self._make_server()
+        result = await srv.handle_tool("graq_generate", {"description": "test"})
+        assert "CG-02_PLAN_GATE" in result
+
+    # ── regression: existing exemptions preserved ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_graq_plan_still_exempt(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_plan", return_value='{"status": "planned"}'):
+            result = await srv.handle_tool("graq_plan", {"goal": "test"})
+        assert "CG-02_PLAN_GATE" not in result
+
+    @pytest.mark.asyncio
+    async def test_graq_learn_still_exempt(self):
+        srv = self._make_server()
+        with patch.object(srv, "_handle_learn", return_value='{"status": "learned"}'):
+            result = await srv.handle_tool("graq_learn", {"action": "test"})
+        assert "CG-02_PLAN_GATE" not in result
+
+
+class TestBug004PipInstallVenvGate:
+    """BUG-004: pip install blocked outside venv, allowed inside venv."""
+
+    def _make_server(self):
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True  # plan_mandatory=False so CG-02 inactive
+        srv._cg02_bypass = True
+        srv._graph = None
+        srv._lock = threading.Lock()
+        return srv
+
+    @pytest.mark.asyncio
+    async def test_pip_install_blocked_outside_venv(self):
+        """pip install is blocked when no venv signals are present."""
+        import sys
+        import os
+        srv = self._make_server()
+        env_patch = {k: "" for k in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV") if k in os.environ}
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch.dict(os.environ, env_patch, clear=False):
+            for key in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV"):
+                os.environ.pop(key, None)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") == "BLOCKED_COMMAND"
+        assert "no active virtualenv" in data.get("message", "")
+
+    @pytest.mark.asyncio
+    async def test_pip_install_allowed_inside_venv(self):
+        """pip install is allowed when sys.prefix != sys.base_prefix (inside venv)."""
+        import sys
+        import subprocess
+        srv = self._make_server()
+        fake_prefix = sys.base_prefix + "_venv"
+        with patch.object(sys, "prefix", fake_prefix), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Successfully installed", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("success") is True
+
+    @pytest.mark.asyncio
+    async def test_pip_install_dry_run_skips_venv_check(self):
+        """dry_run=True returns before the venv check — always safe."""
+        import sys
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix):
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": True})
+        data = json.loads(result)
+        assert data.get("dry_run") is True
+        assert data.get("error") is None
+
+    @pytest.mark.asyncio
+    async def test_non_pip_command_unaffected(self):
+        """Commands without 'pip install' are not subject to the venv gate."""
+        import sys
+        import subprocess
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="ok", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "echo hello", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+
+    @pytest.mark.asyncio
+    async def test_pip_install_upgrade_blocked_outside_venv(self):
+        """pip install --upgrade variant also blocked outside venv."""
+        import sys
+        import os
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix):
+            for key in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV"):
+                os.environ.pop(key, None)
+            result = await srv._handle_bash({"command": "pip install --upgrade graqle", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") == "BLOCKED_COMMAND"
+        assert "no active virtualenv" in data.get("message", "")
+
+    @pytest.mark.asyncio
+    async def test_pip_install_allowed_via_virtual_env_envvar(self):
+        """pip install allowed when VIRTUAL_ENV env var is set even if sys.prefix == base_prefix."""
+        import sys
+        import subprocess
+        import os
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch.dict(os.environ, {"VIRTUAL_ENV": "/home/user/.venv"}), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Successfully installed", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("success") is True
+
+
+class TestBug001WritePathAlias:
+    """BUG-001: graq_write accepts 'path' as alias for 'file_path'.
+
+    Covers:
+    - _handle_write direct: path alias → file_path (1)
+    - _handle_write direct: file_path wins when both given (2)
+    - _handle_write direct: neither given → hint in error message (3)
+    - _handle_write direct: file_path only (no alias) still works (4)
+    - _handle_write direct: kogni_write same logic (5)
+    - handle_tool integration: path alias normalised before CG-03 (6)
+    - handle_tool integration: file_path wins over path before CG-03 (7)
+    - handle_tool integration: non-write tools unaffected by normalisation (8)
+    - handle_tool integration: path alias passed through to _handle_write (9)
+    - _handle_write: path alias with dry_run=True returns file_path in response (10)
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_write_server(self):
+        """Minimal server with no CG gates active, no real graph."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True
+        srv._cg02_bypass = True
+        srv._cg03_bypass = True
+        srv._graph = None
+        srv._graph_file = None   # no real graph file → project_root = CWD
+        srv._lock = threading.Lock()
+        return srv
+
+    def _kg_gate_passthrough(self):
+        """Context manager: mock CG-15 + G4 to always allow."""
+        from unittest.mock import patch as _patch
+        return _patch(
+            "graqle.governance.kg_write_gate.check_kg_block",
+            return_value=(True, None),
+        ), _patch(
+            "graqle.governance.kg_write_gate.check_protected_path",
+            return_value=(True, None),
+        )
+
+    # ── 1. path alias → file_path in _handle_write ───────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_path_alias_accepted_by_handle_write(self, tmp_path):
+        """Passing 'path' instead of 'file_path' is normalised and accepted."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "out.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": target, "content": "hello", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("dry_run") is True
+        assert target in data.get("file_path", "")
+
+    # ── 2. file_path wins when both given ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_file_path_wins_over_path(self, tmp_path):
+        """When both 'path' and 'file_path' given, 'file_path' is used."""
+        srv = self._make_write_server()
+        winner = str(tmp_path / "winner.txt")
+        loser = str(tmp_path / "loser.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": loser, "file_path": winner,
+                "content": "x", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert winner in data.get("file_path", "")
+        assert loser not in data.get("file_path", "")
+
+    # ── 3. neither given → error with hint ───────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_missing_file_path_gives_hint(self):
+        """Missing file_path (and no 'path') → hint about 'file_path' in error."""
+        srv = self._make_write_server()
+        result = await srv._handle_write({"content": "x"})
+        data = json.loads(result)
+        assert data.get("error") is not None
+        assert "file_path" in data["error"]
+        assert "Did you mean" in data["error"]
+
+    # ── 4. file_path only (no alias) still works ─────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_file_path_only_still_works(self, tmp_path):
+        """Original 'file_path' param continues to work unchanged."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "normal.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "file_path": target, "content": "ok", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("dry_run") is True
+
+    # ── 5. empty path alias → still gets error (not silent) ──────────────────
+
+    @pytest.mark.asyncio
+    async def test_empty_path_alias_gives_error(self):
+        """path='' (empty) is treated same as missing — returns an error."""
+        srv = self._make_write_server()
+        result = await srv._handle_write({"path": "", "content": "x"})
+        data = json.loads(result)
+        assert data.get("error") is not None
+
+    # ── 6. handle_tool integration: path alias normalised before CG-03 ───────
+
+    @pytest.mark.asyncio
+    async def test_handle_tool_path_alias_normalised_before_cg03(self, tmp_path):
+        """handle_tool normalises 'path' → 'file_path' so CG-03 sees the right value."""
+        srv = self._make_write_server()
+        srv._config.governance.edit_enforcement = True   # activate CG-03
+        srv._cg03_bypass = False
+        target = str(tmp_path / "non_code_file.txt")   # .txt → CG-03 does NOT block
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("graq_write", {"path": target, "content": "x", "dry_run": True})
+        # _handle_write must have been called with file_path, not path
+        called_args = mock_w.call_args[0][0]
+        assert "file_path" in called_args
+        assert called_args["file_path"] == target
+        assert "path" not in called_args
+
+    # ── 7. handle_tool: file_path wins over path before CG-03 ────────────────
+
+    @pytest.mark.asyncio
+    async def test_handle_tool_file_path_wins_over_path(self, tmp_path):
+        """When both given to handle_tool, file_path wins after normalisation."""
+        srv = self._make_write_server()
+        winner = str(tmp_path / "winner.txt")
+        loser = str(tmp_path / "loser.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("graq_write", {
+                "path": loser, "file_path": winner, "content": "x", "dry_run": True,
+            })
+        called_args = mock_w.call_args[0][0]
+        assert called_args.get("file_path") == winner
+        assert "path" not in called_args
+
+    # ── 8. non-write tools unaffected ────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_non_write_tool_path_not_normalised(self):
+        """Non-write tools (graq_read) are not subject to path normalisation."""
+        srv = self._make_write_server()
+        with patch.object(srv, "_handle_read", return_value='{"ok": true}') as mock_r:
+            await srv.handle_tool("graq_read", {"path": "some_file.txt"})
+        # _handle_read must receive the original 'path' key unchanged
+        called_args = mock_r.call_args[0][0]
+        assert "path" in called_args
+        assert "file_path" not in called_args
+
+    # ── 9. kogni_write alias also normalised ─────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_kogni_write_path_alias_normalised(self, tmp_path):
+        """kogni_write receives the same path→file_path normalisation."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "kogni_out.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("kogni_write", {"path": target, "content": "x", "dry_run": True})
+        called_args = mock_w.call_args[0][0]
+        assert called_args.get("file_path") == target
+        assert "path" not in called_args
+
+    # ── 10. path alias with dry_run=True returns file_path in response ────────
+
+    @pytest.mark.asyncio
+    async def test_path_alias_dry_run_returns_resolved_file_path(self, tmp_path):
+        """dry_run=True response contains 'file_path' derived from the 'path' alias."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "dryrun.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": target, "content": "data", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("dry_run") is True
+        assert data.get("error") is None
+        # resolved path ends with the file name
+        assert "dryrun.txt" in data.get("file_path", "")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BUG-002 — graq_write CG-03 blocks full-file rewrites; force_overwrite bypasses
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestBug002ForceOverwrite:
+    """BUG-002: graq_write accepts force_overwrite=True to bypass CG-03 edit gate.
+
+    Covers:
+    - CG-03 blocks existing code file without force_overwrite (1)
+    - force_overwrite=True bypasses CG-03 for existing code file (2)
+    - force_overwrite=False is same as default blocked behaviour (3)
+    - force_overwrite does not affect new files (already allowed) (4)
+    - force_overwrite does not affect scratch/test paths (already allowed) (5)
+    - force_overwrite logs governance warning (6)
+    - CG-03 error message now mentions force_overwrite hint (7)
+    - _handle_write reads force_overwrite from args without error (8)
+    - kogni_write schema alias: force_overwrite propagates through handle_tool (9)
+    - dry_run + force_overwrite: preview returned, no write attempted (10)
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_cg03_server(self, tmp_path):
+        """Server with CG-03 enforcement ACTIVE. No real graph."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        gov = MagicMock()
+        gov.edit_enforcement = True      # CG-03 ON
+        gov.plan_mandatory = False
+        gov.session_gate_enabled = False
+        srv._config.governance = gov
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._cg02_bypass = True
+        srv._cg03_bypass = False         # NOT bypassed — CG-03 active
+        srv._plan_active = True
+        srv._graph = None
+        srv._graph_file = None
+        srv._lock = threading.Lock()
+        # Give it a real _inject_tool_hints stub
+        srv._inject_tool_hints = lambda name, err: err
+        return srv
+
+    def _make_write_server(self):
+        """Minimal server with all CG gates off — for _handle_write direct tests."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True
+        srv._cg02_bypass = True
+        srv._cg03_bypass = True
+        srv._graph = None
+        srv._graph_file = None
+        srv._lock = threading.Lock()
+        return srv
+
+    def _kg_gate_passthrough(self):
+        from unittest.mock import patch as _patch
+        return _patch(
+            "graqle.governance.kg_write_gate.check_kg_block",
+            return_value=(True, None),
+        ), _patch(
+            "graqle.governance.kg_write_gate.check_protected_path",
+            return_value=(True, None),
+        )
+
+    # ── 1. CG-03 blocks without force_overwrite ───────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg03_blocks_existing_code_file_without_force_overwrite(self, tmp_path):
+        """CG-03 must block graq_write on an existing .py file when edit_enforcement=True."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "new content",
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+
+    # ── 2. force_overwrite=True bypasses CG-03 ───────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_bypasses_cg03_for_existing_code_file(self, tmp_path):
+        """force_overwrite=True must bypass CG-03 gate."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target),
+                "content": "new content",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 3. force_overwrite=False same as default ──────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_false_still_blocked_by_cg03(self, tmp_path):
+        """force_overwrite=False must behave identically to omitting the parameter."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "x", "force_overwrite": False,
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+
+    # ── 4. force_overwrite does not affect new files ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_new_code_file_always_allowed_regardless_of_force_overwrite(self, tmp_path):
+        """New (non-existent) code files bypass CG-03 regardless of force_overwrite."""
+        target = tmp_path / "newfile.py"    # does NOT exist on disk
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target), "content": "print('hello')", "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 5. scratch paths already allowed ─────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_tests_path_already_allowed_without_force_overwrite(self, tmp_path):
+        """Files under tests/ bypass CG-03 without force_overwrite."""
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        target = tests_dir / "test_foo.py"
+        target.write_text("# test file")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target), "content": "# updated", "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 6. governance log warning emitted ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_emits_governance_warning(self, tmp_path, caplog):
+        """force_overwrite=True must emit a WARNING governance log entry."""
+        import logging
+        srv = self._make_write_server()
+        target = tmp_path / "src.py"
+        p1, p2 = self._kg_gate_passthrough()
+        with caplog.at_level(logging.WARNING):
+            with p1, p2:
+                await srv._handle_write({
+                    "file_path": str(target),
+                    "content": "print('hi')",
+                    "force_overwrite": True,
+                    "dry_run": True,
+                })
+        assert any("BUG-002-GATE" in r.message for r in caplog.records)
+
+    # ── 7. CG-03 error message mentions force_overwrite ───────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg03_error_message_hints_force_overwrite(self, tmp_path):
+        """CG-03 error message must include the force_overwrite hint."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "x",
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+        assert "force_overwrite" in result.get("message", "")
+
+    # ── 8. _handle_write reads force_overwrite without error ─────────────────
+
+    @pytest.mark.asyncio
+    async def test_handle_write_accepts_force_overwrite_arg_without_error(self, tmp_path):
+        """_handle_write must not error when force_overwrite is passed."""
+        srv = self._make_write_server()
+        target = tmp_path / "out.txt"
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv._handle_write({
+                "file_path": str(target),
+                "content": "hello",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert "error" not in result or result.get("error") is None
+
+    # ── 9. kogni_write alias propagates force_overwrite ──────────────────────
+
+    @pytest.mark.asyncio
+    async def test_kogni_write_force_overwrite_bypasses_cg03(self, tmp_path):
+        """kogni_write must also accept and honour force_overwrite."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("kogni_write", {
+                "file_path": str(target),
+                "content": "new",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 10. dry_run + force_overwrite: preview, no write ─────────────────────
+
+    @pytest.mark.asyncio
+    async def test_dry_run_with_force_overwrite_previews_without_writing(self, tmp_path):
+        """dry_run=True + force_overwrite=True must return dry_run=True, not write."""
+        target = tmp_path / "module.py"
+        target.write_text("# original")
+        srv = self._make_write_server()
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv._handle_write({
+                "file_path": str(target),
+                "content": "# replacement",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("dry_run") is True
+        assert target.read_text() == "# original"  # file unchanged
+
+
+# ---------------------------------------------------------------------------
+# BUG-007 — graq_learn(mode="outcome") orphan-skip + create_lesson=False
+# ---------------------------------------------------------------------------
+
+class TestBug007LearnOrphanSkip:
+    """BUG-007: _handle_learn_outcome skips LEARNED_FROM edges to orphan nodes
+    (degree==0) and supports create_lesson=False to suppress lesson node entirely."""
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_learn_server(self, nodes: dict | None = None):
+        """Build a minimal KogniDevServer for _handle_learn_outcome tests.
+
+        The graph has _save_graph mocked to always succeed (returns (True, 0)),
+        get_edges_between returns [], and add_node/add_edge are recorded.
+        """
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv.read_only = False
+        srv._config = None
+        srv._graph_file = "graqle.json"
+        srv._graph_mtime = 9999999999.0
+        srv._kg_load_lock = threading.Lock()
+        srv._kg_loaded = threading.Event()
+        srv._kg_load_error = None
+        srv._kg_load_state = "LOADED"
+        srv._gov = None
+
+        graph = MagicMock()
+        graph.get_edges_between.return_value = []
+        graph.add_node = MagicMock()
+        graph.add_edge = MagicMock()
+
+        if nodes is None:
+            nodes = {
+                "comp-connected": MockNode(id="comp-connected", label="Connected Comp", entity_type="service", description="has edges", degree=3),
+                "comp-orphan": MockNode(id="comp-orphan", label="Orphan Comp", entity_type="service", description="no edges", degree=0),
+            }
+        graph.nodes = nodes
+        srv._graph = graph
+
+        # _find_node: look up by id in graph.nodes
+        def _find_node(name):
+            return graph.nodes.get(name)
+
+        srv._find_node = _find_node
+        srv._save_graph = MagicMock(return_value=(True, 0))
+        srv._load_graph = MagicMock(return_value=graph)
+        return srv, graph
+
+    # ── 1. Baseline: normal call with connected nodes, no orphans ─────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_normal_connected_no_orphan_skips(self):
+        """All connected nodes → orphan_targets_skipped is empty."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=5),
+            "comp-b": MockNode(id="comp-b", label="B", entity_type="service", description="d", degree=2),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-a", "comp-b"],
+            "lesson": "Deploy succeeded without rollback.",
+        }))
+        assert result["recorded"] is True
+        assert result["orphan_targets_skipped"] == []
+        assert graph.add_edge.call_count == 2  # one LEARNED_FROM per connected node
+
+    # ── 2. Orphan component → LEARNED_FROM edge skipped ──────────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_skips_learned_from_to_orphan_node(self):
+        """A component with degree==0 must NOT get a LEARNED_FROM edge."""
+        srv, graph = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Mixed-degree components.",
+        }))
+        assert result["recorded"] is True
+        assert "comp-orphan" in result["orphan_targets_skipped"]
+        # Only one LEARNED_FROM edge — to comp-connected only
+        edge_calls = [c for c in graph.add_edge.call_args_list]
+        targets = [c.args[0].target_id for c in edge_calls if hasattr(c.args[0], "target_id")]
+        assert "comp-orphan" not in targets
+        assert "comp-connected" in targets
+
+    # ── 3. All orphans → no LEARNED_FROM edges, but lesson node still created ─
+
+    @pytest.mark.asyncio
+    async def test_outcome_all_orphans_lesson_node_created_no_edges(self):
+        """When all components are orphans, lesson node is created but no edges added."""
+        nodes = {
+            "orphan-a": MockNode(id="orphan-a", label="Orphan A", entity_type="service", description="d", degree=0),
+            "orphan-b": MockNode(id="orphan-b", label="Orphan B", entity_type="service", description="d", degree=0),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "refactor",
+            "outcome": "failure",
+            "components": ["orphan-a", "orphan-b"],
+            "lesson": "All orphans triggered.",
+        }))
+        assert result["recorded"] is True
+        assert set(result["orphan_targets_skipped"]) == {"orphan-a", "orphan-b"}
+        assert graph.add_node.call_count == 1  # lesson node created
+        assert graph.add_edge.call_count == 0  # no edges
+
+    # ── 4. orphan_targets_skipped in envelope when no orphans ────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_envelope_always_has_orphan_targets_skipped_key(self):
+        """orphan_targets_skipped key must always be present in the response envelope."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=1),
+        }
+        srv, _ = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "test",
+            "outcome": "success",
+            "components": ["comp-a"],
+        }))
+        assert "orphan_targets_skipped" in result
+        assert isinstance(result["orphan_targets_skipped"], list)
+
+    # ── 5. create_lesson=False skips lesson node and all edges ───────────────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_false_no_lesson_node_no_edges(self):
+        """create_lesson=False must suppress lesson node creation and all LEARNED_FROM edges."""
+        srv, graph = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Should be suppressed.",
+            "create_lesson": False,
+        }))
+        assert result["recorded"] is True
+        assert result["lesson_node_id"] is None
+        assert graph.add_node.call_count == 0
+        assert graph.add_edge.call_count == 0
+
+    # ── 6. create_lesson=False: orphan_targets_skipped still empty ───────────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_false_orphan_targets_skipped_empty(self):
+        """When create_lesson=False, no edges attempted → orphan_targets_skipped is []."""
+        srv, _ = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Suppressed.",
+            "create_lesson": False,
+        }))
+        assert result["orphan_targets_skipped"] == []
+
+    # ── 7. create_lesson=True (explicit default) behaves same as omitted ─────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_true_explicit_behaves_as_default(self):
+        """Explicit create_lesson=True produces same result as not passing it."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=2),
+        }
+        srv_explicit, graph_explicit = self._make_learn_server(nodes)
+        srv_implicit, graph_implicit = self._make_learn_server(nodes)
+
+        args_explicit = {"action": "test", "outcome": "success", "components": ["comp-a"], "lesson": "Lesson text.", "create_lesson": True}
+        args_implicit = {"action": "test", "outcome": "success", "components": ["comp-a"], "lesson": "Lesson text."}
+
+        r_explicit = json.loads(await srv_explicit._handle_learn_outcome(args_explicit))
+        r_implicit = json.loads(await srv_implicit._handle_learn_outcome(args_implicit))
+
+        assert r_explicit["recorded"] is True
+        assert r_implicit["recorded"] is True
+        assert graph_explicit.add_node.call_count == graph_implicit.add_node.call_count == 1
+        assert graph_explicit.add_edge.call_count == graph_implicit.add_edge.call_count == 1
+
+    # ── 8. lesson=None with connected node: no edges, lesson_node_id is None ─
+
+    @pytest.mark.asyncio
+    async def test_no_lesson_text_no_edges_created(self):
+        """When lesson text is omitted, no lesson node or LEARNED_FROM edges created."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=2),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "refactor",
+            "outcome": "partial",
+            "components": ["comp-a"],
+        }))
+        assert result["recorded"] is True
+        assert result["lesson_node_id"] is None
+        assert graph.add_node.call_count == 0
+        assert graph.add_edge.call_count == 0
+
+    # ── 9. degree=None node: treated as not orphan (degree absent ≠ degree==0) ─
+
+    @pytest.mark.asyncio
+    async def test_node_with_no_degree_attr_not_treated_as_orphan(self):
+        """A node with no degree attribute (getattr returns None) must NOT be treated as orphan."""
+        nodes = {
+            "nodegree-comp": MockNode(id="nodegree-comp", label="No Degree", entity_type="service", description="d"),
+        }
+        # Remove degree attribute entirely from the node dataclass instance
+        import dataclasses
+        node = nodes["nodegree-comp"]
+        # Simulate absence by using an object without degree attr
+        class _NodeNoDegree:
+            id = "nodegree-comp"
+        graph_nodes = {"nodegree-comp": _NodeNoDegree()}
+        srv, graph = self._make_learn_server(graph_nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "test",
+            "outcome": "success",
+            "components": ["nodegree-comp"],
+            "lesson": "Lesson for no-degree node.",
+        }))
+        # degree is None (via getattr default) → not 0 → not skipped
+        assert "nodegree-comp" not in result["orphan_targets_skipped"]
+        assert graph.add_edge.call_count == 1
+
+    # ── 10. Mixed: multiple components, partial orphans ────────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_partial_orphans_mixed_components(self):
+        """With 3 components (2 connected, 1 orphan), 2 edges written, 1 skipped."""
+        nodes = {
+            "comp-1": MockNode(id="comp-1", label="C1", entity_type="service", description="d", degree=5),
+            "comp-2": MockNode(id="comp-2", label="C2", entity_type="service", description="d", degree=1),
+            "comp-orphan": MockNode(id="comp-orphan", label="Orphan", entity_type="service", description="d", degree=0),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "migrate",
+            "outcome": "success",
+            "components": ["comp-1", "comp-2", "comp-orphan"],
+            "lesson": "Partial orphan lesson.",
+        }))
+        assert result["recorded"] is True
+        assert result["orphan_targets_skipped"] == ["comp-orphan"]
+        edge_calls = graph.add_edge.call_args_list
+        targets = [c.args[0].target_id for c in edge_calls if hasattr(c.args[0], "target_id")]
+        assert "comp-1" in targets
+        assert "comp-2" in targets
+        assert "comp-orphan" not in targets
+
+    # ── 11. Schema: create_lesson parameter present in graq_learn definition ─
+
+    def test_schema_has_create_lesson_parameter(self):
+        """graq_learn MCP schema must expose create_lesson parameter."""
+        learn_def = next((t for t in TOOL_DEFINITIONS if t["name"] in ("graq_learn", "kogni_learn")), None)
+        assert learn_def is not None, "graq_learn not found in TOOL_DEFINITIONS"
+        props = learn_def["inputSchema"]["properties"]
+        assert "create_lesson" in props, "create_lesson missing from graq_learn schema"
+        assert props["create_lesson"]["type"] == "boolean"
+        assert props["create_lesson"]["default"] is True
+
