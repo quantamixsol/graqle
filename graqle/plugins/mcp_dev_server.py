@@ -9843,6 +9843,29 @@ class KogniDevServer:
         if dry_run:
             return json.dumps({"command": command, "dry_run": True, "message": "dry_run=True — pass dry_run=False to execute."})
 
+        # BUG-004: venv-aware pip install gate (runs after dry_run short-circuit)
+        import sys as _sys_b004
+        import os as _os_b004
+        if "pip install" in command.lower():
+            _in_venv = (
+                _sys_b004.prefix != _sys_b004.base_prefix
+                or bool(_os_b004.environ.get("VIRTUAL_ENV"))
+                or bool(_os_b004.environ.get("CONDA_DEFAULT_ENV"))
+            )
+            if not _in_venv:
+                return json.dumps({
+                    "error": "BLOCKED_COMMAND",
+                    "message": (
+                        "pip install blocked: no active virtualenv detected. "
+                        "Activate a venv first, or use graq_deps_install for governed package installs."
+                    ),
+                    "command": command,
+                })
+            import logging as _log_b004
+            _log_b004.getLogger(__name__).warning(
+                "BUG-004-GATE: pip install inside venv — governance log entry created. command=%r", command
+            )
+
         try:
             result = subprocess.run(
                 command,

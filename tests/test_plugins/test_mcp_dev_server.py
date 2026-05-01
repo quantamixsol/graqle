@@ -1433,3 +1433,111 @@ class TestBug003CG02BashExempt:
             result = await srv.handle_tool("graq_learn", {"action": "test"})
         assert "CG-02_PLAN_GATE" not in result
 
+
+class TestBug004PipInstallVenvGate:
+    """BUG-004: pip install blocked outside venv, allowed inside venv."""
+
+    def _make_server(self):
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True  # plan_mandatory=False so CG-02 inactive
+        srv._cg02_bypass = True
+        srv._graph = None
+        srv._lock = threading.Lock()
+        return srv
+
+    @pytest.mark.asyncio
+    async def test_pip_install_blocked_outside_venv(self):
+        """pip install is blocked when no venv signals are present."""
+        import sys
+        import os
+        srv = self._make_server()
+        env_patch = {k: "" for k in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV") if k in os.environ}
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch.dict(os.environ, env_patch, clear=False):
+            for key in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV"):
+                os.environ.pop(key, None)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") == "BLOCKED_COMMAND"
+        assert "no active virtualenv" in data.get("message", "")
+
+    @pytest.mark.asyncio
+    async def test_pip_install_allowed_inside_venv(self):
+        """pip install is allowed when sys.prefix != sys.base_prefix (inside venv)."""
+        import sys
+        import subprocess
+        srv = self._make_server()
+        fake_prefix = sys.base_prefix + "_venv"
+        with patch.object(sys, "prefix", fake_prefix), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Successfully installed", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("success") is True
+
+    @pytest.mark.asyncio
+    async def test_pip_install_dry_run_skips_venv_check(self):
+        """dry_run=True returns before the venv check — always safe."""
+        import sys
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix):
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": True})
+        data = json.loads(result)
+        assert data.get("dry_run") is True
+        assert data.get("error") is None
+
+    @pytest.mark.asyncio
+    async def test_non_pip_command_unaffected(self):
+        """Commands without 'pip install' are not subject to the venv gate."""
+        import sys
+        import subprocess
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="ok", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "echo hello", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+
+    @pytest.mark.asyncio
+    async def test_pip_install_upgrade_blocked_outside_venv(self):
+        """pip install --upgrade variant also blocked outside venv."""
+        import sys
+        import os
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix):
+            for key in ("VIRTUAL_ENV", "CONDA_DEFAULT_ENV"):
+                os.environ.pop(key, None)
+            result = await srv._handle_bash({"command": "pip install --upgrade graqle", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") == "BLOCKED_COMMAND"
+        assert "no active virtualenv" in data.get("message", "")
+
+    @pytest.mark.asyncio
+    async def test_pip_install_allowed_via_virtual_env_envvar(self):
+        """pip install allowed when VIRTUAL_ENV env var is set even if sys.prefix == base_prefix."""
+        import sys
+        import subprocess
+        import os
+        srv = self._make_server()
+        with patch.object(sys, "prefix", sys.base_prefix), \
+             patch.dict(os.environ, {"VIRTUAL_ENV": "/home/user/.venv"}), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Successfully installed", stderr="", returncode=0)
+            result = await srv._handle_bash({"command": "pip install requests", "dry_run": False})
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("success") is True
+
