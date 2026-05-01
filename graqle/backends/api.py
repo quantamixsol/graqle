@@ -380,7 +380,27 @@ class BedrockBackend(BaseBackend):
         region: str | None = None,
         max_retries: int = MAX_RETRIES,
         profile_name: str | None = None,
+        # BUG-009 backward-compat aliases (deprecated, removed in v0.55.0)
+        model_id: str | None = None,
+        profile: str | None = None,
     ) -> None:
+        import warnings as _w
+        if model_id is not None:
+            _w.warn(
+                "BedrockBackend(model_id=...) is deprecated — use model=... instead. "
+                "Removed in v0.55.0. See MIGRATION-0.46-to-0.52.md.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            model = model_id
+        if profile is not None:
+            _w.warn(
+                "BedrockBackend(profile=...) is deprecated — use profile_name=... instead. "
+                "Removed in v0.55.0. See MIGRATION-0.46-to-0.52.md.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            profile_name = profile
         self._model = model
         self._region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
         self._profile_name = profile_name

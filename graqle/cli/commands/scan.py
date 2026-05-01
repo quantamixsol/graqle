@@ -2613,6 +2613,33 @@ def _load_graph_data(graph_path: Path) -> tuple[dict, dict]:
     return nodes, edges
 
 
+# BUG-009: backward-compat alias — DocScanner was renamed DocumentScanner in v0.46
+# Deprecated, removed in v0.55.0. See MIGRATION-0.46-to-0.52.md.
+def _get_doc_scanner_alias():
+    import warnings
+    warnings.warn(
+        "graqle.cli.commands.scan.DocScanner is deprecated — "
+        "use graqle.scanner.docs.DocumentScanner instead. "
+        "Removed in v0.55.0. See MIGRATION-0.46-to-0.52.md.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    from graqle.scanner.docs import DocumentScanner
+    return DocumentScanner
+
+
+class _DocScannerShim:
+    """Lazy deprecated alias for DocumentScanner — import triggers DeprecationWarning."""
+    def __class_getitem__(cls, item):
+        return _get_doc_scanner_alias()[item]
+
+    def __new__(cls, *args, **kwargs):
+        return _get_doc_scanner_alias()(*args, **kwargs)
+
+
+DocScanner = _DocScannerShim
+
+
 def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
     """Save nodes and edges back to graph JSON.
 
