@@ -1541,3 +1541,212 @@ class TestBug004PipInstallVenvGate:
         assert data.get("error") is None
         assert data.get("success") is True
 
+
+class TestBug001WritePathAlias:
+    """BUG-001: graq_write accepts 'path' as alias for 'file_path'.
+
+    Covers:
+    - _handle_write direct: path alias → file_path (1)
+    - _handle_write direct: file_path wins when both given (2)
+    - _handle_write direct: neither given → hint in error message (3)
+    - _handle_write direct: file_path only (no alias) still works (4)
+    - _handle_write direct: kogni_write same logic (5)
+    - handle_tool integration: path alias normalised before CG-03 (6)
+    - handle_tool integration: file_path wins over path before CG-03 (7)
+    - handle_tool integration: non-write tools unaffected by normalisation (8)
+    - handle_tool integration: path alias passed through to _handle_write (9)
+    - _handle_write: path alias with dry_run=True returns file_path in response (10)
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_write_server(self):
+        """Minimal server with no CG gates active, no real graph."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True
+        srv._cg02_bypass = True
+        srv._cg03_bypass = True
+        srv._graph = None
+        srv._graph_file = None   # no real graph file → project_root = CWD
+        srv._lock = threading.Lock()
+        return srv
+
+    def _kg_gate_passthrough(self):
+        """Context manager: mock CG-15 + G4 to always allow."""
+        from unittest.mock import patch as _patch
+        return _patch(
+            "graqle.governance.kg_write_gate.check_kg_block",
+            return_value=(True, None),
+        ), _patch(
+            "graqle.governance.kg_write_gate.check_protected_path",
+            return_value=(True, None),
+        )
+
+    # ── 1. path alias → file_path in _handle_write ───────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_path_alias_accepted_by_handle_write(self, tmp_path):
+        """Passing 'path' instead of 'file_path' is normalised and accepted."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "out.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": target, "content": "hello", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("dry_run") is True
+        assert target in data.get("file_path", "")
+
+    # ── 2. file_path wins when both given ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_file_path_wins_over_path(self, tmp_path):
+        """When both 'path' and 'file_path' given, 'file_path' is used."""
+        srv = self._make_write_server()
+        winner = str(tmp_path / "winner.txt")
+        loser = str(tmp_path / "loser.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": loser, "file_path": winner,
+                "content": "x", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert winner in data.get("file_path", "")
+        assert loser not in data.get("file_path", "")
+
+    # ── 3. neither given → error with hint ───────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_missing_file_path_gives_hint(self):
+        """Missing file_path (and no 'path') → hint about 'file_path' in error."""
+        srv = self._make_write_server()
+        result = await srv._handle_write({"content": "x"})
+        data = json.loads(result)
+        assert data.get("error") is not None
+        assert "file_path" in data["error"]
+        assert "Did you mean" in data["error"]
+
+    # ── 4. file_path only (no alias) still works ─────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_file_path_only_still_works(self, tmp_path):
+        """Original 'file_path' param continues to work unchanged."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "normal.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "file_path": target, "content": "ok", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("error") is None
+        assert data.get("dry_run") is True
+
+    # ── 5. empty path alias → still gets error (not silent) ──────────────────
+
+    @pytest.mark.asyncio
+    async def test_empty_path_alias_gives_error(self):
+        """path='' (empty) is treated same as missing — returns an error."""
+        srv = self._make_write_server()
+        result = await srv._handle_write({"path": "", "content": "x"})
+        data = json.loads(result)
+        assert data.get("error") is not None
+
+    # ── 6. handle_tool integration: path alias normalised before CG-03 ───────
+
+    @pytest.mark.asyncio
+    async def test_handle_tool_path_alias_normalised_before_cg03(self, tmp_path):
+        """handle_tool normalises 'path' → 'file_path' so CG-03 sees the right value."""
+        srv = self._make_write_server()
+        srv._config.governance.edit_enforcement = True   # activate CG-03
+        srv._cg03_bypass = False
+        target = str(tmp_path / "non_code_file.txt")   # .txt → CG-03 does NOT block
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("graq_write", {"path": target, "content": "x", "dry_run": True})
+        # _handle_write must have been called with file_path, not path
+        called_args = mock_w.call_args[0][0]
+        assert "file_path" in called_args
+        assert called_args["file_path"] == target
+        assert "path" not in called_args
+
+    # ── 7. handle_tool: file_path wins over path before CG-03 ────────────────
+
+    @pytest.mark.asyncio
+    async def test_handle_tool_file_path_wins_over_path(self, tmp_path):
+        """When both given to handle_tool, file_path wins after normalisation."""
+        srv = self._make_write_server()
+        winner = str(tmp_path / "winner.txt")
+        loser = str(tmp_path / "loser.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("graq_write", {
+                "path": loser, "file_path": winner, "content": "x", "dry_run": True,
+            })
+        called_args = mock_w.call_args[0][0]
+        assert called_args.get("file_path") == winner
+        assert "path" not in called_args
+
+    # ── 8. non-write tools unaffected ────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_non_write_tool_path_not_normalised(self):
+        """Non-write tools (graq_read) are not subject to path normalisation."""
+        srv = self._make_write_server()
+        with patch.object(srv, "_handle_read", return_value='{"ok": true}') as mock_r:
+            await srv.handle_tool("graq_read", {"path": "some_file.txt"})
+        # _handle_read must receive the original 'path' key unchanged
+        called_args = mock_r.call_args[0][0]
+        assert "path" in called_args
+        assert "file_path" not in called_args
+
+    # ── 9. kogni_write alias also normalised ─────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_kogni_write_path_alias_normalised(self, tmp_path):
+        """kogni_write receives the same path→file_path normalisation."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "kogni_out.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2, \
+             patch.object(srv, "_handle_write", return_value='{"dry_run": true}') as mock_w:
+            await srv.handle_tool("kogni_write", {"path": target, "content": "x", "dry_run": True})
+        called_args = mock_w.call_args[0][0]
+        assert called_args.get("file_path") == target
+        assert "path" not in called_args
+
+    # ── 10. path alias with dry_run=True returns file_path in response ────────
+
+    @pytest.mark.asyncio
+    async def test_path_alias_dry_run_returns_resolved_file_path(self, tmp_path):
+        """dry_run=True response contains 'file_path' derived from the 'path' alias."""
+        srv = self._make_write_server()
+        target = str(tmp_path / "dryrun.txt")
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = await srv._handle_write({
+                "path": target, "content": "data", "dry_run": True,
+            })
+        data = json.loads(result)
+        assert data.get("dry_run") is True
+        assert data.get("error") is None
+        # resolved path ends with the file name
+        assert "dryrun.txt" in data.get("file_path", "")
+

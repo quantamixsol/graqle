@@ -4209,6 +4209,15 @@ class KogniDevServer:
                     })
                     return self._inject_tool_hints(name, err)
 
+            # BUG-001: normalize 'path' alias → 'file_path' for graq_write/kogni_write
+            # Must happen before CG-03 reads arguments.get("file_path") below.
+            # Drop 'path' key in all cases so downstream only ever sees 'file_path'.
+            if name in ("graq_write", "kogni_write") and "path" in arguments:
+                _b001_path = arguments["path"]
+                arguments = {k: v for k, v in arguments.items() if k != "path"}
+                if "file_path" not in arguments:
+                    arguments = {**arguments, "file_path": _b001_path}
+
             # CG-03: Edit enforcement — BLOCK graq_write for files that should use graq_edit
             # When enabled, graq_write is blocked for .py/.ts/.js/.tsx files (code files).
             # Use graq_edit instead — it runs preflight + governance + diff application.
@@ -9536,12 +9545,26 @@ class KogniDevServer:
         import tempfile
         import os as _os
 
+        # BUG-001: normalize 'path' alias → 'file_path' (defensive; handle_tool already does this
+        # for the governed path, but _handle_write may be called directly in tests).
+        # Snapshot original presence BEFORE mutation so the error hint logic is correct.
+        _caller_sent_path = "path" in args
+        _caller_sent_file_path = "file_path" in args
+        if _caller_sent_path:
+            _path_alias_val = args["path"]
+            args = {k: v for k, v in args.items() if k != "path"}
+            if not _caller_sent_file_path:
+                args = {**args, "file_path": _path_alias_val}
+            # if file_path already present, drop 'path' only (file_path wins)
+
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         dry_run = bool(args.get("dry_run", True))
 
         if not file_path:
-            return json.dumps({"error": "Parameter 'file_path' is required."})
+            # Show hint only when the caller passed neither 'path' nor 'file_path'
+            _hint = " Did you mean 'file_path'?" if not _caller_sent_path and not _caller_sent_file_path else ""
+            return json.dumps({"error": f"Parameter 'file_path' is required.{_hint}"})
         if content is None:
             return json.dumps({"error": "Parameter 'content' is required."})
 
