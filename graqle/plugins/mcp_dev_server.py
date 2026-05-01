@@ -4657,10 +4657,28 @@ class KogniDevServer:
         node_id = args.get("node_id")
         show_stats = args.get("stats", False)
         file_audit = args.get("file_audit", False)
+        show_orphans = args.get("orphans", False)
 
         graph = self._require_graph()
         if graph is None:
             return self._build_first_run_response()
+
+        # BUG-006: Orphan audit — KNOWLEDGE/LESSON nodes with degree==0
+        if show_orphans:
+            orphans = []
+            for nid, node in graph.nodes.items():
+                if getattr(node, "entity_type", "") in ("KNOWLEDGE", "LESSON") and getattr(node, "degree", 0) == 0:
+                    orphans.append({
+                        "id": nid,
+                        "label": getattr(node, "label", nid),
+                        "description": (getattr(node, "description", "") or "")[:200],
+                    })
+            orphans.sort(key=lambda x: x["label"])
+            return json.dumps({
+                "orphans": orphans,
+                "orphan_count": len(orphans),
+                "hint": "Run graq_learn to reattach or graq_learn(mode='outcome') to replace orphan nodes.",
+            })
 
         # S-002: File audit — verify KG nodes reference files that exist on disk
         if file_audit:
@@ -5143,6 +5161,21 @@ class KogniDevServer:
                 "backend_status": result.backend_status,
                 "backend_error": result.backend_error,
             }
+            # BUG-006: Orphan seed detection — additive field, only present when orphan detected.
+            import os as _os_bug006
+            if (
+                result.node_count == 1
+                and len(result.active_nodes) == 1
+                and _os_bug006.getenv("GRAQLE_ORPHAN_FALLBACK", "1") == "1"
+            ):
+                _seed_id = result.active_nodes[0]
+                if _seed_id in graph.nodes and getattr(graph.nodes[_seed_id], "degree", 0) == 0:
+                    result_dict["activation_warning"] = (
+                        f"Single-agent answer — seed node '{_seed_id}' has degree=0 (orphan). "
+                        "Answer may lack cross-node synthesis. "
+                        "Run graq_inspect(orphans=True) to audit all orphan nodes."
+                    )
+
             # v0.51.3 — surface ambiguous_options when the arbiter has
             # detected a near-tie (VS Code extension Ambiguity Pause).
             # Field is OPTIONAL and omitted entirely when not present,
