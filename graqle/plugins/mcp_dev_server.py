@@ -531,6 +531,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "[outcome mode] Optional new lesson learned",
                 },
+                "create_lesson": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "[outcome mode] When false: record metadata and edge weights only — no lesson node and no LEARNED_FROM edges written. Default true.",
+                },
                 "entity_id": {
                     "type": "string",
                     "description": "[entity mode] Unique entity ID (e.g. 'the regulatory product', 'Philips')",
@@ -6713,6 +6718,10 @@ class KogniDevServer:
                 },
             })
 
+        # BUG-007: read create_lesson flag — when False, skip lesson node + LEARNED_FROM edges entirely
+        create_lesson = bool(args.get("create_lesson", True))
+        orphan_targets_skipped: list[str] = []
+
         graph = self._load_graph()
         updates: list[dict[str, Any]] = []
         lesson_node_id: str | None = None
@@ -6745,7 +6754,7 @@ class KogniDevServer:
                             "delta": round(weight_delta, 4),
                         })
 
-            if lesson_text:
+            if lesson_text and create_lesson:
                 from graqle.core.edge import CogniEdge
                 from graqle.core.node import CogniNode
 
@@ -6769,6 +6778,11 @@ class KogniDevServer:
                 graph.add_node(lesson_node)
 
                 for idx, nid in enumerate(component_ids):
+                    # BUG-007: skip LEARNED_FROM edge to orphan nodes (degree==0)
+                    _target_node = graph.nodes.get(nid)
+                    if getattr(_target_node, "degree", None) == 0:
+                        orphan_targets_skipped.append(nid)
+                        continue
                     edge = CogniEdge(
                         id=f"e_{lesson_node_id}_{nid}_{idx}",
                         source_id=lesson_node_id,
@@ -6798,6 +6812,7 @@ class KogniDevServer:
             "components": components,
             "edge_updates": updates,
             "lesson_node_id": lesson_node_id,
+            "orphan_targets_skipped": orphan_targets_skipped,
             "retry_attempts": _retries,
         })
 

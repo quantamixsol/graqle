@@ -1992,3 +1992,268 @@ class TestBug002ForceOverwrite:
         assert result.get("dry_run") is True
         assert target.read_text() == "# original"  # file unchanged
 
+
+# ---------------------------------------------------------------------------
+# BUG-007 — graq_learn(mode="outcome") orphan-skip + create_lesson=False
+# ---------------------------------------------------------------------------
+
+class TestBug007LearnOrphanSkip:
+    """BUG-007: _handle_learn_outcome skips LEARNED_FROM edges to orphan nodes
+    (degree==0) and supports create_lesson=False to suppress lesson node entirely."""
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_learn_server(self, nodes: dict | None = None):
+        """Build a minimal KogniDevServer for _handle_learn_outcome tests.
+
+        The graph has _save_graph mocked to always succeed (returns (True, 0)),
+        get_edges_between returns [], and add_node/add_edge are recorded.
+        """
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv.read_only = False
+        srv._config = None
+        srv._graph_file = "graqle.json"
+        srv._graph_mtime = 9999999999.0
+        srv._kg_load_lock = threading.Lock()
+        srv._kg_loaded = threading.Event()
+        srv._kg_load_error = None
+        srv._kg_load_state = "LOADED"
+        srv._gov = None
+
+        graph = MagicMock()
+        graph.get_edges_between.return_value = []
+        graph.add_node = MagicMock()
+        graph.add_edge = MagicMock()
+
+        if nodes is None:
+            nodes = {
+                "comp-connected": MockNode(id="comp-connected", label="Connected Comp", entity_type="service", description="has edges", degree=3),
+                "comp-orphan": MockNode(id="comp-orphan", label="Orphan Comp", entity_type="service", description="no edges", degree=0),
+            }
+        graph.nodes = nodes
+        srv._graph = graph
+
+        # _find_node: look up by id in graph.nodes
+        def _find_node(name):
+            return graph.nodes.get(name)
+
+        srv._find_node = _find_node
+        srv._save_graph = MagicMock(return_value=(True, 0))
+        srv._load_graph = MagicMock(return_value=graph)
+        return srv, graph
+
+    # ── 1. Baseline: normal call with connected nodes, no orphans ─────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_normal_connected_no_orphan_skips(self):
+        """All connected nodes → orphan_targets_skipped is empty."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=5),
+            "comp-b": MockNode(id="comp-b", label="B", entity_type="service", description="d", degree=2),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-a", "comp-b"],
+            "lesson": "Deploy succeeded without rollback.",
+        }))
+        assert result["recorded"] is True
+        assert result["orphan_targets_skipped"] == []
+        assert graph.add_edge.call_count == 2  # one LEARNED_FROM per connected node
+
+    # ── 2. Orphan component → LEARNED_FROM edge skipped ──────────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_skips_learned_from_to_orphan_node(self):
+        """A component with degree==0 must NOT get a LEARNED_FROM edge."""
+        srv, graph = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Mixed-degree components.",
+        }))
+        assert result["recorded"] is True
+        assert "comp-orphan" in result["orphan_targets_skipped"]
+        # Only one LEARNED_FROM edge — to comp-connected only
+        edge_calls = [c for c in graph.add_edge.call_args_list]
+        targets = [c.args[0].target_id for c in edge_calls if hasattr(c.args[0], "target_id")]
+        assert "comp-orphan" not in targets
+        assert "comp-connected" in targets
+
+    # ── 3. All orphans → no LEARNED_FROM edges, but lesson node still created ─
+
+    @pytest.mark.asyncio
+    async def test_outcome_all_orphans_lesson_node_created_no_edges(self):
+        """When all components are orphans, lesson node is created but no edges added."""
+        nodes = {
+            "orphan-a": MockNode(id="orphan-a", label="Orphan A", entity_type="service", description="d", degree=0),
+            "orphan-b": MockNode(id="orphan-b", label="Orphan B", entity_type="service", description="d", degree=0),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "refactor",
+            "outcome": "failure",
+            "components": ["orphan-a", "orphan-b"],
+            "lesson": "All orphans triggered.",
+        }))
+        assert result["recorded"] is True
+        assert set(result["orphan_targets_skipped"]) == {"orphan-a", "orphan-b"}
+        assert graph.add_node.call_count == 1  # lesson node created
+        assert graph.add_edge.call_count == 0  # no edges
+
+    # ── 4. orphan_targets_skipped in envelope when no orphans ────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_envelope_always_has_orphan_targets_skipped_key(self):
+        """orphan_targets_skipped key must always be present in the response envelope."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=1),
+        }
+        srv, _ = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "test",
+            "outcome": "success",
+            "components": ["comp-a"],
+        }))
+        assert "orphan_targets_skipped" in result
+        assert isinstance(result["orphan_targets_skipped"], list)
+
+    # ── 5. create_lesson=False skips lesson node and all edges ───────────────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_false_no_lesson_node_no_edges(self):
+        """create_lesson=False must suppress lesson node creation and all LEARNED_FROM edges."""
+        srv, graph = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Should be suppressed.",
+            "create_lesson": False,
+        }))
+        assert result["recorded"] is True
+        assert result["lesson_node_id"] is None
+        assert graph.add_node.call_count == 0
+        assert graph.add_edge.call_count == 0
+
+    # ── 6. create_lesson=False: orphan_targets_skipped still empty ───────────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_false_orphan_targets_skipped_empty(self):
+        """When create_lesson=False, no edges attempted → orphan_targets_skipped is []."""
+        srv, _ = self._make_learn_server()
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "deploy",
+            "outcome": "success",
+            "components": ["comp-connected", "comp-orphan"],
+            "lesson": "Suppressed.",
+            "create_lesson": False,
+        }))
+        assert result["orphan_targets_skipped"] == []
+
+    # ── 7. create_lesson=True (explicit default) behaves same as omitted ─────
+
+    @pytest.mark.asyncio
+    async def test_create_lesson_true_explicit_behaves_as_default(self):
+        """Explicit create_lesson=True produces same result as not passing it."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=2),
+        }
+        srv_explicit, graph_explicit = self._make_learn_server(nodes)
+        srv_implicit, graph_implicit = self._make_learn_server(nodes)
+
+        args_explicit = {"action": "test", "outcome": "success", "components": ["comp-a"], "lesson": "Lesson text.", "create_lesson": True}
+        args_implicit = {"action": "test", "outcome": "success", "components": ["comp-a"], "lesson": "Lesson text."}
+
+        r_explicit = json.loads(await srv_explicit._handle_learn_outcome(args_explicit))
+        r_implicit = json.loads(await srv_implicit._handle_learn_outcome(args_implicit))
+
+        assert r_explicit["recorded"] is True
+        assert r_implicit["recorded"] is True
+        assert graph_explicit.add_node.call_count == graph_implicit.add_node.call_count == 1
+        assert graph_explicit.add_edge.call_count == graph_implicit.add_edge.call_count == 1
+
+    # ── 8. lesson=None with connected node: no edges, lesson_node_id is None ─
+
+    @pytest.mark.asyncio
+    async def test_no_lesson_text_no_edges_created(self):
+        """When lesson text is omitted, no lesson node or LEARNED_FROM edges created."""
+        nodes = {
+            "comp-a": MockNode(id="comp-a", label="A", entity_type="service", description="d", degree=2),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "refactor",
+            "outcome": "partial",
+            "components": ["comp-a"],
+        }))
+        assert result["recorded"] is True
+        assert result["lesson_node_id"] is None
+        assert graph.add_node.call_count == 0
+        assert graph.add_edge.call_count == 0
+
+    # ── 9. degree=None node: treated as not orphan (degree absent ≠ degree==0) ─
+
+    @pytest.mark.asyncio
+    async def test_node_with_no_degree_attr_not_treated_as_orphan(self):
+        """A node with no degree attribute (getattr returns None) must NOT be treated as orphan."""
+        nodes = {
+            "nodegree-comp": MockNode(id="nodegree-comp", label="No Degree", entity_type="service", description="d"),
+        }
+        # Remove degree attribute entirely from the node dataclass instance
+        import dataclasses
+        node = nodes["nodegree-comp"]
+        # Simulate absence by using an object without degree attr
+        class _NodeNoDegree:
+            id = "nodegree-comp"
+        graph_nodes = {"nodegree-comp": _NodeNoDegree()}
+        srv, graph = self._make_learn_server(graph_nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "test",
+            "outcome": "success",
+            "components": ["nodegree-comp"],
+            "lesson": "Lesson for no-degree node.",
+        }))
+        # degree is None (via getattr default) → not 0 → not skipped
+        assert "nodegree-comp" not in result["orphan_targets_skipped"]
+        assert graph.add_edge.call_count == 1
+
+    # ── 10. Mixed: multiple components, partial orphans ────────────────────
+
+    @pytest.mark.asyncio
+    async def test_outcome_partial_orphans_mixed_components(self):
+        """With 3 components (2 connected, 1 orphan), 2 edges written, 1 skipped."""
+        nodes = {
+            "comp-1": MockNode(id="comp-1", label="C1", entity_type="service", description="d", degree=5),
+            "comp-2": MockNode(id="comp-2", label="C2", entity_type="service", description="d", degree=1),
+            "comp-orphan": MockNode(id="comp-orphan", label="Orphan", entity_type="service", description="d", degree=0),
+        }
+        srv, graph = self._make_learn_server(nodes)
+        result = json.loads(await srv._handle_learn_outcome({
+            "action": "migrate",
+            "outcome": "success",
+            "components": ["comp-1", "comp-2", "comp-orphan"],
+            "lesson": "Partial orphan lesson.",
+        }))
+        assert result["recorded"] is True
+        assert result["orphan_targets_skipped"] == ["comp-orphan"]
+        edge_calls = graph.add_edge.call_args_list
+        targets = [c.args[0].target_id for c in edge_calls if hasattr(c.args[0], "target_id")]
+        assert "comp-1" in targets
+        assert "comp-2" in targets
+        assert "comp-orphan" not in targets
+
+    # ── 11. Schema: create_lesson parameter present in graq_learn definition ─
+
+    def test_schema_has_create_lesson_parameter(self):
+        """graq_learn MCP schema must expose create_lesson parameter."""
+        learn_def = next((t for t in TOOL_DEFINITIONS if t["name"] in ("graq_learn", "kogni_learn")), None)
+        assert learn_def is not None, "graq_learn not found in TOOL_DEFINITIONS"
+        props = learn_def["inputSchema"]["properties"]
+        assert "create_lesson" in props, "create_lesson missing from graq_learn schema"
+        assert props["create_lesson"]["type"] == "boolean"
+        assert props["create_lesson"]["default"] is True
+
