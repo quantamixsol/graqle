@@ -1823,6 +1823,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "file_path": {"type": "string", "description": "Path to write"},
                 "content": {"type": "string", "description": "Full file content to write"},
                 "dry_run": {"type": "boolean", "description": "Preview only, do not write (default true)", "default": True},
+                "force_overwrite": {"type": "boolean", "description": "Bypass CG-03 edit-gate for full-file rewrites. Runs governance log entry. Use when graq_edit is not suitable (e.g. full-file generation). Default false.", "default": False},
             },
             "required": ["file_path", "content"],
         },
@@ -4240,7 +4241,10 @@ class KogniDevServer:
                         for prefix in (".tmp_", "scripts/", "tests/")
                     )
                     _is_code = any(_target.endswith(ext) for ext in _CODE_EXTS)
-                    if _is_code and not _is_new_file and not _in_scratch:
+                    # BUG-002: force_overwrite bypasses CG-03 for full-file rewrites.
+                    # Governance log entry is created in _handle_write.
+                    _force_overwrite = bool(arguments.get("force_overwrite", False))
+                    if _is_code and not _is_new_file and not _in_scratch and not _force_overwrite:
                         logger.warning("CG-03 BLOCKED: graq_write on code file '%s' — use graq_edit", _target)
                         err = json.dumps({
                             "error": "CG-03_EDIT_GATE",
@@ -4248,7 +4252,8 @@ class KogniDevServer:
                             "file_path": _target,
                             "message": (
                                 f"graq_write blocked for code file '{_target}'. "
-                                "Use graq_edit instead — it runs preflight, governance, and diff application."
+                                "Use graq_edit instead — it runs preflight, governance, and diff application. "
+                                "Pass force_overwrite=true to bypass CG-03 for full-file rewrites."
                             ),
                             "remediation": "graq_edit",
                         })
@@ -9560,6 +9565,14 @@ class KogniDevServer:
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         dry_run = bool(args.get("dry_run", True))
+        force_overwrite = bool(args.get("force_overwrite", False))
+
+        # BUG-002: governance log entry when force_overwrite bypasses CG-03
+        if force_overwrite:
+            logger.warning(
+                "BUG-002-GATE: graq_write force_overwrite=True bypassed CG-03 on '%s' — governance log entry created.",
+                file_path,
+            )
 
         if not file_path:
             # Show hint only when the caller passed neither 'path' nor 'file_path'

@@ -1750,3 +1750,245 @@ class TestBug001WritePathAlias:
         # resolved path ends with the file name
         assert "dryrun.txt" in data.get("file_path", "")
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BUG-002 — graq_write CG-03 blocks full-file rewrites; force_overwrite bypasses
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestBug002ForceOverwrite:
+    """BUG-002: graq_write accepts force_overwrite=True to bypass CG-03 edit gate.
+
+    Covers:
+    - CG-03 blocks existing code file without force_overwrite (1)
+    - force_overwrite=True bypasses CG-03 for existing code file (2)
+    - force_overwrite=False is same as default blocked behaviour (3)
+    - force_overwrite does not affect new files (already allowed) (4)
+    - force_overwrite does not affect scratch/test paths (already allowed) (5)
+    - force_overwrite logs governance warning (6)
+    - CG-03 error message now mentions force_overwrite hint (7)
+    - _handle_write reads force_overwrite from args without error (8)
+    - kogni_write schema alias: force_overwrite propagates through handle_tool (9)
+    - dry_run + force_overwrite: preview returned, no write attempted (10)
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _make_cg03_server(self, tmp_path):
+        """Server with CG-03 enforcement ACTIVE. No real graph."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        gov = MagicMock()
+        gov.edit_enforcement = True      # CG-03 ON
+        gov.plan_mandatory = False
+        gov.session_gate_enabled = False
+        srv._config.governance = gov
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._cg02_bypass = True
+        srv._cg03_bypass = False         # NOT bypassed — CG-03 active
+        srv._plan_active = True
+        srv._graph = None
+        srv._graph_file = None
+        srv._lock = threading.Lock()
+        # Give it a real _inject_tool_hints stub
+        srv._inject_tool_hints = lambda name, err: err
+        return srv
+
+    def _make_write_server(self):
+        """Minimal server with all CG gates off — for _handle_write direct tests."""
+        import threading
+        srv = KogniDevServer.__new__(KogniDevServer)
+        srv._gov = None
+        srv.read_only = False
+        srv._kg_load_state = "LOADED"
+        srv._config = MagicMock()
+        srv._config.governance = MagicMock()
+        srv._config.governance.plan_mandatory = False
+        srv._config.governance.session_gate_enabled = False
+        srv._config.governance.edit_enforcement = False
+        srv._session_started = True
+        srv._cg01_bypass = False
+        srv._plan_active = True
+        srv._cg02_bypass = True
+        srv._cg03_bypass = True
+        srv._graph = None
+        srv._graph_file = None
+        srv._lock = threading.Lock()
+        return srv
+
+    def _kg_gate_passthrough(self):
+        from unittest.mock import patch as _patch
+        return _patch(
+            "graqle.governance.kg_write_gate.check_kg_block",
+            return_value=(True, None),
+        ), _patch(
+            "graqle.governance.kg_write_gate.check_protected_path",
+            return_value=(True, None),
+        )
+
+    # ── 1. CG-03 blocks without force_overwrite ───────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg03_blocks_existing_code_file_without_force_overwrite(self, tmp_path):
+        """CG-03 must block graq_write on an existing .py file when edit_enforcement=True."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "new content",
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+
+    # ── 2. force_overwrite=True bypasses CG-03 ───────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_bypasses_cg03_for_existing_code_file(self, tmp_path):
+        """force_overwrite=True must bypass CG-03 gate."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target),
+                "content": "new content",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 3. force_overwrite=False same as default ──────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_false_still_blocked_by_cg03(self, tmp_path):
+        """force_overwrite=False must behave identically to omitting the parameter."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "x", "force_overwrite": False,
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+
+    # ── 4. force_overwrite does not affect new files ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_new_code_file_always_allowed_regardless_of_force_overwrite(self, tmp_path):
+        """New (non-existent) code files bypass CG-03 regardless of force_overwrite."""
+        target = tmp_path / "newfile.py"    # does NOT exist on disk
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target), "content": "print('hello')", "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 5. scratch paths already allowed ─────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_tests_path_already_allowed_without_force_overwrite(self, tmp_path):
+        """Files under tests/ bypass CG-03 without force_overwrite."""
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        target = tests_dir / "test_foo.py"
+        target.write_text("# test file")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("graq_write", {
+                "file_path": str(target), "content": "# updated", "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 6. governance log warning emitted ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_force_overwrite_emits_governance_warning(self, tmp_path, caplog):
+        """force_overwrite=True must emit a WARNING governance log entry."""
+        import logging
+        srv = self._make_write_server()
+        target = tmp_path / "src.py"
+        p1, p2 = self._kg_gate_passthrough()
+        with caplog.at_level(logging.WARNING):
+            with p1, p2:
+                await srv._handle_write({
+                    "file_path": str(target),
+                    "content": "print('hi')",
+                    "force_overwrite": True,
+                    "dry_run": True,
+                })
+        assert any("BUG-002-GATE" in r.message for r in caplog.records)
+
+    # ── 7. CG-03 error message mentions force_overwrite ───────────────────────
+
+    @pytest.mark.asyncio
+    async def test_cg03_error_message_hints_force_overwrite(self, tmp_path):
+        """CG-03 error message must include the force_overwrite hint."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        result = json.loads(await srv.handle_tool("graq_write", {
+            "file_path": str(target), "content": "x",
+        }))
+        assert result.get("error") == "CG-03_EDIT_GATE"
+        assert "force_overwrite" in result.get("message", "")
+
+    # ── 8. _handle_write reads force_overwrite without error ─────────────────
+
+    @pytest.mark.asyncio
+    async def test_handle_write_accepts_force_overwrite_arg_without_error(self, tmp_path):
+        """_handle_write must not error when force_overwrite is passed."""
+        srv = self._make_write_server()
+        target = tmp_path / "out.txt"
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv._handle_write({
+                "file_path": str(target),
+                "content": "hello",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert "error" not in result or result.get("error") is None
+
+    # ── 9. kogni_write alias propagates force_overwrite ──────────────────────
+
+    @pytest.mark.asyncio
+    async def test_kogni_write_force_overwrite_bypasses_cg03(self, tmp_path):
+        """kogni_write must also accept and honour force_overwrite."""
+        target = tmp_path / "module.py"
+        target.write_text("# existing")
+        srv = self._make_cg03_server(tmp_path)
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv.handle_tool("kogni_write", {
+                "file_path": str(target),
+                "content": "new",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("error") != "CG-03_EDIT_GATE"
+
+    # ── 10. dry_run + force_overwrite: preview, no write ─────────────────────
+
+    @pytest.mark.asyncio
+    async def test_dry_run_with_force_overwrite_previews_without_writing(self, tmp_path):
+        """dry_run=True + force_overwrite=True must return dry_run=True, not write."""
+        target = tmp_path / "module.py"
+        target.write_text("# original")
+        srv = self._make_write_server()
+        p1, p2 = self._kg_gate_passthrough()
+        with p1, p2:
+            result = json.loads(await srv._handle_write({
+                "file_path": str(target),
+                "content": "# replacement",
+                "force_overwrite": True,
+                "dry_run": True,
+            }))
+        assert result.get("dry_run") is True
+        assert target.read_text() == "# original"  # file unchanged
+
