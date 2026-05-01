@@ -878,6 +878,55 @@ def _check_cloud_connection() -> list[CheckResult]:
     return results
 
 
+# BUG-009: stale import patterns from v0.46→v0.52 migration
+_STALE_IMPORTS = {
+    "graqle.scorer": "graqle.activation.chunk_scorer",
+    "graqle.cli.commands.scan.DocScanner": "graqle.scanner.docs.DocumentScanner",
+    "graqle.backends.bedrock": "graqle.backends.api",
+    "graqle.api.GraqleClient": "graqle.core.Graqle",
+}
+
+
+def _check_stale_imports() -> list[CheckResult]:
+    """Scan project .py files for deprecated import paths from v0.46→v0.52."""
+    results: list[CheckResult] = []
+    try:
+        import re as _re
+        cwd = Path.cwd().resolve()
+        py_files = list(cwd.rglob("*.py"))
+        # Exclude common noise dirs; guard against symlink traversal outside cwd
+        py_files = [
+            p for p in py_files
+            if not any(part in p.parts for part in ("site-packages", ".venv", "__pycache__", ".git"))
+            and p.resolve().is_relative_to(cwd)
+        ]
+        hits: list[str] = []
+        for path in py_files:
+            try:
+                content = path.read_text(encoding="utf-8", errors="ignore")
+                for stale, replacement in _STALE_IMPORTS.items():
+                    if stale in content:
+                        rel = path.relative_to(cwd)
+                        hits.append(f"{rel}: '{stale}' → '{replacement}'")
+            except OSError:
+                continue
+        if hits:
+            results.append((
+                WARN,
+                "Migration: stale imports",
+                f"{len(hits)} stale import(s) found — run: graq doctor --fix",
+            ))
+            for hit in hits[:5]:
+                results.append((INFO, "  stale import", hit))
+            if len(hits) > 5:
+                results.append((INFO, "  stale import", f"... and {len(hits) - 5} more"))
+        else:
+            results.append((PASS, "Migration: stale imports", "no deprecated import paths found"))
+    except Exception as exc:
+        results.append((INFO, "Migration: stale imports", f"scan skipped: {exc}"))
+    return results
+
+
 def doctor_command(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all checks including passed"),
     fix: bool = typer.Option(False, "--fix", help="Show fix commands for failures"),
@@ -920,6 +969,7 @@ def doctor_command(
     all_results.extend(_check_governance_gate())
     all_results.extend(_check_reasoning_smoke())
     all_results.extend(_check_cloud_connection())
+    all_results.extend(_check_stale_imports())
 
     # Count results
     passes = sum(1 for r in all_results if r[0] == PASS)
@@ -1014,6 +1064,11 @@ def doctor_command(
 
             elif "Gate: scorecard" in label and "not found" in detail.lower():
                 console.print("  graq compile  # generates scorecard + intelligence")
+
+            elif "stale import" in label.lower() and "found" in detail.lower():
+                console.print(
+                    "  Update stale imports — see MIGRATION-0.46-to-0.52.md for exact replacements"
+                )
 
             elif "Gate: pre-commit hook" in label and "not installed" in detail.lower():
                 console.print("  graq compile --hook  # enforce quality gate before every commit")
