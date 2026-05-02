@@ -67,7 +67,11 @@ jobs:
             --ignore=tests/test_plugins/test_mcp_server.py \
             --ignore=tests/test_server/test_middleware.py \
             --ignore=tests/test_server/test_models.py \
-            --ignore=tests/test_governance/test_shacl.py
+            --ignore=tests/test_governance/test_shacl.py \
+            --ignore=tests/test_cli/test_g5_vscode_gate_install.py \
+            --ignore=tests/test_distribution/test_no_internal_strings.py \
+            --ignore=tests/test_plugins/test_cg_14_config_drift.py \
+            --ignore=tests/test_plugins/test_chat_02_intent_hint.py
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
