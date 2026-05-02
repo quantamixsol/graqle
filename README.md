@@ -16,7 +16,7 @@ Every change is impact-analysed, gate-checked, and taught back — automatically
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Downloads](https://img.shields.io/pypi/dw/graqle?color=%2306b6d4&label=downloads%2Fweek)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
-[![Tests: 4,150+](https://img.shields.io/badge/tests-4%2C150%2B%20passing-06b6d4.svg)]()
+[![Tests: 5,357+](https://img.shields.io/badge/tests-5%2C357%2B%20passing-06b6d4.svg)]()
 [![LLM Backends: 14](https://img.shields.io/badge/LLM%20backends-14-06b6d4.svg)]()
 [![MCP Tools: 122](https://img.shields.io/badge/MCP%20tools-122-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
@@ -78,29 +78,41 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.46.7
+## What's New in v0.53.0 — The Reliability Release
 
-### Multi-Agent Governed Reasoning
+> **AI assistants see files. GraQle sees architecture. And now it never silently fails.**
 
-> **Your codebase is not a collection of files. It's a network of reasoning agents.**
+v0.53.0 is the reliability release — 10 silent failure modes fixed across `graq_bash`, `graq_write`, `graq_reason`, and `graq_learn`. Every fix is covered by targeted tests. 5,357 passing across Python 3.10 / 3.11 / 3.12.
 
-- **ReasoningCoordinator** — decompose complex queries into specialist subtasks, dispatch to multiple graph nodes simultaneously, synthesize answers with clearance-level governance. Not a chatbot. An architecture-aware reasoning network.
-- **Governed synthesis** — every answer passes through GovernanceMiddleware. Trade secret patterns are unconditionally blocked. Clearance levels (PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED) propagate through the reasoning chain.
-- **BudgetAwareSemaphore** — cost-conscious concurrency. The graph reasons within your budget, decays costs across rounds, and stops before overspending.
-- **Feature-flagged** — `coordinator.enabled=false` by default. Zero disruption. Enable when ready: `graq run "your question" --coordinator`
+### Governance Gates That Get Out of the Way
 
-### Self-Validating Code Generation
+The gates that were blocking legitimate work now know the difference between safe and unsafe:
 
-- **The AI validates its own output before writing.** `ast.parse()` catches syntax errors. `difflib` catches drifted context lines. Auto-reanchoring fixes minor drift without burning an LLM call. CWE-22 containment on all file reads.
-- **`graq auto`** — autonomous loop: plan, generate, write, test, diagnose, fix, retry. All governed.
+- **`graq_bash` read-only bypass** — commands with no `>` redirect and no mutating keywords (`rm`, `DROP`, `pip install`, `git push`) skip the plan gate automatically. Or pass `read_only=True` explicitly.
+- **`graq_bash` pip inside venv** — `pip install` inside an active virtualenv is now allowed with a governance log entry. Outside a venv: still blocked with a clear message.
+- **`graq_write` path alias** — always passed `path=` instead of `file_path=`? It works now. Wrong key gets a "Did you mean `file_path`?" hint.
+- **`graq_write` full-file rewrites** — pass `force_overwrite=True` for intentional full-file rewrites. Preflight runs first; governance log entry created automatically.
+- **`graq_reload` before session start** — no longer blocked by CG-01 gate. Boot sequence works unconditionally.
 
-### Intelligent First-Run
+### Reasoning That Doesn't Silently Degrade
 
-- **No knowledge graph? No crash.** GraQle detects your LLM backend, profiles your project (languages, frameworks, file count), and guides you through 3 questions to build your first graph. Your original question is auto-answered after the scan completes.
+- **`graq_reason` orphan fallback** — when the seed node has no graph connections, automatically falls back to the top-10 hub-connected nodes. Response includes `activation_warning` key so you know when this happened. Use `graq_inspect(orphans=True)` to audit.
+- **`graq_learn` orphan edges** — `LEARNED_FROM` edges are no longer silently created to disconnected nodes. Response includes `orphan_targets_skipped` list. New `create_lesson=False` for metadata-only recording.
 
-### 14 LLM Backends. 122 MCP Tools. 4,150+ Tests.
+### Zero Breaking Changes for Upgraders
 
-Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Now with think-tag fallback and num_predict auto-scale for local reasoning models.
+- **4 import-path shims** — paths renamed between v0.46 and v0.52 now have backward-compat shims. `from graqle.scorer import ChunkScorer` still works — you get a `DeprecationWarning` telling you exactly what to change.
+- **`BedrockBackend` constructor aliases** — `model_id` and `profile` kwargs still accepted, mapped to `model` and `profile_name` with deprecation warnings.
+- **`graq doctor` stale-import scan** — run `graq doctor` and it will find every stale import in your project and tell you the exact replacement.
+- **`MIGRATION-0.46-to-0.52.md`** — full before/after migration guide included in the repo.
+
+### Windows Fix
+
+- **`python -c` stdout capture on Windows** — multi-line `python -c "..."` commands now write to a temp file and execute as `python file.py`. No more swallowed stdout on Windows cmd.
+
+### 14 LLM Backends. 160+ MCP Tools. 5,357+ Tests.
+
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers.
 
 [Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
