@@ -1,0 +1,82 @@
+# ADR Visibility Gate — require explicit `visibility: public` frontmatter on
+# any new ADR file landing on PUBLIC master.
+#
+# Context: this workflow runs on the PUBLIC repo (quantamixsol/graqle).
+# It forces authors to make an explicit visibility decision on every ADR
+# rather than relying on implicit "we'll review it later" handling that let
+# ADR-151 land on public master in the first place.
+#
+# Triggered file patterns (case-insensitive):
+#   - .gsm/decisions/**/*.md          (historical leak path)
+#   - docs/adr/**/*.md                 (conventional ADR home)
+#   - ADR-*.md anywhere in the tree
+#
+# Required header on any matching file:
+#   ---
+#   visibility: public
+#   ---
+#
+# Files declaring `visibility: private` (or any value other than `public`)
+# are BLOCKED on this repo. Files missing the header entirely are BLOCKED.
+#
+# Behaviour:
+#   * Runs on every pull_request and on push to master/main.
+#   * Scans Added (A) paths only — pre-existing ADRs are grandfathered to
+#     avoid mass churn. P0 already blocks new files under .gsm/.
+#   * Calls scripts/ci/adr_visibility_scan.py.
+#
+# This is the P2 measure in the leak-prevention rollout
+# (P0 = path-deny, P1 = IP content gate, P2 = this, P3 = structural removal).
+
+name: ADR Visibility Gate
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  adr-visibility:
+    name: adr-visibility-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compute newly-added paths
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.event.after }}"
+            if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              base=$(git rev-list --max-parents=0 HEAD | head -1)
+            fi
+          fi
+          for sha in "$base" "$head"; do
+            if ! [[ "$sha" =~ ^[a-f0-9]{7,64}$ ]]; then
+              echo "::error::Invalid SHA format: $sha"
+              exit 1
+            fi
+          done
+          echo "Comparing $base..$head (Added paths only)"
+          # Only Added (A) — pre-existing ADRs are grandfathered.
+          git diff --diff-filter=A --name-only -z "$base...$head" > /tmp/adr-added.nul
+
+      - name: Run ADR visibility scan
+        run: |
+          python scripts/ci/adr_visibility_scan.py /tmp/adr-added.nul
