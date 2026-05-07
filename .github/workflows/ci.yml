@@ -91,6 +91,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Upgrade pip (fixes CVE-2026-6357 in pip 26.0.1)
+        run: python -m pip install --upgrade 'pip>=26.1'
+
       - name: Install pip-audit
         run: pip install pip-audit
 
