@@ -1,0 +1,85 @@
+# IP Content Gate — block self-disclosing IP/patent meta-documents on PUBLIC.
+#
+# Context: this workflow runs on the PUBLIC repo (quantamixsol/graqle).
+# It complements the existing `IP Gate` (which scans for literal TS-1..TS-6
+# trade-secret values) by catching the *semantic* class of leak — documents
+# that talk *about* patents, IP review status, or trade-secret labels without
+# quoting any actual trade-secret value.
+#
+# The motivating example is ADR-151, removed in PR #130: a 62-line markdown
+# placeholder that referenced patent EP26167849.4 and Claims K-O, framed a
+# pattern as "potentially novel", and named TS-1..TS-4 by label. It passed
+# every existing gate (ip-protection-gate, Governance Gate, PR Guardian,
+# branch protection) because none of them had a check for self-disclosure
+# language. This gate fills that gap.
+#
+# Behaviour:
+#   * Runs on every pull_request and on push to master/main.
+#   * Layer 1: filename pattern check on Added/Modified paths.
+#   * Layer 2: content scan of the first 100 lines of any Added/Modified
+#     markdown/text file for IP-disclosure markers.
+#   * Fails the check if either layer hits.
+#
+# Override path:
+#   No runtime override. Adjusting patterns requires editing this workflow
+#   AND the helper script at scripts/ci/ip_content_scan.py.
+#
+# This is the P1 measure in the leak-prevention rollout (P0 = path-deny;
+# P1 = this; P2 = ADR visibility frontmatter; P3 = structural .gsm/decisions
+# removal).
+
+name: IP Content Gate
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  ip-content:
+    name: ip-content-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compute changed paths
+        id: changed
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.event.after }}"
+            if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              base=$(git rev-list --max-parents=0 HEAD | head -1)
+            fi
+          fi
+          for sha in "$base" "$head"; do
+            if ! [[ "$sha" =~ ^[a-f0-9]{7,64}$ ]]; then
+              echo "::error::Invalid SHA format: $sha"
+              exit 1
+            fi
+          done
+          echo "Comparing $base..$head"
+          # NUL-delimited, Added or Modified only.
+          git diff --diff-filter=AM --name-only -z "$base...$head" > /tmp/ip-changed.nul
+          count=$(tr -cd '\0' < /tmp/ip-changed.nul | wc -c)
+          echo "Added/modified path count: $count"
+
+      - name: Run IP content scan
+        run: |
+          python scripts/ci/ip_content_scan.py /tmp/ip-changed.nul
