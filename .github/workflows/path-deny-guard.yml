@@ -1,0 +1,132 @@
+# Path-Deny Guard — prevent governance/config artefacts from landing on PUBLIC master.
+#
+# Context: this workflow runs on the PUBLIC repo (quantamixsol/graqle).
+# It enforces that the directories `.claude/`, `.gcc/`, `.gsm/`, `.graqle/`
+# (which are already listed in `.gitignore`) cannot be reintroduced via a
+# force-add pathspec. The 6 leaks remediated in PRs #130/#131 all entered
+# this way.
+#
+# Behaviour:
+#   * Runs on every pull_request and on push to master/main.
+#   * Computes the diff between the PR head and merge-base (or push base).
+#   * Fails the check (exit 1) if any added/modified path matches the
+#     deny-list.
+#
+# Override path:
+#   This workflow has no override flag by design. If a future change has a
+#   legitimate reason to add files in a denied directory, the workflow file
+#   itself must be edited and reviewed first.
+#
+# Internal copy lives on the PRIVATE repo as a no-op stub that always passes,
+# so the same branch can be cherry-picked through the private→public flow
+# without breaking private development that legitimately edits .claude/, .gcc/,
+# .gsm/.
+
+name: Path-Deny Guard
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  path-deny:
+    name: path-deny-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed paths
+        id: changed
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            # push event
+            base="${{ github.event.before }}"
+            head="${{ github.event.after }}"
+            # On force-pushes or initial pushes, before may be all-zeros
+            if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              base=$(git rev-list --max-parents=0 HEAD | head -1)
+            fi
+          fi
+          # Validate SHA format before using in git commands (defensive — GitHub
+          # context values are inherently trusted but we anchor the regex anyway).
+          for sha in "$base" "$head"; do
+            if ! [[ "$sha" =~ ^[a-f0-9]{7,64}$ ]]; then
+              echo "::error::Invalid SHA format: $sha"
+              exit 1
+            fi
+          done
+          echo "Comparing $base..$head"
+          # Only consider Added (A) and Modified (M) changes; allow Deletions (D)
+          # so we can keep removing leaked files without the gate blocking us.
+          # Use NUL-delimited output (-z) so paths with embedded newlines or
+          # other non-printable characters cannot fool the loop.
+          git diff --diff-filter=AM --name-only -z "$base...$head" > /tmp/changed-paths.nul
+          # Count entries safely (NUL-separated)
+          count=$(tr -cd '\0' < /tmp/changed-paths.nul | wc -c)
+          echo "Changed paths count: $count"
+
+      - name: Enforce deny-list
+        run: |
+          set -euo pipefail
+          # Deny-list of path prefixes that must NEVER appear in this repo.
+          # All four are in this repo's existing .gitignore — this gate exists
+          # because explicit pathspec on `git add` silently overrides .gitignore.
+          deny_prefixes=(
+            ".claude/"
+            ".gcc/"
+            ".gsm/"
+            ".graqle/"
+          )
+
+          violations=()
+          # Read NUL-delimited paths so that filenames with embedded newlines
+          # or shell metacharacters cannot bypass the loop or inject anything.
+          # The `case` statement uses bash globbing on a literal string — it does
+          # not evaluate or interpret $path as a command, so this is safe even
+          # if a path contains backticks, $(), pipes, etc.
+          while IFS= read -r -d '' path; do
+            [ -z "$path" ] && continue
+            for prefix in "${deny_prefixes[@]}"; do
+              case "$path" in
+                "$prefix"*)
+                  violations+=("$path")
+                  break
+                  ;;
+              esac
+            done
+          done < /tmp/changed-paths.nul
+
+          if [ ${#violations[@]} -gt 0 ]; then
+            echo "::error::Path-Deny Guard BLOCKED — the following paths are not allowed on public master:"
+            for v in "${violations[@]}"; do
+              echo "::error::  $v"
+            done
+            echo ""
+            echo "Why: these directories (.claude/, .gcc/, .gsm/, .graqle/) hold"
+            echo "internal R&D artefacts and are already listed in .gitignore."
+            echo "They were force-added past the ignore rule in past leaks."
+            echo ""
+            echo "Resolution:"
+            echo "  1. Remove these paths from your commit:"
+            echo "       git rm --cached <path>"
+            echo "       git commit --amend"
+            echo "       git push -f"
+            echo "  2. Or, if the change is legitimate, edit"
+            echo "     .github/workflows/path-deny-guard.yml to adjust the deny-list"
+            echo "     (will require its own review)."
+            exit 1
+          fi
+
+          echo "::notice::Path-Deny Guard passed — no denied paths in diff."
