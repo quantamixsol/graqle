@@ -4,6 +4,64 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.54.0 (2026-05-12) - [bau-edge-guard-resolver]
+
+> **Defensive guards stop silent edge-loss + a unified config resolver lands behind a feature flag.** First release under the new BAU (Business As Usual) Change Request process. Two surgical, additive changes from third-party sister-team feedback (BHG epic, 2026-05-09): a `to_json` guard that refuses to silently drop edges (the v0.46→v0.53 regression mode), and the foundation module for unifying 14+ scattered `graqle.yaml` resolution sites.
+
+### Added
+
+- **`EdgeShrinkError`, `GraphSchemaError`, `GraphFileTooLargeError`** in `graqle/core/exceptions.py`. Inherit from `GraqleError`. `EdgeShrinkError` carries `old_edges`, `new_edges`, `threshold`, and `allow_flag` attributes; division-by-zero-safe message formatting.
+
+- **Symmetric `links` validation** in `_validate_graph_data` (`graqle/core/graph.py`). Previously the validator checked `nodes` existence/type but ignored `links` entirely — the structural asymmetry that allowed the v0.46→v0.53 silent edge-loss regression to ship undetected. Now `links` (or its `edges` alias) must be a list, validated symmetrically with nodes. Refuses `{"nodes": [N>0], "links": []}` unless explicit `metadata: {single_node: true}` marker.
+
+- **Edge-shrink guard** on the `Graqle.to_json` write path. When the existing on-disk graph has more than 100 edges AND the new graph would drop edges by more than 10%, `EdgeShrinkError` is raised with a clear remediation message. The 100-edge floor avoids spurious raises on small graphs and legitimate sparse-graph workflows.
+
+- **`GRAQLE_ALLOW_EDGE_SHRINK` environment variable** as the audit-logged override. Strict allow-list: only `1`, `true`, `yes` (case-insensitive). Invalid values log a warning and are treated as not-allowed. The override path emits a single `logger.warning` audit line (`EDGE_SHRINK_ALLOWED file=<basename> old=<N> new=<N> user_hash=<sha256[:8]> pid=<N>`) for SOC2 § 6.3 change tracking. OWASP A09:2021-safe: no raw `USER`/`USERNAME` in logs, no full filesystem path — only `basename(path)` and a SHA-256-truncated user hash.
+
+- **`graqle/config/resolver.py`** — new unified config resolver module behind the `GRAQLE_USE_RESOLVER` feature flag (default `False` — inert until callers migrate in a follow-up release). Provides:
+  - `resolve_config(start, max_depth=10)` — ancestor walk for `graqle.yaml` with submodule fallback (when nested `.graqle/` directory has no yaml, falls through to a parent's yaml and records both `project_root` and `parent_root`).
+  - `resolve_neo4j(cfg, **explicit)` — explicit auditable priority chain: `explicit > env > yaml > default` with a `source` field on the returned `Neo4jParams` recording which layer won.
+  - `resolve_project_root(start, max_depth=10)` — first ancestor with `graqle.yaml` or `.graqle/`.
+  - `is_resolver_enabled()` — reads the feature flag.
+  - `ALLOWED_URI_SCHEMES = {bolt, neo4j, https, file}` — positive allow-list (not deny-list) closing the case/encoding/Unicode-bypass class.
+  - `SecretStr` — constant-time `__eq__` via `hmac.compare_digest`, repr/str never reveal contents, `__slots__` blocks accidental attribute assignment.
+  - Frozen dataclasses `ResolvedConfig` + `Neo4jParams`.
+
+- **`graqle/config/exceptions.py`** — new file. 6 subclasses of `GraqleConfigError`: `ConfigNotFoundError`, `ConfigPathError`, `ConfigYamlError`, `ConfigPermissionError`, `ConfigLockError`, `ConfigSchemeError`.
+
+- **`_assert_not_uri_path`** in the resolver — detects both `scheme://...` and the `scheme:opaque-data` form (`javascript:alert(1)`, `data:text/html;base64,...`) which `urlparse` correctly recognises as having a scheme even without `//`. Includes a Windows-drive-letter guard so `C:\\Users\\...` is not mis-parsed as a URI.
+
+- **Ancestor walk safety** — `max_depth=10` bound, symlink-cycle detection via a `seen: set[Path]` of resolved paths, halt at `Path.home()` boundary, all paths canonicalised via `Path.resolve(strict=False)` before any disk access.
+
+- **Round-trip property test suite** (`tests/test_core/test_persistence_round_trip.py`) — 8 tests, parametrized across 5 graph fixture sizes (5, 50, 100, 500, 1000 nodes) verifying `Graqle.from_json(p).to_json(p2)` preserves node count, edge count, and entity-type distribution exactly.
+
+- **Edge-shrink boundary tests** (`tests/test_core/test_validate_graph_data_edge_shrink.py`) — 27 tests covering: symmetric validation, threshold boundary (exactly 10% loss = allowed, 10.1% = blocked), small-graph grace period, env-var allow-list (case-insensitive, whitespace-stripped, invalid-value warning), division-by-zero defence, OWASP A09 audit-log PII regression test (raw USER/USERNAME and full path must NOT appear in audit lines).
+
+- **Resolver test suite** (`tests/test_config/test_resolver.py`) — 71 tests across 14 classes covering `SecretStr` (masking, constant-time eq, `__slots__`), `ResolvedConfig` validation, `Neo4jParams` masking, URI safety (allow-list + bypass class with `javascript:`/`data:`/`vbscript:`/`mailto:`/`ftp:` without slashes), `resolve_project_root` ancestor walk, `resolve_config` including submodule fallback, `resolve_neo4j` full priority chain, feature-flag toggling, home-redaction helper, end-to-end integration.
+
+### Fixed
+
+- **Silent edge-loss regression** introduced between v0.46 and v0.53. Symptom (BHG epic 2026-05-09, feedback #10): a `graqle.json` with 22,516 nodes and **0** edges. Root cause is being bisected separately (PR-003b); this release adds the defensive guard that makes the failure mode loud rather than silent. A graph that legitimately needs to drop edges by more than 10% (e.g. `graq scan --full` on a dramatically-trimmed source tree) now requires `GRAQLE_ALLOW_EDGE_SHRINK=1` and audit-logs the override.
+
+### Changed
+
+- **`Graqle.to_json` write path now refuses silent edge loss.** This is a behaviour change but only for the failure-mode CR-003 fixes. Existing healthy callers (where edge counts are stable or growing) see no behavioural difference.
+
+### Notes — BAU process
+
+This is the first release shipped under the [BAU (Business As Usual) Change Request process](https://github.com/quantamixsol/graqle/tree/master/.gsm/external/Change%20Requests) launched 2026-05-09. Every non-trivial change is now documented as a CR with explicit scope, evidence, PR strategy, test strategy, rollback procedure, and acceptance criteria. The full CR set for this release:
+- `CR-001-bau-charter` — the BAU process charter itself
+- `CR-002-unified-config-resolution` — the resolver work (PR-002a here; PR-002b follow-up migrates the 14 call sites)
+- `CR-003-kg-persistence-schema-parity` — the persistence guards (PR-003a here; PR-003b bisect, PR-003c root-cause fix, PR-003d schema parity in `neo4j-import` are follow-ups)
+- `CR-004-reasoning-honesty` — graph-health surfacing (next release)
+- `CR-005-tool-ergonomics` — `graq_bash` improvements (next release)
+
+### Migration notes
+
+If `graq scan --full` or `graq grow` returns `EdgeShrinkError`, run with `GRAQLE_ALLOW_EDGE_SHRINK=1` once to record an audit line and proceed. If you see this on a graph you believed was healthy, run `graq audit --fail-on-zero-edges` to confirm whether you've been silently hit by the v0.46→v0.53 regression.
+
+---
+
 ## 0.53.1 (2026-05-03) - [codex-mcp-installer]
 
 > **One command installs GraQle into Codex.** First-class Codex CLI integration,

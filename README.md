@@ -78,38 +78,33 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.53.1 — Codex MCP Installer
+## What's New in v0.54.0 — Defensive Edge Guard + Config Resolver
 
-> **One command installs GraQle into Codex.** Plus a full Neo4j import pipeline and a fix for the invisible permission dialog that was silently stalling VS Code sessions.
+> **Silent edge-loss is now loud.** Two surgical, additive changes from sister-team feedback (BHG epic 2026-05-09): a `to_json` write-path guard that refuses to silently drop edges (the v0.46→v0.53 regression mode), and the foundation for a unified config resolver that closes a class of submodule-path bugs.
 
-### Codex — One Command Setup
+### Edge-Shrink Guard
 
-```bash
-pip install graqle
-graq mcp install codex          # registers GraQle in Codex automatically
-graq mcp doctor codex           # 8-point health check — confirms everything is wired
-```
-
-`graq mcp install codex` auto-detects Codex CLI, resolves the absolute `graqle.yaml` path (relative paths silently fail in global MCP entries), and runs `codex mcp add graqle` with the correct config. Supports `--mode read-only` for safe parallel Claude + Codex sessions, `--yes` for scripts.
-
-### New MCP Management Commands
-
-- **`graq mcp tools [--json]`** — lists all 80+ tools; queries live server or falls back to static registry
-- **`graq mcp sessions`** — shows running MCP server PIDs and versions
-- **`graq mcp locks`** — shows KG write locks currently held
-
-### Neo4j Full Import
+`Graqle.to_json` (used by `graq scan`, `graq grow`, `graq learn`) now refuses to silently shrink the edge count by more than 10% on graphs with > 100 baseline edges. If you've been hit by the silent edge-drop regression that affected installs between v0.46 and v0.53 — where `graqle.json` could end up with 22,516 nodes and **0** edges with no error — you now get a loud `EdgeShrinkError` with a clear override:
 
 ```bash
-graq neo4j-import               # transfers your full KG to Neo4j with embeddings
-graq neo4j-import --dry-run     # preview without writing
+GRAQLE_ALLOW_EDGE_SHRINK=1 graq scan --full   # one-shot override, audit-logged
 ```
 
-Bulk-transfers the KG in configurable batches: nodes with 1024-dim embeddings, edges, uniqueness constraint, and cosine vector index. Validates counts and runs a live vector search after import to confirm reasoning quality is intact.
+The override emits a single `EDGE_SHRINK_ALLOWED` line at warning level — OWASP A09:2021-safe (SHA-256-truncated user hash, never raw `USER`/`USERNAME`; basename only, never full filesystem paths).
 
-### VS Code Permission Dialog Fix
+### Unified Config Resolver (Behind Feature Flag)
 
-The governance gate template now ships with `permissions.allow` pre-populated for all `graq_*` / `kogni_*` MCP tools. Previously, Claude Code would silently wait for a permission dialog that never rendered inside the VS Code extension, causing sessions to appear stuck. **Existing installations:** run `graq gate-install --force` once to apply.
+New `graqle/config/resolver.py` module lands behind `GRAQLE_USE_RESOLVER` (default `False`). Provides:
+- Submodule-aware ancestor walk for `graqle.yaml` — nested `.graqle/` directories now fall through to a parent's yaml correctly
+- Positive URI scheme allow-list (`bolt`, `neo4j`, `https`, `file`) — closes the case/encoding/Unicode-bypass class
+- `SecretStr` for Neo4j credentials with constant-time equality and masked repr/str
+- Explicit `explicit > env > yaml > default` priority chain for `Neo4jParams` with a `source` field recording which layer won
+
+Inert until callers migrate in v0.55.0 (`PR-002b` follow-up). This release lands the building block + 71 tests.
+
+### BAU Process Launch
+
+First release under the new [BAU Change Request process](https://github.com/quantamixsol/graqle/tree/master/.gsm/external/Change%20Requests) (launched 2026-05-09). Every non-trivial change from here on is documented as a CR with explicit scope, evidence, PR strategy, test strategy, rollback procedure, and acceptance criteria.
 
 ### 14 LLM Backends. 160+ MCP Tools. 5,357+ Tests.
 
