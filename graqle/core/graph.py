@@ -163,14 +163,60 @@ def _release_lock(fd, lock_path: str) -> None:
             pass
 
 
+def _shrink_allowed() -> bool:
+    """CR-003 PR-003a: Strict allow-list for the edge-shrink override env var.
+
+    Accepts only ``1``/``true``/``yes`` (case-insensitive). Logs a warning when
+    the value is set but not in the allow-list, so silent typo-bypass is
+    impossible.
+    """
+    import os as _os
+    raw = _os.environ.get("GRAQLE_ALLOW_EDGE_SHRINK", "").strip()
+    if raw.lower() in {"1", "true", "yes"}:
+        return True
+    if raw and raw.lower() not in {"0", "false", "no", ""}:
+        logger.warning(
+            "GRAQLE_ALLOW_EDGE_SHRINK has invalid value %r; treating as not-allowed. "
+            "Use one of: 1, true, yes (case-insensitive).",
+            raw,
+        )
+    return False
+
+
+def _audit_log_shrink(path: str, old_edges: int, new_edges: int) -> None:
+    """CR-003 PR-003a: Emit a single warning-level audit-log line whenever an
+    edge-shrink override fires. Records old/new counts, pid, an 8-char user
+    hash (SHA-256 truncated — never the raw username), and only the basename
+    of the target file (no full filesystem path). Grep-able for SOC2 § 6.3
+    change tracking; OWASP A09:2021-safe (no PII / path disclosure in logs).
+    """
+    import hashlib as _hashlib
+    import os as _os
+    from pathlib import Path as _Path
+
+    raw_user = _os.environ.get("USER") or _os.environ.get("USERNAME") or "unknown"
+    # Hash username (truncated to 8 chars) — defeats production log-aggregation PII.
+    user_hash = _hashlib.sha256(raw_user.encode("utf-8")).hexdigest()[:8]
+    # Log only basename — no full directory tree exposure.
+    path_basename = _Path(path).name if path else "unknown"
+    logger.warning(
+        "EDGE_SHRINK_ALLOWED file=%s old=%d new=%d user_hash=%s pid=%d",
+        path_basename, old_edges, new_edges, user_hash, _os.getpid(),
+    )
+
+
 def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
     """Validate graph data before saving. Raises ValueError on corruption.
 
     Checks:
     1. ``directed`` and ``multigraph`` are booleans (not MagicMock strings)
     2. ``nodes`` is a non-empty list
-    3. If existing graph exists, refuse to save if node count drops >50%
+    3. ``links`` is a list (CR-003 PR-003a — symmetric with nodes)
+    4. If existing graph exists, refuse to save if node count drops >50%
        (prevents accidental data wipe)
+    5. CR-003 PR-003a: refuse to save if edge count drops >10% versus
+       existing on-disk file. Override via ``--allow-edge-shrink`` CLI flag
+       or ``GRAQLE_ALLOW_EDGE_SHRINK=1`` env var (both audit-logged).
     """
     if not isinstance(data.get("directed"), bool):
         raise ValueError(
@@ -186,17 +232,32 @@ def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
     if nodes_key is None or not isinstance(data[nodes_key], list):
         raise ValueError("Graph validation failed: 'nodes' must be a list.")
 
-    new_count = len(data[nodes_key])
+    # CR-003 PR-003a: links must also be a list (symmetric with nodes). The
+    # previous validation ignored 'links' entirely, which let the v0.46->v0.53
+    # silent edge-loss regression ship undetected.
+    links_key = "links" if "links" in data else ("edges" if "edges" in data else None)
+    if links_key is None or not isinstance(data.get(links_key), list):
+        raise ValueError(
+            "Graph validation failed: 'links' (or 'edges') must be a list. "
+            "node_link_data format requires both 'nodes' and 'links' arrays."
+        )
 
-    # Check for catastrophic node loss
+    new_count = len(data[nodes_key])
+    new_edge_count = len(data[links_key])
+
+    # Check for catastrophic node loss + CR-003 edge-shrink guard
     if existing_path:
         import json as _json
         from pathlib import Path as _P
+        from graqle.core.exceptions import EdgeShrinkError as _EdgeShrinkError
+
         existing = _P(existing_path)
         if existing.exists():
             try:
                 old_data = _json.loads(existing.read_text(encoding="utf-8"))
                 old_count = len(old_data.get("nodes", []))
+                old_edge_count = len(old_data.get("links", old_data.get("edges", [])))
+
                 if old_count > 0 and new_count == 0:
                     raise ValueError(
                         f"Graph validation failed: saving 0 nodes would wipe {old_count} existing nodes. "
@@ -208,6 +269,24 @@ def _validate_graph_data(data: dict, existing_path: str | None = None) -> None:
                         f"({100*new_count/old_count:.0f}%). This may indicate data corruption. "
                         "Use force=True to override."
                     )
+
+                # CR-003 PR-003a: edge-shrink guard. Only fires when there is
+                # a meaningful baseline (>100 existing edges) AND the drop is
+                # more than 10%. Avoids spurious raises on legitimate small
+                # graphs and on graphs that legitimately have few edges.
+                EDGE_SHRINK_THRESHOLD = 0.10
+                if old_edge_count > 100:
+                    loss = 1.0 - (new_edge_count / old_edge_count)
+                    if loss > EDGE_SHRINK_THRESHOLD:
+                        if _shrink_allowed():
+                            _audit_log_shrink(existing_path, old_edge_count, new_edge_count)
+                        else:
+                            raise _EdgeShrinkError(
+                                old_edges=old_edge_count,
+                                new_edges=new_edge_count,
+                                threshold=EDGE_SHRINK_THRESHOLD,
+                                allow_flag="GRAQLE_ALLOW_EDGE_SHRINK=1 (or --allow-edge-shrink)",
+                            )
             except (_json.JSONDecodeError, KeyError):
                 pass  # Existing file is already corrupt, allow overwrite
 
