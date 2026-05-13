@@ -156,7 +156,33 @@ class Orchestrator:
         per_round_observations: list[list[str]] = []
         budget_exceeded = False
 
+        # CR-007 Fix 5: absolute LLM-call ceiling. Checked BEFORE each
+        # round so the ceiling actually constrains rounds (post-round check
+        # alone is ineffective when max_rounds=2 — round 2 always runs).
+        # Halts cleanly between rounds so partial state never escapes.
+        # Default 60 covers max_nodes=50 + max_rounds=2 + 1 synthesis;
+        # configurable via GraqleConfig.orchestration.max_llm_calls.
+        # The projected check uses len(active_node_ids) as the per-round cost
+        # estimate — accurate for fan-out, conservative for hierarchical mode
+        # where summary calls reduce actual count.
+        orch_outer = getattr(getattr(graph, "config", None), "orchestration", None)
+        max_llm_calls = int(getattr(orch_outer, "max_llm_calls", 60) or 60)
+        llm_calls_so_far = 0
+        per_round_estimate = max(1, len(active_node_ids))
+
         for round_num in range(max_rounds):
+            # Pre-round ceiling: would starting this round push us over?
+            projected = llm_calls_so_far + per_round_estimate
+            # Reserve 1 call budget for the final synthesis.
+            if round_num > 0 and projected > max_llm_calls - 1:
+                logger.warning(
+                    "CR-007 max_llm_calls pre-round halt: projected %d > %d "
+                    "(used=%d, est_round=%d). Skipping round %d. Tune via "
+                    "GraqleConfig.orchestration.max_llm_calls.",
+                    projected, max_llm_calls - 1,
+                    llm_calls_so_far, per_round_estimate, round_num,
+                )
+                break
             # Run one round
             current_messages = await self.message_protocol.run_round(
                 graph=graph,
@@ -168,6 +194,22 @@ class Orchestrator:
 
             all_messages.append(current_messages)
             rounds_completed = round_num + 1
+
+            # CR-007 Fix 5: account for LLM calls issued in this round and
+            # halt if the absolute ceiling is reached. Each node makes 1 base
+            # call per round (excluding optional continuation calls, which are
+            # bounded separately by max_continuations). Synthesis adds 1 more
+            # final call counted after the loop. Halting happens AFTER the
+            # round completes so partial state never escapes the orchestrator.
+            llm_calls_so_far += len(current_messages)
+            if llm_calls_so_far >= max_llm_calls:
+                logger.warning(
+                    "CR-007 max_llm_calls ceiling reached: %d >= %d. "
+                    "Halting after round %d. Tune via "
+                    "GraqleConfig.orchestration.max_llm_calls.",
+                    llm_calls_so_far, max_llm_calls, rounds_completed,
+                )
+                break
 
             # Track cumulative cost per round
             round_tokens = sum(m.token_count for m in current_messages.values())

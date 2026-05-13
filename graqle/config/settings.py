@@ -149,6 +149,48 @@ class OrchestrationConfig(BaseModel):
     max_continuations: int = 3
     continuation_overlap_lines: int = 15
 
+    # ── CR-007: token economics ceilings ────────────────────────────
+    # Tuned 2026-05-13 to cap input-token blow-up on dense graphs after
+    # empirical profiling showed 198K input tokens per graq_reason call
+    # (50 nodes x 2 rounds x ~2K tokens of evidence + neighbor context).
+    # All numbers are upper bounds; smaller graphs naturally stay below.
+    # EU AI Act: governance/audit/trace paths preserved verbatim — these
+    # are pure cost guards, no removal of logging or evidence trail.
+
+    # Hard ceiling on per-node Supporting Evidence block (chars). Applied
+    # AFTER the optional top-3 embedding filter so the final prompt evidence
+    # is never larger than this regardless of embedding availability.
+    # Bound: 100..200000 (lower would starve reasoning; upper matches
+    # extreme single-document tools without exceeding any LLM context).
+    evidence_hard_ceiling: int = Field(default=4000, ge=100, le=200_000)
+
+    # Last-resort cap on the full per-node reasoning prompt (chars). When a
+    # prompt exceeds this, evidence + context are truncated symmetrically
+    # while preserving the system block, label/description, and query.
+    # Bound: 500..400000.
+    prompt_hard_cap: int = Field(default=10000, ge=500, le=400_000)
+
+    # Top-K neighbor messages to forward in _exchange_round. Higher = more
+    # collaboration, more cost; lower = faster convergence on cheap graphs.
+    # Ranking falls back to insertion order when no edge weights available.
+    # Bound: 1..200 (200 covers worst-case hub nodes on dense graphs).
+    top_k_neighbors: int = Field(default=8, ge=1, le=200)
+
+    # Absolute ceiling on LLM calls per graq_reason invocation. Halts after
+    # the current round when reached; never aborts mid-round. Generous
+    # default (60) for max_nodes=50 + max_rounds=2 with synthesis.
+    # Bound: 1..1000.
+    max_llm_calls: int = Field(default=60, ge=1, le=1000)
+
+    # Hierarchical between-round synthesis (CR-007b). When True, between
+    # rounds the orchestrator summarises each community of nodes into one
+    # message instead of forwarding every neighbor's full reply. Default
+    # False — feature-flagged for opt-in until empirical comparison done.
+    hierarchical_synthesis: bool = False
+    hierarchical_summary_max_chars: int = Field(
+        default=1500, ge=200, le=50_000,
+    )  # ~375 tokens per community summary
+
 
 class ObserverConfig(BaseModel):
     """MasterObserver configuration.

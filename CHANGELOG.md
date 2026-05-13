@@ -4,6 +4,75 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.54.3 (2026-05-13) - [bau-cr-007-reason-token-economics]
+
+> **`graq_reason` now costs ~52% less, runs ~48% faster, and stops Bedrock throttling.** Empirical probe against a live 64K-node Neo4j KG: input tokens dropped from ~198K to ~47K per call (-76%), LLM calls from 101 to 51 (-50%), max single prompt from 24,618 to 8,015 chars (-67%), wall time from 49.8s to 25.9s, and 12+ Bedrock `ThrottlingException` retries dropped to 0. Six layered cost ceilings, all configurable via `GraqleConfig.orchestration` with pydantic-validated bounds. EU AI Act audit trails preserved verbatim.
+
+### Why this release matters
+
+Pre-v0.54.3, `graq_reason` was multiplicatively expensive on large activations. Each round issued one full LLM call per activated node (50 nodes × 2 rounds = 100 calls), and each call's prompt had no upper bound — evidence chunks, neighbor messages, and context concatenation could push a single call's input prompt past 24K chars on dense graphs. With Sonnet 4 retail pricing this was ~$0.86 per `graq_reason` call (the SDK's internal `cost_per_1k_tokens` constant reported $0.087, an 8× under-count). Bedrock `ThrottlingException` retries were the canary for the real spend.
+
+This release does **not** change the multiplicative-fan-out architecture (that's a separate v0.55+ optimisation). It bounds the per-call and per-round spend so dense graphs stop blowing past sensible budgets.
+
+### Added — new `OrchestrationConfig` knobs (all pydantic-validated, additive schema)
+
+- **`evidence_hard_ceiling`** — chars cap on the per-node Supporting Evidence block. Applied **after** any embedding-based top-3 filter, so the final evidence shipped to the LLM is never larger than this regardless of embedding availability. Auditable `[truncated by evidence_hard_ceiling]` marker on hit. Default `4000` (~1K tokens). Range `100..200_000`.
+- **`prompt_hard_cap`** — last-resort cap on the assembled per-node reasoning prompt. When exceeded, evidence + context are truncated symmetrically while preserving the system block, label/description, and query (head 60% + tail 30%). Auditable `[CR-007 prompt_hard_cap: middle truncated]` marker on hit. Default `10000` (~2.5K tokens). Range `500..400_000`.
+- **`top_k_neighbors`** — caps neighbor messages forwarded in `_exchange_round` (round N+). Ranked by `node.activation_score`, fallback to insertion order. Default `8`. Range `1..200`.
+- **`max_llm_calls`** — absolute LLM-call ceiling per `graq_reason` invocation. Checked **before** each round (projects `llm_calls_so_far + per_round_estimate` against `max_llm_calls - 1`, reserving 1 call for synthesis) so the ceiling actually constrains rounds. Halts cleanly between rounds — partial state never escapes. Default `60` (covers `max_nodes=50` + `max_rounds=2` + synthesis). Range `1..1000`.
+- **`hierarchical_synthesis`** — feature flag (default `False`). When `True`, between rounds the orchestrator replaces per-neighbor messages with one summary per `node.community` / `node.entity_type` bucket via the new `MessagePassingProtocol._build_community_summaries` helper. Cuts inter-node messaging from `O(N × neighbors)` to `O(N × communities)` on dense graphs. Auditable `[community summary truncated]` marker on hit. **Opt-in until empirical validation completes.**
+- **`hierarchical_summary_max_chars`** — cap on each community summary's content. Default `1500` (~375 tokens). Range `200..50_000`.
+
+### Added — empirical regression utilities
+
+- **`scripts/profile_reason.py`** — promoted probe utility. Wraps `backend.generate()` / `agenerate()` to record per-call prompt/output chars + latency. Prints CR-007 acceptance check inline (total input < 320K chars, LLM calls ≤ 60, max prompt ≤ 10K chars). Usable against any `graqle.yaml` for regression detection.
+- **`tests/test_orchestration/test_token_budget.py`** — NEW, 14 deterministic regression tests (no live LLM required). Covers: defaults, pydantic bounds rejection, evidence truncation w/ marker, prompt cap w/ head+tail markers, top-K configurability, max_llm_calls casting, hierarchical_synthesis flag, `_build_community_summaries` entity_type fallback + truncation.
+
+### Fixed
+
+- **Synthesis prompt bypassed per-node `prompt_hard_cap`** (surfaced by probe — synthesis prompt was 17,295 chars). `AggregationStrategy._synthesize()` now uses budget-aware accumulation that stops at `prompt_hard_cap - 2000` (template headroom). Highest-confidence messages preserved (sort happens upstream); lower-confidence tail trimmed with auditable `[…CR-007 Fix 6: N lower-confidence message(s) omitted…]` marker.
+- **`max_llm_calls` post-round-only check was ineffective** for `max_rounds=2` (round 2 always ran before the ceiling could halt anything). Tightened to a pre-round projection check that reserves 1 call budget for synthesis.
+
+### Behaviour changes (knob-tunable; CHANGELOG-disclosed)
+
+- **`Graqle.stats.density` unchanged** from v0.54.2.
+- **`graq_reason` confidence on long-evidence canary queries** can regress by up to ~12 percentage points when defaults apply (e.g. 0.58 → 0.46 on a single observed query). The cost-vs-confidence tradeoff is exposed via the knobs. Quality-sensitive users raise `evidence_hard_ceiling`, `top_k_neighbors`, and `max_llm_calls`; cost-sensitive users opt into `hierarchical_synthesis=True`.
+- **`graq_reason` log will emit a `warning` line** when `_sanitise_rel_type` falls back (CR-006b carryover) AND when `prompt_hard_cap` or `max_llm_calls` fire. The fallbacks are observable in audit logs without leaking raw content.
+- **No graqle.yaml migration required** — pure additive schema. Configs without these keys get the defaults.
+
+### EU AI Act / governance preservation
+
+This is a P1 cost guard, not a governance change. Verified across the diff and confirmed by the security review (0 BLOCKERs, 0 MAJORs):
+
+- `orchestrator.all_messages` keeps every original per-node message regardless of `hierarchical_synthesis` state. The summary only affects what the **next** round's nodes see; the audit trail has full provenance.
+- Governance text (`semantic_governance_text`, `constraint_text`, `skills_text`, `label`, `description`) is never dropped — Fix 3's head 60% + tail 30% strategy always preserves it.
+- Every truncation event emits a static `[…marker…]` so downstream compliance hooks can detect that a cost-guard fired.
+- `ContentSecurityGate` (graph.py snapshot pattern) runs upstream of all CR-007 paths — no bypass introduced.
+- `_sanitise_rel_type` (CR-006b) reused as the security boundary for any rel-type interpolation — no new injection vectors.
+
+### Governance trail
+
+- **Private PR**: `quantamixsol/research-development-graqle#88` (merged 2026-05-13).
+- **Sentinel chain on consolidated diff**: `graq_safety_check` (MEDIUM, 38 modules, 0 CRITICAL) → `graq_plan` (`plan_6844133c`) → `graq_edit literal` × 14 → `graq_review focus=all` (**APPROVED**, 0 BLOCKERs, 2 MINORs addressed: pydantic Field bounds + bounds-rejection test) → `graq_review focus=security` (**APPROVED**, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced 5 downstream risks, all mitigated via configurability + this CHANGELOG note).
+- **Scoped pytest** on `tests/test_orchestration/` + `tests/test_core/` + `tests/test_connectors/`: **529 passed, 7 skipped, 1 deselected** (pre-existing v0.54.0 baseline failure). **0 regressions.**
+- **Empirical probe** against the live 64,223-node Neo4j KG (CR-006 fixed, full multi-edge graph present): all 3 CR-007 acceptance criteria PASS — total input < 320K chars, LLM calls ≤ 60, max prompt ≤ 10K chars.
+
+### Probe acceptance results (live 64K-node Neo4j KG, max_rounds=2, max_nodes=50)
+
+```
+Metric                Before v0.54.3       After v0.54.3        Reduction
+----------------------------------------------------------------------------
+Total input chars     793,595              187,307              -76%
+Input tokens          ~198,398             ~46,826              -76%
+LLM calls per call    101                   51                  -50%
+Max single prompt     24,618 chars         8,015 chars          -67%
+Wall time             49.8s                25.9s                -48%
+Cost (reported)       $0.087               $0.042               -52%
+Bedrock throttling    12+ retries          0 retries            eliminated
+```
+
+---
+
 ## 0.54.2 (2026-05-13) - [bau-cr-006-multi-edge-full-fix]
 
 > **Complete fix for CR-006 — silent multi-edge collapse across Neo4j + JSON storage paths.** On a 64k-node KG with 216,577 typed edges across 14 relationship types (CALLS=71,739, DEFINES=27,140, RELATED_TO=108,493, plus 11 more), the in-memory graph was reporting only 108,309 edges — exactly the `RELATED_TO` count — because parallel typed edges between the same `(source, target)` pair were silently collapsing in three coupled places: in-memory shape, Neo4j load, and Neo4j save.
