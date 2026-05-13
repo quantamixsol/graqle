@@ -771,10 +771,22 @@ class Graqle:
                 properties=props,
             )
 
-        # Build edges
-        for i, (src, tgt, data) in enumerate(G.edges(data=True)):
+        # Build edges — CR-006a Site 5: when the input graph is a MultiDiGraph
+        # (post-CR-006a to_networkx output), the original edge ids live in the
+        # edge keys. Iterate with keys=True so JSON round-trips preserve ids
+        # instead of falling back to synthetic positional ids.
+        is_multi = G.is_multigraph()
+        edge_iter = (
+            G.edges(keys=True, data=True) if is_multi else G.edges(data=True)
+        )
+        for i, edge_tuple in enumerate(edge_iter):
+            if is_multi:
+                src, tgt, key, data = edge_tuple
+                edge_id = str(key) if key is not None else f"e_{src}_{tgt}_{i}"
+            else:
+                src, tgt, data = edge_tuple
+                edge_id = f"e_{src}_{tgt}_{i}"
             src_id, tgt_id = str(src), str(tgt)
-            edge_id = f"e_{src_id}_{tgt_id}_{i}"
             rel = data.get(edge_rel_key, "RELATED_TO")
             weight = data.get("weight", 1.0)
             props = {k: v for k, v in data.items()
@@ -2820,13 +2832,18 @@ class Graqle:
         """Get all outgoing edges for a node."""
         return [self.edges[eid] for eid in self.nodes[node_id].outgoing_edges]
 
-    def to_networkx(self) -> nx.Graph:
+    def to_networkx(self) -> nx.MultiDiGraph:
         """Export to NetworkX graph — always builds fresh from current node state.
+
+        Uses ``MultiDiGraph`` so parallel typed edges between the same
+        (source, target) pair (CALLS + DEFINES + IMPORTS, etc.) are preserved
+        instead of silently overwriting one another. Keyed by edge id so
+        round-trips through to_json/from_json/to_neo4j are lossless.
 
         This ensures runtime mutations (auto-chunk loading, description
         enrichment, property updates) are reflected in the exported graph.
         """
-        G = nx.DiGraph()
+        G = nx.MultiDiGraph()
         for nid, node in self.nodes.items():
             G.add_node(nid, label=node.label, type=node.entity_type,
                        description=node.description, **node.properties)
@@ -2836,7 +2853,7 @@ class Graqle:
             # contain 'relationship' or 'weight' (e.g. loaded from Neo4j).
             props = {k: v for k, v in edge.properties.items()
                      if k not in ("relationship", "weight")}
-            G.add_edge(edge.source_id, edge.target_id,
+            G.add_edge(edge.source_id, edge.target_id, key=eid,
                        relationship=edge.relationship, weight=edge.weight,
                        **props)
         return G

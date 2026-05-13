@@ -166,16 +166,27 @@ def generate_migration_cypher(
             "n += node.properties"
         )
 
-    # Batch edges via UNWIND
+    # CR-006b: edges UNWIND is generated per relationship type so parallel
+    # typed edges are stored as distinct native Neo4j relationships instead of
+    # all collapsing to a single :RELATES_TO label. One statement per rtype.
+    # Rel type comes from _sanitise_rel_type so the interpolation is safe.
     if edges:
-        statements.append(
-            "UNWIND $edges AS edge "
-            "MATCH (a:CogniNode {id: edge.source}) "
-            "MATCH (b:CogniNode {id: edge.target}) "
-            "MERGE (a)-[r:RELATES_TO {id: edge.id}]->(b) "
-            "SET r.relationship = edge.relationship, "
-            "r += edge.properties"
-        )
+        from graqle.connectors.neo4j import _sanitise_rel_type  # noqa: PLC0415
+
+        rtypes_seen: set[str] = set()
+        for edge in edges.values():
+            rtype = _sanitise_rel_type(edge.get("relationship"))
+            if rtype in rtypes_seen:
+                continue
+            rtypes_seen.add(rtype)
+            statements.append(
+                f"UNWIND $edges_{rtype} AS edge "
+                f"MATCH (a:CogniNode {{id: edge.source}}) "
+                f"MATCH (b:CogniNode {{id: edge.target}}) "
+                f"MERGE (a)-[r:{rtype} {{id: edge.id}}]->(b) "
+                f"SET r.relationship = edge.relationship, "
+                f"r += edge.properties"
+            )
 
     return statements
 
@@ -296,9 +307,26 @@ def migrate_json_to_neo4j(
             if nodes_list:
                 session.run(cypher_stmts[2], nodes=nodes_list)
 
-            # Batch insert edges
+            # Batch insert edges — CR-006b: one statement per relationship
+            # type (constraint+index+nodes are stmts 0..2; edge stmts start at
+            # index 3). Each statement expects its own $edges_<RTYPE> parameter
+            # bound from the subset of edges whose sanitised rel type matches.
             if edges_list and len(cypher_stmts) > 3:
-                session.run(cypher_stmts[3], edges=edges_list)
+                from graqle.connectors.neo4j import _sanitise_rel_type  # noqa: PLC0415
+
+                edges_by_type: dict[str, list[dict[str, Any]]] = {}
+                for edge in edges_list:
+                    rtype = _sanitise_rel_type(edge.get("relationship"))
+                    edges_by_type.setdefault(rtype, []).append(edge)
+                import re as _re  # noqa: PLC0415
+
+                _PARAM_RE = _re.compile(r"UNWIND \$(edges_([A-Z_][A-Z0-9_]*))")
+                for stmt in cypher_stmts[3:]:
+                    m = _PARAM_RE.search(stmt)
+                    if not m:  # pragma: no cover — generator guarantees match
+                        continue
+                    param_name, rtype = m.group(1), m.group(2)
+                    session.run(stmt, **{param_name: edges_by_type.get(rtype, [])})
 
         # Write chunks via the established Neo4jConnector contract so a later
         # `Neo4jConnector` opened against the same DB sees the same shape that
