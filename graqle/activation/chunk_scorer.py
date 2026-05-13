@@ -70,9 +70,8 @@ class ChunkScorer:
             self.embedding_engine = embedding_engine
         else:
             from graqle.activation.embeddings import create_embedding_engine
-            from graqle.config.settings import GraqleConfig
-            from pathlib import Path
-            cfg = GraqleConfig.from_yaml(Path("graqle.yaml")) if Path("graqle.yaml").exists() else None
+            from graqle.config._resolver_compat import load_via_resolver_or_legacy
+            cfg = load_via_resolver_or_legacy()
             self.embedding_engine = create_embedding_engine(cfg)
         self.max_nodes = max_nodes
         self.min_score = min_score
