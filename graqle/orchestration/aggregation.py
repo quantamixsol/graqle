@@ -374,13 +374,53 @@ class Aggregator:
             messages.values(), key=lambda m: m.confidence, reverse=True
         )
 
-        # Build context
-        parts = []
+        # CR-007 Fix 6 (gap-driven, post-probe): cap synthesis `agent_outputs`
+        # so the final aggregation prompt cannot blow past prompt_hard_cap.
+        # Pre-fix probe showed synthesis prompt = 17,295 chars (50 messages x
+        # ~700 chars per message) — the largest single prompt in a typical
+        # graq_reason call. We read orchestration config off the backend's
+        # attached graph if available (best-effort), else fall back to a
+        # safe 8000-char default which keeps the assembled synthesis prompt
+        # comfortably under the prompt_hard_cap=10000 default for downstream
+        # callers that share that ceiling. Highest-confidence messages are
+        # preserved (sort happened above); low-confidence tail is trimmed
+        # first via budget-aware insertion order.
+        agg_outputs_cap = 8000
+        try:
+            _graph = getattr(backend, "_graph_ref", None) or getattr(
+                self, "_graph_ref", None
+            )
+            _orch = getattr(getattr(_graph, "config", None), "orchestration", None)
+            _hard_cap = getattr(_orch, "prompt_hard_cap", None)
+            if _hard_cap:
+                # Leave 2000 chars headroom for the AGGREGATION_PROMPT template
+                # itself (query, governance_context, instructions).
+                agg_outputs_cap = max(2000, int(_hard_cap) - 2000)
+        except Exception:
+            pass  # Use safe default
+
+        # Build context with budget-aware accumulation. Stop adding messages
+        # once the running total would exceed `agg_outputs_cap`; auditable
+        # marker appended when truncation happens.
+        parts: list[str] = []
+        running = 0
+        _separator_chars = len("\n\n---\n\n")
         for msg in sorted_msgs:
-            parts.append(
+            entry = (
                 f"[{msg.source_node_id} | "
                 f"Confidence: {msg.confidence:.0%}]\n{msg.content}"
             )
+            projected = running + len(entry) + (_separator_chars if parts else 0)
+            if projected > agg_outputs_cap and parts:
+                # We already have at least one message — stop accumulating
+                parts.append(
+                    f"\n\n---\n\n[…CR-007 Fix 6: {len(sorted_msgs) - len(parts)} "
+                    f"lower-confidence message(s) omitted to stay under "
+                    f"agg_outputs_cap={agg_outputs_cap}]"
+                )
+                break
+            parts.append(entry)
+            running = projected
 
         agent_outputs = "\n\n---\n\n".join(parts)
 
