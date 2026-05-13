@@ -134,9 +134,9 @@ def _verify_node_persisted(graph_path: str, node_id: str) -> bool:
 def _save_graph(graph, gpath: str) -> None:
     """Persist graph to Neo4j (if configured) or JSON file."""
     if gpath.startswith("neo4j://"):
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
         from graqle.config.settings import GraqleConfig
-        config_file = Path("graqle.yaml")
-        config = GraqleConfig.from_yaml(str(config_file)) if config_file.exists() else GraqleConfig.default()
+        config = load_via_resolver_or_legacy() or GraqleConfig.default()
         graph_cfg = config.graph
         graph.to_neo4j(
             uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
@@ -168,16 +168,14 @@ class _graph_lock:
         self._fd = None
 
     def __enter__(self):
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
         from graqle.config.settings import GraqleConfig
         from graqle.core.graph import Graqle, _acquire_lock
 
         # Acquire lock BEFORE reading
         self._fd = _acquire_lock(self._lock_path)
 
-        config = GraqleConfig.default()
-        config_file = Path("graqle.yaml")
-        if config_file.exists():
-            config = GraqleConfig.from_yaml(str(config_file))
+        config = load_via_resolver_or_legacy() or GraqleConfig.default()
 
         gpath = Path(self._graph_path)
         if not gpath.exists():
