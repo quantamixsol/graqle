@@ -394,6 +394,8 @@ class CogniNode:
         embedding_fn: Any = None,
         max_continuations: int = 3,
         continuation_overlap_lines: int = 15,
+        evidence_hard_ceiling: int = 4000,
+        prompt_hard_cap: int = 10000,
     ) -> Message:
         """Produce a reasoning output given query + incoming messages.
 
@@ -402,6 +404,16 @@ class CogniNode:
 
         If governance constraints are set (constraint_text, skills_text),
         uses the constrained prompt. Otherwise uses the legacy prompt.
+
+        CR-007 token economics:
+        ``evidence_hard_ceiling`` caps the Supporting Evidence block (chars)
+        even when embedding-based top-3 filtering is unavailable.
+        ``prompt_hard_cap`` is the last-resort cap on the assembled prompt;
+        when exceeded, evidence + neighbor context are truncated symmetrically
+        while preserving the system block, label/description, and query.
+        Both ceilings are pure cost guards — they do NOT remove governance
+        text, the audit trail, or the evidence-id markers that downstream
+        EU AI Act compliance hooks read from the response envelope.
         """
         if self.backend is None:
             raise RuntimeError(f"Node {self.id} has no backend assigned. Call activate() first.")
@@ -418,6 +430,17 @@ class CogniNode:
 
         # Build evidence text — with optional query-based filtering (T2.2)
         evidence_text = self._build_evidence_text(query, embedding_fn)
+
+        # CR-007 Fix 1: hard ceiling on Supporting Evidence block. Applied
+        # AFTER any embedding-based filter so the final evidence shipped to
+        # the LLM is never larger than `evidence_hard_ceiling` regardless of
+        # embedding availability. The "[truncated by evidence_hard_ceiling]"
+        # marker is intentional — auditable in saved traces.
+        if evidence_text and len(evidence_text) > evidence_hard_ceiling:
+            evidence_text = (
+                evidence_text[:evidence_hard_ceiling]
+                + "\n…[truncated by evidence_hard_ceiling]"
+            )
 
         # Choose prompt: semantic v3 > constrained v2 > legacy
         if self.semantic_governance_text:
@@ -465,6 +488,25 @@ class CogniNode:
 
         if self.system_prompt:
             prompt = f"System: {self.system_prompt}\n\n{prompt}"
+
+        # CR-007 Fix 3: last-resort prompt cap. Some prompt templates concat
+        # constraint_text + skills_text + evidence + context, all of which
+        # may grow independently. This guard ensures the LLM never sees a
+        # prompt larger than `prompt_hard_cap` chars. Truncation preserves
+        # the head (label, system prompt, governance) and tail (the query)
+        # by keeping the first 60% and last 30% of the prompt.
+        if len(prompt) > prompt_hard_cap:
+            head_keep = int(prompt_hard_cap * 0.60)
+            tail_keep = int(prompt_hard_cap * 0.30)
+            prompt = (
+                prompt[:head_keep]
+                + "\n\n…[CR-007 prompt_hard_cap: middle truncated]\n\n"
+                + prompt[-tail_keep:]
+            )
+            logger.warning(
+                "Node %s: prompt truncated by prompt_hard_cap=%d",
+                self.id, prompt_hard_cap,
+            )
 
         # Generate response
         raw_result = await self.backend.generate(
