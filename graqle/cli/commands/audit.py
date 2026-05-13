@@ -62,14 +62,34 @@ def audit_command(
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
-    # Load graph
+    # Load graph.
+    #
+    # CR-002 PR-002b: when ``GRAQLE_USE_RESOLVER=true`` is set, route yaml
+    # discovery through ``graqle.config.resolver.resolve_config()``. Falls
+    # back to the explicit ``--config`` path on any resolver failure so the
+    # CLI's existing -c/--config flag still wins.
     if graph_path and Path(graph_path).exists():
         graph = Graqle.from_json(graph_path)
     else:
-        if Path(config).exists():
+        cfg = GraqleConfig.default()
+        _resolver_used = False
+        try:
+            from graqle.config.resolver import is_resolver_enabled, resolve_config
+
+            if is_resolver_enabled():
+                try:
+                    resolved = resolve_config()
+                    cfg = GraqleConfig.from_yaml(str(resolved.yaml_source))
+                    _resolver_used = True
+                except Exception as exc:  # noqa: BLE001 — fail-safe to legacy
+                    console.print(
+                        f"[dim]audit: resolver fallback to legacy from_yaml ({type(exc).__name__})[/dim]"
+                    )
+        except ImportError:
+            pass
+
+        if not _resolver_used and Path(config).exists():
             cfg = GraqleConfig.from_yaml(config)
-        else:
-            cfg = GraqleConfig.default()
         graph = _load_graph_for_audit(cfg)
 
     if graph is None:
