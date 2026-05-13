@@ -4,6 +4,49 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.54.1 (2026-05-13) - [bau-cr-006a-multi-edge-load]
+
+> **⚠️ HALF-FIX. v0.54.2 (shipping next) completes it. Do not declare CR-006 resolved on v0.54.1 alone.**
+>
+> **Fixes a silent data-loss bug on every Neo4j load and JSON save: parallel typed edges (CALLS + DEFINES + IMPORTS between the same nodes) were being collapsed into a single edge.** On a 64k-node KG with 216,577 typed edges across 14 relationship types, the in-memory graph reported only 108,309 edges — exactly the `RELATED_TO` count, with every other typed edge type lost.
+>
+> This release fixes the **read path** (Neo4j load + JSON round-trip) so existing typed edges in the live DB now reach the in-memory graph correctly and `graq_reason` activation can see them.
+>
+> The **write path is NOT fixed in v0.54.1.** `graq learn`, `graq grow`, `graq predict --fold_back=true`, and any `g.save()` call still go through `Neo4jConnector.save()` which hardcodes `:RELATED_TO` in the Cypher MERGE — so every new edge written from these tools collapses on the way back into Neo4j. **v0.54.2 (CR-006b) ships the writer fix immediately after this release. Users running `graq learn`/`graq grow` against Neo4j should wait for v0.54.2 to see the complete fix.**
+>
+> First-of-its-kind diagnosis traced to two coupled assumptions; first-of-its-kind cross-tree (private/public) ship via the BAU CR process.
+
+### Changed (BREAKING for downstream NetworkX consumers)
+
+- **`Graqle.to_networkx()` now returns `nx.MultiDiGraph`** (previously `nx.DiGraph`). Parallel typed edges between the same `(source, target)` pair are preserved instead of silently overwriting one another. Edges are keyed by their `CogniEdge.id` so round-trips through `to_json`/`from_json` are lossless. Code that did `isinstance(G, nx.DiGraph)` returns `False` against the new output — switch to `isinstance(G, (nx.DiGraph, nx.MultiDiGraph))` or `G.is_directed() and not G.is_multigraph()` as a positive check.
+- **`Graqle.stats.density` can now exceed 1.0** when parallel edges exist. The denominator stays at `n*(n-1)` but the numerator counts parallel edges (NetworkX standard `nx.density` behaviour on `MultiDiGraph`). No CLI/test currently asserts a specific density value; this is a behaviour disclosure for downstream callers that may have hard-coded `0.0–1.0` bounds.
+
+### Fixed
+
+- **Site 1 — `graqle/core/graph.py:2823 to_networkx`**: Switched the in-memory NetworkX container from `nx.DiGraph` to `nx.MultiDiGraph`. Edges added with `key=eid` so each parallel edge between `(src, tgt)` is preserved under its own key. Updated return-type annotation. Fixes the half-graph collapse on every `to_json` call.
+- **Site 2 — `graqle/connectors/neo4j.py:118 Neo4jConnector.load`**: When `r.id` is NULL (which it is for every typed-edge writer that doesn't explicitly set it — the common case), the synthetic edge id now includes the relationship type and a per-result counter (`f"e_{src}_{tgt}_{rel}_{idx}"`) so parallel typed edges between the same `(src, tgt)` pair stop colliding in the `raw_edges` dict. Added `None`-guard for malformed `source`/`target` fields with a redacted warning (logs only `raw_id` presence and sanitised `rel`, never full record content — OWASP A09 logging-failure guard).
+- **Site 5 — `graqle/core/graph.py:735 from_networkx`** *(public-only, additional fix not in private PR #86 — caught by public reviewer)*: When the input graph is a `MultiDiGraph`, iterate `G.edges(keys=True, data=True)` so original edge ids carried in the NetworkX edge keys are restored to `CogniEdge.id` on round-trip. Previously, `from_json` → `node_link_graph` → `from_networkx` would re-synthesise positional eids (`e_{src}_{tgt}_{i}`) and drop the original ids. Round-trip is now strictly id-preserving for `MultiDiGraph` inputs; non-multigraph inputs still get positional eids (no behaviour change).
+
+### Added
+
+- **4 regression tests in `tests/test_core/test_multi_edge_preservation.py`**:
+  - `test_to_networkx_preserves_parallel_typed_edges` — 3 typed edges A→B (CALLS, DEFINES, IMPORTS) survive `to_networkx`; the output is `nx.MultiDiGraph` with 3 distinct edges.
+  - `test_json_round_trip_preserves_multi_edges` — same 3-edge setup round-trips through `to_json`/`from_json`; edge count, relationship set, AND original edge ids are preserved.
+  - `test_synthetic_eid_uniqueness_for_null_id_typed_edges` — Site 2 synthetic eid construction (`f"e_{src}_{tgt}_{rel}_{idx}"`) yields distinct keys for the three typed edges seen in the live `graqle` KG.
+  - `test_existing_collapsed_json_still_loads` — backward compatibility guard: legacy single-edge JSON files (pre-CR-006a shape) still load cleanly into v0.54.1. Verifies `nodes==2`, `edges==1`, and that the legacy `type` field maps to `entity_type`.
+
+### Known limitations (resolved in next release)
+
+- **Neo4j save path still collapses to `:RELATED_TO`** — `Neo4jConnector.save()` and `migrate_json_to_neo4j` both hardcode `MERGE (a)-[r:RELATED_TO {id: row.id}]->(b)`. v0.54.1 fixes the **read** path (the live DB still has all 216,577 typed edges from past writes, and they now load correctly), but **new** edges written through `save()` collapse on write. PR-006b (CR-006c follow-up) regroups the save by relationship type and uses native Cypher rel-type interpolation (mirroring the Neptune connector pattern).
+
+### Governance trail
+
+- **Private PR**: `quantamixsol/research-development-graqle#86` (merged 2026-05-13).
+- **Sentinel chain** (ADR-209 Phase 7): `graq_safety_check` (MEDIUM, 40 modules affected, 0 CRITICAL) → `graq_review focus=all` ×2 (final: APPROVED, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced density-inflation + multi-graph-consumer risks, both disclosed in this changelog) → `graq_review focus=security` (APPROVED, 0 BLOCKERs).
+- **Scoped pytest**: `tests/test_core/` + `tests/test_connectors/` — **438 passed, 6 skipped, 1 deselected**. The one deselect (`test_neo4j_traversal::TestHubNodes::test_core_graph_is_hub`) fails on the v0.54.0 baseline too and is itself a downstream symptom of CR-006 that the follow-up CR-006c release is expected to resolve.
+
+---
+
 ## 0.54.0 (2026-05-12) - [bau-edge-guard-resolver]
 
 > **Defensive guards stop silent edge-loss + a unified config resolver lands behind a feature flag.** First release under the new BAU (Business As Usual) Change Request process. Two surgical, additive changes from third-party sister-team feedback (BHG epic, 2026-05-09): a `to_json` guard that refuses to silently drop edges (the v0.46→v0.53 regression mode), and the foundation module for unifying 14+ scattered `graqle.yaml` resolution sites.

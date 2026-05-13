@@ -52,6 +52,9 @@ def test_json_round_trip_preserves_multi_edges(tmp_path) -> None:
     rels = {e.relationship for e in g2.edges.values()}
     assert rels == {"CALLS", "DEFINES", "IMPORTS"}
 
+    # Edge ids preserved through round-trip (review pass 2 MINOR #1).
+    assert set(g.edges.keys()) == set(g2.edges.keys())
+
 
 def test_synthetic_eid_uniqueness_for_null_id_typed_edges() -> None:
     """CR-006a Site 2: when Neo4j returns r.id == NULL for parallel typed edges
@@ -99,3 +102,5 @@ def test_existing_collapsed_json_still_loads(tmp_path) -> None:
     g = Graqle.from_json(str(legacy_path))
     assert len(g.nodes) == 2
     assert len(g.edges) == 1
+    # Verify legacy 'type' field maps to entity_type (review pass 2 MINOR #2).
+    assert g.nodes["A"].entity_type == "CONCEPT"

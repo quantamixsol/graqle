@@ -771,10 +771,22 @@ class Graqle:
                 properties=props,
             )
 
-        # Build edges
-        for i, (src, tgt, data) in enumerate(G.edges(data=True)):
+        # Build edges — CR-006a Site 5: when the input graph is a MultiDiGraph
+        # (post-CR-006a to_networkx output), the original edge ids live in the
+        # edge keys. Iterate with keys=True so JSON round-trips preserve ids
+        # instead of falling back to synthetic positional ids.
+        is_multi = G.is_multigraph()
+        edge_iter = (
+            G.edges(keys=True, data=True) if is_multi else G.edges(data=True)
+        )
+        for i, edge_tuple in enumerate(edge_iter):
+            if is_multi:
+                src, tgt, key, data = edge_tuple
+                edge_id = str(key) if key is not None else f"e_{src}_{tgt}_{i}"
+            else:
+                src, tgt, data = edge_tuple
+                edge_id = f"e_{src}_{tgt}_{i}"
             src_id, tgt_id = str(src), str(tgt)
-            edge_id = f"e_{src_id}_{tgt_id}_{i}"
             rel = data.get(edge_rel_key, "RELATED_TO")
             weight = data.get("weight", 1.0)
             props = {k: v for k, v in data.items()
