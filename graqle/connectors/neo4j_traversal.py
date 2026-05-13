@@ -85,7 +85,7 @@ class Neo4jTraversal:
         """
         records = self._run(
             """
-            MATCH path = (start:CogniNode {id: $start_id})-[:RELATED_TO*1.."""
+            MATCH path = (start:CogniNode {id: $start_id})-[*1.."""
             + str(max_depth)
             + """]->(affected:CogniNode)
             WHERE affected <> start
@@ -104,7 +104,7 @@ class Neo4jTraversal:
         # Also check undirected (incoming edges = consumers of this node)
         records_rev = self._run(
             """
-            MATCH path = (start:CogniNode {id: $start_id})<-[:RELATED_TO*1.."""
+            MATCH path = (start:CogniNode {id: $start_id})<-[*1.."""
             + str(max_depth)
             + """]-(consumer:CogniNode)
             WHERE consumer <> start
@@ -162,7 +162,7 @@ class Neo4jTraversal:
         records = self._run(
             """
             MATCH path = shortestPath(
-                (a:CogniNode {id: $src})-[:RELATED_TO*..%d]-(b:CogniNode {id: $tgt})
+                (a:CogniNode {id: $src})-[*..%d]-(b:CogniNode {id: $tgt})
             )
             RETURN
                 [n IN nodes(path) | {id: n.id, label: n.label, type: n.entity_type}] AS nodes,
@@ -199,7 +199,7 @@ class Neo4jTraversal:
         """
         records = self._run(
             """
-            MATCH path = (center:CogniNode {id: $node_id})-[:RELATED_TO*1.."""
+            MATCH path = (center:CogniNode {id: $node_id})-[*1.."""
             + str(max_hops)
             + """]-(neighbor:CogniNode)
             WHERE neighbor <> center
@@ -251,7 +251,7 @@ class Neo4jTraversal:
         """
         return self._run(
             """
-            MATCH (n:CogniNode)-[r:RELATED_TO]-()
+            MATCH (n:CogniNode)-[r]-()
             WITH n, count(r) AS degree
             WHERE degree >= $min_degree
             RETURN
@@ -281,7 +281,7 @@ class Neo4jTraversal:
         records = self._run(
             """
             MATCH (n:CogniNode {id: $nid})
-            OPTIONAL MATCH (n)-[r:RELATED_TO]-(m:CogniNode)
+            OPTIONAL MATCH (n)-[r]-(m:CogniNode)
             WITH n, collect(DISTINCT {
                 id: m.id,
                 label: m.label,
@@ -364,7 +364,7 @@ class Neo4jTraversal:
             MATCH (chunk)<-[:HAS_CHUNK]-(parent:CogniNode)
 
             // Step 3: Expand to graph neighbors (1-hop structural expansion)
-            OPTIONAL MATCH (parent)-[:RELATED_TO*1..""" + str(graph_hops) + """]-(neighbor:CogniNode)
+            OPTIONAL MATCH (parent)-[*1..""" + str(graph_hops) + """]-(neighbor:CogniNode)
 
             // Step 4: Score everything
             WITH
@@ -418,7 +418,7 @@ class Neo4jTraversal:
             # Try GDS (Graph Data Science) library
             self._run(
                 """
-                CALL gds.graph.project('graqle_pr', 'CogniNode', 'RELATED_TO')
+                CALL gds.graph.project('graqle_pr', 'CogniNode', '*')
                 YIELD graphName, nodeCount, relationshipCount
                 """
             )
@@ -444,11 +444,11 @@ class Neo4jTraversal:
             self._run(
                 """
                 MATCH (n:CogniNode)
-                OPTIONAL MATCH (n)-[r:RELATED_TO]-()
+                OPTIONAL MATCH (n)-[r]-()
                 WITH n, count(r) AS degree
                 WITH max(degree) AS max_deg
                 MATCH (n:CogniNode)
-                OPTIONAL MATCH (n)-[r:RELATED_TO]-()
+                OPTIONAL MATCH (n)-[r]-()
                 WITH n, count(r) AS degree, max_deg
                 SET n.pagerank = toFloat(degree) / toFloat(max_deg + 1)
                 """,
@@ -465,7 +465,7 @@ class Neo4jTraversal:
         """
         try:
             self._run(
-                "CALL gds.graph.project('graqle_cd', 'CogniNode', 'RELATED_TO')"
+                "CALL gds.graph.project('graqle_cd', 'CogniNode', '*')"
             )
             result = self._run(
                 """
@@ -502,7 +502,7 @@ class Neo4jTraversal:
                 CALL {
                     WITH nodes
                     UNWIND nodes AS node
-                    MATCH path = (node)-[:RELATED_TO*0..3]-(connected:CogniNode)
+                    MATCH path = (node)-[*0..3]-(connected:CogniNode)
                     WITH node, min(connected.id) AS community_id
                     SET node.community = community_id
                 }
@@ -529,7 +529,7 @@ class Neo4jTraversal:
         self._run(
             """
             MATCH (n:CogniNode)
-            OPTIONAL MATCH (n)-[:RELATED_TO*1..""" + str(max_hops) + """]-(m:CogniNode)
+            OPTIONAL MATCH (n)-[*1..""" + str(max_hops) + """]-(m:CogniNode)
             WHERE m <> n
             WITH n, collect(DISTINCT m.id) AS neighbors
             SET n.""" + prop + """ = neighbors
