@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -689,9 +689,71 @@ class GraqleConfig(BaseModel):
             )
         return self
 
+    # CR-002 PR-002c: process-scoped set tracking which callers have already
+    # been warned. Prevents log spam — each caller gets ONE warning per
+    # process, even when from_yaml is invoked many times during a session.
+    _resolver_deprecation_warned: ClassVar[set[str]] = set()
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> GraqleConfig:
-        """Load configuration from a YAML file."""
+        """Load configuration from a YAML file.
+
+        CR-002 PR-002c: When ``GRAQLE_USE_RESOLVER`` is set (the user has
+        opted into the new resolver path), this method emits a
+        ``PendingDeprecationWarning`` the FIRST time each caller invokes it
+        with a still-unmigrated direct-yaml-path. The warning is silent for
+        users NOT using the resolver — direct ``from_yaml`` continues to be
+        the supported public API until PR-002d removes the shim.
+
+        The warning is fired with ``stacklevel=2`` so the user sees their
+        own call site, not this method. Subsequent calls from the same
+        caller frame are suppressed via ``_resolver_deprecation_warned``.
+
+        Migration: replace ``GraqleConfig.from_yaml("graqle.yaml")`` with
+        ``resolve_config().yaml_source`` (then call ``from_yaml`` on the
+        returned path) or use the resolver's higher-level helpers.
+        """
+        # CR-002 PR-002c: emit deprecation warning when resolver is enabled
+        # but the caller still routes through direct from_yaml. Suppress for
+        # the resolver's own from_yaml call (resolver returns yaml_source as
+        # the explicit path) — detect via the path string matching the
+        # resolved one. Cheaper heuristic: only warn when the path is the
+        # legacy "graqle.yaml" relative form. The resolver always passes an
+        # absolute path it discovered, so resolver-driven calls are skipped.
+        try:
+            import os as _os
+            import warnings as _warnings
+
+            _flag = _os.environ.get("GRAQLE_USE_RESOLVER", "").strip().lower()
+            _flag_on = _flag in {"1", "true", "yes"}
+            _path_obj = Path(path) if not isinstance(path, Path) else path
+            _is_relative_legacy_path = (
+                not _path_obj.is_absolute()
+                and _path_obj.name == "graqle.yaml"
+            )
+            if _flag_on and _is_relative_legacy_path:
+                import sys as _sys
+                # Caller-site fingerprint = filename + line. One warning per
+                # caller per process, no matter how many invocations.
+                _frame = _sys._getframe(1)
+                _site = f"{_frame.f_code.co_filename}:{_frame.f_lineno}"
+                if _site not in cls._resolver_deprecation_warned:
+                    cls._resolver_deprecation_warned.add(_site)
+                    _warnings.warn(
+                        "GraqleConfig.from_yaml('graqle.yaml') is being phased "
+                        "out in favour of graqle.config.resolver.resolve_config(). "
+                        "Migrate to "
+                        "  from graqle.config.resolver import resolve_config\n"
+                        "  cfg = GraqleConfig.from_yaml(str(resolve_config().yaml_source))\n"
+                        "or call resolve_config() / resolve_neo4j() directly. "
+                        "Warning emitted once per call site because "
+                        "GRAQLE_USE_RESOLVER is enabled. Silent when the flag is off.",
+                        PendingDeprecationWarning,
+                        stacklevel=2,
+                    )
+        except Exception:  # noqa: BLE001 — never let the warning path break loading
+            pass
+
         path = Path(path)
         if not path.exists():
             # Check for deprecated cognigraph.yaml
