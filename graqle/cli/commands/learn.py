@@ -62,13 +62,39 @@ def _describe_connections(graph, node_id: str) -> list[str]:
 
 
 def _load_graph(graph_path: str = "graqle.json"):
-    """Load graph from Neo4j (if configured) or JSON file."""
+    """Load graph from Neo4j (if configured) or JSON file.
+
+    CR-002 PR-002b: when ``GRAQLE_USE_RESOLVER=true`` is set, route the yaml
+    discovery through ``graqle.config.resolver.resolve_config()`` so submodule
+    paths + URI-not-path safety + portalocker shared-locking all kick in.
+    Falls back to legacy ``GraqleConfig.from_yaml`` on any resolver failure so
+    behaviour is strictly additive — no migration regression. Flag default
+    OFF; flipped to True in PR-002c after empirical validation.
+    """
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
     config = GraqleConfig.default()
     config_file = Path("graqle.yaml")
-    if config_file.exists():
+
+    # CR-002 PR-002b resolver-gated discovery (opt-in via env var).
+    _resolver_used = False
+    try:
+        from graqle.config.resolver import is_resolver_enabled, resolve_config
+
+        if is_resolver_enabled():
+            try:
+                resolved = resolve_config()
+                config = GraqleConfig.from_yaml(str(resolved.yaml_source))
+                _resolver_used = True
+            except Exception as exc:  # noqa: BLE001 — fail-safe to legacy
+                console.print(
+                    f"[dim]learn: resolver fallback to legacy from_yaml ({type(exc).__name__})[/dim]"
+                )
+    except ImportError:
+        pass
+
+    if not _resolver_used and config_file.exists():
         config = GraqleConfig.from_yaml(str(config_file))
 
     # Try Neo4j if configured

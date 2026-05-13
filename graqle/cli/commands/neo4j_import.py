@@ -52,11 +52,50 @@ console = Console()
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _get_connector():
-    """Build Neo4jConnector from env vars. Raises ImportError if driver missing."""
-    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-    username = os.environ.get("NEO4J_USERNAME", "neo4j")
+    """Build Neo4jConnector. Raises ImportError if driver missing.
+
+    Resolution order (CR-002 PR-002b):
+      1. Explicit ``NEO4J_*`` env vars (highest priority — back-compat)
+      2. ``graqle.config.resolver.resolve_neo4j`` when ``GRAQLE_USE_RESOLVER``
+         is set (priority chain: explicit > env > yaml > default).
+      3. Bare-default fallback ``bolt://localhost:7687`` (back-compat).
+
+    Pre-PR-002b this function ignored ``cfg.graph.uri`` entirely (BHG #9a:
+    "graq neo4j-import ignores graph.uri/database from yaml"). The resolver
+    branch closes that gap when the feature flag is on. Off → legacy path.
+    """
+    uri = os.environ.get("NEO4J_URI", "")
+    username = os.environ.get("NEO4J_USERNAME", "")
     password = os.environ.get("NEO4J_PASSWORD", "")
-    database = os.environ.get("NEO4J_DATABASE", "neo4j")
+    database = os.environ.get("NEO4J_DATABASE", "")
+
+    try:
+        from graqle.config.resolver import is_resolver_enabled, resolve_neo4j
+
+        if is_resolver_enabled():
+            try:
+                params = resolve_neo4j(
+                    None,
+                    uri=uri or None,
+                    username=username or None,
+                    password=password or None,
+                    database=database or None,
+                )
+                uri = params.uri
+                username = params.username
+                password = params.password.get_secret_value()
+                database = params.database
+            except Exception as exc:  # noqa: BLE001 — fail-safe to env-only
+                console.print(
+                    f"[dim]neo4j_import: resolver fallback to env-only ({type(exc).__name__})[/dim]"
+                )
+    except ImportError:
+        pass
+
+    # Back-compat defaults — only applied when neither env nor resolver set them.
+    uri = uri or "bolt://localhost:7687"
+    username = username or "neo4j"
+    database = database or "neo4j"
 
     from graqle.connectors.neo4j import Neo4jConnector  # lazy — requires graqle[neo4j]
 
