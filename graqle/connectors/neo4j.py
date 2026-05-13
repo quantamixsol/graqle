@@ -112,15 +112,35 @@ class Neo4jConnector(BaseConnector):
                     "properties": props,
                 }
 
-            # Load edges
+            # Load edges — CR-006a: when r.id is NULL (typed-edge writers that
+            # don't set it), build a unique synthetic eid that includes the
+            # relationship type and a per-result counter so parallel edges
+            # between the same (source, target) pair don't collide in the
+            # raw_edges dict and disappear at load time.
             result = session.run(self._edge_query)
-            for record in result:
-                eid = str(record.get("id") or f"e_{record['source']}_{record['target']}")
+            for idx, record in enumerate(result):
+                raw_id = record.get("id")
+                rel = record.get("relationship") or "RELATED_TO"
+                raw_src = record.get("source")
+                raw_tgt = record.get("target")
+                if raw_src is None or raw_tgt is None:
+                    logger.warning(
+                        "Skipping malformed edge record at idx=%d "
+                        "(missing source or target; raw_id=%s rel=%s)",
+                        idx, "yes" if raw_id else "no", rel,
+                    )
+                    continue
+                src = str(raw_src)
+                tgt = str(raw_tgt)
+                if raw_id:
+                    eid = str(raw_id)
+                else:
+                    eid = f"e_{src}_{tgt}_{rel}_{idx}"
                 props = dict(record.get("properties", {}))
                 edges[eid] = {
-                    "source": str(record["source"]),
-                    "target": str(record["target"]),
-                    "relationship": record.get("relationship") or "RELATED_TO",
+                    "source": src,
+                    "target": tgt,
+                    "relationship": rel,
                     "weight": props.pop("weight", 1.0),
                     "properties": props,
                 }
