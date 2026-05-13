@@ -14,11 +14,49 @@ on chunk embeddings for CypherActivation .
 from __future__ import annotations
 
 import logging
+import re
+from collections import defaultdict
 from typing import Any
 
 from graqle.connectors.base import BaseConnector
 
 logger = logging.getLogger("graqle.connectors.neo4j")
+
+
+_VALID_REL_TYPE_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+
+
+def _sanitise_rel_type(name: Any) -> str:
+    """Coerce an edge relationship label into a Cypher-identifier-safe rel type.
+
+    CR-006b: Neo4j relationship types are interpolated directly into the Cypher
+    string at save time so parallel typed edges (CALLS, DEFINES, IMPORTS, ...)
+    are stored as distinct native relationships instead of all collapsing to
+    ``:RELATED_TO``. To keep the interpolation safe:
+
+    1. Coerce to ``str`` then upper-case.
+    2. Replace spaces and hyphens with underscores.
+    3. If the result still doesn't match ``[A-Z_][A-Z0-9_]*``, fall back to
+       ``RELATED_TO`` — never trust untrusted input as a Cypher identifier.
+
+    Empty / None / unknown shapes all sink to ``RELATED_TO`` so the migration
+    never crashes and Cypher injection is impossible by construction.
+    """
+    if name is None:
+        return "RELATED_TO"
+    raw = str(name).strip().upper().replace(" ", "_").replace("-", "_")
+    if not raw or not _VALID_REL_TYPE_RE.match(raw):
+        # CR-006b security review MINOR: debug-log fallback so unexpected
+        # shapes (Cypher-unsafe identifiers, injection payloads) are
+        # observable in audit logs. The raw value is *not* logged at info
+        # level to avoid leaking potentially adversarial content into
+        # higher-priority log sinks.
+        logger.debug(
+            "rel-type fallback: %r -> RELATED_TO (not a Cypher identifier)",
+            name,
+        )
+        return "RELATED_TO"
+    return raw
 
 
 class Neo4jConnector(BaseConnector):
@@ -219,19 +257,35 @@ class Neo4jConnector(BaseConnector):
                     rows=node_rows,
                 )
 
-            # Batch UNWIND edges
+            # Batch UNWIND edges — CR-006b: group by sanitised relationship
+            # type and run one UNWIND per type so parallel typed edges (CALLS,
+            # DEFINES, IMPORTS, USES_ENVVAR, ...) are stored as distinct native
+            # Neo4j relationships instead of all collapsing to :RELATED_TO.
+            # Rel type is interpolated into the Cypher string after passing
+            # through _sanitise_rel_type so injection is impossible — any
+            # non-identifier shape falls back to :RELATED_TO.
+            rel_type_count = 0
             if edge_rows:
-                session.run(
-                    "UNWIND $rows AS row "
-                    "MATCH (a:CogniNode {id: row.source}) "
-                    "MATCH (b:CogniNode {id: row.target}) "
-                    "MERGE (a)-[r:RELATED_TO {id: row.id}]->(b) "
-                    "SET r.relationship = row.relationship, "
-                    "    r.weight = row.weight",
-                    rows=edge_rows,
-                )
+                by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
+                for row in edge_rows:
+                    rtype = _sanitise_rel_type(row.get("relationship"))
+                    by_type[rtype].append(row)
+                rel_type_count = len(by_type)
+                for rtype, rows in by_type.items():
+                    session.run(
+                        f"UNWIND $rows AS row "
+                        f"MATCH (a:CogniNode {{id: row.source}}) "
+                        f"MATCH (b:CogniNode {{id: row.target}}) "
+                        f"MERGE (a)-[r:{rtype} {{id: row.id}}]->(b) "
+                        f"SET r.relationship = row.relationship, "
+                        f"    r.weight = row.weight",
+                        rows=rows,
+                    )
 
-        logger.info("Saved %d nodes, %d edges to Neo4j", len(node_rows), len(edge_rows))
+        logger.info(
+            "Saved %d nodes, %d edges to Neo4j (across %d rel types)",
+            len(node_rows), len(edge_rows), rel_type_count,
+        )
 
     def save_chunks(
         self,
