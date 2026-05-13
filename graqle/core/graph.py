@@ -2820,13 +2820,18 @@ class Graqle:
         """Get all outgoing edges for a node."""
         return [self.edges[eid] for eid in self.nodes[node_id].outgoing_edges]
 
-    def to_networkx(self) -> nx.Graph:
+    def to_networkx(self) -> nx.MultiDiGraph:
         """Export to NetworkX graph — always builds fresh from current node state.
+
+        Uses ``MultiDiGraph`` so parallel typed edges between the same
+        (source, target) pair (CALLS + DEFINES + IMPORTS, etc.) are preserved
+        instead of silently overwriting one another. Keyed by edge id so
+        round-trips through to_json/from_json/to_neo4j are lossless.
 
         This ensures runtime mutations (auto-chunk loading, description
         enrichment, property updates) are reflected in the exported graph.
         """
-        G = nx.DiGraph()
+        G = nx.MultiDiGraph()
         for nid, node in self.nodes.items():
             G.add_node(nid, label=node.label, type=node.entity_type,
                        description=node.description, **node.properties)
@@ -2836,7 +2841,7 @@ class Graqle:
             # contain 'relationship' or 'weight' (e.g. loaded from Neo4j).
             props = {k: v for k, v in edge.properties.items()
                      if k not in ("relationship", "weight")}
-            G.add_edge(edge.source_id, edge.target_id,
+            G.add_edge(edge.source_id, edge.target_id, key=eid,
                        relationship=edge.relationship, weight=edge.weight,
                        **props)
         return G
