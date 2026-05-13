@@ -117,6 +117,38 @@ class TestMigrationCypherTyped:
                     labels_in_stmts.add(lbl)
         assert labels_in_stmts == {"CALLS", "DEFINES", "IMPORTS"}
 
+    def test_caller_regex_extracts_param_name_from_every_generated_statement(self):
+        """CR-006b producer/consumer contract: the regex in migrate_json_to_neo4j
+        (UNWIND \\$(edges_([A-Z_][A-Z0-9_]*))) MUST match every statement that
+        generate_migration_cypher emits. If the producer's format ever changes,
+        this test catches the consumer breakage at unit-level (no live Neo4j
+        needed) before it hits production.
+        """
+        import re as _re
+
+        nodes = {"a": {"id": "a"}, "b": {"id": "b"}}
+        edges = {
+            "e1": {"id": "e1", "source": "a", "target": "b", "relationship": "CALLS"},
+            "e2": {"id": "e2", "source": "a", "target": "b", "relationship": "USES_ENVVAR"},
+            "e3": {"id": "e3", "source": "a", "target": "b", "relationship": "rel; DROP"},
+        }
+        stmts = generate_migration_cypher(nodes, edges)
+
+        # Same regex literal as in upgrade.py's migrate_json_to_neo4j caller.
+        param_re = _re.compile(r"UNWIND \$(edges_([A-Z_][A-Z0-9_]*))")
+        extracted_rtypes = set()
+        for stmt in stmts[3:]:  # edge stmts start at index 3
+            m = param_re.search(stmt)
+            assert m is not None, (
+                f"producer/consumer mismatch — caller regex did not match "
+                f"generated statement: {stmt!r}"
+            )
+            param_name, rtype = m.group(1), m.group(2)
+            assert param_name == f"edges_{rtype}"
+            extracted_rtypes.add(rtype)
+        # CALLS and USES_ENVVAR pass through; "rel; DROP" sinks to RELATED_TO.
+        assert extracted_rtypes == {"CALLS", "USES_ENVVAR", "RELATED_TO"}
+
     def test_adversarial_relationship_sanitised_to_related_to(self):
         """A relationship name that's not a valid Cypher identifier must fall
         back to RELATED_TO — never appear in the interpolated Cypher string."""

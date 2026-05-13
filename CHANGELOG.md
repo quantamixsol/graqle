@@ -4,46 +4,50 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
-## 0.54.1 (2026-05-13) - [bau-cr-006a-multi-edge-load]
+## 0.54.2 (2026-05-13) - [bau-cr-006-multi-edge-full-fix]
 
-> **⚠️ HALF-FIX. v0.54.2 (shipping next) completes it. Do not declare CR-006 resolved on v0.54.1 alone.**
+> **Complete fix for CR-006 — silent multi-edge collapse across Neo4j + JSON storage paths.** On a 64k-node KG with 216,577 typed edges across 14 relationship types (CALLS=71,739, DEFINES=27,140, RELATED_TO=108,493, plus 11 more), the in-memory graph was reporting only 108,309 edges — exactly the `RELATED_TO` count — because parallel typed edges between the same `(source, target)` pair were silently collapsing in three coupled places: in-memory shape, Neo4j load, and Neo4j save.
 >
-> **Fixes a silent data-loss bug on every Neo4j load and JSON save: parallel typed edges (CALLS + DEFINES + IMPORTS between the same nodes) were being collapsed into a single edge.** On a 64k-node KG with 216,577 typed edges across 14 relationship types, the in-memory graph reported only 108,309 edges — exactly the `RELATED_TO` count, with every other typed edge type lost.
+> **What's fixed:** Full graph round-trip is now lossless. Reads load all 216,577 edges. JSON round-trips preserve edge ids. `graq learn`, `graq grow`, `graq predict --fold_back=true`, `g.save()`, and any `migrate_json_to_neo4j` writer now store typed Neo4j relationships (`:CALLS`, `:DEFINES`, `:IMPORTS`, etc.) instead of all collapsing to `:RELATED_TO`. Downstream analytics queries (impact, blast radius, PageRank, hub detection, community detection, neighborhood materialization) are now type-agnostic and see every edge type.
 >
-> This release fixes the **read path** (Neo4j load + JSON round-trip) so existing typed edges in the live DB now reach the in-memory graph correctly and `graq_reason` activation can see them.
->
-> The **write path is NOT fixed in v0.54.1.** `graq learn`, `graq grow`, `graq predict --fold_back=true`, and any `g.save()` call still go through `Neo4jConnector.save()` which hardcodes `:RELATED_TO` in the Cypher MERGE — so every new edge written from these tools collapses on the way back into Neo4j. **v0.54.2 (CR-006b) ships the writer fix immediately after this release. Users running `graq learn`/`graq grow` against Neo4j should wait for v0.54.2 to see the complete fix.**
->
-> First-of-its-kind diagnosis traced to two coupled assumptions; first-of-its-kind cross-tree (private/public) ship via the BAU CR process.
+> **Why a single release instead of two**: combined CR-006a (read path, private PR #86) and CR-006b (write + traversal, private PR #87) into one PyPI release per project owner direction. No partial-fix window — users move from v0.54.0 (broken) to v0.54.2 (fully fixed) in one upgrade.
 
 ### Changed (BREAKING for downstream NetworkX consumers)
 
 - **`Graqle.to_networkx()` now returns `nx.MultiDiGraph`** (previously `nx.DiGraph`). Parallel typed edges between the same `(source, target)` pair are preserved instead of silently overwriting one another. Edges are keyed by their `CogniEdge.id` so round-trips through `to_json`/`from_json` are lossless. Code that did `isinstance(G, nx.DiGraph)` returns `False` against the new output — switch to `isinstance(G, (nx.DiGraph, nx.MultiDiGraph))` or `G.is_directed() and not G.is_multigraph()` as a positive check.
 - **`Graqle.stats.density` can now exceed 1.0** when parallel edges exist. The denominator stays at `n*(n-1)` but the numerator counts parallel edges (NetworkX standard `nx.density` behaviour on `MultiDiGraph`). No CLI/test currently asserts a specific density value; this is a behaviour disclosure for downstream callers that may have hard-coded `0.0–1.0` bounds.
+- **`Neo4jConnector.save()` now writes native typed relationship labels** (`:CALLS`, `:DEFINES`, `:IMPORTS`, etc.) instead of collapsing every edge to `:RELATED_TO`. Existing Neo4j databases keep working — old `:RELATED_TO` edges are still readable. But: new edges produced by `graq learn` / `graq grow` / `graq predict --fold_back=true` / `g.save()` from v0.54.2 onward will be visible to native Cypher queries that filter by typed labels (e.g. `MATCH ()-[r:CALLS]->()`).
+- **`graqle/connectors/neo4j_traversal.py` analytics queries are now type-agnostic.** All 11 traversal sites (impact analysis, shortest path, hub detection, node context, vector+graph search, PageRank, community detection, neighborhood materialization) now match every relationship type, not just `:RELATED_TO`. Downstream consumers that introspected typed paths returned by `shortest_path()` (which already returns `edge_types` via `[r IN relationships(path) | type(r)]`) will now see real typed labels in the result.
 
-### Fixed
+### Fixed (CR-006a — load + in-memory shape, private PR #86)
 
 - **Site 1 — `graqle/core/graph.py:2823 to_networkx`**: Switched the in-memory NetworkX container from `nx.DiGraph` to `nx.MultiDiGraph`. Edges added with `key=eid` so each parallel edge between `(src, tgt)` is preserved under its own key. Updated return-type annotation. Fixes the half-graph collapse on every `to_json` call.
 - **Site 2 — `graqle/connectors/neo4j.py:118 Neo4jConnector.load`**: When `r.id` is NULL (which it is for every typed-edge writer that doesn't explicitly set it — the common case), the synthetic edge id now includes the relationship type and a per-result counter (`f"e_{src}_{tgt}_{rel}_{idx}"`) so parallel typed edges between the same `(src, tgt)` pair stop colliding in the `raw_edges` dict. Added `None`-guard for malformed `source`/`target` fields with a redacted warning (logs only `raw_id` presence and sanitised `rel`, never full record content — OWASP A09 logging-failure guard).
 - **Site 5 — `graqle/core/graph.py:735 from_networkx`** *(public-only, additional fix not in private PR #86 — caught by public reviewer)*: When the input graph is a `MultiDiGraph`, iterate `G.edges(keys=True, data=True)` so original edge ids carried in the NetworkX edge keys are restored to `CogniEdge.id` on round-trip. Previously, `from_json` → `node_link_graph` → `from_networkx` would re-synthesise positional eids (`e_{src}_{tgt}_{i}`) and drop the original ids. Round-trip is now strictly id-preserving for `MultiDiGraph` inputs; non-multigraph inputs still get positional eids (no behaviour change).
 
+### Fixed (CR-006b — Neo4j writer + traversal, private PR #87)
+
+- **Site 3 — `graqle/connectors/neo4j.py:222 Neo4jConnector.save()`**: Group `edge_rows` by sanitised relationship type, run one Cypher UNWIND per type with native rel-type interpolation: `MERGE (a)-[r:{rtype} {id: row.id}]->(b)`. Mirrors the Neptune connector pattern that already does it right. New `_sanitise_rel_type(name)` helper at module top enforces alphanumeric+underscore identifier safety with `RELATED_TO` fallback — Cypher injection is impossible by construction.
+- **Site 3b — `graqle/connectors/upgrade.py:170 generate_migration_cypher` + its `migrate_json_to_neo4j` caller**: Same group-by-type pattern. The generator emits one `UNWIND $edges_<RTYPE>` statement per relationship type; the caller extracts the param name from the statement via regex and binds the appropriate edge subset.
+- **Type-agnostic analytics — `graqle/connectors/neo4j_traversal.py`** *(caught by `graq_predict` during the sentinel chain — without this, post-CR-006b typed edges would be silently invisible to every analytics query)*. Removed hardcoded `[:RELATED_TO*N]` and `[r:RELATED_TO]` from 11 query sites: `bfs_impact`, `shortest_path`, `hub_nodes`, `node_context`, `vector_then_graph`, `compute_pagerank` (GDS + degree-approx fallback), `detect_communities` (GDS + connected-components fallback), `materialize_neighborhoods`. GDS `graph.project(...)` calls also updated from `'RELATED_TO'` to `'*'`.
+
 ### Added
 
-- **4 regression tests in `tests/test_core/test_multi_edge_preservation.py`**:
+- **4 regression tests in `tests/test_core/test_multi_edge_preservation.py`** (CR-006a):
   - `test_to_networkx_preserves_parallel_typed_edges` — 3 typed edges A→B (CALLS, DEFINES, IMPORTS) survive `to_networkx`; the output is `nx.MultiDiGraph` with 3 distinct edges.
   - `test_json_round_trip_preserves_multi_edges` — same 3-edge setup round-trips through `to_json`/`from_json`; edge count, relationship set, AND original edge ids are preserved.
-  - `test_synthetic_eid_uniqueness_for_null_id_typed_edges` — Site 2 synthetic eid construction (`f"e_{src}_{tgt}_{rel}_{idx}"`) yields distinct keys for the three typed edges seen in the live `graqle` KG.
-  - `test_existing_collapsed_json_still_loads` — backward compatibility guard: legacy single-edge JSON files (pre-CR-006a shape) still load cleanly into v0.54.1. Verifies `nodes==2`, `edges==1`, and that the legacy `type` field maps to `entity_type`.
-
-### Known limitations (resolved in next release)
-
-- **Neo4j save path still collapses to `:RELATED_TO`** — `Neo4jConnector.save()` and `migrate_json_to_neo4j` both hardcode `MERGE (a)-[r:RELATED_TO {id: row.id}]->(b)`. v0.54.1 fixes the **read** path (the live DB still has all 216,577 typed edges from past writes, and they now load correctly), but **new** edges written through `save()` collapse on write. PR-006b (CR-006c follow-up) regroups the save by relationship type and uses native Cypher rel-type interpolation (mirroring the Neptune connector pattern).
+  - `test_synthetic_eid_uniqueness_for_null_id_typed_edges` — Site 2 synthetic eid construction yields distinct keys for the three typed edges seen in the live KG.
+  - `test_existing_collapsed_json_still_loads` — backward compatibility guard: legacy single-edge JSON files still load cleanly into v0.54.2.
+- **28 regression tests in `tests/test_connectors/test_multi_edge_save_preservation.py`** (CR-006b):
+  - **`TestSanitiseRelType`** (25 parametrized cases): 10 valid normalisations (`CALLS`, `calls` → `CALLS`, `uses envvar` → `USES_ENVVAR`, etc.) + 15 adversarial inputs (None, empty, leading digit, Cypher injection payloads with `; DROP CONSTRAINT`, `\nMATCH (n) DETACH DELETE n`, backticks/braces/parens/dots/slashes/pipes, non-string types) all sink to `RELATED_TO`.
+  - **`TestMigrationCypherTyped`** (3 tests): single typed edge emits one statement with the right native label; three parallel edges (CALLS/DEFINES/IMPORTS) emit three distinct statements; adversarial `rel; DROP CONSTRAINT cogni_node_id;` sanitised to `RELATED_TO` with `DROP` and semicolons stripped from the interpolated Cypher.
 
 ### Governance trail
 
-- **Private PR**: `quantamixsol/research-development-graqle#86` (merged 2026-05-13).
-- **Sentinel chain** (ADR-209 Phase 7): `graq_safety_check` (MEDIUM, 40 modules affected, 0 CRITICAL) → `graq_review focus=all` ×2 (final: APPROVED, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced density-inflation + multi-graph-consumer risks, both disclosed in this changelog) → `graq_review focus=security` (APPROVED, 0 BLOCKERs).
-- **Scoped pytest**: `tests/test_core/` + `tests/test_connectors/` — **438 passed, 6 skipped, 1 deselected**. The one deselect (`test_neo4j_traversal::TestHubNodes::test_core_graph_is_hub`) fails on the v0.54.0 baseline too and is itself a downstream symptom of CR-006 that the follow-up CR-006c release is expected to resolve.
+- **Private PRs**: `quantamixsol/research-development-graqle#86` (CR-006a, merged 2026-05-13) and `quantamixsol/research-development-graqle#87` (CR-006b, merged 2026-05-13).
+- **Sentinel chain (CR-006a)**: `graq_safety_check` (MEDIUM, 40 modules affected, 0 CRITICAL) → `graq_review focus=all` ×2 (final: APPROVED, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced density-inflation + multi-graph-consumer risks, both disclosed above) → `graq_review focus=security` (APPROVED, 0 BLOCKERs).
+- **Sentinel chain (CR-006b)**: `graq_plan` → `graq_edit literal` × 14 (helper + save + upgrade migrator + caller + 8 traversal sites + regex fix + debug log) → `graq_review focus=all` (APPROVED, 0 BLOCKERs, 2 MINORs addressed) → `graq_review focus=security` (APPROVED, 0 BLOCKERs, 1 MINOR addressed — debug logging on sanitiser fallback) → `graq_predict fold_back=false` — **surfaced `neo4j_traversal.py` hardcoded `:RELATED_TO` risk; fixed in this PR before opening.**
+- **Scoped pytest**: `tests/test_core/` + `tests/test_connectors/` — **466 passed, 6 skipped, 1 deselected**. The one deselect (`test_neo4j_traversal::TestHubNodes::test_core_graph_is_hub`) failed on the v0.54.0 baseline too; expected to flip green naturally once production writes start storing typed labels (separate verification after release).
 
 ---
 

@@ -46,12 +46,12 @@ def _sanitise_rel_type(name: Any) -> str:
         return "RELATED_TO"
     raw = str(name).strip().upper().replace(" ", "_").replace("-", "_")
     if not raw or not _VALID_REL_TYPE_RE.match(raw):
-        # CR-006b security review MINOR: debug-log fallback so unexpected
-        # shapes (Cypher-unsafe identifiers, injection payloads) are
-        # observable in audit logs. The raw value is *not* logged at info
-        # level to avoid leaking potentially adversarial content into
-        # higher-priority log sinks.
-        logger.debug(
+        # CR-006b security review MINOR (raised to WARNING in v0.54.2 review
+        # round 2): log the fallback at warning level so unexpected shapes
+        # (Cypher-unsafe identifiers, injection payloads) reach SIEM /
+        # production log sinks. repr() prevents log-injection from raw
+        # newlines/control chars.
+        logger.warning(
             "rel-type fallback: %r -> RELATED_TO (not a Cypher identifier)",
             name,
         )
