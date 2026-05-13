@@ -69,9 +69,86 @@ class MessagePassingProtocol:
         if round_num == 0:
             return await self._initial_round(graph, query, active_ids)
 
+        # CR-007 Fix 4 (CR-007b): hierarchical_synthesis flag — between
+        # rounds, replace per-neighbor messages with one community summary
+        # message per community. Cuts dense-graph inter-node messaging from
+        # O(N x neighbors) to O(N x communities). Default OFF; opt-in via
+        # GraqleConfig.orchestration.hierarchical_synthesis = True.
+        orch_cfg = getattr(graph, "config", None)
+        orch = getattr(orch_cfg, "orchestration", None)
+        if previous_messages and getattr(orch, "hierarchical_synthesis", False):
+            summary_max = int(getattr(orch, "hierarchical_summary_max_chars", 1500) or 1500)
+            previous_messages = self._build_community_summaries(
+                graph, previous_messages, summary_max,
+            )
+
         return await self._exchange_round(
             graph, query, active_ids, round_num, previous_messages or {}
         )
+
+    def _build_community_summaries(
+        self,
+        graph: "Graqle",
+        previous_messages: dict[str, Message],
+        summary_max_chars: int,
+    ) -> dict[str, Message]:
+        """CR-007 Fix 4: collapse round-N messages into one summary per community.
+
+        Returns a dict where each key is a synthetic community-id (e.g.
+        "__community__<bucket>") and the value is a single Message whose
+        ``content`` is the concatenation of that community's messages,
+        truncated to ``summary_max_chars``. Nodes in ``_exchange_round`` see
+        ALL community summaries via ``graph.get_neighbors`` matches only when
+        the synthetic ids match — so this only fires when consumers wire it.
+
+        Communities are derived from (in order of preference):
+        1. ``node.community`` property (set by ``compute_pagerank`` /
+           ``detect_communities`` Cypher analytics).
+        2. ``node.entity_type`` (fallback — coarse bucketing).
+        3. Single bucket "__all__" when neither is available.
+
+        EU AI Act note: this is a SUMMARY of evidence the model has already
+        seen — no governance text is dropped; the per-node audit trail in
+        ``all_messages`` (kept by the orchestrator) still has every original
+        message. The summary only affects what the NEXT round's nodes see.
+        """
+        from graqle.core.message import Message as _Msg
+
+        # Bucket the messages
+        buckets: dict[str, list[tuple[str, Message]]] = {}
+        for nid, msg in previous_messages.items():
+            node = graph.nodes.get(nid)
+            bucket = (
+                getattr(node, "community", None)
+                or getattr(node, "entity_type", None)
+                or "__all__"
+            )
+            buckets.setdefault(str(bucket), []).append((nid, msg))
+
+        # Build one synthetic Message per bucket
+        out: dict[str, Message] = {}
+        for bucket, items in buckets.items():
+            parts: list[str] = []
+            for nid, msg in items:
+                snippet = (msg.content or "")[:max(200, summary_max_chars // max(1, len(items)))]
+                parts.append(f"[{nid}] {snippet}")
+            joined = "\n".join(parts)
+            if len(joined) > summary_max_chars:
+                joined = joined[:summary_max_chars] + "\n…[community summary truncated]"
+            synth_id = f"__community__{bucket}"
+            # Create a minimal Message preserving the protocol contract.
+            try:
+                synth = _Msg.create_query_broadcast(joined, synth_id)
+            except Exception:
+                # Fallback: instantiate Message directly with permissive kwargs.
+                synth = _Msg(
+                    content=joined,
+                    source_node_id=synth_id,
+                    round=0,
+                )
+            out[synth_id] = synth
+
+        return out
 
     async def _initial_round(
         self,
@@ -84,15 +161,19 @@ class MessagePassingProtocol:
         async def _node_reason(node_id: str) -> tuple[str, Message]:
             node = graph.nodes[node_id]
             query_msg = Message.create_query_broadcast(query, node_id)
-            # L2: Wire continuation config from graph
+            # L2 + CR-007: wire continuation + token-economics config from graph
             orch_cfg = getattr(graph, "config", None)
             orch = getattr(orch_cfg, "orchestration", None)
             _max_cont = getattr(orch, "max_continuations", 3)
             _overlap = getattr(orch, "continuation_overlap_lines", 15)
+            _ev_cap = getattr(orch, "evidence_hard_ceiling", 4000)
+            _pr_cap = getattr(orch, "prompt_hard_cap", 10000)
             result = await node.reason(
                 query, [query_msg], embedding_fn=self.embedding_fn,
                 max_continuations=_max_cont,
                 continuation_overlap_lines=_overlap,
+                evidence_hard_ceiling=_ev_cap,
+                prompt_hard_cap=_pr_cap,
             )
             result.source_node_id = node_id
             result.round = 0
@@ -127,6 +208,15 @@ class MessagePassingProtocol:
     ) -> dict[str, Message]:
         """Round N: Exchange messages with neighbors and re-reason."""
 
+        # CR-007: read token-economics knobs once per round (not per node).
+        orch_cfg_outer = getattr(graph, "config", None)
+        orch_outer = getattr(orch_cfg_outer, "orchestration", None)
+        _max_cont_outer = getattr(orch_outer, "max_continuations", 3)
+        _overlap_outer = getattr(orch_outer, "continuation_overlap_lines", 15)
+        _ev_cap_outer = getattr(orch_outer, "evidence_hard_ceiling", 4000)
+        _pr_cap_outer = getattr(orch_outer, "prompt_hard_cap", 10000)
+        _top_k_outer = getattr(orch_outer, "top_k_neighbors", 8)
+
         async def _node_exchange(node_id: str) -> tuple[str, Message]:
             node = graph.nodes[node_id]
 
@@ -138,26 +228,34 @@ class MessagePassingProtocol:
             else:
                 neighbor_ids = graph.get_neighbors(node_id)
 
-            incoming = [
-                previous_messages[nid]
-                for nid in neighbor_ids
-                if nid in previous_messages
+            # CR-007 Fix 2: cap neighbor messages to top-K to bound prompt
+            # blow-up in dense graphs (hub nodes can have 30-50 neighbors,
+            # each contributing ~700 chars of round-0 reply). Ranking is
+            # best-effort: prefer activation_score on the candidate node,
+            # then insertion order. Active edges (source in active set) get
+            # priority via the active_node_ids intersection done implicitly
+            # by `if nid in previous_messages` below.
+            candidate_ids = [
+                nid for nid in neighbor_ids if nid in previous_messages
             ]
+            if _top_k_outer and len(candidate_ids) > _top_k_outer:
+                def _rank_key(nid: str) -> float:
+                    n = graph.nodes.get(nid)
+                    return -float(getattr(n, "activation_score", 0.0) or 0.0)
+                candidate_ids = sorted(candidate_ids, key=_rank_key)[:_top_k_outer]
+            incoming = [previous_messages[nid] for nid in candidate_ids]
 
             # Prepend observer feedback if available (T4.2)
             if self._observer_feedback and node_id in self._observer_feedback:
                 incoming.insert(0, self._observer_feedback[node_id])
 
-            # Re-reason with neighbor context + evidence filtering
-            # L2: Wire continuation config from graph
-            orch_cfg = getattr(graph, "config", None)
-            orch = getattr(orch_cfg, "orchestration", None)
-            _max_cont = getattr(orch, "max_continuations", 3)
-            _overlap = getattr(orch, "continuation_overlap_lines", 15)
+            # Re-reason with neighbor context + evidence + prompt ceilings
             result = await node.reason(
                 query, incoming, embedding_fn=self.embedding_fn,
-                max_continuations=_max_cont,
-                continuation_overlap_lines=_overlap,
+                max_continuations=_max_cont_outer,
+                continuation_overlap_lines=_overlap_outer,
+                evidence_hard_ceiling=_ev_cap_outer,
+                prompt_hard_cap=_pr_cap_outer,
             )
             result.source_node_id = node_id
             result.round = round_num
