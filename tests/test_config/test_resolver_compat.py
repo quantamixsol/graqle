@@ -59,9 +59,15 @@ def empty_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture(autouse=True)
 def _clear_resolver_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure each test starts with GRAQLE_USE_RESOLVER unset, regardless of
-    the surrounding shell. Tests that need it set will re-set it explicitly."""
-    monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
+    """Ensure each test starts with the resolver flag explicitly OFF.
+
+    CR-002 PR-002c-2b: the env-unset default flipped from OFF to ON, so this
+    fixture now sets ``GRAQLE_USE_RESOLVER=0`` explicitly instead of deleting
+    the env var. This keeps the existing "Flag OFF (default)" test block
+    valid by encoding the opt-out explicitly. Tests that want the resolver
+    ON re-set the env var to a truthy value as before.
+    """
+    monkeypatch.setenv("GRAQLE_USE_RESOLVER", "0")
 
 
 # ─── Flag OFF (default) ─────────────────────────────────────────────────────
@@ -244,13 +250,21 @@ def test_truthy_flag_values_all_drive_resolver_branch(
     assert cfg is not None
 
 
-@pytest.mark.parametrize("flag_value", ["", "0", "false", "FALSE", "no", "off"])
+@pytest.mark.parametrize("flag_value", ["0", "false", "FALSE", "no", "No"])
 def test_falsy_flag_values_skip_resolver_branch(
     yaml_in_cwd: Path,
     monkeypatch: pytest.MonkeyPatch,
     flag_value: str,
 ) -> None:
-    """Falsy ``GRAQLE_USE_RESOLVER`` values must NOT enter the resolver branch."""
+    """Explicit opt-out ``GRAQLE_USE_RESOLVER`` values must NOT enter the
+    resolver branch.
+
+    CR-002 PR-002c-2b: the flag default flipped from OFF to ON, so the
+    only values that skip the resolver branch are the explicit
+    case-insensitive opt-outs ``0`` / ``false`` / ``no``. Empty string
+    and unknown values (e.g. ``off``) now ENTER the resolver branch
+    under the new default-ON contract.
+    """
     monkeypatch.setenv("GRAQLE_USE_RESOLVER", flag_value)
     with patch("graqle.config.resolver.resolve_config") as resolve_mock:
         cfg = load_via_resolver_or_legacy()

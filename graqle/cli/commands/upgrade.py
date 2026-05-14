@@ -236,10 +236,14 @@ def upgrade_command(
     console.print("\n[bold]Step 7:[/bold] Verifying migration...")
 
     try:
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
         from graqle.config.settings import GraqleConfig
         from graqle.core.graph import Graqle
 
-        cfg = GraqleConfig.from_yaml("graqle.yaml") if Path("graqle.yaml").exists() else GraqleConfig.default()
+        # CR-002 PR-002c-2b: hardcoded "graqle.yaml" relative-path site
+        # migrated to the resolver-compat helper. Helper's default arg is
+        # "graqle.yaml" so the legacy fallback matches prior behaviour exactly.
+        cfg = load_via_resolver_or_legacy() or GraqleConfig.default()
         g = Graqle.from_neo4j(uri=uri, username=username, password=pw, database=database, config=cfg)
         neo4j_nodes = len(g.nodes)
         neo4j_edges = len(g.edges)

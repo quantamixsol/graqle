@@ -409,17 +409,22 @@ class TestResolveNeo4j:
 
 
 class TestIsResolverEnabled:
-    def test_default_false(self, monkeypatch):
+    # CR-002 PR-002c-2b: flag default flipped from False to True. The
+    # resolver is now the canonical config-loading path; only the explicit
+    # opt-out values "0" / "false" / "no" disable it.
+    def test_default_true(self, monkeypatch):
         monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
-        assert is_resolver_enabled() is False
+        assert is_resolver_enabled() is True
 
-    @pytest.mark.parametrize("val", ["1", "true", "TRUE", "Yes", "yEs"])
-    def test_truthy_values_enable(self, monkeypatch, val):
+    @pytest.mark.parametrize("val", ["1", "true", "TRUE", "Yes", "yEs", "", "garbage"])
+    def test_truthy_and_unknown_values_enable(self, monkeypatch, val):
+        # After the flip, any non-opt-out value (including unknown strings
+        # and empty string) means the resolver is ON.
         monkeypatch.setenv("GRAQLE_USE_RESOLVER", val)
         assert is_resolver_enabled() is True
 
-    @pytest.mark.parametrize("val", ["", "0", "false", "no", "garbage"])
-    def test_falsey_values_disable(self, monkeypatch, val):
+    @pytest.mark.parametrize("val", ["0", "false", "no", "FALSE", "No"])
+    def test_opt_out_values_disable(self, monkeypatch, val):
         monkeypatch.setenv("GRAQLE_USE_RESOLVER", val)
         assert is_resolver_enabled() is False
 

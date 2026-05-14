@@ -721,11 +721,18 @@ class GraqleConfig(BaseModel):
         # legacy "graqle.yaml" relative form. The resolver always passes an
         # absolute path it discovered, so resolver-driven calls are skipped.
         try:
-            import os as _os
             import warnings as _warnings
 
-            _flag = _os.environ.get("GRAQLE_USE_RESOLVER", "").strip().lower()
-            _flag_on = _flag in {"1", "true", "yes"}
+            # CR-002 PR-002c-2b: delegate flag parsing to is_resolver_enabled
+            # so the post-flip semantics (env-unset -> ON, only 0/false/no
+            # opt out) stay in lock-step with the resolver entry point.
+            # Falling back to False on ImportError keeps from_yaml usable in
+            # minimal install footprints where resolver is unavailable.
+            try:
+                from graqle.config.resolver import is_resolver_enabled as _is_resolver_enabled
+                _flag_on = _is_resolver_enabled()
+            except ImportError:
+                _flag_on = False
             _path_obj = Path(path) if not isinstance(path, Path) else path
             _is_relative_legacy_path = (
                 not _path_obj.is_absolute()

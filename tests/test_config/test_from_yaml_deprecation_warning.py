@@ -48,10 +48,16 @@ def yaml_path(tmp_path: Path) -> Path:
 # ── Behaviour when flag is OFF: no warning ─────────────────────────────────
 
 
-def test_no_warning_when_resolver_flag_unset(
+def test_warning_fires_when_resolver_flag_unset(
     monkeypatch: pytest.MonkeyPatch, yaml_path: Path,
 ) -> None:
-    """Default user behaviour — flag unset, no deprecation warning."""
+    """CR-002 PR-002c-2b: default flipped to ON. Env unset → flag ON → warning.
+
+    Prior to PR-002c-2b the default was OFF (no warning); after the flip,
+    leaving the env var unset means the resolver is enabled, which fires
+    exactly one PendingDeprecationWarning when from_yaml is called with a
+    relative path.
+    """
     monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
     monkeypatch.chdir(yaml_path.parent)
 
@@ -59,13 +65,12 @@ def test_no_warning_when_resolver_flag_unset(
         warnings.simplefilter("always")
         GraqleConfig.from_yaml("graqle.yaml")
 
-    # Filter for PendingDeprecationWarning specifically — other warnings
-    # (pydantic deprecation, etc.) may be present and don't concern us.
     pending = [x for x in w if issubclass(x.category, PendingDeprecationWarning)]
-    assert pending == [], (
-        f"Expected no PendingDeprecationWarning when flag is off, "
-        f"got {[str(x.message) for x in pending]}"
+    assert len(pending) == 1, (
+        f"Expected exactly one PendingDeprecationWarning when flag is "
+        f"unset (default ON post PR-002c-2b), got {[str(x.message) for x in pending]}"
     )
+    assert "GRAQLE_USE_RESOLVER" in str(pending[0].message)
 
 
 def test_no_warning_when_resolver_flag_is_falsy(
