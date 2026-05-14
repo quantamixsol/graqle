@@ -78,6 +78,16 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
+## EU AI Act — Compliance signals you can quote in your own Article 9 file
+
+GraQle is **EU AI Act–aligned**. Every reasoning output carries graph-health, confidence, audit-log, and AI-disclosure metadata that you can quote directly in your own [Regulation (EU) 2024/1689](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202401689) compliance work — Article 9 risk-management, Article 12 record-keeping, Article 13 deployer-transparency, Article 14 human-oversight, Article 15 robustness, Article 25 value-chain, and Article 50 AI-interaction transparency.
+
+GraQle itself is a developer tool, not a high-risk AI system. **We make your high-risk system's compliance work easier.**
+
+**Full Article-by-Article mapping:** [docs/compliance/eu-ai-act/](./docs/compliance/eu-ai-act/) — 9 documents, every claim cited against the authoritative EUR-Lex regulation text, every signal traceable to a specific GraQle code path or output field.
+
+---
+
 ## What's New in v0.53.0 — The Reliability Release
 
 > **AI assistants see files. GraQle sees architecture. And now it never silently fails.**
