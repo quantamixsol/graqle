@@ -4,6 +4,84 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## Unreleased - [cr-004-reasoning-honesty]
+
+> **Reasoning honesty release** — GraQle now tells you when its answer might be
+> wrong. The new `GraphHealth` snapshot rides alongside every `graq_reason`,
+> `graq_predict`, and `graq_safety_check` envelope and surfaces in the CLI as
+> a yellow `⚠ degraded reasoning` banner. No more silent confidence collapses
+> from a stale NPZ cache, an edge-free graph, or a keyword-fallback activation.
+> Probe stays O(1) over already-loaded state, never raises (3-deep defence),
+> and adds < 5 ms p95 to the envelope build per CI fail-gate.
+
+### Added
+
+- **CR-004 PR-004a (`a2015d23`): `GraphHealth` dataclass + `graph_health_probe`
+  helper.** New leaf module `graqle.core.graph_health` exports a frozen
+  `GraphHealth(node_count, edge_count, chunks_unembedded, percent_stale,
+  activation_mode, degraded, reason, schema_version="1")` dataclass with
+  field-level validation in `__post_init__`. New
+  `graqle.activation.health_probe.graph_health_probe(graph,
+  activation_signal=None, config=None) -> GraphHealth` walks already-loaded
+  state, computes the four degraded-disjunction signals, and **never raises** —
+  any internal failure returns a `degraded=True` snapshot with a sanitised
+  `reason`. Reason strings are scrubbed via reused
+  `graqle.core.secret_patterns.scan_for_secrets` (200+ patterns), project-root
+  elision, and home-directory replacement, then capped at 200 chars. Internal
+  results are TTL-cached (5 s) under a `threading.Lock` for thread-safe O(1)
+  amortised lookups.
+
+- **CR-004 PR-004b (`9d1d2e96`): `ReasoningResult.graph_health` field + MCP
+  envelope wiring.** `ReasoningResult` gains a new
+  `graph_health: GraphHealth | None = None` field — additive, default `None`,
+  so existing consumers keep parsing the envelope unchanged. The MCP
+  `graq_reason` envelope now serialises the snapshot under the top-level
+  `graph_health` key when the probe succeeds, and omits the key entirely when
+  the helper returns `None` (import failure or probe internal error). Schema
+  version is pinned at `"1"` for forward-compat audit.
+
+- **CR-004 PR-004c (`b05292e0`): wire `GraphHealth` into `graq_predict` +
+  `graq_safety_check` + CLI yellow warning.** `_build_graph_health_snapshot()`
+  centralises the probe→snapshot conversion for both MCP handlers. The
+  `graq_safety_check` envelope lifts `graph_health` to the top level from the
+  nested `reasoning_result` block on the deep-reason path, and omits the key
+  entirely on the skipped-reasoning shortcut. The `graq run` and `graq reason`
+  CLI surfaces print a yellow `⚠ degraded reasoning: …` banner before the
+  answer when `graph_health.degraded` is `True` and `reason` is non-empty.
+  Console output is defended in four layers: 200-char reason cap (PR-004a),
+  `_redact_secrets` + `_sanitise_reason` (PR-004a), ANSI CSI/OSC strip via
+  `_sanitise_for_console`, and Rich markup escape on the final print.
+
+- **CR-004 PR-004d (this release): CLI yellow-warning end-to-end tests.** New
+  `tests/test_cli/test_cli_graph_health_warning.py` exercises the full
+  probe→degraded→sanitise→print path through the CLI command boundary,
+  complementing the unit-level probe tests (PR-004a) and the envelope-wiring
+  tests (PR-004b/c). Two scenarios are covered: degraded graph triggers the
+  yellow banner with sanitised reason text, and healthy graph produces no
+  banner.
+
+### Configurable
+
+- `graph_health.stale_chunks_threshold` (default `500`) — absolute count of
+  unembedded chunks above which the probe flags `degraded=True`. Overridable
+  via `GRAQLE_STALE_CHUNKS_THRESHOLD`.
+- `graph_health.edge_node_ratio_threshold` (default `0.5`) — for graphs with
+  > 100 nodes, an `edge_count / node_count` ratio below this triggers
+  `degraded=True`. Overridable via `GRAQLE_EDGE_NODE_RATIO_THRESHOLD`.
+- `graph_health.zero_edges_is_degraded` (default `true`) — flips
+  `edge_count == 0` to `degraded=True`. Set to `false` to allow zero-edge
+  graphs (e.g. seed-only KGs) to report `degraded=False`.
+
+### Rollback
+
+`GraphHealth` is purely additive — the field is `None`-default on
+`ReasoningResult`, the MCP envelope omits the key when the helper short-circuits,
+and the CLI banner is skipped on any probe failure. To suppress the banner
+without a code revert, override `graph_health.zero_edges_is_degraded: false`
+in `graqle.yaml` (covers the most common false-positive cause).
+
+---
+
 ## 0.53.0 (2026-05-02) - [reliability-release]
 
 > **The reliability release.** 10 silent failure modes fixed across `graq_bash`,
