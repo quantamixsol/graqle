@@ -5217,6 +5217,32 @@ class KogniDevServer:
                 )
                 result_dict["diagnostic_code"] = "MISSING_LLM_SDK"
                 result_dict["missing_sdks"] = _missing_list
+
+            # CR-004 PR-004b: attach graph_health snapshot. The probe is
+            # contractually never-raises (graphle/activation/health_probe.py
+            # has 3-deep defence: cache wrap + _compute_health wrap +
+            # _build_failed_health safety net). The try/except here is
+            # belt-and-braces — if the probe MODULE itself fails to import
+            # (e.g. partial install), we still return a healthy envelope.
+            # The field is omitted from result_dict on failure so existing
+            # consumers see a bit-for-bit unchanged envelope.
+            try:
+                from graqle.activation.health_probe import graph_health_probe
+                _gh = graph_health_probe(graph)
+                result.graph_health = _gh
+                result_dict["graph_health"] = {
+                    "node_count": _gh.node_count,
+                    "edge_count": _gh.edge_count,
+                    "chunks_unembedded": _gh.chunks_unembedded,
+                    "percent_stale": _gh.percent_stale,
+                    "activation_mode": _gh.activation_mode,
+                    "degraded": _gh.degraded,
+                    "reason": _gh.reason,
+                    "schema_version": _gh.schema_version,
+                }
+            except Exception:  # noqa: BLE001 — never let probe wiring fail envelope
+                pass
+
             duration_ms = (_time.monotonic() - t0) * 1000
 
             # Governance audit
