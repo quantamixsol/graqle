@@ -4,6 +4,44 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.55.0 (2026-05-14) - [cr-002 + cr-003 + cr-004 + cr-005a + cr-008 rollup]
+
+> **Reasoning honesty + cross-project reliability.** Five CRs roll up into one release: graph-health surfacing on every reasoning envelope (CR-004), the cross-project `WRITE_COLLISION` phantom-error fix that affected every Neo4j-backed `graq_learn` call (CR-008), the unified config resolver promoted to default-ON with 13 internal call sites migrated (CR-002), defensive guards against silent edge-loss regressions (CR-003), and a TOCTOU-safe `stdout_path` parameter on `graq_bash` that closes the long-standing `cmd > file.log` silent-failure ergonomics class (CR-005a). All shipped under the new BAU CR process.
+
+### Breaking changes
+
+- **`GRAQLE_USE_RESOLVER` default flipped from OFF to ON** (CR-002 PR-002c-2b). The resolver is now the canonical config-loading path; submodule-aware ancestor walk for `graqle.yaml` works automatically. Set `GRAQLE_USE_RESOLVER=0` (or `false` / `no`, case-insensitive) to opt OUT and fall through to the legacy `GraqleConfig.from_yaml()` path. The resolver-compat helper has a try/except resolver→legacy fallback, so this flip is safe even in environments with a misconfigured resolver — the worst case is silent fall-through to the prior behaviour.
+
+### Added
+
+- **CR-004 — Reasoning Honesty.** New `GraphHealth` dataclass + `graph_health_probe` helper. Every `graq_reason` / `graq_predict` / `graq_safety_check` envelope now carries an explicit `graph_health` snapshot (8 fields: `node_count`, `edge_count`, `chunks_unembedded`, `percent_stale`, `activation_mode`, `degraded`, `reason`, `schema_version`). The `graq run` and `graq reason` CLI surfaces print a yellow `⚠ degraded reasoning: …` banner before the answer when the graph is degraded. Configurable thresholds (`stale_chunks_threshold` default 500, `edge_node_ratio_threshold` default 0.5, `zero_edges_is_degraded` default true) with env-var overrides. Probe is contractually never-raises (3-deep defence) and adds < 5 ms p95 to envelope build (CI fail-gate). Reason strings are scrubbed via reused `secret_patterns.scan_for_secrets` (200+ patterns), project-root elision, home-dir replacement, and capped at 200 chars.
+
+- **CR-005a — `graq_bash stdout_path` parameter.** Optional new parameter on `graq_bash` writes the FULL untruncated subprocess stdout to disk atomically. Closes the long-standing `graq_bash("cmd > file.log")` silent-failure case (subprocess shell is sandboxed; shell redirects produce empty files). TOCTOU-safe validation per CR-005 § 3.1: canonicalise via `Path.resolve()`, then `relative_to(_project_root)` check, plus defence-in-depth `..` rejection on resolved parts. Parent directories auto-created. Atomic write via `NamedTemporaryFile` + `fsync` + `os.replace`. Failure isolation: file-write `OSError` never masks the subprocess result.
+
+- **CR-002 — Unified Config Resolution.** `load_via_resolver_or_legacy` helper introduced; 13 internal `--config` typer call sites migrated. `GRAQLE_USE_RESOLVER` default flipped ON (see Breaking changes). `GraqleConfig.from_yaml` deprecation-warning block delegates to `is_resolver_enabled()` so the two entry points stay in lock-step.
+
+### Fixed
+
+- **CR-008 — Phantom `WRITE_COLLISION` on Neo4j-backed `graq_learn` calls.** Every `graq_learn` on a Neo4j-backed session was returning `error_code: WRITE_COLLISION` even though no write was ever attempted. Root cause: `_save_graph` returned `tuple[bool, int]` with `False` for FOUR distinct reasons (Neo4j-only / shrink-refused / real `PermissionError` / generic exception) and the four `_handle_learn_*` handlers conflated all four as collision. Replaced with `SaveGraphResult` + `SaveStatus` enum (OK / NO_GRAPH_FILE / SHRINK_REFUSED / COLLISION / SAVE_FAILED). NO_GRAPH_FILE folds into `recorded=True` because the in-memory + backend write already happened. Every project using `bolt://...` in `graqle.yaml` benefits — no client migration needed. New `persistence: <status>` field on `graq_learn` success responses lets clients distinguish Neo4j-only sessions from JSON-write completions.
+
+- **CR-003 — Defensive Edge-Loss Guards.** Hardened guards against the silent edge-loss regression that affected installs between v0.46 and v0.53. `Graqle.to_json` refuses to shrink edge count by > 10% on graphs with > 100 baseline edges. Neo4j schema parity restored. New `scripts/bisect_edge_loss.py` utility for triaging regression-class bugs.
+
+### Test count
+
+5,500+ tests across Python 3.10 / 3.11 / 3.12. ~100 new tests this release (24 CR-008 status-disambiguation, 15 CR-005a `stdout_path`, 46 CR-004 health-probe + envelope + CLI banner, 14 CR-002 resolver migration + flag-default contract).
+
+### Rollback
+
+Every CR is independently revertable:
+
+- **CR-002 flip:** `GRAQLE_USE_RESOLVER=0` env var, no code revert needed.
+- **CR-004:** `graph_health` field is `None`-default; envelope omits the key when probe fails; CLI banner skipped on any probe failure. Soft-suppress via `graph_health.zero_edges_is_degraded: false` in `graqle.yaml`.
+- **CR-008:** Additive only — new `SaveGraphResult` is back-compat with legacy 2-tuple callers via `_coerce_save_result` shim.
+- **CR-005a:** `stdout_path` is optional; absent it, every existing `graq_bash` call is byte-identical to pre-CR-005a behaviour.
+- **CR-003:** `GRAQLE_ALLOW_EDGE_SHRINK=1` to override the shrink guard for a single run.
+
+---
+
 ## 0.54.3 (2026-05-13) - [bau-cr-007-reason-token-economics]
 
 > **`graq_reason` now costs ~52% less, runs ~48% faster, and stops Bedrock throttling.** Empirical probe against a live 64K-node Neo4j KG: input tokens dropped from ~198K to ~47K per call (-76%), LLM calls from 101 to 51 (-50%), max single prompt from 24,618 to 8,015 chars (-67%), wall time from 49.8s to 25.9s, and 12+ Bedrock `ThrottlingException` retries dropped to 0. Six layered cost ceilings, all configurable via `GraqleConfig.orchestration` with pydantic-validated bounds. EU AI Act audit trails preserved verbatim.

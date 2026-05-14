@@ -42,12 +42,16 @@ def config_command(
         graq config --json
         graq config --config custom.yaml
     """
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    # config_path is still derived from the user-supplied --config flag so the
+    # downstream _output_json / _output_rich display continues to reflect the
+    # explicit path the user typed (not the resolver-discovered ancestor).
     config_path = Path(config)
-    if config_path.exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
+    cfg = load_via_resolver_or_legacy(config)
+    if cfg is None:
         cfg = GraqleConfig.default()
         if not json_output:
             console.print(f"[yellow]No {config} found — showing defaults[/yellow]\n")

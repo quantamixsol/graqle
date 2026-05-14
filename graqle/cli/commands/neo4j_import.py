@@ -31,7 +31,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
+
+from graqle.core.exceptions import GraphSchemaError
 
 import typer
 from rich.console import Console
@@ -50,11 +52,50 @@ console = Console()
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _get_connector():
-    """Build Neo4jConnector from env vars. Raises ImportError if driver missing."""
-    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-    username = os.environ.get("NEO4J_USERNAME", "neo4j")
+    """Build Neo4jConnector. Raises ImportError if driver missing.
+
+    Resolution order (CR-002 PR-002b):
+      1. Explicit ``NEO4J_*`` env vars (highest priority — back-compat)
+      2. ``graqle.config.resolver.resolve_neo4j`` when ``GRAQLE_USE_RESOLVER``
+         is set (priority chain: explicit > env > yaml > default).
+      3. Bare-default fallback ``bolt://localhost:7687`` (back-compat).
+
+    Pre-PR-002b this function ignored ``cfg.graph.uri`` entirely (BHG #9a:
+    "graq neo4j-import ignores graph.uri/database from yaml"). The resolver
+    branch closes that gap when the feature flag is on. Off → legacy path.
+    """
+    uri = os.environ.get("NEO4J_URI", "")
+    username = os.environ.get("NEO4J_USERNAME", "")
     password = os.environ.get("NEO4J_PASSWORD", "")
-    database = os.environ.get("NEO4J_DATABASE", "neo4j")
+    database = os.environ.get("NEO4J_DATABASE", "")
+
+    try:
+        from graqle.config.resolver import is_resolver_enabled, resolve_neo4j
+
+        if is_resolver_enabled():
+            try:
+                params = resolve_neo4j(
+                    None,
+                    uri=uri or None,
+                    username=username or None,
+                    password=password or None,
+                    database=database or None,
+                )
+                uri = params.uri
+                username = params.username
+                password = params.password.get_secret_value()
+                database = params.database
+            except Exception as exc:  # noqa: BLE001 — fail-safe to env-only
+                console.print(
+                    f"[dim]neo4j_import: resolver fallback to env-only ({type(exc).__name__})[/dim]"
+                )
+    except ImportError:
+        pass
+
+    # Back-compat defaults — only applied when neither env nor resolver set them.
+    uri = uri or "bolt://localhost:7687"
+    username = username or "neo4j"
+    database = database or "neo4j"
 
     from graqle.connectors.neo4j import Neo4jConnector  # lazy — requires graqle[neo4j]
 
@@ -93,9 +134,72 @@ def _load_kg(kg_file: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return nodes, edges
 
 
-def _batch_save_nodes(connector, nodes: dict[str, Any], batch_size: int) -> int:
-    """Write nodes in batches; returns count written. Raises on connector error."""
-    items = list(nodes.items())
+def _as_items(
+    payload: Any, label: str = "nodes",
+) -> "Iterator[tuple[str, dict[str, Any]]]":
+    """CR-003d: accept both dict-shape ``{id: data}`` and list-shape
+    ``[{id, ...}, ...]`` graqle.json payloads. Generates ``(id, data)``
+    tuples with collision-safe IDs.
+
+    * Dict input → yields the existing keys verbatim after validation.
+    * List input → derives IDs from the ``id`` field; missing IDs get a
+      SHA-256-based ``_anon_<hex>`` suffix (deterministic per-content);
+      duplicate IDs get a ``_dup<N>`` suffix.
+
+    Raises ``GraphSchemaError`` on:
+      - non-dict / non-list payload
+      - dict with non-string keys
+      - list element that is not a dict
+
+    EU AI Act note: anonymous-ID derivation is deterministic (full SHA-256,
+    not truncated) so the audit trail is reproducible across runs.
+    """
+    import hashlib
+    import json as _json
+
+    if isinstance(payload, dict):
+        for k, v in payload.items():
+            if not isinstance(k, str):
+                raise GraphSchemaError(
+                    f"{label} dict has non-str key: {type(k).__name__}"
+                )
+            if not isinstance(v, dict):
+                raise GraphSchemaError(
+                    f"{label}[{k!r}] is not a dict: {type(v).__name__}"
+                )
+            yield k, v
+        return
+
+    if not isinstance(payload, list):
+        raise GraphSchemaError(
+            f"{label} must be dict or list, got {type(payload).__name__}"
+        )
+
+    seen_ids: dict[str, int] = {}
+    for i, n in enumerate(payload):
+        if not isinstance(n, dict):
+            raise GraphSchemaError(
+                f"{label}[{i}] is not a dict: {type(n).__name__}"
+            )
+        nid_raw = n.get("id")
+        if nid_raw is None:
+            blob = _json.dumps(n, sort_keys=True, default=str).encode("utf-8")
+            nid_raw = f"_anon_{hashlib.sha256(blob).hexdigest()}"
+        nid = str(nid_raw)
+        if nid in seen_ids:
+            seen_ids[nid] += 1
+            nid = f"{nid}_dup{seen_ids[nid]}"
+        else:
+            seen_ids[nid] = 0
+        yield nid, n
+
+
+def _batch_save_nodes(connector, nodes: Any, batch_size: int) -> int:
+    """Write nodes in batches; returns count written. Raises on connector error.
+
+    CR-003d: accepts both dict-shape and list-shape payloads via _as_items.
+    """
+    items = list(_as_items(nodes, label="nodes"))
     total = len(items)
     written = 0
     failed_batches: list[str] = []
@@ -128,9 +232,12 @@ def _batch_save_nodes(connector, nodes: dict[str, Any], batch_size: int) -> int:
     return written
 
 
-def _batch_save_edges(connector, edges: dict[str, Any], batch_size: int) -> int:
-    """Write edges in batches; returns count written. Reports failures per-batch."""
-    items = list(edges.items())
+def _batch_save_edges(connector, edges: Any, batch_size: int) -> int:
+    """Write edges in batches; returns count written. Reports failures per-batch.
+
+    CR-003d: accepts both dict-shape and list-shape payloads via _as_items.
+    """
+    items = list(_as_items(edges, label="edges"))
     total = len(items)
     written = 0
     failed_batches: list[str] = []

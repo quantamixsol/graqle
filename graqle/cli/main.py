@@ -123,6 +123,51 @@ app.command(name="upgrade")(upgrade_command)
 console = create_console()
 
 
+# CR-004 PR-004c (sentinel 1C dedup + regex correction):
+# ANSI CSI / OSC strip helpers used by the degraded-reasoning warning
+# in run() and reason(). Extracted to module scope so the regexes are
+# (a) compiled once, (b) testable independently, (c) shared across both
+# call sites without per-call re-compile cost.
+import re as _re_cr004c
+
+# CSI: ESC [ <param bytes 0-9;:?> <intermediate bytes 0x20-0x2F> <final byte 0x40-0x7E>
+# Matches standard SGR (color/style), cursor movement, mode set, etc.
+_ANSI_CSI_RE = _re_cr004c.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+# OSC: ESC ] <data not containing BEL or ESC> <terminator: BEL=0x07 or ST=ESC \>
+# Matches window-title-set, hyperlink-set, etc.
+_ANSI_OSC_RE = _re_cr004c.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+
+def _sanitise_for_console(text: str) -> str:
+    """Strip raw ANSI CSI + OSC sequences from a text string.
+
+    Used as the FIRST step before Rich markup escape when surfacing
+    user-visible warnings derived from internal probe output. The reason
+    string is already sanitised by PR-004a (path elision + secret
+    redaction + 200-char cap) and additionally Rich-escaped after this
+    function returns; this strip handles raw control sequences that
+    Rich's markup escape passes through verbatim.
+
+    Type contract (sentinel 1D pass-3 clarification):
+      * If ``text`` is a non-empty ``str``, returns the same string with
+        all ANSI CSI/OSC sequences removed (regex operations run on str).
+      * If ``text`` is ``None``, empty string, or any non-str shape,
+        returns the value UNCHANGED — the regex operations are NEVER
+        reached. This guarantees no AttributeError on ``.sub`` call
+        against non-str inputs. Verified by
+        ``test_sanitise_for_console_handles_none_and_non_str``.
+    """
+    # Type narrowing guard: regex operations below only execute when
+    # ``text`` is a non-empty str. Non-str / empty inputs short-circuit.
+    if not isinstance(text, str) or not text:
+        return text
+    # From this point ``text`` is provably a non-empty str — safe for
+    # ``_ANSI_CSI_RE.sub(...)`` and ``_ANSI_OSC_RE.sub(...)``.
+    cleaned = _ANSI_CSI_RE.sub("", text)
+    cleaned = _ANSI_OSC_RE.sub("", cleaned)
+    return cleaned
+
+
 # ---------------------------------------------------------------------------
 # graq star — open GitHub repo for starring
 # ---------------------------------------------------------------------------
@@ -332,15 +377,20 @@ def run(
 
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
+    # CR-002 PR-002c-2b: migrate Pattern A typer --config site to the
+    # resolver-compat helper. When GRAQLE_USE_RESOLVER is on (default
+    # after this PR), the helper walks ancestor dirs for graqle.yaml;
+    # when off it falls back to the legacy Path(config).exists() check.
+    _resolved = load_via_resolver_or_legacy(config)
+    if _resolved is None:
         cfg = GraqleConfig.default()
         if verbose:
             console.print("[yellow]No config file found, using defaults[/yellow]")
+    else:
+        cfg = _resolved
 
     # Use config strategy if not overridden by CLI flag
     strategy = strategy or cfg.activation.strategy
@@ -367,6 +417,31 @@ def run(
     result = asyncio.run(
         graph.areason(query, max_rounds=max_rounds, strategy=strategy)
     )
+
+    # CR-004 PR-004c: probe + degraded-reasoning yellow warning.
+    # The probe never raises (PR-004a 3-deep defence); outer try is
+    # belt-and-braces. Layered defence on _gh.reason output:
+    #   1) GraphHealth construction caps reason at 200 chars (PR-004a)
+    #   2) _redact_secrets + _sanitise_reason in health_probe.py
+    #      (PR-004a: path elision + secret redaction)
+    #   3) _sanitise_for_console (this module): ANSI CSI + OSC strip
+    #   4) Rich markup escape: '[bold]...' rendered as literal text
+    try:
+        from rich.markup import escape as _rich_escape
+        from graqle.activation.health_probe import graph_health_probe
+        _gh = graph_health_probe(graph)
+        result.graph_health = _gh
+        if _gh.degraded and _gh.reason:
+            _clean = _sanitise_for_console(_gh.reason)
+            console.print(
+                f"[yellow]⚠ degraded reasoning: "
+                f"{_rich_escape(_clean)}[/yellow]"
+            )
+    except (ImportError, AttributeError, RuntimeError, ValueError, KeyError, TypeError):
+        # Narrow catch (sentinel-feedback BLOCKER + 1B): same failure
+        # classes as the mcp_server.py helper. Advisory warning failure
+        # must never block the user's answer print below.
+        pass
 
     # If debate protocol, run debate on active nodes
     if protocol == "debate" and result.active_nodes:
@@ -462,10 +537,9 @@ def context(
     if json_output:
         format = "json"
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
 
@@ -629,12 +703,11 @@ def inspect(
     """Inspect the GraQle — show nodes, edges, stats."""
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -749,13 +822,11 @@ def studio(
 
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     graph = _load_graph(cfg)
@@ -820,12 +891,11 @@ def bench(
     import time
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -916,10 +986,9 @@ def validate(
     if graph_path and Path(graph_path).exists():
         graph = Graqle.from_json(graph_path)
     else:
-        if Path(config).exists():
-            cfg = GraqleConfig.from_yaml(config)
-        else:
-            cfg = GraqleConfig.default()
+        # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
+        cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
         graph = _load_graph(cfg)
 
     if graph is None:
@@ -1168,12 +1237,11 @@ def impact_command(
     """
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -1287,12 +1355,11 @@ def preflight_command(
     """
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
 
@@ -2092,12 +2159,11 @@ def safety_check_command(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -2263,6 +2329,7 @@ def runtime_command(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.runtime.detector import detect_environment
 
@@ -2273,9 +2340,11 @@ def runtime_command(
     log_paths: list[str] = []
     config_region: str | None = None
     config_region_source: str | None = None
-    cfg = None
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    # Helper returns None on miss, preserving the prior cfg=None semantic when
+    # neither the explicit config path nor the resolver discovers a yaml.
+    cfg = load_via_resolver_or_legacy(config)
+    if cfg is not None:
         if hasattr(cfg, "runtime"):
             for src in cfg.runtime.sources:
                 if src.log_group:
@@ -2464,6 +2533,7 @@ def reason(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
@@ -2471,11 +2541,8 @@ def reason(
         console.print("[red]Provide a query argument or --batch <file>[/red]")
         raise typer.Exit(1)
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     if graph_path and Path(graph_path).exists():
@@ -2584,6 +2651,28 @@ def reason(
         graph.areason(query, max_rounds=max_rounds, strategy=strategy)
     )
 
+    # CR-004 PR-004c: probe + degraded-reasoning yellow warning. Same
+    # pattern as the run() command above. Skipped silently in JSON
+    # output mode (the snapshot is already returned via the JSON body
+    # below for programmatic callers). Layered defence on _gh.reason
+    # via the module-level _sanitise_for_console helper.
+    try:
+        from rich.markup import escape as _rich_escape
+        from graqle.activation.health_probe import graph_health_probe
+        _gh = graph_health_probe(graph)
+        result.graph_health = _gh
+        if output_format != "json" and _gh.degraded and _gh.reason:
+            _clean = _sanitise_for_console(_gh.reason)
+            console.print(
+                f"[yellow]⚠ degraded reasoning: "
+                f"{_rich_escape(_clean)}[/yellow]"
+            )
+    except (ImportError, AttributeError, RuntimeError, ValueError, KeyError, TypeError):
+        # Narrow catch (sentinel-feedback BLOCKER + 1B): advisory
+        # warning failure must never block the user's answer print
+        # below.
+        pass
+
     if output_format == "json":
         import json
         console.print(json.dumps({
@@ -2642,14 +2731,12 @@ def predict(
     import json as _json
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     if graph_path and Path(graph_path).exists():

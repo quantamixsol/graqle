@@ -78,11 +78,16 @@ _DEFAULT_NEO4J_PASSWORD = ""
 def is_resolver_enabled() -> bool:
     """Returns True iff the ``GRAQLE_USE_RESOLVER`` feature flag is set.
 
-    PR-002a default: ``False`` (flag must be explicitly opted into).
-    PR-002c will flip the default to ``True``.
+    CR-002 PR-002c-2b: default flipped to ON. The resolver is now the
+    canonical config-loading path. Set ``GRAQLE_USE_RESOLVER=0``
+    (or ``false``/``no``) to opt OUT and fall through to the legacy
+    ``GraqleConfig.from_yaml()`` path. The resolver-compat helper has
+    a try/except resolver-to-legacy fallback (PR-002c-2a) so this flag
+    flip is safe even if the resolver has an undiscovered bug — the
+    worst case is silent fall-through to the prior behaviour.
     """
-    raw = os.environ.get("GRAQLE_USE_RESOLVER", "").strip().lower()
-    return raw in {"1", "true", "yes"}
+    raw = os.environ.get("GRAQLE_USE_RESOLVER", "1").strip().lower()
+    return raw not in {"0", "false", "no"}
 
 
 # ─────────────── SecretStr ──────────────────────────────────────────────────

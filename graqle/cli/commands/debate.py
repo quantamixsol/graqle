@@ -60,10 +60,13 @@ def debate(
     else:
         logging.basicConfig(level=logging.INFO)
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    # The resolver walks ancestor dirs for graqle.yaml when the flag is on;
+    # falls through to None when no yaml is discoverable, which keeps the
+    # explicit "Run 'graq init' first." UX intact.
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
+    cfg = load_via_resolver_or_legacy(config)
+    if cfg is None:
         console.print("[red]Config file not found. Run 'graq init' first.[/red]")
         raise typer.Exit(1)
 
