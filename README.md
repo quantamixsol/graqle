@@ -78,37 +78,53 @@ That's it. Claude Code now routes every tool call through GraQle's governed equi
 
 ---
 
-## What's New in v0.54.0 — Defensive Edge Guard + Config Resolver
+## What's New in v0.55.0 — Reasoning Honesty + Cross-Project Reliability
 
-> **Silent edge-loss is now loud.** Two surgical, additive changes from sister-team feedback (BHG epic 2026-05-09): a `to_json` write-path guard that refuses to silently drop edges (the v0.46→v0.53 regression mode), and the foundation for a unified config resolver that closes a class of submodule-path bugs.
+> **GraQle now tells you when its answer might be wrong** — and stops crying wolf about it. v0.55.0 rolls up five CRs: reasoning honesty (CR-004), cross-project `WRITE_COLLISION` fix (CR-008), config resolver migration with default flip (CR-002), defensive edge-loss guards (CR-003), and the `graq_bash stdout_path` ergonomics fix (CR-005a). All on the new [BAU CR process](https://github.com/quantamixsol/graqle/tree/master/.gsm/external/Change%20Requests).
 
-### Edge-Shrink Guard
+### Reasoning Honesty — CR-004
 
-`Graqle.to_json` (used by `graq scan`, `graq grow`, `graq learn`) now refuses to silently shrink the edge count by more than 10% on graphs with > 100 baseline edges. If you've been hit by the silent edge-drop regression that affected installs between v0.46 and v0.53 — where `graqle.json` could end up with 22,516 nodes and **0** edges with no error — you now get a loud `EdgeShrinkError` with a clear override:
+Every `graq_reason` / `graq_predict` / `graq_safety_check` envelope now carries a `graph_health` snapshot:
 
-```bash
-GRAQLE_ALLOW_EDGE_SHRINK=1 graq scan --full   # one-shot override, audit-logged
+```json
+{
+  "answer": "...",
+  "confidence": 0.92,
+  "graph_health": {
+    "node_count": 1234, "edge_count": 8901,
+    "chunks_unembedded": 0, "percent_stale": 0.0,
+    "activation_mode": "semantic",
+    "degraded": false, "reason": null,
+    "schema_version": "1"
+  }
+}
 ```
 
-The override emits a single `EDGE_SHRINK_ALLOWED` line at warning level — OWASP A09:2021-safe (SHA-256-truncated user hash, never raw `USER`/`USERNAME`; basename only, never full filesystem paths).
+When the graph is degraded (zero edges, stale NPZ cache, keyword-fallback activation), the CLI prints a yellow `⚠ degraded reasoning: …` banner before the answer. The probe is contractually never-raises (3-deep defence) and adds < 5ms p95 to the envelope build (CI fail-gate). Configurable thresholds via `graph_health.stale_chunks_threshold`, `graph_health.edge_node_ratio_threshold`, `graph_health.zero_edges_is_degraded`.
 
-### Unified Config Resolver (Behind Feature Flag)
+### Cross-Project WRITE_COLLISION Fix — CR-008
 
-New `graqle/config/resolver.py` module lands behind `GRAQLE_USE_RESOLVER` (default `False`). Provides:
-- Submodule-aware ancestor walk for `graqle.yaml` — nested `.graqle/` directories now fall through to a parent's yaml correctly
-- Positive URI scheme allow-list (`bolt`, `neo4j`, `https`, `file`) — closes the case/encoding/Unicode-bypass class
-- `SecretStr` for Neo4j credentials with constant-time equality and masked repr/str
-- Explicit `explicit > env > yaml > default` priority chain for `Neo4jParams` with a `source` field recording which layer won
+Every `graq_learn` call on a Neo4j-backed session was returning phantom `WRITE_COLLISION` even though no write was ever attempted. Root cause: `_save_graph` returned `tuple[bool, int]` with `False` for FOUR distinct reasons (Neo4j-only / shrink-refused / real `PermissionError` / generic exception) and the handlers conflated all four as collision. Replaced with `SaveGraphResult` + `SaveStatus` enum (OK / NO_GRAPH_FILE / SHRINK_REFUSED / COLLISION / SAVE_FAILED). NO_GRAPH_FILE folds into `recorded=True` because the in-memory + backend write already happened. Every project using `bolt://...` in `graqle.yaml` benefits — no client migration needed.
 
-Inert until callers migrate in v0.55.0 (`PR-002b` follow-up). This release lands the building block + 71 tests.
+### Config Resolver — CR-002 default ON
 
-### BAU Process Launch
+`GRAQLE_USE_RESOLVER` default flipped from OFF to ON. The resolver is now the canonical config-loading path; submodule-aware ancestor walk for `graqle.yaml` works automatically. Opt out via `GRAQLE_USE_RESOLVER=0` if you need the legacy `GraqleConfig.from_yaml` path. All 13 internal `--config` typer call sites migrated to the new `load_via_resolver_or_legacy` helper.
 
-First release under the new [BAU Change Request process](https://github.com/quantamixsol/graqle/tree/master/.gsm/external/Change%20Requests) (launched 2026-05-09). Every non-trivial change from here on is documented as a CR with explicit scope, evidence, PR strategy, test strategy, rollback procedure, and acceptance criteria.
+### Defensive Edge-Loss Guards — CR-003
 
-### 14 LLM Backends. 160+ MCP Tools. 5,357+ Tests.
+Hardened guards against the silent edge-loss regression that affected installs between v0.46 and v0.53. `Graqle.to_json` refuses to shrink edge count by > 10% on graphs with > 100 baseline edges. Plus Neo4j schema parity and a `scripts/bisect_edge_loss.py` utility.
 
-Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Full reliability release notes: [v0.53.0 changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md#0530-2026-05-02---reliability-release).
+### graq_bash stdout_path — CR-005a
+
+`graq_bash("cmd > file.log")` used to produce empty files because the subprocess shell is sandboxed. New optional `stdout_path` parameter writes the FULL untruncated stdout to disk atomically, with TOCTOU-safe path validation (canonicalise → relative_to project_root → defence-in-depth dotdot check). Parent dirs auto-created. Failure isolation — file I/O OSError never masks the subprocess result.
+
+### Breaking Change
+
+- **`GRAQLE_USE_RESOLVER` default flipped to ON.** If you depend on the legacy `from_yaml` ancestor-walk-disabled behaviour, set `GRAQLE_USE_RESOLVER=0` in your env or CI.
+
+### 14 LLM Backends. 160+ MCP Tools. 5,500+ Tests.
+
+Works with Anthropic, OpenAI, AWS Bedrock, Ollama (local), Gemini, Groq, DeepSeek, Together, Mistral, OpenRouter, Fireworks, Cohere, vLLM, and custom providers. Full release notes: [v0.55.0 changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md#0550-2026-05-14).
 
 [Install VS Code Extension](https://marketplace.visualstudio.com/items?itemName=graqle.graqle-vscode) | [Full Changelog](https://github.com/quantamixsol/graqle/blob/master/CHANGELOG.md)
 
