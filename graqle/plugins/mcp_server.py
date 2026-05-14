@@ -39,6 +39,66 @@ from typing import Any
 logger = logging.getLogger("graqle.plugins.mcp")
 
 
+def _build_graph_health_snapshot(graph: Any) -> dict[str, Any] | None:
+    """CR-004 PR-004c: shared helper to build the graph_health envelope key.
+
+    Wraps graph_health_probe() and renders an 8-key dict snapshot matching
+    PR-004b's _handle_reason wiring. Returns None on ANY failure (import
+    error from partial install, probe failure, attribute access failure on
+    a duck-typed graph) — callers should attach the key when the result is
+    non-None and omit the key entirely when None, so that "key absent"
+    distinguishes "probe didn't run" from "probe ran and graph is
+    healthy" (the latter returns degraded=False inside the snapshot).
+
+    The probe itself is contractually never-raises (PR-004a 3-deep
+    defence). The outer try/except here is belt-and-braces against
+    import / module-load failures only.
+    """
+    try:
+        from graqle.activation.health_probe import graph_health_probe
+        gh = graph_health_probe(graph)
+        return {
+            "node_count": gh.node_count,
+            "edge_count": gh.edge_count,
+            "chunks_unembedded": gh.chunks_unembedded,
+            "percent_stale": gh.percent_stale,
+            "activation_mode": gh.activation_mode,
+            "degraded": gh.degraded,
+            "reason": gh.reason,
+            "schema_version": gh.schema_version,
+        }
+    except (
+        ImportError,    # partial install / wheel-strip scenario
+        AttributeError, # duck-typed graph missing .nodes / .edges
+        RuntimeError,   # general probe-internal failures
+        ValueError,     # malformed numeric inputs to GraphHealth bounds
+        KeyError,       # dict-shaped graph missing expected keys (sentinel 1B)
+        TypeError,      # graph operation type-mismatch / JSON encode (sentinel 1B)
+    ) as exc:
+        # Narrow catch (sentinel-feedback BLOCKER): only the failure
+        # classes the probe import + invocation can produce. DEBUG-only
+        # log so operators can trace a missing graph_health key; never
+        # WARNING/ERROR because a missing snapshot is advisory.
+        logger.debug(
+            "_build_graph_health_snapshot suppressed %s: %s",
+            type(exc).__name__,
+            str(exc)[:120],
+        )
+        return None
+
+
+def _attach_graph_health(output: dict[str, Any], graph: Any) -> dict[str, Any]:
+    """CR-004 PR-004c (sentinel-feedback dedup): attach graph_health to a
+    dict in-place when the probe succeeds, OMIT the key when it returns
+    None. Returns the same dict so the call can be inlined where it
+    improves readability. Used at both _handle_predict early-return and
+    main-output sites to keep the attach pattern in one place."""
+    _snap = _build_graph_health_snapshot(graph)
+    if _snap is not None:
+        output["graph_health"] = _snap
+    return output
+
+
 def _extract_json_from_llm(raw: str) -> str:
     """Extract JSON object from LLM output using brace counting (regex-safe).
 
@@ -696,6 +756,10 @@ class MCPServer:
                         "subgraph": None,
                     },
                 }
+                # CR-004 PR-004c: attach graph_health via dedup helper.
+                # Key is omitted when probe didn't run (helper returns None)
+                # so callers distinguish "not probed" from "healthy".
+                _attach_graph_health(output, self._graph)
                 return MCPToolResult(json.dumps(output, indent=2))
 
         # === STEP 5: Build base output (always returned, even if no write-back) ===
@@ -719,6 +783,14 @@ class MCPServer:
                 "subgraph": None,
             },
         }
+        # CR-004 PR-004c: attach graph_health via dedup helper ONCE after
+        # output dict construction. STEP 5's output is mutated by STEP 6-10
+        # with multiple return paths (low-confidence skip, dry-run,
+        # generation error, duplicate, write-success, write-failed) —
+        # attaching once here means every exit path inherits the snapshot.
+        # Key omitted when probe didn't run (helper returns None) so callers
+        # distinguish "not probed" from "healthy".
+        _attach_graph_health(output, self._graph)
 
         # === STEP 6: Confidence gate — uses answer_confidence, NOT activation_confidence ===
         if answer_confidence < confidence_threshold:

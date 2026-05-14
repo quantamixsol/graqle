@@ -5685,14 +5685,24 @@ class KogniDevServer:
             except Exception as exc:
                 reasoning_result = {"error": str(exc)[:200]}
 
-        return json.dumps({
+        # CR-004 PR-004c: lift graph_health from nested reasoning_result
+        # to top-level for discoverability. When reasoning was skipped
+        # (low risk + skip_reasoning), reasoning_result is None and the
+        # graph_health key is OMITTED entirely so callers can distinguish
+        # "not probed" from "probed and healthy".
+        _envelope = {
             "component": component,
             "change_type": change_type,
             "overall_risk": risk_level,
             "impact": impact_result,
             "preflight": preflight_result,
             "reasoning": reasoning_result,
-        })
+        }
+        if isinstance(reasoning_result, dict):
+            _gh = reasoning_result.get("graph_health")
+            if _gh is not None:
+                _envelope["graph_health"] = _gh
+        return json.dumps(_envelope)
 
     # ── R20 AGGC: graq_calibrate_governance ─────────────────────────
 
