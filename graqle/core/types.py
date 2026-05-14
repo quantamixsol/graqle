@@ -14,7 +14,14 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    # CR-004 PR-004b: typing-only import avoids the circular-import risk
+    # (graph_health imports nothing from graqle.* so the cycle is one-way;
+    # this guard keeps types.py loadable when graph_health isn't installed,
+    # e.g. partial-install or wheel-strip scenarios).
+    from graqle.core.graph_health import GraphHealth
 
 
 class ReasoningType(str, Enum):
@@ -176,6 +183,12 @@ class ReasoningResult:
     reasoning_mode: str = "full"  # "full", "fallback_traversal", "keyword"
     raw_confidence: float | None = None  # Pre-calibration confidence for audit trail
     calibration_method: str | None = None  # CalibrationMethod value applied
+    # CR-004 PR-004b: degraded-reasoning surfacing. Populated by
+    # graph_health_probe() at the MCP boundary (mcp_dev_server._handle_reason).
+    # None when the probe didn't run (older callers, error paths) — that
+    # preserves bit-for-bit backward compatibility for every existing
+    # consumer of ReasoningResult.
+    graph_health: "GraphHealth | None" = None
 
     def __post_init__(self) -> None:
         if self.confidence is None:  # type: ignore[comparison-overlap]
