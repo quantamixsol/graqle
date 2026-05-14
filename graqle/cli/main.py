@@ -377,15 +377,20 @@ def run(
 
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
+    # CR-002 PR-002c-2b: migrate Pattern A typer --config site to the
+    # resolver-compat helper. When GRAQLE_USE_RESOLVER is on (default
+    # after this PR), the helper walks ancestor dirs for graqle.yaml;
+    # when off it falls back to the legacy Path(config).exists() check.
+    _resolved = load_via_resolver_or_legacy(config)
+    if _resolved is None:
         cfg = GraqleConfig.default()
         if verbose:
             console.print("[yellow]No config file found, using defaults[/yellow]")
+    else:
+        cfg = _resolved
 
     # Use config strategy if not overridden by CLI flag
     strategy = strategy or cfg.activation.strategy
@@ -532,10 +537,9 @@ def context(
     if json_output:
         format = "json"
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
 
@@ -699,12 +703,11 @@ def inspect(
     """Inspect the GraQle — show nodes, edges, stats."""
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -819,13 +822,11 @@ def studio(
 
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     graph = _load_graph(cfg)
@@ -890,12 +891,11 @@ def bench(
     import time
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -986,10 +986,9 @@ def validate(
     if graph_path and Path(graph_path).exists():
         graph = Graqle.from_json(graph_path)
     else:
-        if Path(config).exists():
-            cfg = GraqleConfig.from_yaml(config)
-        else:
-            cfg = GraqleConfig.default()
+        # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
+        cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
         graph = _load_graph(cfg)
 
     if graph is None:
@@ -1238,12 +1237,11 @@ def impact_command(
     """
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -1357,12 +1355,11 @@ def preflight_command(
     """
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
 
@@ -2162,12 +2159,11 @@ def safety_check_command(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
 
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     graph = _load_graph(cfg)
     if graph is None:
@@ -2333,6 +2329,7 @@ def runtime_command(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.runtime.detector import detect_environment
 
@@ -2343,9 +2340,11 @@ def runtime_command(
     log_paths: list[str] = []
     config_region: str | None = None
     config_region_source: str | None = None
-    cfg = None
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    # Helper returns None on miss, preserving the prior cfg=None semantic when
+    # neither the explicit config path nor the resolver discovers a yaml.
+    cfg = load_via_resolver_or_legacy(config)
+    if cfg is not None:
         if hasattr(cfg, "runtime"):
             for src in cfg.runtime.sources:
                 if src.log_group:
@@ -2534,6 +2533,7 @@ def reason(
     import asyncio
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
@@ -2541,11 +2541,8 @@ def reason(
         console.print("[red]Provide a query argument or --batch <file>[/red]")
         raise typer.Exit(1)
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     if graph_path and Path(graph_path).exists():
@@ -2734,14 +2731,12 @@ def predict(
     import json as _json
     from pathlib import Path
 
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
-    # Load config
-    if Path(config).exists():
-        cfg = GraqleConfig.from_yaml(config)
-    else:
-        cfg = GraqleConfig.default()
+    # CR-002 PR-002c-2b: typer --config site migrated to resolver-compat helper.
+    cfg = load_via_resolver_or_legacy(config) or GraqleConfig.default()
 
     # Load graph
     if graph_path and Path(graph_path).exists():

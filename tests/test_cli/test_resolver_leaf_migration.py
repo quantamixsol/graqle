@@ -28,21 +28,25 @@ from graqle.config.resolver import is_resolver_enabled
 # ── Feature flag invariants ────────────────────────────────────────────────
 
 
-def test_flag_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The feature flag must be OFF by default so PR-002b is a no-op for
-    every existing user. PR-002c will flip the default."""
+def test_flag_on_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CR-002 PR-002c-2b: default flipped to ON. The resolver is now the
+    canonical config-loading path; the legacy from_yaml path requires an
+    explicit opt-out via GRAQLE_USE_RESOLVER=0 (or false/no)."""
     monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
-    assert is_resolver_enabled() is False
+    assert is_resolver_enabled() is True
 
 
-@pytest.mark.parametrize("value", ["1", "true", "yes", "TRUE", "Yes"])
-def test_flag_on_when_truthy_value(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+@pytest.mark.parametrize("value", ["1", "true", "yes", "TRUE", "Yes", "", "garbage"])
+def test_flag_on_when_non_opt_out_value(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """Post PR-002c-2b: any non-opt-out value (including unknown strings
+    and empty string) keeps the resolver ON."""
     monkeypatch.setenv("GRAQLE_USE_RESOLVER", value)
     assert is_resolver_enabled() is True
 
 
-@pytest.mark.parametrize("value", ["0", "false", "no", "", "garbage"])
-def test_flag_off_when_falsy_value(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+@pytest.mark.parametrize("value", ["0", "false", "no", "FALSE", "No"])
+def test_flag_off_when_explicit_opt_out(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """Only the explicit opt-out sentinels disable the resolver post-flip."""
     monkeypatch.setenv("GRAQLE_USE_RESOLVER", value)
     assert is_resolver_enabled() is False
 
@@ -53,9 +57,15 @@ def test_flag_off_when_falsy_value(monkeypatch: pytest.MonkeyPatch, value: str) 
 def test_neo4j_import_get_connector_legacy_path_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Flag off → identical resolution behaviour to pre-PR-002b
-    (env-only with bolt://localhost:7687 defaults)."""
-    monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
+    """Flag explicitly off → identical resolution behaviour to pre-PR-002b
+    (env-only with bolt://localhost:7687 defaults).
+
+    CR-002 PR-002c-2b: this test must explicitly opt OUT of the resolver
+    (GRAQLE_USE_RESOLVER=0) because the default flipped to ON. The intent
+    of the test is unchanged — verify the legacy env-only code path — but
+    the opt-out now has to be explicit, not implicit.
+    """
+    monkeypatch.setenv("GRAQLE_USE_RESOLVER", "0")
     monkeypatch.delenv("NEO4J_URI", raising=False)
     monkeypatch.delenv("NEO4J_USERNAME", raising=False)
     monkeypatch.delenv("NEO4J_PASSWORD", raising=False)
@@ -114,8 +124,13 @@ def test_neo4j_import_get_connector_resolver_failure_falls_back(
 def test_neo4j_import_env_var_uri_wins_over_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Existing env-var users keep their behaviour — env-derived URI wins."""
-    monkeypatch.delenv("GRAQLE_USE_RESOLVER", raising=False)
+    """Existing env-var users keep their behaviour — env-derived URI wins.
+
+    CR-002 PR-002c-2b: opt OUT of the resolver explicitly so this test
+    exercises the legacy env-only code path independent of the post-flip
+    default. The test's intent is back-compat for env-var users.
+    """
+    monkeypatch.setenv("GRAQLE_USE_RESOLVER", "0")
     monkeypatch.setenv("NEO4J_URI", "bolt://example.com:7687")
     monkeypatch.setenv("NEO4J_USERNAME", "tester")
     monkeypatch.setenv("NEO4J_PASSWORD", "pw")
