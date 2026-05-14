@@ -47,11 +47,127 @@ import logging
 import sys
 import threading
 from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("graqle.mcp")
+
+
+# ---------------------------------------------------------------------------
+# CR-008 (2026-05-14): _save_graph status disambiguation.
+#
+# Prior contract: _save_graph returned tuple[bool, int] where False meant
+# "WRITE_COLLISION" — but it actually conflated FOUR distinct outcomes:
+#
+#   1. self._graph_file is None  -> in-memory only (Neo4j-backed sessions)
+#   2. shrink guard refused       -> data-protection refusal
+#   3. PermissionError on rename -> the REAL concurrent-write collision
+#   4. unexpected Exception       -> generic save failure
+#
+# Cross-project impact: Neo4j-backed sessions (CrawlQ, TraceGov, research-kg)
+# silently reported phantom WRITE_COLLISION on every graq_learn call because
+# _graph_file is None for them — they store in Neo4j, not JSON. graq_kg_diag
+# confirmed total_writes_recorded == 0 (no real collision ever happened).
+#
+# New contract: _save_graph returns SaveGraphResult with an explicit status
+# enum so the 4 _handle_learn_* callers can surface accurate error_codes
+# (NO_GRAPH_FILE, SHRINK_REFUSED, COLLISION, SAVE_FAILED) instead of always
+# saying COLLISION. Existing best-effort callers that discard the return
+# value remain unaffected.
+# ---------------------------------------------------------------------------
+
+
+class SaveStatus(str, Enum):
+    """Discriminates the four outcomes of ``KogniDevServer._save_graph``.
+
+    Inherits ``str`` so ``result.status.value`` is naturally JSON-serialisable
+    and ``result.status == "OK"`` works without explicit unwrap in tests.
+    """
+
+    OK = "OK"
+    NO_GRAPH_FILE = "NO_GRAPH_FILE"
+    SHRINK_REFUSED = "SHRINK_REFUSED"
+    COLLISION = "COLLISION"
+    SAVE_FAILED = "SAVE_FAILED"
+
+
+@dataclass(frozen=True)
+class SaveGraphResult:
+    """Result of an attempted KG save.
+
+    Attributes
+    ----------
+    status:
+        Discriminator for the outcome. ``OK`` means bytes hit disk.
+        ``NO_GRAPH_FILE`` means the session is backed by Neo4j (or similar)
+        and there is no JSON path to write — the in-memory mutation already
+        succeeded via the backend driver, so this is NOT an error from the
+        caller's perspective. ``SHRINK_REFUSED`` means the data-protection
+        guard intentionally vetoed the write. ``COLLISION`` is the real
+        race-induced ``os.replace`` ``PermissionError``. ``SAVE_FAILED`` is
+        any other unexpected exception.
+    retries:
+        How many ``os.replace`` retries were consumed inside
+        ``_write_with_lock`` (0 = first attempt succeeded or never attempted).
+    detail:
+        Optional human-readable detail (e.g. shrink-loss percentage,
+        underlying exception type). Bounded short string — never includes
+        secrets or full paths.
+
+    Back-compat: callers that don't care can ignore the result entirely
+    (Python silently drops it). Tuple-unpacking callers from the prior
+    contract have all been updated in CR-008.
+    """
+
+    status: SaveStatus
+    retries: int = 0
+    detail: str | None = None
+
+    @property
+    def saved(self) -> bool:
+        """True iff bytes hit disk (or the in-memory write needed no disk)."""
+        return self.status is SaveStatus.OK
+
+    @property
+    def recorded(self) -> bool:
+        """True iff the caller should consider the LEARN successful.
+
+        NO_GRAPH_FILE counts as recorded because the in-memory graph mutation
+        (and any Neo4j backend persistence) already happened — only the
+        JSON-on-disk mirror is absent, which is by design for Neo4j sessions.
+        """
+        return self.status in (SaveStatus.OK, SaveStatus.NO_GRAPH_FILE)
+
+    # ------------------------------------------------------------------
+    # CR-008 back-compat: legacy 2-tuple iteration.
+    # ------------------------------------------------------------------
+    # The prior contract returned ``tuple[bool, int]`` and external test
+    # doubles still mock ``_save_graph`` to return ``(True, 0)``. To avoid
+    # breaking those during the deprecation window, ``SaveGraphResult``
+    # supports unpacking as a 2-tuple ``(saved, retries)`` — but ``saved``
+    # follows the historical "OK only" semantic, NOT ``recorded``. New code
+    # MUST use named attributes (``.status`` / ``.recorded`` / ``.retries``)
+    # because the tuple form cannot distinguish NO_GRAPH_FILE from a real
+    # failure — which is exactly the bug this CR fixes.
+    def __iter__(self):  # noqa: D401 — short, no docstring needed
+        yield self.saved
+        yield self.retries
+
+    def __len__(self) -> int:
+        return 2
+
+    def __getitem__(self, idx: int) -> object:
+        if idx == 0:
+            return self.saved
+        if idx == 1:
+            return self.retries
+        raise IndexError(idx)
+
+
+
 
 try:
     from graqle.__version__ import __version__ as _version
@@ -6676,15 +6792,15 @@ class KogniDevServer:
             )
             graph.add_edge(edge)
 
-        _saved, _retries = self._save_graph(graph)
-        if not _saved:
-            return json.dumps({
-                "recorded": False,
-                "kind": "pause_pick",
-                "error_code": "WRITE_COLLISION",
-                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
-                "retry_after_ms": 500,
-            })
+        # CR-008: route through status-aware save. NO_GRAPH_FILE (Neo4j-only
+        # sessions) and OK both count as "recorded" — the in-memory mutation
+        # already succeeded and any backend driver has already persisted it.
+        # CR-008: coerce legacy 2-tuple mocks before reading .recorded.
+        _save_result = self._coerce_save_result(self._save_graph(graph))
+        if not _save_result.recorded:
+            return json.dumps(
+                self._learn_response_for_save_failure(_save_result, "kind", "pause_pick")
+            )
 
         return json.dumps({
             "recorded": True,
@@ -6692,7 +6808,8 @@ class KogniDevServer:
             "pause_id": pause_id,
             "task_hash": task_hash,
             "dedup": False,
-            "retry_attempts": _retries,
+            "retry_attempts": _save_result.retries,
+            "persistence": _save_result.status.value,
         })
 
     async def _handle_learn_outcome(self, args: dict[str, Any]) -> str:
@@ -6828,17 +6945,21 @@ class KogniDevServer:
                     )
                     graph.add_edge(edge)
 
-            _saved, _retries = self._save_graph(graph)
-            if not _saved:
-                return json.dumps({
-                    "recorded": False,
-                    "mode": "outcome",
-                    "error_code": "WRITE_COLLISION",
-                    "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
-                    "retry_after_ms": 500,
-                })
+            # CR-008: status-aware save (see _learn_response_for_save_failure
+            # for the COLLISION / SHRINK_REFUSED / SAVE_FAILED branches).
+            # NO_GRAPH_FILE folds into success: Neo4j-backed sessions already
+            # persisted via the backend driver — there is no JSON to write.
+            # CR-008: coerce legacy 2-tuple mocks before reading .recorded.
+            _save_result = self._coerce_save_result(self._save_graph(graph))
+            if not _save_result.recorded:
+                return json.dumps(
+                    self._learn_response_for_save_failure(_save_result, "mode", "outcome")
+                )
+            _retries = _save_result.retries
+            _persistence = _save_result.status.value
         else:
             _retries = 0
+            _persistence = "SKIPPED"
 
         return json.dumps({
             "recorded": True,
@@ -6850,6 +6971,7 @@ class KogniDevServer:
             "lesson_node_id": lesson_node_id,
             "orphan_targets_skipped": orphan_targets_skipped,
             "retry_attempts": _retries,
+            "persistence": _persistence,
         })
 
     async def _handle_learn_entity(self, args: dict[str, Any]) -> str:
@@ -6891,15 +7013,14 @@ class KogniDevServer:
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([entity_id])
 
-        _saved, _retries = self._save_graph(graph)
-        if not _saved:
-            return json.dumps({
-                "recorded": False,
-                "mode": "entity",
-                "error_code": "WRITE_COLLISION",
-                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
-                "retry_after_ms": 500,
-            })
+        # CR-008: status-aware save. Neo4j-backed sessions (NO_GRAPH_FILE)
+        # fold into success — the backend driver already persisted the entity.
+        # CR-008: coerce legacy 2-tuple mocks before reading .recorded.
+        _save_result = self._coerce_save_result(self._save_graph(graph))
+        if not _save_result.recorded:
+            return json.dumps(
+                self._learn_response_for_save_failure(_save_result, "mode", "entity")
+            )
 
         return json.dumps({
             "recorded": True,
@@ -6910,7 +7031,8 @@ class KogniDevServer:
             "connected_to": edges_added,
             "auto_edges": auto_edges,
             "total_nodes": len(graph.nodes),
-            "retry_attempts": _retries,
+            "retry_attempts": _save_result.retries,
+            "persistence": _save_result.status.value,
         })
 
     async def _handle_learn_knowledge(self, args: dict[str, Any]) -> str:
@@ -6949,15 +7071,16 @@ class KogniDevServer:
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([node_id])
 
-        _saved, _retries = self._save_graph(graph)
-        if not _saved:
-            return json.dumps({
-                "recorded": False,
-                "mode": "knowledge",
-                "error_code": "WRITE_COLLISION",
-                "message": "KG write failed after retry budget exhausted; another MCP client may be writing concurrently. Try again.",
-                "retry_after_ms": 500,
-            })
+        # CR-008: status-aware save. NO_GRAPH_FILE (Neo4j sessions) is NOT
+        # a failure — the knowledge node was already created in-memory and
+        # persisted via any backend driver. Only COLLISION / SHRINK_REFUSED
+        # / SAVE_FAILED surface as recorded=False.
+        # CR-008: coerce legacy 2-tuple mocks before reading .recorded.
+        _save_result = self._coerce_save_result(self._save_graph(graph))
+        if not _save_result.recorded:
+            return json.dumps(
+                self._learn_response_for_save_failure(_save_result, "mode", "knowledge")
+            )
 
         return json.dumps({
             "recorded": True,
@@ -6968,7 +7091,8 @@ class KogniDevServer:
             "tags": tags,
             "auto_edges": auto_edges,
             "total_nodes": len(graph.nodes),
-            "retry_attempts": _retries,
+            "retry_attempts": _save_result.retries,
+            "persistence": _save_result.status.value,
         })
 
     async def _handle_reload(self, args: dict[str, Any]) -> str:
@@ -11347,23 +11471,149 @@ class KogniDevServer:
             pass
         return None
 
-    def _save_graph(self, graph: Any) -> tuple[bool, int]:
+    @staticmethod
+    def _coerce_save_result(raw: object) -> SaveGraphResult:
+        """Tolerate legacy ``tuple[bool, int]`` returns from test doubles.
+
+        CR-008 back-compat: prior to this CR, ``_save_graph`` returned a
+        2-tuple ``(saved, retries)``. Several test mocks still produce that
+        shape (e.g. ``srv._save_graph = MagicMock(return_value=(True, 0))``).
+        Detecting and coercing here keeps those tests green during the
+        deprecation grace period and makes the new contract robust to any
+        external caller that hadn't migrated yet.
+
+        Behaviour:
+          * already a SaveGraphResult → returned unchanged
+          * 2-tuple (bool, int)       → mapped to OK or SAVE_FAILED, preserving
+                                        the retries integer. We map False to
+                                        SAVE_FAILED (NOT COLLISION) because the
+                                        legacy contract did NOT discriminate
+                                        failure modes; surfacing the most
+                                        conservative status is safest.
+          * anything else             → treated as an unexpected failure with
+                                        a sanitised detail (TYPE name only).
+        """
+        if isinstance(raw, SaveGraphResult):
+            return raw
+        if isinstance(raw, tuple) and len(raw) == 2:
+            saved, retries = raw
+            try:
+                retries_int = int(retries)
+            except (TypeError, ValueError):
+                retries_int = 0
+            if bool(saved):
+                return SaveGraphResult(status=SaveStatus.OK, retries=retries_int)
+            return SaveGraphResult(
+                status=SaveStatus.SAVE_FAILED,
+                retries=retries_int,
+                detail="legacy 2-tuple False result (no status discrimination)",
+            )
+        return SaveGraphResult(
+            status=SaveStatus.SAVE_FAILED,
+            retries=0,
+            detail=f"unexpected save return: {type(raw).__name__}",
+        )
+
+    @staticmethod
+    def _learn_response_for_save_failure(
+        result: SaveGraphResult, mode_or_kind_field: str, mode_or_kind_value: str,
+    ) -> dict[str, Any]:
+        """Build the MCP response dict for a NON-OK / NON-NO_GRAPH_FILE save.
+
+        CR-008: previously every handler hard-coded ``error_code:
+        WRITE_COLLISION`` regardless of the actual failure mode. This helper
+        maps each :class:`SaveStatus` to its accurate error code so callers
+        can triage Neo4j-only sessions (no error at all — see
+        :meth:`_save_graph`), data-protection refusals, and real collisions
+        as distinct cases.
+
+        Parameters
+        ----------
+        result:
+            The :class:`SaveGraphResult` from :meth:`_save_graph`. MUST NOT
+            be ``OK`` or ``NO_GRAPH_FILE`` — those are success cases and the
+            caller should not invoke this helper.
+        mode_or_kind_field:
+            ``"mode"`` (outcome/entity/knowledge handlers) or ``"kind"``
+            (pause_pick handler). Used to preserve the existing response
+            shape per handler family.
+        mode_or_kind_value:
+            The string for that field (e.g. ``"outcome"``, ``"entity"``,
+            ``"knowledge"``, ``"pause_pick"``).
+
+        Returns
+        -------
+        dict
+            Response fields ready for ``json.dumps``. Always includes
+            ``recorded: False``, ``error_code``, ``message``,
+            ``retry_after_ms`` (where applicable), and the mode/kind field.
+        """
+        if result.status is SaveStatus.COLLISION:
+            return {
+                "recorded": False,
+                mode_or_kind_field: mode_or_kind_value,
+                "error_code": "WRITE_COLLISION",
+                "message": (
+                    "KG write failed after retry budget exhausted; "
+                    "another MCP client may be writing concurrently. "
+                    "Try again."
+                ),
+                "retry_after_ms": 500,
+                "retry_attempts": result.retries,
+                "detail": result.detail,
+            }
+        if result.status is SaveStatus.SHRINK_REFUSED:
+            return {
+                "recorded": False,
+                mode_or_kind_field: mode_or_kind_value,
+                "error_code": "SHRINK_GUARD_REFUSED",
+                "message": (
+                    "KG save refused by data-protection shrink guard. "
+                    "The on-disk KG is intact. "
+                    "Set GRAQLE_ALLOW_SHRINK=1 to override for this session."
+                ),
+                "retry_attempts": 0,
+                "detail": result.detail,
+            }
+        # SAVE_FAILED (anything else)
+        return {
+            "recorded": False,
+            mode_or_kind_field: mode_or_kind_value,
+            "error_code": "SAVE_FAILED",
+            "message": "KG save failed (see server logs for detail).",
+            "retry_attempts": result.retries,
+            "detail": result.detail,
+        }
+
+    def _save_graph(self, graph: Any) -> SaveGraphResult:
         """Persist graph back to its source JSON file.
 
-        Returns ``(saved, retry_attempts)``:
+        Returns a :class:`SaveGraphResult` with an explicit status. See the
+        ``SaveStatus`` enum for the five outcomes:
 
-        - ``saved`` (bool): True if the bytes hit disk; False if the shrink
-          guard refused the write OR the underlying ``os.replace`` exhausted
-          its retry budget under cross-process contention (v0.51.5).
-        - ``retry_attempts`` (int): how many ``os.replace`` retries were
-          consumed (0 = first attempt succeeded). Surfaced to MCP responses
-          as ``retry_attempts`` so clients can detect high-contention
-          environments.
+        - ``OK``              — bytes hit disk.
+        - ``NO_GRAPH_FILE``   — session has no JSON file path (e.g. Neo4j-
+          backed). The in-memory mutation already happened; this is NOT a
+          failure from the caller's perspective. Use
+          ``result.recorded`` to fold OK and NO_GRAPH_FILE together for
+          the "did the learn succeed" semantic.
+        - ``SHRINK_REFUSED``  — data-protection guard vetoed the write.
+        - ``COLLISION``       — real ``os.replace`` ``PermissionError``
+          (the only outcome that should surface as ``WRITE_COLLISION`` in
+          the MCP envelope).
+        - ``SAVE_FAILED``     — any other unexpected exception.
 
-        Existing callers that ignore the return value remain correct
-        (Python silently drops the tuple). Callers that need the
-        ``WRITE_COLLISION`` signal unpack the tuple and surface
-        ``error_code: WRITE_COLLISION`` to the MCP envelope.
+        CR-008 (2026-05-14): the prior contract returned ``tuple[bool, int]``
+        and the 4 ``_handle_learn_*`` callers reported ``WRITE_COLLISION``
+        whenever ``saved=False``. That conflated all four failure modes and
+        produced phantom collision errors on Neo4j-backed sessions, where
+        ``self._graph_file is None``. ``graq_kg_diag`` always reported
+        ``total_writes_recorded == 0`` for those sessions, confirming no
+        real collision was ever happening.
+
+        Existing best-effort callers that ignore the return value remain
+        correct (Python silently drops the result). Callers that need to
+        distinguish branches now read ``result.status`` and ``result.detail``.
 
         v0.51.4 (P0 data-loss hardening): before overwriting the graph file,
         two tripwires run so a stub or partially-loaded graph cannot silently
@@ -11379,7 +11629,14 @@ class KogniDevServer:
         so learned nodes are never lost on restart or machine change.
         """
         if self._graph_file is None:
-            return (False, 0)
+            # CR-008: explicit status — Neo4j-backed (or any backend-only)
+            # session. NOT a collision — the in-memory mutation already
+            # happened via graph.add_node_simple / graph.add_edge.
+            return SaveGraphResult(
+                status=SaveStatus.NO_GRAPH_FILE,
+                retries=0,
+                detail="No JSON file configured; in-memory + backend write only.",
+            )
 
         import os
         from pathlib import Path as _Path
@@ -11413,7 +11670,17 @@ class KogniDevServer:
                             "File preserved: %s",
                             incoming_nodes, existing_nodes, pct_loss, graph_path,
                         )
-                        return (False, 0)
+                        # CR-008: explicit status — data-protection refusal.
+                        # NOT a collision. The previous KG is intact on disk.
+                        return SaveGraphResult(
+                            status=SaveStatus.SHRINK_REFUSED,
+                            retries=0,
+                            detail=(
+                                f"shrink={pct_loss:.1f}% > 1%; "
+                                f"in={incoming_nodes} disk={existing_nodes}. "
+                                f"Override: GRAQLE_ALLOW_SHRINK=1."
+                            ),
+                        )
         except Exception as _guard_exc:
             logger.warning("KG shrink guard check skipped: %s", _guard_exc)
 
@@ -11459,15 +11726,27 @@ class KogniDevServer:
             else:
                 logger.info("Graph saved to %s (nodes=%d)", self._graph_file, incoming_nodes)
         except PermissionError as exc:
-            # v0.51.5 (BUG-RACE-1): retry budget exhausted; another
+            # v0.51.5 (BUG-RACE-1) + CR-008: retry budget exhausted; another
             # process held the destination file open longer than
-            # GRAQLE_WRITE_RETRY_BUDGET_MS allowed. Caller surfaces
-            # WRITE_COLLISION to the MCP envelope.
+            # GRAQLE_WRITE_RETRY_BUDGET_MS allowed. THIS is the only case
+            # that should surface as WRITE_COLLISION to the MCP envelope.
             logger.error("Failed to save graph (rename collision): %s", exc)
-            return (False, retry_attempts)
+            return SaveGraphResult(
+                status=SaveStatus.COLLISION,
+                retries=retry_attempts,
+                detail=f"{type(exc).__name__} after {retry_attempts} retries",
+            )
         except Exception as exc:
+            # CR-008: generic save failure (disk full, serialisation bug,
+            # validate-graph-data refusal, etc.). Distinct from COLLISION
+            # so operators can triage. Detail records exception TYPE only —
+            # never the message, which can leak paths.
             logger.error("Failed to save graph: %s", exc)
-            return (False, retry_attempts)
+            return SaveGraphResult(
+                status=SaveStatus.SAVE_FAILED,
+                retries=retry_attempts,
+                detail=f"{type(exc).__name__}",
+            )
 
         # Phase 2: background push to S3 (non-blocking, debounced)
         try:
@@ -11477,7 +11756,7 @@ class KogniDevServer:
         except Exception as _push_exc:
             logger.debug("KG background push skipped: %s", _push_exc)
 
-        return (True, retry_attempts)
+        return SaveGraphResult(status=SaveStatus.OK, retries=retry_attempts)
 
     # ==================================================================
     # v0.45.1: Capability gap hotfix handlers
