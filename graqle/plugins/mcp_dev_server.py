@@ -1989,7 +1989,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "description": (
             "Execute a governed shell command. Enforces allowlist, timeout, and working directory. "
             "Blocked in read-only mode. Blocked commands: rm -rf, git push --force, DROP TABLE, "
-            "pip install (outside venv). Returns stdout, stderr, exit_code."
+            "pip install (outside venv). Returns stdout, stderr, exit_code.\n\n"
+            "ANTI-PATTERN: shell redirects ('cmd > file.log') produce empty files because the "
+            "subprocess shell is sandboxed. Use the 'stdout_path' parameter instead for full "
+            "(untruncated) stdout capture to disk."
         ),
         "inputSchema": {
             "type": "object",
@@ -1998,6 +2001,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "cwd": {"type": "string", "description": "Working directory (default: project root)"},
                 "timeout": {"type": "integer", "description": "Timeout in seconds (default 30, max 120)", "default": 30},
                 "dry_run": {"type": "boolean", "description": "Print command without executing", "default": False},
+                "stdout_path": {
+                    "type": "string",
+                    "description": (
+                        "CR-005a: optional path (relative to project root) to write the FULL "
+                        "untruncated stdout to, atomically. Must stay inside project root after "
+                        "resolution; '..' segments rejected post-resolve. Parent directories are "
+                        "created with mode 0o755. The response includes 'stdout_path' (canonical "
+                        "path) and 'stdout_bytes_written' so callers can verify."
+                    ),
+                },
             },
             "required": ["command"],
         },
@@ -10037,6 +10050,63 @@ class KogniDevServer:
         timeout = min(max(1, int(args.get("timeout", 30))), 120)
         cwd = args.get("cwd") or "."
 
+        # ── CR-005a: stdout_path validation (TOCTOU-safe) ──────────────
+        # Per CR-005 § 3.1: canonicalise FIRST, then validate the canonical
+        # path against project_root. This pattern is TOCTOU-safe because
+        # symlinks/components are resolved before the check — no race
+        # window where validation passes and the actual write target
+        # differs. Defence-in-depth: also reject '..' in resolved parts
+        # (impossible after .resolve(), but the assertion guards against
+        # a hypothetical bug in Path.resolve itself).
+        stdout_path_raw = args.get("stdout_path")
+        stdout_canonical: "Path | None" = None
+        if stdout_path_raw is not None:
+            if not isinstance(stdout_path_raw, str) or not stdout_path_raw.strip():
+                return json.dumps({
+                    "error": "stdout_path must be a non-empty string when provided.",
+                    "command": command,
+                })
+            try:
+                _requested = Path(stdout_path_raw)
+                _canonical = _requested.resolve(strict=False)
+            except (OSError, RuntimeError) as _resolve_exc:
+                return json.dumps({
+                    "error": "stdout_path_invalid",
+                    "message": f"Cannot resolve stdout_path: {type(_resolve_exc).__name__}",
+                    "command": command,
+                })
+
+            # Match the existing _project_root convention used elsewhere
+            # in this module (see line ~3737, ~4825).
+            _project_root = (
+                Path(self._graph_file).parent.resolve()
+                if getattr(self, "_graph_file", None)
+                else Path.cwd().resolve()
+            )
+
+            try:
+                _canonical.relative_to(_project_root)
+            except ValueError:
+                return json.dumps({
+                    "error": "stdout_path_outside_project_root",
+                    "message": (
+                        "stdout_path must stay within project root. "
+                        "Path-traversal via absolute or '..'-laden paths is refused."
+                    ),
+                    "command": command,
+                })
+
+            # Defence-in-depth: no '..' in resolved parts.
+            if any(part == ".." for part in _canonical.parts):
+                return json.dumps({
+                    "error": "stdout_path_contains_dotdot_after_resolve",
+                    "message": "Resolved stdout_path still contains '..' — refusing.",
+                    "command": command,
+                })
+
+            stdout_canonical = _canonical
+        # ────────────────────────────────────────────────────────────────
+
         # Safety blocklist — destructive commands
         _BLOCKED = [
             "rm -rf", "git push --force", "git push -f",
@@ -10111,14 +10181,64 @@ class KogniDevServer:
             )
             stdout = result.stdout or ""
             stderr = result.stderr or ""
-            return json.dumps({
+
+            # ── CR-005a: optional atomic stdout write ────────────────────
+            # When stdout_path was validated above (stdout_canonical set),
+            # write the FULL untruncated stdout to disk via
+            # NamedTemporaryFile + os.replace for crash-safety. Parent dirs
+            # are created with the default 0o777 & umask (typically 0o755).
+            # Failure here is logged but does NOT mask the subprocess result.
+            stdout_path_response: dict[str, Any] = {}
+            if stdout_canonical is not None:
+                import os as _os_cr005a
+                import tempfile as _tf_cr005a
+                try:
+                    stdout_canonical.parent.mkdir(parents=True, exist_ok=True)
+                    _bytes = stdout.encode("utf-8", errors="replace")
+                    _tmp = _tf_cr005a.NamedTemporaryFile(
+                        mode="wb",
+                        delete=False,
+                        dir=str(stdout_canonical.parent),
+                        suffix=stdout_canonical.suffix + ".tmp",
+                    )
+                    _tmp_name = _tmp.name
+                    try:
+                        _tmp.write(_bytes)
+                        _tmp.flush()
+                        _os_cr005a.fsync(_tmp.fileno())
+                    finally:
+                        _tmp.close()
+                    _os_cr005a.replace(_tmp_name, str(stdout_canonical))
+                    stdout_path_response = {
+                        "stdout_path": str(stdout_canonical),
+                        "stdout_bytes_written": len(_bytes),
+                    }
+                except OSError as _write_exc:
+                    # Surface the failure but keep the subprocess result intact —
+                    # callers can still see stdout (truncated) in the JSON body.
+                    stdout_path_response = {
+                        "stdout_path_error": (
+                            f"{type(_write_exc).__name__}: write to "
+                            f"{stdout_canonical} failed"
+                        ),
+                    }
+                    try:
+                        if "_tmp_name" in locals():
+                            _os_cr005a.unlink(_tmp_name)
+                    except OSError:
+                        pass
+            # ────────────────────────────────────────────────────────────
+
+            response: dict[str, Any] = {
                 "command": command,
                 "stdout": stdout[:4000],
                 "stderr": stderr[:1000],
                 "exit_code": result.returncode,
                 "success": result.returncode == 0,
                 "truncated": len(stdout) > 4000,
-            })
+            }
+            response.update(stdout_path_response)
+            return json.dumps(response)
         except subprocess.TimeoutExpired:
             return json.dumps({"error": f"Command timed out after {timeout}s", "command": command})
         except Exception as exc:
