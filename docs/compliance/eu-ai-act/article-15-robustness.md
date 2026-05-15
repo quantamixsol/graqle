@@ -83,7 +83,7 @@ GraQle's robustness defences align with:
 
 ## Security disclosure policy
 
-If you discover a security vulnerability in GraQle, please report it privately to **security@graqle.com** (or via GitHub's private vulnerability reporting on `quantamixsol/graqle`).
+If you discover a security vulnerability in GraQle, please report it privately to **security@quantamixsolutions.com** (or via GitHub's private vulnerability reporting on `quantamixsol/graqle`). The canonical security policy lives in [SECURITY.md](../../../SECURITY.md) at the repository root — it lists supported versions, the supply-chain hardening inventory (Trusted Publishing, Sigstore signatures, CycloneDX SBOM, pip-audit, `.pth`-file guard, reproducible builds), and the disclosure timeline below.
 
 Do not file public issues or PRs that disclose vulnerabilities before they are patched.
 

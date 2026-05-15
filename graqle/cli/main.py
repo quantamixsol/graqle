@@ -46,6 +46,7 @@ from graqle.cli.commands.calibrate import calibrate_app
 from graqle.cli.commands.pr_guardian import pr_guardian_command
 from graqle.cli.commands.release_gate import release_gate_command
 from graqle.cli.commands.auto import auto_command
+from graqle.cli.commands.compliance import compliance_app
 from graqle.cli.commands.neo4j_import import neo4j_import_cmd
 from graqle.cli.commands.mcp_install import register_mcp_install_commands
 
@@ -112,6 +113,7 @@ app.add_typer(calibrate_app, name="calibrate")
 app.command(name="pr-guardian")(pr_guardian_command)
 app.command(name="release-gate")(release_gate_command)
 app.command(name="auto")(auto_command)
+app.add_typer(compliance_app, name="compliance")
 app.command(name="neo4j-import")(neo4j_import_cmd)
 app.add_typer(compile_command, name="compile")
 app.add_typer(verify_command, name="verify")

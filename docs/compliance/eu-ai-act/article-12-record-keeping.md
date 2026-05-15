@@ -92,17 +92,25 @@ Fields:
 - **Default retention:** infinite (logs accumulate). Configurable via `GraqleConfig.governance.audit_log_retention_days` (set to `0` for infinite).
 - **Recommended for high-risk-system deployers:** at least 6 months (per [Article 19](https://artificialintelligenceact.eu/article/19/) provider record-keeping, ≥6 months unless other law applies; review your specific obligations).
 
-### 5. Export for compliance evidence (`graq audit export`)
+### 5. Export for compliance evidence (`graq compliance export`)
 
 Shipped in **PR-009c** of CR-009. Surface:
 
 ```bash
-graq audit export --since 2026-08-01 --format jsonl > my-art12-evidence.jsonl
-graq audit export --since 2026-08-01 --until 2026-08-31 --format csv > monthly-evidence.csv
-graq audit export --tool graq_reason --format jsonl  # filter to one tool
+graq compliance export                                           # stdout, all sessions
+graq compliance export -o evidence.jsonl                         # to file
+graq compliance export --since 2026-08-01 --until 2026-08-31 \
+    -o august.jsonl --sha256-sidecar                             # monthly + sidecar
 ```
 
-The export is byte-identical to the source JSONL — no transformation, no redaction beyond what the live log already redacts. Hashes of each line are written to a sidecar `.sha256` file so customers can prove their archive hasn't been tampered with.
+The export materialises the on-disk audit trail (`.graqle/governance/audit/{session_id}.json`) into a single JSONL stream — one session per line. Each line is the session's full JSON object re-serialised with `sort_keys=True` and no whitespace, giving **deterministic byte ordering**: two exports of the same input window produce byte-identical files, regardless of the on-disk indent/key-order. This is the property customers' Article 12 archives need (deterministic re-export for tamper detection), not "byte-identical to the indent-formatted on-disk JSON" (which would defeat tamper detection because indent whitespace can drift).
+
+When `--sha256-sidecar` is set, a companion `<output>.sha256` is written with one SHA-256 hex digest per output line, in the same order. Re-hashing each archived line and comparing against the sidecar proves the archive hasn't been mutated.
+
+Exit codes:
+- `0` — export succeeded (even with zero sessions in window).
+- `2` — bad input (malformed `--since`/`--until`, sidecar without `--output`, unwritable path).
+- `3` — corrupt audit session on disk (export aborted at that session).
 
 ## How to quote this in your compliance file
 
