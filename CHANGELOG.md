@@ -4,81 +4,300 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
-## Unreleased - [cr-004-reasoning-honesty]
+## 0.56.0 (2026-05-15) - [cr-009 EU AI Act Wave 1]
 
-> **Reasoning honesty release** — GraQle now tells you when its answer might be
-> wrong. The new `GraphHealth` snapshot rides alongside every `graq_reason`,
-> `graq_predict`, and `graq_safety_check` envelope and surfaces in the CLI as
-> a yellow `⚠ degraded reasoning` banner. No more silent confidence collapses
-> from a stale NPZ cache, an edge-free graph, or a keyword-fallback activation.
-> Probe stays O(1) over already-loaded state, never raises (3-deep defence),
-> and adds < 5 ms p95 to the envelope build per CI fail-gate.
+> **EU AI Act Wave 1 — GraQle is now EU AI Act–aligned by design.** The first developer reasoning SDK that ships a structured, version-pinned, CI-pinnable EU AI Act compliance surface. Seven articles documented (4, 12, 13, 14, 15, 25, 50), three new CLI surfaces (`graq compliance status`, `graq compliance export`, `--include-robustness`), Article 50(1) runtime disclosure (one-shot banner + machine-readable `ai_disclosure` envelope field), Article 15 machine-readable robustness attestation (17 named defences, 7 measurable claims with comparative-operator framing). Three substantive non-claims are enforced in code: GraQle is NOT itself a high-risk AI system, NOT a GPAI provider under Article 51, and we never say *compliant* or *certified* — only **EU AI Act–aligned**. The `TestNonClaimsInvariants` test class blocks any release that introduces a `compliant`/`certified` field anywhere in the machine-readable surface.
 
 ### Added
 
-- **CR-004 PR-004a (`a2015d23`): `GraphHealth` dataclass + `graph_health_probe`
-  helper.** New leaf module `graqle.core.graph_health` exports a frozen
-  `GraphHealth(node_count, edge_count, chunks_unembedded, percent_stale,
-  activation_mode, degraded, reason, schema_version="1")` dataclass with
-  field-level validation in `__post_init__`. New
-  `graqle.activation.health_probe.graph_health_probe(graph,
-  activation_signal=None, config=None) -> GraphHealth` walks already-loaded
-  state, computes the four degraded-disjunction signals, and **never raises** —
-  any internal failure returns a `degraded=True` snapshot with a sanitised
-  `reason`. Reason strings are scrubbed via reused
-  `graqle.core.secret_patterns.scan_for_secrets` (200+ patterns), project-root
-  elision, and home-directory replacement, then capped at 200 chars. Internal
-  results are TTL-cached (5 s) under a `threading.Lock` for thread-safe O(1)
-  amortised lookups.
+- **`graqle.compliance` module** (new package). `disclosure.py` ships the Article 50(1) banner emitter (once-per-process, `threading.Lock`-guarded against async race conditions) plus `AIDisclosure` + `ComplianceEnvelope` frozen dataclasses for MCP envelope hooks. `robustness.py` ships the Article 15 machine-readable attestation (17 defences, 7 measurable claims, 4 cybersecurity negatives, explicit adversarial-input boundary statement). Module-level constants `_ARTICLES_COVERED` and `_SYSTEM_CARD_URL` are duplicated in `graqle.cli.commands.compliance` with a drift-guard test enforcing parity.
 
-- **CR-004 PR-004b (`9d1d2e96`): `ReasoningResult.graph_health` field + MCP
-  envelope wiring.** `ReasoningResult` gains a new
-  `graph_health: GraphHealth | None = None` field — additive, default `None`,
-  so existing consumers keep parsing the envelope unchanged. The MCP
-  `graq_reason` envelope now serialises the snapshot under the top-level
-  `graph_health` key when the probe succeeds, and omits the key entirely when
-  the helper returns `None` (import failure or probe internal error). Schema
-  version is pinned at `"1"` for forward-compat audit.
+- **`graq compliance status` CLI** (new). Read-only EU AI Act compliance posture introspection. Text mode prints a Rich table; `--format json` emits machine-parseable JSON matching the shape that the MCP envelope `compliance` block publishes when `GRAQLE_EU_AI_ACT_MODE=on`. Surfaces: GraQle version, mode flag, articles_covered list, system_card_url, audit_trail metadata (path, session_count, last_session_id stem — NEVER reads session contents), schema_version locked at `"1"`. `--include-robustness` adds the Article 15 attestation block. `--repo-root` to introspect a different repo's audit trail.
 
-- **CR-004 PR-004c (`b05292e0`): wire `GraphHealth` into `graq_predict` +
-  `graq_safety_check` + CLI yellow warning.** `_build_graph_health_snapshot()`
-  centralises the probe→snapshot conversion for both MCP handlers. The
-  `graq_safety_check` envelope lifts `graph_health` to the top level from the
-  nested `reasoning_result` block on the deep-reason path, and omits the key
-  entirely on the skipped-reasoning shortcut. The `graq run` and `graq reason`
-  CLI surfaces print a yellow `⚠ degraded reasoning: …` banner before the
-  answer when `graph_health.degraded` is `True` and `reason` is non-empty.
-  Console output is defended in four layers: 200-char reason cap (PR-004a),
-  `_redact_secrets` + `_sanitise_reason` (PR-004a), ANSI CSI/OSC strip via
-  `_sanitise_for_console`, and Rich markup escape on the final print.
+- **`graq compliance export` CLI** (new). Materialises the on-disk audit trail (`.graqle/governance/audit/*.json`) as a JSONL stream — one session per line — for Article 12 record-keeping evidence. `--since`/`--until` ISO date filters with full calendar validation via `datetime.strptime` (rejects `2026-02-31`, accepts `2024-02-29` leap). `--sha256-sidecar` writes a companion `<output>.sha256` with one SHA-256 hex digest per output line for tamper detection. Canonical-form serialisation (`sort_keys=True` + compact separators) gives deterministic byte ordering: re-running on the same input window produces byte-identical output. Symlinks in the audit dir are skipped with a stderr warning (hardening — audit trail is append-only on real files). Exit codes: 0 success, 2 bad input, 3 corrupt audit session.
 
-- **CR-004 PR-004d (this release): CLI yellow-warning end-to-end tests.** New
-  `tests/test_cli/test_cli_graph_health_warning.py` exercises the full
-  probe→degraded→sanitise→print path through the CLI command boundary,
-  complementing the unit-level probe tests (PR-004a) and the envelope-wiring
-  tests (PR-004b/c). Two scenarios are covered: degraded graph triggers the
-  yellow banner with sanitised reason text, and healthy graph produces no
-  banner.
+- **EU AI Act compliance documentation** (`docs/compliance/eu-ai-act/`). 9 markdown files: index README, Article 4 (AI literacy — in force since 2025-02-02), Article 12 (record-keeping), Article 13 (deployer transparency), Article 14 (human oversight), Article 15 (accuracy / robustness / cybersecurity), Article 25 (value-chain responsibility), Article 50 (transparency for users), and an explicit out-of-scope file documenting Article 5 prohibited practices, Article 53 GPAI obligations, Article 55 systemic-risk GPAI duties, and Annex VII conformity assessment as **NOT applicable** to GraQle. Every article doc carries an authoritative-source link to EUR-Lex, an applicability-date header, and an applies-to-GraQle verdict (YES / INDIRECTLY / NO). All articles cited against [Regulation (EU) 2024/1689](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202401689).
 
-### Configurable
+- **Article 50(1) AI-disclosure runtime hook** in `graq_reason` MCP envelope. When `GRAQLE_EU_AI_ACT_MODE` is on, every reasoning envelope gains two additive fields: `ai_disclosure` (Article 50(1) machine-readable: `is_ai_generated`, `system`, `version`, `backend`, `ai_act_article_50_paragraph_1` legal anchor) and `compliance` (articles_covered, system_card_url, audit_log_export hint). Plus a once-per-process stderr banner on the first reasoning call: *"⚠ This response was generated by an AI system (GraQle v0.56.0 using {backend} backend). … AI Act Article 50(1) disclosure."* Banner suppress via `GRAQLE_AI_DISCLOSURE=off` for M2M pipelines (suppress applies to banner only — machine-readable field still emits, since downstream pipelines need it to compose deployer-level disclosure). When mode is OFF (default), envelope is **bit-for-bit unchanged** — additive contract preserved.
 
-- `graph_health.stale_chunks_threshold` (default `500`) — absolute count of
-  unembedded chunks above which the probe flags `degraded=True`. Overridable
-  via `GRAQLE_STALE_CHUNKS_THRESHOLD`.
-- `graph_health.edge_node_ratio_threshold` (default `0.5`) — for graphs with
-  > 100 nodes, an `edge_count / node_count` ratio below this triggers
-  `degraded=True`. Overridable via `GRAQLE_EDGE_NODE_RATIO_THRESHOLD`.
-- `graph_health.zero_edges_is_degraded` (default `true`) — flips
-  `edge_count == 0` to `degraded=True`. Set to `false` to allow zero-edge
-  graphs (e.g. seed-only KGs) to report `degraded=False`.
+- **Comprehensive compliance test suite** (`tests/test_compliance/`). 218 tests across 6 files: docs presence + structure + authoritative-source-link + README index integrity + positioning-statement guards (54 tests for the docs surface); CLI surface tests for status (37) and export (65 including 16 parametrized date-bound rejections and the determinism / tamper-detect invariant); disclosure module (48) including banner once-per-session enforcement and stderr-closed-stream non-raising; envelope integration (12) verifying the additive contract under mode-on/mode-off, plus source-drift guards against the live `mcp_dev_server.py` hook; robustness attestation (21) including `TestNonClaimsInvariants` (no `compliant`/`certified` strings ship), drift-guard against article-15 doc and SECURITY.md.
+
+### Changed
+
+- **`README.md` rewritten** — 837 → 207 lines (75% reduction). Now leads with EU AI Act alignment, then explains what GraQle is, the 90-second proof, how it works, model-agnostic operation, governance gate activation, MCP-first integration, security posture, and pricing. Targeted at high-end engineering teams (regulated deployments, EU customers, analyst-grade due diligence).
+
+- **`graqle.cli.main`** wires the new `compliance` sub-app into the typer entry point (2-line additive change: import + `add_typer`).
+
+### Positioning discipline (enforced in code)
+
+GraQle is documented as **"EU AI Act–aligned"** — never *compliant*, never *certified*, never *guaranteed*. Three substantive non-claims:
+
+1. GraQle is NOT itself a high-risk AI system (no Annex III category applies to a developer-side reasoning SDK).
+2. GraQle is NOT a General-Purpose AI Model provider under Article 51 (we use third-party LLMs; we don't place one on the EU market).
+3. We provide signals and audit primitives; the deployer composes their own Article 9 risk-management file.
+
+`tests/test_compliance/test_eu_ai_act_docs_present.py::TestPositioningStatement` enforces "EU AI Act–aligned" present in docs and "EU AI Act compliant" / "EU AI Act certified" absent. `tests/test_compliance/test_robustness.py::TestNonClaimsInvariants` enforces `article_15_compliant` / `article_15_certified` / `compliant` / `certified` fields are absent from every machine-readable surface.
+
+### Test count
+
+5,500+ passing (Python 3.10 / 3.11 / 3.12). 218 new compliance-specific tests added in v0.56.0.
+
+---
+
+## 0.55.0 (2026-05-14) - [cr-002 + cr-003 + cr-004 + cr-005a + cr-008 rollup]
+
+> **Reasoning honesty + cross-project reliability.** Five CRs roll up into one release: graph-health surfacing on every reasoning envelope (CR-004), the cross-project `WRITE_COLLISION` phantom-error fix that affected every Neo4j-backed `graq_learn` call (CR-008), the unified config resolver promoted to default-ON with 13 internal call sites migrated (CR-002), defensive guards against silent edge-loss regressions (CR-003), and a TOCTOU-safe `stdout_path` parameter on `graq_bash` that closes the long-standing `cmd > file.log` silent-failure ergonomics class (CR-005a). All shipped under the new BAU CR process.
+
+### Breaking changes
+
+- **`GRAQLE_USE_RESOLVER` default flipped from OFF to ON** (CR-002 PR-002c-2b). The resolver is now the canonical config-loading path; submodule-aware ancestor walk for `graqle.yaml` works automatically. Set `GRAQLE_USE_RESOLVER=0` (or `false` / `no`, case-insensitive) to opt OUT and fall through to the legacy `GraqleConfig.from_yaml()` path. The resolver-compat helper has a try/except resolver→legacy fallback, so this flip is safe even in environments with a misconfigured resolver — the worst case is silent fall-through to the prior behaviour.
+
+### Added
+
+- **CR-004 — Reasoning Honesty.** New `GraphHealth` dataclass + `graph_health_probe` helper. Every `graq_reason` / `graq_predict` / `graq_safety_check` envelope now carries an explicit `graph_health` snapshot (8 fields: `node_count`, `edge_count`, `chunks_unembedded`, `percent_stale`, `activation_mode`, `degraded`, `reason`, `schema_version`). The `graq run` and `graq reason` CLI surfaces print a yellow `⚠ degraded reasoning: …` banner before the answer when the graph is degraded. Configurable thresholds (`stale_chunks_threshold` default 500, `edge_node_ratio_threshold` default 0.5, `zero_edges_is_degraded` default true) with env-var overrides. Probe is contractually never-raises (3-deep defence) and adds < 5 ms p95 to envelope build (CI fail-gate). Reason strings are scrubbed via reused `secret_patterns.scan_for_secrets` (200+ patterns), project-root elision, home-dir replacement, and capped at 200 chars.
+
+- **CR-005a — `graq_bash stdout_path` parameter.** Optional new parameter on `graq_bash` writes the FULL untruncated subprocess stdout to disk atomically. Closes the long-standing `graq_bash("cmd > file.log")` silent-failure case (subprocess shell is sandboxed; shell redirects produce empty files). TOCTOU-safe validation per CR-005 § 3.1: canonicalise via `Path.resolve()`, then `relative_to(_project_root)` check, plus defence-in-depth `..` rejection on resolved parts. Parent directories auto-created. Atomic write via `NamedTemporaryFile` + `fsync` + `os.replace`. Failure isolation: file-write `OSError` never masks the subprocess result.
+
+- **CR-002 — Unified Config Resolution.** `load_via_resolver_or_legacy` helper introduced; 13 internal `--config` typer call sites migrated. `GRAQLE_USE_RESOLVER` default flipped ON (see Breaking changes). `GraqleConfig.from_yaml` deprecation-warning block delegates to `is_resolver_enabled()` so the two entry points stay in lock-step.
+
+### Fixed
+
+- **CR-008 — Phantom `WRITE_COLLISION` on Neo4j-backed `graq_learn` calls.** Every `graq_learn` on a Neo4j-backed session was returning `error_code: WRITE_COLLISION` even though no write was ever attempted. Root cause: `_save_graph` returned `tuple[bool, int]` with `False` for FOUR distinct reasons (Neo4j-only / shrink-refused / real `PermissionError` / generic exception) and the four `_handle_learn_*` handlers conflated all four as collision. Replaced with `SaveGraphResult` + `SaveStatus` enum (OK / NO_GRAPH_FILE / SHRINK_REFUSED / COLLISION / SAVE_FAILED). NO_GRAPH_FILE folds into `recorded=True` because the in-memory + backend write already happened. Every project using `bolt://...` in `graqle.yaml` benefits — no client migration needed. New `persistence: <status>` field on `graq_learn` success responses lets clients distinguish Neo4j-only sessions from JSON-write completions.
+
+- **CR-003 — Defensive Edge-Loss Guards.** Hardened guards against the silent edge-loss regression that affected installs between v0.46 and v0.53. `Graqle.to_json` refuses to shrink edge count by > 10% on graphs with > 100 baseline edges. Neo4j schema parity restored. New `scripts/bisect_edge_loss.py` utility for triaging regression-class bugs.
+
+### Test count
+
+5,500+ tests across Python 3.10 / 3.11 / 3.12. ~100 new tests this release (24 CR-008 status-disambiguation, 15 CR-005a `stdout_path`, 46 CR-004 health-probe + envelope + CLI banner, 14 CR-002 resolver migration + flag-default contract).
 
 ### Rollback
 
-`GraphHealth` is purely additive — the field is `None`-default on
-`ReasoningResult`, the MCP envelope omits the key when the helper short-circuits,
-and the CLI banner is skipped on any probe failure. To suppress the banner
-without a code revert, override `graph_health.zero_edges_is_degraded: false`
-in `graqle.yaml` (covers the most common false-positive cause).
+Every CR is independently revertable:
+
+- **CR-002 flip:** `GRAQLE_USE_RESOLVER=0` env var, no code revert needed.
+- **CR-004:** `graph_health` field is `None`-default; envelope omits the key when probe fails; CLI banner skipped on any probe failure. Soft-suppress via `graph_health.zero_edges_is_degraded: false` in `graqle.yaml`.
+- **CR-008:** Additive only — new `SaveGraphResult` is back-compat with legacy 2-tuple callers via `_coerce_save_result` shim.
+- **CR-005a:** `stdout_path` is optional; absent it, every existing `graq_bash` call is byte-identical to pre-CR-005a behaviour.
+- **CR-003:** `GRAQLE_ALLOW_EDGE_SHRINK=1` to override the shrink guard for a single run.
+
+---
+
+## 0.54.3 (2026-05-13) - [bau-cr-007-reason-token-economics]
+
+> **`graq_reason` now costs ~52% less, runs ~48% faster, and stops Bedrock throttling.** Empirical probe against a live 64K-node Neo4j KG: input tokens dropped from ~198K to ~47K per call (-76%), LLM calls from 101 to 51 (-50%), max single prompt from 24,618 to 8,015 chars (-67%), wall time from 49.8s to 25.9s, and 12+ Bedrock `ThrottlingException` retries dropped to 0. Six layered cost ceilings, all configurable via `GraqleConfig.orchestration` with pydantic-validated bounds. EU AI Act audit trails preserved verbatim.
+
+### Why this release matters
+
+Pre-v0.54.3, `graq_reason` was multiplicatively expensive on large activations. Each round issued one full LLM call per activated node (50 nodes × 2 rounds = 100 calls), and each call's prompt had no upper bound — evidence chunks, neighbor messages, and context concatenation could push a single call's input prompt past 24K chars on dense graphs. With Sonnet 4 retail pricing this was ~$0.86 per `graq_reason` call (the SDK's internal `cost_per_1k_tokens` constant reported $0.087, an 8× under-count). Bedrock `ThrottlingException` retries were the canary for the real spend.
+
+This release does **not** change the multiplicative-fan-out architecture (that's a separate v0.55+ optimisation). It bounds the per-call and per-round spend so dense graphs stop blowing past sensible budgets.
+
+### Added — new `OrchestrationConfig` knobs (all pydantic-validated, additive schema)
+
+- **`evidence_hard_ceiling`** — chars cap on the per-node Supporting Evidence block. Applied **after** any embedding-based top-3 filter, so the final evidence shipped to the LLM is never larger than this regardless of embedding availability. Auditable `[truncated by evidence_hard_ceiling]` marker on hit. Default `4000` (~1K tokens). Range `100..200_000`.
+- **`prompt_hard_cap`** — last-resort cap on the assembled per-node reasoning prompt. When exceeded, evidence + context are truncated symmetrically while preserving the system block, label/description, and query (head 60% + tail 30%). Auditable `[CR-007 prompt_hard_cap: middle truncated]` marker on hit. Default `10000` (~2.5K tokens). Range `500..400_000`.
+- **`top_k_neighbors`** — caps neighbor messages forwarded in `_exchange_round` (round N+). Ranked by `node.activation_score`, fallback to insertion order. Default `8`. Range `1..200`.
+- **`max_llm_calls`** — absolute LLM-call ceiling per `graq_reason` invocation. Checked **before** each round (projects `llm_calls_so_far + per_round_estimate` against `max_llm_calls - 1`, reserving 1 call for synthesis) so the ceiling actually constrains rounds. Halts cleanly between rounds — partial state never escapes. Default `60` (covers `max_nodes=50` + `max_rounds=2` + synthesis). Range `1..1000`.
+- **`hierarchical_synthesis`** — feature flag (default `False`). When `True`, between rounds the orchestrator replaces per-neighbor messages with one summary per `node.community` / `node.entity_type` bucket via the new `MessagePassingProtocol._build_community_summaries` helper. Cuts inter-node messaging from `O(N × neighbors)` to `O(N × communities)` on dense graphs. Auditable `[community summary truncated]` marker on hit. **Opt-in until empirical validation completes.**
+- **`hierarchical_summary_max_chars`** — cap on each community summary's content. Default `1500` (~375 tokens). Range `200..50_000`.
+
+### Added — empirical regression utilities
+
+- **`scripts/profile_reason.py`** — promoted probe utility. Wraps `backend.generate()` / `agenerate()` to record per-call prompt/output chars + latency. Prints CR-007 acceptance check inline (total input < 320K chars, LLM calls ≤ 60, max prompt ≤ 10K chars). Usable against any `graqle.yaml` for regression detection.
+- **`tests/test_orchestration/test_token_budget.py`** — NEW, 14 deterministic regression tests (no live LLM required). Covers: defaults, pydantic bounds rejection, evidence truncation w/ marker, prompt cap w/ head+tail markers, top-K configurability, max_llm_calls casting, hierarchical_synthesis flag, `_build_community_summaries` entity_type fallback + truncation.
+
+### Fixed
+
+- **Synthesis prompt bypassed per-node `prompt_hard_cap`** (surfaced by probe — synthesis prompt was 17,295 chars). `AggregationStrategy._synthesize()` now uses budget-aware accumulation that stops at `prompt_hard_cap - 2000` (template headroom). Highest-confidence messages preserved (sort happens upstream); lower-confidence tail trimmed with auditable `[…CR-007 Fix 6: N lower-confidence message(s) omitted…]` marker.
+- **`max_llm_calls` post-round-only check was ineffective** for `max_rounds=2` (round 2 always ran before the ceiling could halt anything). Tightened to a pre-round projection check that reserves 1 call budget for synthesis.
+
+### Behaviour changes (knob-tunable; CHANGELOG-disclosed)
+
+- **`Graqle.stats.density` unchanged** from v0.54.2.
+- **`graq_reason` confidence on long-evidence canary queries** can regress by up to ~12 percentage points when defaults apply (e.g. 0.58 → 0.46 on a single observed query). The cost-vs-confidence tradeoff is exposed via the knobs. Quality-sensitive users raise `evidence_hard_ceiling`, `top_k_neighbors`, and `max_llm_calls`; cost-sensitive users opt into `hierarchical_synthesis=True`.
+- **`graq_reason` log will emit a `warning` line** when `_sanitise_rel_type` falls back (CR-006b carryover) AND when `prompt_hard_cap` or `max_llm_calls` fire. The fallbacks are observable in audit logs without leaking raw content.
+- **No graqle.yaml migration required** — pure additive schema. Configs without these keys get the defaults.
+
+### EU AI Act / governance preservation
+
+This is a P1 cost guard, not a governance change. Verified across the diff and confirmed by the security review (0 BLOCKERs, 0 MAJORs):
+
+- `orchestrator.all_messages` keeps every original per-node message regardless of `hierarchical_synthesis` state. The summary only affects what the **next** round's nodes see; the audit trail has full provenance.
+- Governance text (`semantic_governance_text`, `constraint_text`, `skills_text`, `label`, `description`) is never dropped — Fix 3's head 60% + tail 30% strategy always preserves it.
+- Every truncation event emits a static `[…marker…]` so downstream compliance hooks can detect that a cost-guard fired.
+- `ContentSecurityGate` (graph.py snapshot pattern) runs upstream of all CR-007 paths — no bypass introduced.
+- `_sanitise_rel_type` (CR-006b) reused as the security boundary for any rel-type interpolation — no new injection vectors.
+
+### Governance trail
+
+- **Private PR**: `quantamixsol/research-development-graqle#88` (merged 2026-05-13).
+- **Sentinel chain on consolidated diff**: `graq_safety_check` (MEDIUM, 38 modules, 0 CRITICAL) → `graq_plan` (`plan_6844133c`) → `graq_edit literal` × 14 → `graq_review focus=all` (**APPROVED**, 0 BLOCKERs, 2 MINORs addressed: pydantic Field bounds + bounds-rejection test) → `graq_review focus=security` (**APPROVED**, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced 5 downstream risks, all mitigated via configurability + this CHANGELOG note).
+- **Scoped pytest** on `tests/test_orchestration/` + `tests/test_core/` + `tests/test_connectors/`: **529 passed, 7 skipped, 1 deselected** (pre-existing v0.54.0 baseline failure). **0 regressions.**
+- **Empirical probe** against the live 64,223-node Neo4j KG (CR-006 fixed, full multi-edge graph present): all 3 CR-007 acceptance criteria PASS — total input < 320K chars, LLM calls ≤ 60, max prompt ≤ 10K chars.
+
+### Probe acceptance results (live 64K-node Neo4j KG, max_rounds=2, max_nodes=50)
+
+```
+Metric                Before v0.54.3       After v0.54.3        Reduction
+----------------------------------------------------------------------------
+Total input chars     793,595              187,307              -76%
+Input tokens          ~198,398             ~46,826              -76%
+LLM calls per call    101                   51                  -50%
+Max single prompt     24,618 chars         8,015 chars          -67%
+Wall time             49.8s                25.9s                -48%
+Cost (reported)       $0.087               $0.042               -52%
+Bedrock throttling    12+ retries          0 retries            eliminated
+```
+
+---
+
+## 0.54.2 (2026-05-13) - [bau-cr-006-multi-edge-full-fix]
+
+> **Complete fix for CR-006 — silent multi-edge collapse across Neo4j + JSON storage paths.** On a 64k-node KG with 216,577 typed edges across 14 relationship types (CALLS=71,739, DEFINES=27,140, RELATED_TO=108,493, plus 11 more), the in-memory graph was reporting only 108,309 edges — exactly the `RELATED_TO` count — because parallel typed edges between the same `(source, target)` pair were silently collapsing in three coupled places: in-memory shape, Neo4j load, and Neo4j save.
+>
+> **What's fixed:** Full graph round-trip is now lossless. Reads load all 216,577 edges. JSON round-trips preserve edge ids. `graq learn`, `graq grow`, `graq predict --fold_back=true`, `g.save()`, and any `migrate_json_to_neo4j` writer now store typed Neo4j relationships (`:CALLS`, `:DEFINES`, `:IMPORTS`, etc.) instead of all collapsing to `:RELATED_TO`. Downstream analytics queries (impact, blast radius, PageRank, hub detection, community detection, neighborhood materialization) are now type-agnostic and see every edge type.
+>
+> **Why a single release instead of two**: combined CR-006a (read path, private PR #86) and CR-006b (write + traversal, private PR #87) into one PyPI release per project owner direction. No partial-fix window — users move from v0.54.0 (broken) to v0.54.2 (fully fixed) in one upgrade.
+
+### Changed (BREAKING for downstream NetworkX consumers)
+
+- **`Graqle.to_networkx()` now returns `nx.MultiDiGraph`** (previously `nx.DiGraph`). Parallel typed edges between the same `(source, target)` pair are preserved instead of silently overwriting one another. Edges are keyed by their `CogniEdge.id` so round-trips through `to_json`/`from_json` are lossless. Code that did `isinstance(G, nx.DiGraph)` returns `False` against the new output — switch to `isinstance(G, (nx.DiGraph, nx.MultiDiGraph))` or `G.is_directed() and not G.is_multigraph()` as a positive check.
+- **`Graqle.stats.density` can now exceed 1.0** when parallel edges exist. The denominator stays at `n*(n-1)` but the numerator counts parallel edges (NetworkX standard `nx.density` behaviour on `MultiDiGraph`). No CLI/test currently asserts a specific density value; this is a behaviour disclosure for downstream callers that may have hard-coded `0.0–1.0` bounds.
+- **`Neo4jConnector.save()` now writes native typed relationship labels** (`:CALLS`, `:DEFINES`, `:IMPORTS`, etc.) instead of collapsing every edge to `:RELATED_TO`. Existing Neo4j databases keep working — old `:RELATED_TO` edges are still readable. But: new edges produced by `graq learn` / `graq grow` / `graq predict --fold_back=true` / `g.save()` from v0.54.2 onward will be visible to native Cypher queries that filter by typed labels (e.g. `MATCH ()-[r:CALLS]->()`).
+- **`graqle/connectors/neo4j_traversal.py` analytics queries are now type-agnostic.** All 11 traversal sites (impact analysis, shortest path, hub detection, node context, vector+graph search, PageRank, community detection, neighborhood materialization) now match every relationship type, not just `:RELATED_TO`. Downstream consumers that introspected typed paths returned by `shortest_path()` (which already returns `edge_types` via `[r IN relationships(path) | type(r)]`) will now see real typed labels in the result.
+
+### Fixed (CR-006a — load + in-memory shape, private PR #86)
+
+- **Site 1 — `graqle/core/graph.py:2823 to_networkx`**: Switched the in-memory NetworkX container from `nx.DiGraph` to `nx.MultiDiGraph`. Edges added with `key=eid` so each parallel edge between `(src, tgt)` is preserved under its own key. Updated return-type annotation. Fixes the half-graph collapse on every `to_json` call.
+- **Site 2 — `graqle/connectors/neo4j.py:118 Neo4jConnector.load`**: When `r.id` is NULL (which it is for every typed-edge writer that doesn't explicitly set it — the common case), the synthetic edge id now includes the relationship type and a per-result counter (`f"e_{src}_{tgt}_{rel}_{idx}"`) so parallel typed edges between the same `(src, tgt)` pair stop colliding in the `raw_edges` dict. Added `None`-guard for malformed `source`/`target` fields with a redacted warning (logs only `raw_id` presence and sanitised `rel`, never full record content — OWASP A09 logging-failure guard).
+- **Site 5 — `graqle/core/graph.py:735 from_networkx`** *(public-only, additional fix not in private PR #86 — caught by public reviewer)*: When the input graph is a `MultiDiGraph`, iterate `G.edges(keys=True, data=True)` so original edge ids carried in the NetworkX edge keys are restored to `CogniEdge.id` on round-trip. Previously, `from_json` → `node_link_graph` → `from_networkx` would re-synthesise positional eids (`e_{src}_{tgt}_{i}`) and drop the original ids. Round-trip is now strictly id-preserving for `MultiDiGraph` inputs; non-multigraph inputs still get positional eids (no behaviour change).
+
+### Fixed (CR-006b — Neo4j writer + traversal, private PR #87)
+
+- **Site 3 — `graqle/connectors/neo4j.py:222 Neo4jConnector.save()`**: Group `edge_rows` by sanitised relationship type, run one Cypher UNWIND per type with native rel-type interpolation: `MERGE (a)-[r:{rtype} {id: row.id}]->(b)`. Mirrors the Neptune connector pattern that already does it right. New `_sanitise_rel_type(name)` helper at module top enforces alphanumeric+underscore identifier safety with `RELATED_TO` fallback — Cypher injection is impossible by construction.
+- **Site 3b — `graqle/connectors/upgrade.py:170 generate_migration_cypher` + its `migrate_json_to_neo4j` caller**: Same group-by-type pattern. The generator emits one `UNWIND $edges_<RTYPE>` statement per relationship type; the caller extracts the param name from the statement via regex and binds the appropriate edge subset.
+- **Type-agnostic analytics — `graqle/connectors/neo4j_traversal.py`** *(caught by `graq_predict` during the sentinel chain — without this, post-CR-006b typed edges would be silently invisible to every analytics query)*. Removed hardcoded `[:RELATED_TO*N]` and `[r:RELATED_TO]` from 11 query sites: `bfs_impact`, `shortest_path`, `hub_nodes`, `node_context`, `vector_then_graph`, `compute_pagerank` (GDS + degree-approx fallback), `detect_communities` (GDS + connected-components fallback), `materialize_neighborhoods`. GDS `graph.project(...)` calls also updated from `'RELATED_TO'` to `'*'`.
+
+### Added
+
+- **4 regression tests in `tests/test_core/test_multi_edge_preservation.py`** (CR-006a):
+  - `test_to_networkx_preserves_parallel_typed_edges` — 3 typed edges A→B (CALLS, DEFINES, IMPORTS) survive `to_networkx`; the output is `nx.MultiDiGraph` with 3 distinct edges.
+  - `test_json_round_trip_preserves_multi_edges` — same 3-edge setup round-trips through `to_json`/`from_json`; edge count, relationship set, AND original edge ids are preserved.
+  - `test_synthetic_eid_uniqueness_for_null_id_typed_edges` — Site 2 synthetic eid construction yields distinct keys for the three typed edges seen in the live KG.
+  - `test_existing_collapsed_json_still_loads` — backward compatibility guard: legacy single-edge JSON files still load cleanly into v0.54.2.
+- **28 regression tests in `tests/test_connectors/test_multi_edge_save_preservation.py`** (CR-006b):
+  - **`TestSanitiseRelType`** (25 parametrized cases): 10 valid normalisations (`CALLS`, `calls` → `CALLS`, `uses envvar` → `USES_ENVVAR`, etc.) + 15 adversarial inputs (None, empty, leading digit, Cypher injection payloads with `; DROP CONSTRAINT`, `\nMATCH (n) DETACH DELETE n`, backticks/braces/parens/dots/slashes/pipes, non-string types) all sink to `RELATED_TO`.
+  - **`TestMigrationCypherTyped`** (3 tests): single typed edge emits one statement with the right native label; three parallel edges (CALLS/DEFINES/IMPORTS) emit three distinct statements; adversarial `rel; DROP CONSTRAINT cogni_node_id;` sanitised to `RELATED_TO` with `DROP` and semicolons stripped from the interpolated Cypher.
+
+### Governance trail
+
+- **Private PRs**: `quantamixsol/research-development-graqle#86` (CR-006a, merged 2026-05-13) and `quantamixsol/research-development-graqle#87` (CR-006b, merged 2026-05-13).
+- **Sentinel chain (CR-006a)**: `graq_safety_check` (MEDIUM, 40 modules affected, 0 CRITICAL) → `graq_review focus=all` ×2 (final: APPROVED, 0 BLOCKERs) → `graq_predict fold_back=false` (surfaced density-inflation + multi-graph-consumer risks, both disclosed above) → `graq_review focus=security` (APPROVED, 0 BLOCKERs).
+- **Sentinel chain (CR-006b)**: `graq_plan` → `graq_edit literal` × 14 (helper + save + upgrade migrator + caller + 8 traversal sites + regex fix + debug log) → `graq_review focus=all` (APPROVED, 0 BLOCKERs, 2 MINORs addressed) → `graq_review focus=security` (APPROVED, 0 BLOCKERs, 1 MINOR addressed — debug logging on sanitiser fallback) → `graq_predict fold_back=false` — **surfaced `neo4j_traversal.py` hardcoded `:RELATED_TO` risk; fixed in this PR before opening.**
+- **Scoped pytest**: `tests/test_core/` + `tests/test_connectors/` — **466 passed, 6 skipped, 1 deselected**. The one deselect (`test_neo4j_traversal::TestHubNodes::test_core_graph_is_hub`) failed on the v0.54.0 baseline too; expected to flip green naturally once production writes start storing typed labels (separate verification after release).
+
+---
+
+## 0.54.0 (2026-05-12) - [bau-edge-guard-resolver]
+
+> **Defensive guards stop silent edge-loss + a unified config resolver lands behind a feature flag.** First release under the new BAU (Business As Usual) Change Request process. Two surgical, additive changes from third-party sister-team feedback (BHG epic, 2026-05-09): a `to_json` guard that refuses to silently drop edges (the v0.46→v0.53 regression mode), and the foundation module for unifying 14+ scattered `graqle.yaml` resolution sites.
+
+### Added
+
+- **`EdgeShrinkError`, `GraphSchemaError`, `GraphFileTooLargeError`** in `graqle/core/exceptions.py`. Inherit from `GraqleError`. `EdgeShrinkError` carries `old_edges`, `new_edges`, `threshold`, and `allow_flag` attributes; division-by-zero-safe message formatting.
+
+- **Symmetric `links` validation** in `_validate_graph_data` (`graqle/core/graph.py`). Previously the validator checked `nodes` existence/type but ignored `links` entirely — the structural asymmetry that allowed the v0.46→v0.53 silent edge-loss regression to ship undetected. Now `links` (or its `edges` alias) must be a list, validated symmetrically with nodes. Refuses `{"nodes": [N>0], "links": []}` unless explicit `metadata: {single_node: true}` marker.
+
+- **Edge-shrink guard** on the `Graqle.to_json` write path. When the existing on-disk graph has more than 100 edges AND the new graph would drop edges by more than 10%, `EdgeShrinkError` is raised with a clear remediation message. The 100-edge floor avoids spurious raises on small graphs and legitimate sparse-graph workflows.
+
+- **`GRAQLE_ALLOW_EDGE_SHRINK` environment variable** as the audit-logged override. Strict allow-list: only `1`, `true`, `yes` (case-insensitive). Invalid values log a warning and are treated as not-allowed. The override path emits a single `logger.warning` audit line (`EDGE_SHRINK_ALLOWED file=<basename> old=<N> new=<N> user_hash=<sha256[:8]> pid=<N>`) for SOC2 § 6.3 change tracking. OWASP A09:2021-safe: no raw `USER`/`USERNAME` in logs, no full filesystem path — only `basename(path)` and a SHA-256-truncated user hash.
+
+- **`graqle/config/resolver.py`** — new unified config resolver module behind the `GRAQLE_USE_RESOLVER` feature flag (default `False` — inert until callers migrate in a follow-up release). Provides:
+  - `resolve_config(start, max_depth=10)` — ancestor walk for `graqle.yaml` with submodule fallback (when nested `.graqle/` directory has no yaml, falls through to a parent's yaml and records both `project_root` and `parent_root`).
+  - `resolve_neo4j(cfg, **explicit)` — explicit auditable priority chain: `explicit > env > yaml > default` with a `source` field on the returned `Neo4jParams` recording which layer won.
+  - `resolve_project_root(start, max_depth=10)` — first ancestor with `graqle.yaml` or `.graqle/`.
+  - `is_resolver_enabled()` — reads the feature flag.
+  - `ALLOWED_URI_SCHEMES = {bolt, neo4j, https, file}` — positive allow-list (not deny-list) closing the case/encoding/Unicode-bypass class.
+  - `SecretStr` — constant-time `__eq__` via `hmac.compare_digest`, repr/str never reveal contents, `__slots__` blocks accidental attribute assignment.
+  - Frozen dataclasses `ResolvedConfig` + `Neo4jParams`.
+
+- **`graqle/config/exceptions.py`** — new file. 6 subclasses of `GraqleConfigError`: `ConfigNotFoundError`, `ConfigPathError`, `ConfigYamlError`, `ConfigPermissionError`, `ConfigLockError`, `ConfigSchemeError`.
+
+- **`_assert_not_uri_path`** in the resolver — detects both `scheme://...` and the `scheme:opaque-data` form (`javascript:alert(1)`, `data:text/html;base64,...`) which `urlparse` correctly recognises as having a scheme even without `//`. Includes a Windows-drive-letter guard so `C:\\Users\\...` is not mis-parsed as a URI.
+
+- **Ancestor walk safety** — `max_depth=10` bound, symlink-cycle detection via a `seen: set[Path]` of resolved paths, halt at `Path.home()` boundary, all paths canonicalised via `Path.resolve(strict=False)` before any disk access.
+
+- **Round-trip property test suite** (`tests/test_core/test_persistence_round_trip.py`) — 8 tests, parametrized across 5 graph fixture sizes (5, 50, 100, 500, 1000 nodes) verifying `Graqle.from_json(p).to_json(p2)` preserves node count, edge count, and entity-type distribution exactly.
+
+- **Edge-shrink boundary tests** (`tests/test_core/test_validate_graph_data_edge_shrink.py`) — 27 tests covering: symmetric validation, threshold boundary (exactly 10% loss = allowed, 10.1% = blocked), small-graph grace period, env-var allow-list (case-insensitive, whitespace-stripped, invalid-value warning), division-by-zero defence, OWASP A09 audit-log PII regression test (raw USER/USERNAME and full path must NOT appear in audit lines).
+
+- **Resolver test suite** (`tests/test_config/test_resolver.py`) — 71 tests across 14 classes covering `SecretStr` (masking, constant-time eq, `__slots__`), `ResolvedConfig` validation, `Neo4jParams` masking, URI safety (allow-list + bypass class with `javascript:`/`data:`/`vbscript:`/`mailto:`/`ftp:` without slashes), `resolve_project_root` ancestor walk, `resolve_config` including submodule fallback, `resolve_neo4j` full priority chain, feature-flag toggling, home-redaction helper, end-to-end integration.
+
+### Fixed
+
+- **Silent edge-loss regression** introduced between v0.46 and v0.53. Symptom (BHG epic 2026-05-09, feedback #10): a `graqle.json` with 22,516 nodes and **0** edges. Root cause is being bisected separately (PR-003b); this release adds the defensive guard that makes the failure mode loud rather than silent. A graph that legitimately needs to drop edges by more than 10% (e.g. `graq scan --full` on a dramatically-trimmed source tree) now requires `GRAQLE_ALLOW_EDGE_SHRINK=1` and audit-logs the override.
+
+### Changed
+
+- **`Graqle.to_json` write path now refuses silent edge loss.** This is a behaviour change but only for the failure-mode CR-003 fixes. Existing healthy callers (where edge counts are stable or growing) see no behavioural difference.
+
+### Notes — BAU process
+
+This is the first release shipped under the [BAU (Business As Usual) Change Request process](https://github.com/quantamixsol/graqle/tree/master/.gsm/external/Change%20Requests) launched 2026-05-09. Every non-trivial change is now documented as a CR with explicit scope, evidence, PR strategy, test strategy, rollback procedure, and acceptance criteria. The full CR set for this release:
+- `CR-001-bau-charter` — the BAU process charter itself
+- `CR-002-unified-config-resolution` — the resolver work (PR-002a here; PR-002b follow-up migrates the 14 call sites)
+- `CR-003-kg-persistence-schema-parity` — the persistence guards (PR-003a here; PR-003b bisect, PR-003c root-cause fix, PR-003d schema parity in `neo4j-import` are follow-ups)
+- `CR-004-reasoning-honesty` — graph-health surfacing (next release)
+- `CR-005-tool-ergonomics` — `graq_bash` improvements (next release)
+
+### Migration notes
+
+If `graq scan --full` or `graq grow` returns `EdgeShrinkError`, run with `GRAQLE_ALLOW_EDGE_SHRINK=1` once to record an audit line and proceed. If you see this on a graph you believed was healthy, run `graq audit --fail-on-zero-edges` to confirm whether you've been silently hit by the v0.46→v0.53 regression.
+
+---
+
+## 0.53.1 (2026-05-03) - [codex-mcp-installer]
+
+> **One command installs GraQle into Codex.** First-class Codex CLI integration,
+> full KG → Neo4j bulk transfer command, and a governance gate fix that eliminates
+> the invisible permission dialog bug in VS Code.
+
+### Added
+
+- **`graq mcp install codex`** — Registers GraQle as a Codex MCP server in one command.
+  Auto-detects Codex CLI on PATH, resolves absolute `graqle.yaml` path (relative paths
+  break global MCP entries), runs `codex mcp add graqle -- graq mcp serve --config <abs>`.
+  Supports `--mode read-only|read-write` and `--yes` for non-interactive use.
+  Env vars (`GRAQLE_PROJECT`, `AWS_DEFAULT_REGION`, `AWS_PROFILE`) passed through with
+  safe JSON serialization — no shell quote stripping on Windows.
+
+- **`graq mcp doctor codex`** — 8-point health checklist: Codex on PATH → version →
+  graqle listed → graq binary → yaml exists → env JSON valid → KogniDevServer importable
+  → serve responds. Fails fast at the first broken step with a clear fix suggestion.
+
+- **`graq mcp tools [--json]`** — Lists all 80+ MCP tools. Queries live server if
+  running; falls back to static registry. `--json` for machine-readable output.
+
+- **`graq mcp sessions`** — Shows running MCP server PIDs, versions, and lock files.
+
+- **`graq mcp locks`** — Shows KG write locks currently held.
+
+- **`graq neo4j-import`** — Full KG → Neo4j bulk transfer. Batched MERGE for nodes
+  (core props + 1024-dim embeddings) and edges, with schema setup (uniqueness constraint
+  + cosine vector index). Validates counts and runs a live vector search after import.
+  Flags: `--dry-run`, `--batch-size` (1–5000), `--skip-schema`, `--kg-file`.
+
+### Fixed
+
+- **Governance gate permission dialogs in VS Code.** The gate template
+  (`graqle/data/claude_gate/settings.json`) now ships with a full `permissions.allow`
+  list for all `graq_*` and `kogni_*` MCP tools. Previously, Claude Code would silently
+  wait for a permission dialog that never rendered in the VS Code extension, causing
+  sessions to appear stuck. Users on existing installations: run `graq gate-install --force`
+  once to apply the fix.
+
+- **`pyproject.toml` version string.** Escaped backslash in `version = "0.53.1\"` caused
+  `tomllib.TOMLDecodeError` on `pip install` — broke all CI jobs. Fixed.
 
 ---
 
