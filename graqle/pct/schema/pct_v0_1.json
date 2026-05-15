@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pct.opsf.org/schema/0.1/pct.json",
+  "title": "Proof Claims Token",
+  "description": "JSON Schema for PCT payload validation — Proof Claims Token Specification v0.1",
+  "type": "object",
+  "required": [
+    "pct_id",
+    "issued_at",
+    "valid_from",
+    "expires_at",
+    "issuer",
+    "subject_id",
+    "subject_type",
+    "data_origin",
+    "data_categories",
+    "lawful_basis",
+    "allowed_purposes",
+    "jurisdiction_rules",
+    "data_hash",
+    "hash_algorithm",
+    "hash_scope"
+  ],
+  "properties": {
+    "pct_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier for this PCT instance. Must be a UUID v4."
+    },
+    "issued_at": {
+      "type": "integer",
+      "description": "Timestamp at which the PCT was issued, in seconds since Unix epoch (UTC)."
+    },
+    "valid_from": {
+      "type": "integer",
+      "description": "Timestamp from which the PCT is valid. May equal issued_at."
+    },
+    "expires_at": {
+      "type": "integer",
+      "description": "Timestamp after which the PCT is no longer valid."
+    },
+    "issuer": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI identifying the issuing entity."
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "Identifier for the dataset, data flow, or processing subject."
+    },
+    "subject_type": {
+      "type": "string",
+      "enum": ["dataset", "data_flow", "api_request", "ai_interaction", "transfer"],
+      "description": "Category of the subject."
+    },
+    "data_origin": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "ISO 3166-1 alpha-2 country code of the jurisdiction where the data was originally collected."
+    },
+    "data_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "personal", "sensitive", "special_category", "health",
+          "financial", "biometric", "genetic", "criminal",
+          "communications", "children", "pseudonymised", "anonymised"
+        ]
+      },
+      "minItems": 1,
+      "description": "The categories of data present."
+    },
+    "lawful_basis": {
+      "type": "object",
+      "required": ["bases"],
+      "properties": {
+        "bases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "consent", "contract", "legal_obligation",
+              "vital_interests", "public_task", "legitimate_interests", "not_applicable"
+            ]
+          },
+          "minItems": 1,
+          "description": "The applicable lawful basis or bases."
+        },
+        "legitimate_interests_assessment_ref": {
+          "type": "string",
+          "format": "uri",
+          "description": "Required when bases includes legitimate_interests."
+        },
+        "legal_obligation_ref": {
+          "type": "string",
+          "format": "uri",
+          "description": "Required when bases includes legal_obligation."
+        },
+        "framework": {
+          "type": "string",
+          "description": "The regulatory framework under which the lawful basis is assessed."
+        }
+      }
+    },
+    "allowed_purposes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "The purposes for which the data may be used."
+    },
+    "consent_status": {
+      "type": "boolean",
+      "description": "Required when lawful_basis includes consent. True indicates valid, informed, current consent exists."
+    },
+    "consent_scope": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required when consent_status is true."
+    },
+    "consent_record_ref": {
+      "type": "string",
+      "format": "uri",
+      "description": "Reference to an external consent record."
+    },
+    "jurisdiction_rules": {
+      "type": "object",
+      "required": ["permitted_regions"],
+      "properties": {
+        "permitted_regions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Country codes in which processing is permitted."
+        },
+        "restricted_regions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Country codes in which processing is explicitly prohibited."
+        },
+        "residency_required": {
+          "type": "boolean",
+          "description": "If true, data must remain within permitted_regions at all times."
+        },
+        "sovereignty_framework": {
+          "type": "string",
+          "description": "Reference to a sovereignty or adequacy framework."
+        }
+      }
+    },
+    "transfer_restrictions": {
+      "type": "object",
+      "required": ["permitted_destinations", "transfer_mechanism"],
+      "properties": {
+        "permitted_destinations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Country codes to which transfer is permitted."
+        },
+        "transfer_mechanism": {
+          "type": "string",
+          "enum": [
+            "adequacy_decision", "standard_contractual_clauses",
+            "binding_corporate_rules", "derogation", "not_required", "other"
+          ],
+          "description": "The legal mechanism authorising the transfer."
+        },
+        "transfer_mechanism_ref": {
+          "type": "string",
+          "format": "uri",
+          "description": "Reference to the specific instrument authorising the transfer."
+        },
+        "onward_transfer_permitted": {
+          "type": "boolean",
+          "description": "Whether the recipient may further transfer the data."
+        }
+      }
+    },
+    "retention_limit": {
+      "type": "string",
+      "description": "ISO 8601 duration. The maximum period for which the data may be retained (e.g. P2Y)."
+    },
+    "automated_decision_flag": {
+      "type": "boolean",
+      "description": "Set to true if the data may be used in automated decision-making subject to Article 22 GDPR."
+    },
+    "data_hash": {
+      "type": "string",
+      "description": "Cryptographic hash of the canonical serialised form of the data payload at the time of token issuance. Base64url-encoded."
+    },
+    "hash_algorithm": {
+      "type": "string",
+      "enum": ["sha-256", "sha-384", "sha-512"],
+      "description": "The hashing algorithm used to produce data_hash. MD5 and SHA-1 are prohibited."
+    },
+    "hash_scope": {
+      "type": "string",
+      "enum": ["full_payload", "merkle_root"],
+      "description": "Defines what was hashed. full_payload for entire payload, merkle_root for Merkle tree structure."
+    },
+    "data_format": {
+      "type": "string",
+      "description": "MIME type or format descriptor of the data payload at the time of hashing (e.g. application/json, text/csv)."
+    },
+    "ai_context": {
+      "type": "object",
+      "required": ["model_id", "model_region", "risk_tier", "prohibited_use_check"],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Identifier for the AI model being invoked."
+        },
+        "model_region": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "ISO 3166-1 alpha-2 code of the jurisdiction in which the model will process the data."
+        },
+        "risk_tier": {
+          "type": "string",
+          "enum": ["minimal", "limited", "high", "unacceptable"],
+          "description": "AI risk classification under the EU AI Act or equivalent."
+        },
+        "prohibited_use_check": {
+          "type": "boolean",
+          "description": "Attests that the intended use has been checked against the list of prohibited AI applications."
+        },
+        "human_oversight_required": {
+          "type": "boolean",
+          "description": "Whether human review of the AI output is required before any decision is actioned."
+        },
+        "training_data_flag": {
+          "type": "boolean",
+          "description": "Set to true if the data may be used to train, fine-tune, or evaluate the model."
+        },
+        "output_retention_permitted": {
+          "type": "boolean",
+          "description": "Whether AI-generated outputs derived from this data may be retained."
+        },
+        "conformity_assessment_ref": {
+          "type": "string",
+          "format": "uri",
+          "description": "For high-risk AI systems, reference to the conformity assessment documentation."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Extension namespace claims using the x-{framework}:{field} prefix convention.",
+      "additionalProperties": true
+    }
+  }
+}

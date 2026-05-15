@@ -42,6 +42,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "cryptography>=42.0",
     "jsonschema>=4.0",
     "networkx>=3.0",
     "numpy>=1.24",
