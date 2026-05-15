@@ -109,6 +109,10 @@ marketing/
 social-media/
 live-demos/
 docs/
+# CR-009: EU AI Act compliance docs are PUBLIC-FACING and must be tracked
+# despite the broader docs/ ignore. Specific sub-tree allow-list.
+!docs/compliance/
+!docs/compliance/**
 .graqle/
 .mcp.json
 graqle.yaml
