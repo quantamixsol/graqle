@@ -365,6 +365,15 @@ class GovernancePolicyConfig(BaseModel):
     edit_batch_max: int = Field(default=10, ge=1)  # CG-04: max files per batch graq_edit call
     gcc_auto_commit: bool = False           # CG-05: auto-write GCC COMMIT after git commit
 
+    # —— CG-MKT-01: EU AI Act Article 14 oversight gate ——————————————————————
+    # Threshold below which automated write paths (graq edit / apply / auto)
+    # REFUSE when --human-review-required is set or GRAQLE_EU_AI_ACT_MODE=on.
+    # 0.75 is a PLACEHOLDER pending R25-EU-CALIB-01 (Research-Team-owned
+    # calibration spike). The refusal envelope surfaces threshold_status to
+    # signal whether the value is calibrated. See
+    # graqle.compliance.article_14_gate.
+    human_review_required_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
+
     @model_validator(mode="after")
     def _validate_edit_enforcement_requires_plan(self) -> "GovernancePolicyConfig":
         """edit_enforcement=True requires plan_mandatory=True.
