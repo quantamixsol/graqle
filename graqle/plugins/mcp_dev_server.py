@@ -5372,6 +5372,45 @@ class KogniDevServer:
             except Exception:  # noqa: BLE001 — never let probe wiring fail envelope
                 pass
 
+            # CR-009 PR-009d: attach EU AI Act compliance + AI-disclosure
+            # blocks when GRAQLE_EU_AI_ACT_MODE is on. Fields are additive
+            # and OMITTED entirely when mode is off, so existing consumers
+            # see a bit-for-bit unchanged envelope. The disclosure module
+            # is contractually never-raises (LOW-risk impact radius 1).
+            try:
+                from graqle.compliance.disclosure import (
+                    build_ai_disclosure,
+                    build_compliance_envelope,
+                    is_eu_ai_act_mode_on,
+                    maybe_emit_session_banner,
+                )
+                if is_eu_ai_act_mode_on():
+                    # Best-effort backend label — falls back to "unknown".
+                    # ``getattr`` guards against future ReasoningResult
+                    # shapes that don't expose ``backend_status`` /
+                    # ``metadata`` directly. The cascading ``or`` chain
+                    # short-circuits the moment a non-empty string is found.
+                    _meta = getattr(result, "metadata", None) or {}
+                    _backend = (
+                        getattr(result, "backend_status", None)
+                        or _meta.get("backend")
+                        or "unknown"
+                    )
+                    result_dict["ai_disclosure"] = build_ai_disclosure(
+                        backend=str(_backend)
+                    ).to_dict()
+                    result_dict["compliance"] = build_compliance_envelope().to_dict()
+                    # Article 50(1) stderr banner — once per session.
+                    maybe_emit_session_banner(
+                        confidence=result.confidence,
+                        backend=str(_backend),
+                    )
+            except Exception as _disclosure_exc:  # noqa: BLE001 — never let disclosure wiring fail envelope
+                logger.debug(
+                    "AI-disclosure wiring failed (envelope still emitted): %s",
+                    _disclosure_exc,
+                )
+
             duration_ms = (_time.monotonic() - t0) * 1000
 
             # Governance audit
