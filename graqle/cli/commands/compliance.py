@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -188,9 +189,21 @@ def _build_status_payload(repo_root: Path) -> dict[str, Any]:
     audit_meta = _read_audit_trail_metadata(
         safe_root / ".graqle" / "governance" / "audit"
     )
+    # v0.57.0: embed the CR-010 subsystem status under a dedicated key
+    # so the existing JSON schema stays backward-compatible (the old
+    # `eu_ai_act_mode` boolean still appears at top level; the new
+    # subsystem detail lives in its own nested envelope). Schema is
+    # versioned independently from this status payload's own
+    # schema_version.
+    try:
+        from graqle.compliance.switch_status import build_switch_status
+        eu_ai_act_subsystems = build_switch_status()
+    except ImportError:
+        eu_ai_act_subsystems = {"status": "unavailable"}
     return {
         "graqle_version": __version__,
         "eu_ai_act_mode": _read_eu_ai_act_mode(),
+        "eu_ai_act_subsystems": eu_ai_act_subsystems,
         "articles_covered": [a[0] for a in ARTICLES_COVERED],
         "articles_detail": [
             {
@@ -202,6 +215,11 @@ def _build_status_payload(repo_root: Path) -> dict[str, Any]:
         ],
         "system_card_url": SYSTEM_CARD_URL,
         "audit_trail": audit_meta,
+        # Schema version stays at "1" because the new `eu_ai_act_subsystems`
+        # field is purely ADDITIVE — existing consumers that pin on schema
+        # v1 still see every field they relied on. The subsystems envelope
+        # has its OWN versioning (`switch_status.SWITCH_STATUS_SCHEMA_VERSION`)
+        # so a future breaking change there doesn't force a top-level bump.
         "schema_version": "1",
     }
 
@@ -634,3 +652,569 @@ def export_command(
             f"[green]Exported {session_count} session(s) to {output}"
             f"{sidecar_note}.[/green]"
         )
+
+
+# ---------------------------------------------------------------------------
+# PR-010d — `graq compliance baseline-doc generate` (CG-MKT-02 / Q16.1)
+# ---------------------------------------------------------------------------
+
+
+baseline_doc_app = typer.Typer(
+    name="baseline-doc",
+    help="VERITAS Q16.1 baseline-document operations (EU AI Act Article 11).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(baseline_doc_app)
+
+
+@baseline_doc_app.command(name="generate")
+def baseline_doc_generate_command(
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (JSONL by default, PDF when --format pdf).",
+    ),
+    signoff: str = typer.Option(
+        None,
+        "--signoff",
+        help="Email or identity of the human operator countersigning the artefact.",
+    ),
+    output_format: str = typer.Option(
+        "jsonl",
+        "--format",
+        "-f",
+        help="Output format: jsonl (default, append-only) or pdf (requires reportlab).",
+    ),
+    test_archive_ref: str = typer.Option(
+        None,
+        "--test-archive-ref",
+        help="SHA-256 of the CI test-run record (operator-supplied via CI).",
+    ),
+) -> None:
+    """Generate a fresh VERITAS Q16.1 baseline document.
+
+    Produces a dated, version-pinned baseline document with quantitative
+    metrics + test archive ref + version records + optional stakeholder
+    sign-off. Maps to EU AI Act Article 11 + ISO 42001 Cl. 6.2.
+
+    The artefact is content-addressed: identical SDK version + identical
+    metrics produce the same ``baseline_id`` (a SHA-256 hex digest).
+
+    See ``docs/compliance/eu-ai-act/baseline-document-schema.md`` for the
+    full schema and regulatory mapping.
+    """
+    from graqle.compliance.baseline_doc import (
+        build_baseline_document,
+        to_jsonl,
+        to_pdf,
+    )
+
+    fmt = output_format.strip().lower()
+    if fmt not in ("jsonl", "pdf"):
+        console.print(
+            f"[red]Invalid --format {output_format!r}; "
+            f"expected 'jsonl' or 'pdf'.[/red]"
+        )
+        raise typer.Exit(2)
+
+    doc = build_baseline_document(
+        signoff=signoff,
+        test_archive_ref=test_archive_ref,
+    )
+
+    out_path = Path(output).expanduser()
+    if fmt == "jsonl":
+        to_jsonl(doc, out_path)
+    else:  # pdf
+        try:
+            to_pdf(doc, out_path)
+        except RuntimeError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(2) from exc
+
+    signoff_str = f" (signoff: {signoff})" if signoff else " (unsigned)"
+    console.print(
+        f"[green]baseline_id={doc.baseline_id[:16]}… written to "
+        f"{out_path}{signoff_str}.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-010e — `graq compliance periodic-assessment run` (CG-MKT-03 / Q16.3)
+# ---------------------------------------------------------------------------
+
+
+periodic_assessment_app = typer.Typer(
+    name="periodic-assessment",
+    help="VERITAS Q16.3 periodic-assessment operations (EU AI Act Article 9 + ISO 42001 Cl. 9.1).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(periodic_assessment_app)
+
+
+@periodic_assessment_app.command(name="run")
+def periodic_assessment_run_command(
+    period_start: str = typer.Option(
+        ...,
+        "--period-start",
+        help="Window start as ISO 8601 (e.g. 2026-06-01T00:00:00Z).",
+    ),
+    period_end: str = typer.Option(
+        ...,
+        "--period-end",
+        help="Window end as ISO 8601 (exclusive).",
+    ),
+    cadence: str = typer.Option(
+        "monthly",
+        "--cadence",
+        help="Cadence label: monthly | quarterly | annual.",
+    ),
+    traces_file: str = typer.Option(
+        None,
+        "--traces-file",
+        help="Path to JSONL trace corpus. When omitted, an empty corpus is assumed (the assessment will report n_calls=0).",
+    ),
+    baseline_id: str = typer.Option(
+        "",
+        "--baseline-id",
+        help="SHA-256 of the most recent Q16.1 baseline document (AC-Q163-6).",
+    ),
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (JSONL).",
+    ),
+) -> None:
+    """Generate a VERITAS Q16.3 periodic-assessment artefact.
+
+    Reads R18 trace corpus (or operator-supplied JSONL), computes
+    quality metrics + remediation candidates per R25-EU04 § Q16.3,
+    emits JSONL artefact linked to the most recent baseline_id.
+    """
+    from graqle.compliance.periodic_assessment import (
+        assess_window,
+        to_jsonl,
+    )
+
+    cadence_clean = cadence.strip().lower()
+    if cadence_clean not in ("monthly", "quarterly", "annual"):
+        console.print(
+            f"[red]Invalid --cadence {cadence!r}; expected "
+            f"monthly | quarterly | annual.[/red]"
+        )
+        raise typer.Exit(2)
+
+    # Load traces from JSONL when supplied.
+    traces: list = []
+    if traces_file:
+        tp = Path(traces_file).expanduser()
+        if not tp.exists():
+            console.print(f"[red]Traces file not found: {tp}[/red]")
+            raise typer.Exit(2)
+        try:
+            with tp.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    traces.append(json.loads(line))
+        except (OSError, json.JSONDecodeError) as exc:
+            console.print(f"[red]Cannot parse traces file: {exc}[/red]")
+            raise typer.Exit(2) from exc
+
+    assessment = assess_window(
+        traces=traces,
+        period_start_iso=period_start,
+        period_end_iso=period_end,
+        cadence=cadence_clean,
+        baseline_id=baseline_id,
+    )
+    out_path = Path(output).expanduser()
+    to_jsonl(assessment, out_path)
+    console.print(
+        f"[green]assessment_id={assessment.assessment_id[:16]}… "
+        f"({assessment.n_calls} calls, "
+        f"{len(assessment.remediation_actions)} remediation candidates) "
+        f"written to {out_path}.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-010e — `graq compliance feedback record` + `feedback ingest` (CG-MKT-04 / Q16.5)
+# ---------------------------------------------------------------------------
+
+
+feedback_app = typer.Typer(
+    name="feedback",
+    help="VERITAS Q16.5 feedback-trend operations (OBSERVATION ONLY per Q-PATENT 2026-05-22).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(feedback_app)
+
+
+@feedback_app.command(name="record")
+def feedback_record_command(
+    rating: float = typer.Option(
+        ...,
+        "--rating",
+        "-r",
+        help="Numeric rating (typically 1.0..5.0).",
+    ),
+    session_id: str = typer.Option(
+        None,
+        "--session-id",
+        help="GraQle session ID for cross-linking.",
+    ),
+    note: str = typer.Option(
+        None,
+        "--note",
+        help="Free-text note (max 4096 chars).",
+    ),
+    output: str = typer.Option(
+        ".graqle/feedback/feedback.jsonl",
+        "--output",
+        "-o",
+        help="Output JSONL log (append-only).",
+    ),
+) -> None:
+    """Record a feedback observation (AC-Q165-1).
+
+    Writes a :class:`~graqle.compliance.evidence_state.FeedbackRecord`
+    to the append-only log. Observation-only — does NOT trigger any
+    recalibration or pipeline state change per the Q-PATENT 2026-05-22
+    boundary.
+    """
+    from graqle.compliance.evidence_state import (
+        FeedbackRecord,
+        append_feedback_record,
+    )
+    from datetime import datetime, timezone
+
+    rec = FeedbackRecord(
+        source="explicit_cli",
+        rating=float(rating),
+        timestamp_iso=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        session_id=session_id,
+        note=note,
+    )
+    try:
+        append_feedback_record(rec, Path(output).expanduser())
+    except (TypeError, ValueError) as exc:
+        console.print(f"[red]Invalid feedback record: {exc}[/red]")
+        raise typer.Exit(2) from exc
+    console.print(
+        f"[green]Recorded explicit_cli rating={rating} to {output}.[/green]"
+    )
+
+
+@feedback_app.command(name="ingest")
+def feedback_ingest_command(
+    input_file: str = typer.Option(
+        ...,
+        "--file",
+        "-f",
+        help="Path to JSONL input with external feedback records.",
+    ),
+    output: str = typer.Option(
+        ".graqle/feedback/feedback.jsonl",
+        "--output",
+        "-o",
+        help="Output JSONL log to append to.",
+    ),
+) -> None:
+    """Ingest external feedback JSONL (AC-Q165-2)."""
+    from graqle.compliance.evidence_state import ingest_feedback_jsonl
+
+    try:
+        records = ingest_feedback_jsonl(
+            Path(input_file).expanduser(),
+            Path(output).expanduser(),
+        )
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+    except ValueError as exc:
+        console.print(f"[red]Invalid feedback JSONL: {exc}[/red]")
+        raise typer.Exit(2) from exc
+    console.print(
+        f"[green]Ingested {len(records)} record(s) from {input_file} "
+        f"into {output}.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-010f — `graq compliance eur-lex-check` + `eur-lex-refresh` (CG-MKT-06)
+# ---------------------------------------------------------------------------
+
+
+@compliance_app.command(name="eur-lex-check")
+def eur_lex_check_command(
+    docs_dir: str = typer.Option(
+        "docs/compliance",
+        "--docs-dir",
+        help="Root directory containing markdown files that reference EUR-Lex URLs.",
+    ),
+    baseline: str = typer.Option(
+        ".graqle/eur-lex-baseline.json",
+        "--baseline",
+        help="Path to the committed baseline JSON file.",
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Skip network fetches (air-gapped operators).",
+    ),
+) -> None:
+    """Check EUR-Lex authoritative-source drift vs the committed baseline.
+
+    Per CG-MKT-06. Runs weekly in CI. Returns exit 1 when any EUR-Lex
+    URL referenced in compliance docs has drifted vs the baseline,
+    so the compliance team can review the regulator-side change before
+    a customer audit team notices a stale citation.
+    """
+    from graqle.compliance.eur_lex_guard import check_drift
+
+    report = check_drift(
+        search_roots=[Path(docs_dir).expanduser()],
+        baseline_path=Path(baseline).expanduser(),
+        offline=offline,
+    )
+    sys.stdout.write(json.dumps(report.to_dict(), indent=2) + "\n")
+    if report.has_drift:
+        console.print(
+            f"[red]EUR-Lex drift detected: {report.n_drifted} drifted, "
+            f"{report.n_missing_from_baseline} new, "
+            f"{report.n_missing_from_current} removed, "
+            f"{report.n_fetch_errors} fetch errors.[/red]"
+        )
+        raise typer.Exit(1)
+    console.print(
+        f"[green]No EUR-Lex drift. "
+        f"{report.n_unchanged}/{report.n_urls_checked} URLs verified.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# v0.57.0 — `graq compliance switch` (single-source UX for the EU AI Act toggle)
+# ---------------------------------------------------------------------------
+
+
+switch_app = typer.Typer(
+    name="switch",
+    help=(
+        "EU AI Act mode switch — consolidated status across every "
+        "compliance subsystem (Article 14, Article 50, claim-limits, "
+        "baseline-doc, periodic-assessment, feedback-trend, EUR-Lex guard)."
+    ),
+    no_args_is_help=True,
+)
+compliance_app.add_typer(switch_app)
+
+
+_SWITCH_ENV_VAR: str = "GRAQLE_EU_AI_ACT_MODE"
+_DISCLOSURE_ENV_VAR: str = "GRAQLE_AI_DISCLOSURE"
+
+
+@switch_app.command(name="status")
+def switch_status_command(
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text (human-readable) or json (machine-readable).",
+    ),
+) -> None:
+    """Show the consolidated EU AI Act mode posture.
+
+    Surfaces all 7 EU-AI-Act-aware subsystems in one envelope:
+    Article 50 disclosure, Article 14 human-review gate, R25-EU11
+    claim-limits, VERITAS Q16.1 baseline-doc, Q16.3 periodic-assessment,
+    Q16.5 OBSERVATION-ONLY feedback-trend, EUR-Lex drift guard.
+    """
+    from graqle.compliance.switch_status import build_switch_status
+
+    status = build_switch_status()
+
+    fmt = output_format.strip().lower()
+    if fmt == "json":
+        sys.stdout.write(json.dumps(status, indent=2, sort_keys=True) + "\n")
+        return
+    if fmt != "text":
+        console.print(
+            f"[red]Invalid --format {output_format!r}; "
+            f"expected 'text' or 'json'.[/red]"
+        )
+        raise typer.Exit(2)
+
+    # Rich text rendering.
+    master = status["master_switch"]
+    is_on = master["is_on"]
+    mode_color = "green" if is_on else "yellow"
+    mode_label = "ON" if is_on else "OFF (default)"
+
+    console.print()
+    console.print("[bold]GraQle EU AI Act mode switch[/bold]")
+    console.print(
+        f"  [bold]{_SWITCH_ENV_VAR}:[/bold] [{mode_color}]{mode_label}[/{mode_color}]"
+    )
+    raw = master["raw_value"]
+    if raw:
+        console.print(f"  Raw value: {raw!r}")
+    console.print(
+        f"  Truthy values accepted: "
+        f"{', '.join(master['truthy_values_accepted'])}"
+    )
+
+    from rich.table import Table
+
+    table = Table(title="EU AI Act subsystems", show_lines=False)
+    table.add_column("Subsystem", style="cyan", no_wrap=True)
+    table.add_column("Armed", style="white")
+    table.add_column("Anchor", style="dim")
+
+    subsystems = status["subsystems"]
+    rows = [
+        ("ai_disclosure", "article_50_user_disclosure"),
+        ("article_14_human_review_gate", "article_14_human_review_gate"),
+        ("claim_limits", "claim_limits_default_deny"),
+        ("baseline_document", "veritas_q161_baseline_document"),
+        ("periodic_assessment", "veritas_q163_periodic_assessment"),
+        ("feedback_trend", "veritas_q165_feedback_trend"),
+        ("eur_lex_drift_guard", "eur_lex_drift_guard"),
+    ]
+    for key, _ in rows:
+        s = subsystems.get(key, {})
+        if "status" in s:
+            armed = f"[red]unavailable[/red]"
+            anchor = s.get("error", "")[:60]
+        else:
+            armed_bool = s.get("armed", False)
+            armed = (
+                f"[green]ARMED[/green]" if armed_bool
+                else f"[yellow]ready (env-gated)[/yellow]"
+            )
+            anchor = s.get("anchor", "")
+        table.add_row(key, armed, anchor[:80])
+    console.print(table)
+
+    summary = status["summary"]
+    console.print(
+        f"\nSummary: {summary['subsystems_available']}/"
+        f"{summary['subsystems_total']} subsystems available, "
+        f"{summary['subsystems_armed_when_mode_on']} armed."
+    )
+    if not is_on:
+        console.print(
+            "\n[dim]Run `graq compliance switch on` to enable EU AI Act mode "
+            "for this shell session.[/dim]"
+        )
+
+
+@switch_app.command(name="on")
+def switch_on_command(
+    eval_format: str = typer.Option(
+        "posix",
+        "--shell",
+        help="Shell dialect for the eval snippet: posix (bash/zsh) | powershell | cmd.",
+    ),
+) -> None:
+    """Print a shell snippet that turns EU AI Act mode ON for this session.
+
+    The mode is controlled by the ``GRAQLE_EU_AI_ACT_MODE`` environment
+    variable. This command does NOT modify your shell directly (that
+    requires ``eval`` / ``source``) — it emits a snippet for you to
+    apply, then verifies what the snippet *would* set.
+
+    Usage:
+
+        eval "$(graq compliance switch on)"           # bash/zsh
+        graq compliance switch on --shell powershell | Out-String | Invoke-Expression   # PowerShell
+    """
+    dialect = eval_format.strip().lower()
+    if dialect == "posix":
+        sys.stdout.write(f'export {_SWITCH_ENV_VAR}=on\n')
+    elif dialect == "powershell":
+        sys.stdout.write(f'$env:{_SWITCH_ENV_VAR} = "on"\n')
+    elif dialect == "cmd":
+        sys.stdout.write(f'set {_SWITCH_ENV_VAR}=on\n')
+    else:
+        console.print(
+            f"[red]Unknown --shell {eval_format!r}; "
+            f"expected posix | powershell | cmd.[/red]"
+        )
+        raise typer.Exit(2)
+    console.print(
+        f"[dim]# Apply with: eval \"$(graq compliance switch on)\" (bash/zsh) "
+        f"or pipe to Invoke-Expression (PowerShell).[/dim]",
+    )
+
+
+@switch_app.command(name="off")
+def switch_off_command(
+    eval_format: str = typer.Option(
+        "posix",
+        "--shell",
+        help="Shell dialect for the eval snippet: posix (bash/zsh) | powershell | cmd.",
+    ),
+) -> None:
+    """Print a shell snippet that turns EU AI Act mode OFF for this session.
+
+    Symmetric to ``graq compliance switch on``.
+    """
+    dialect = eval_format.strip().lower()
+    if dialect == "posix":
+        sys.stdout.write(f'unset {_SWITCH_ENV_VAR}\n')
+    elif dialect == "powershell":
+        sys.stdout.write(f'Remove-Item Env:{_SWITCH_ENV_VAR} -ErrorAction SilentlyContinue\n')
+    elif dialect == "cmd":
+        sys.stdout.write(f'set {_SWITCH_ENV_VAR}=\n')
+    else:
+        console.print(
+            f"[red]Unknown --shell {eval_format!r}; "
+            f"expected posix | powershell | cmd.[/red]"
+        )
+        raise typer.Exit(2)
+
+
+@compliance_app.command(name="eur-lex-refresh")
+def eur_lex_refresh_command(
+    docs_dir: str = typer.Option(
+        "docs/compliance",
+        "--docs-dir",
+        help="Root directory to scan for EUR-Lex URLs.",
+    ),
+    baseline: str = typer.Option(
+        ".graqle/eur-lex-baseline.json",
+        "--baseline",
+        help="Path to write the refreshed baseline JSON.",
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Skip network fetches and write an empty baseline.",
+    ),
+) -> None:
+    """Refresh the EUR-Lex baseline (operator review then commit).
+
+    Per CG-MKT-06. Run this after a human has reviewed the drift report
+    from ``eur-lex-check`` and confirmed that the regulator-side change
+    is acceptable (or that the docs have been updated to track it).
+    Bakes the new content hashes into the baseline file.
+    """
+    from graqle.compliance.eur_lex_guard import refresh_baseline
+
+    entries, errors = refresh_baseline(
+        search_roots=[Path(docs_dir).expanduser()],
+        baseline_path=Path(baseline).expanduser(),
+        offline=offline,
+    )
+    if errors:
+        for url, err in errors:
+            console.print(f"[yellow]fetch failed: {url} → {err}[/yellow]")
+    console.print(
+        f"[green]EUR-Lex baseline written: "
+        f"{len(entries)} URL(s) hashed, "
+        f"{len(errors)} fetch error(s).[/green]"
+    )
