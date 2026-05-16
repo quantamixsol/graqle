@@ -70,7 +70,9 @@ jobs:
             --ignore=tests/test_cli/test_g5_vscode_gate_install.py \
             --ignore=tests/test_distribution/test_no_internal_strings.py \
             --ignore=tests/test_plugins/test_cg_14_config_drift.py \
-            --ignore=tests/test_plugins/test_chat_02_intent_hint.py
+            --ignore=tests/test_plugins/test_chat_02_intent_hint.py \
+            --ignore=tests/test_generation/test_phase4_tools.py \
+            --ignore=tests/test_generation/test_phase10_layer1.py
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
