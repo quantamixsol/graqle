@@ -720,3 +720,207 @@ def baseline_doc_generate_command(
         f"[green]baseline_id={doc.baseline_id[:16]}… written to "
         f"{out_path}{signoff_str}.[/green]"
     )
+
+
+# ---------------------------------------------------------------------------
+# PR-010e — `graq compliance periodic-assessment run` (CG-MKT-03 / Q16.3)
+# ---------------------------------------------------------------------------
+
+
+periodic_assessment_app = typer.Typer(
+    name="periodic-assessment",
+    help="VERITAS Q16.3 periodic-assessment operations (EU AI Act Article 9 + ISO 42001 Cl. 9.1).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(periodic_assessment_app)
+
+
+@periodic_assessment_app.command(name="run")
+def periodic_assessment_run_command(
+    period_start: str = typer.Option(
+        ...,
+        "--period-start",
+        help="Window start as ISO 8601 (e.g. 2026-06-01T00:00:00Z).",
+    ),
+    period_end: str = typer.Option(
+        ...,
+        "--period-end",
+        help="Window end as ISO 8601 (exclusive).",
+    ),
+    cadence: str = typer.Option(
+        "monthly",
+        "--cadence",
+        help="Cadence label: monthly | quarterly | annual.",
+    ),
+    traces_file: str = typer.Option(
+        None,
+        "--traces-file",
+        help="Path to JSONL trace corpus. When omitted, an empty corpus is assumed (the assessment will report n_calls=0).",
+    ),
+    baseline_id: str = typer.Option(
+        "",
+        "--baseline-id",
+        help="SHA-256 of the most recent Q16.1 baseline document (AC-Q163-6).",
+    ),
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (JSONL).",
+    ),
+) -> None:
+    """Generate a VERITAS Q16.3 periodic-assessment artefact.
+
+    Reads R18 trace corpus (or operator-supplied JSONL), computes
+    quality metrics + remediation candidates per R25-EU04 § Q16.3,
+    emits JSONL artefact linked to the most recent baseline_id.
+    """
+    from graqle.compliance.periodic_assessment import (
+        assess_window,
+        to_jsonl,
+    )
+
+    cadence_clean = cadence.strip().lower()
+    if cadence_clean not in ("monthly", "quarterly", "annual"):
+        console.print(
+            f"[red]Invalid --cadence {cadence!r}; expected "
+            f"monthly | quarterly | annual.[/red]"
+        )
+        raise typer.Exit(2)
+
+    # Load traces from JSONL when supplied.
+    traces: list = []
+    if traces_file:
+        tp = Path(traces_file).expanduser()
+        if not tp.exists():
+            console.print(f"[red]Traces file not found: {tp}[/red]")
+            raise typer.Exit(2)
+        try:
+            with tp.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    traces.append(json.loads(line))
+        except (OSError, json.JSONDecodeError) as exc:
+            console.print(f"[red]Cannot parse traces file: {exc}[/red]")
+            raise typer.Exit(2) from exc
+
+    assessment = assess_window(
+        traces=traces,
+        period_start_iso=period_start,
+        period_end_iso=period_end,
+        cadence=cadence_clean,
+        baseline_id=baseline_id,
+    )
+    out_path = Path(output).expanduser()
+    to_jsonl(assessment, out_path)
+    console.print(
+        f"[green]assessment_id={assessment.assessment_id[:16]}… "
+        f"({assessment.n_calls} calls, "
+        f"{len(assessment.remediation_actions)} remediation candidates) "
+        f"written to {out_path}.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-010e — `graq compliance feedback record` + `feedback ingest` (CG-MKT-04 / Q16.5)
+# ---------------------------------------------------------------------------
+
+
+feedback_app = typer.Typer(
+    name="feedback",
+    help="VERITAS Q16.5 feedback-trend operations (OBSERVATION ONLY per Q-PATENT 2026-05-22).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(feedback_app)
+
+
+@feedback_app.command(name="record")
+def feedback_record_command(
+    rating: float = typer.Option(
+        ...,
+        "--rating",
+        "-r",
+        help="Numeric rating (typically 1.0..5.0).",
+    ),
+    session_id: str = typer.Option(
+        None,
+        "--session-id",
+        help="GraQle session ID for cross-linking.",
+    ),
+    note: str = typer.Option(
+        None,
+        "--note",
+        help="Free-text note (max 4096 chars).",
+    ),
+    output: str = typer.Option(
+        ".graqle/feedback/feedback.jsonl",
+        "--output",
+        "-o",
+        help="Output JSONL log (append-only).",
+    ),
+) -> None:
+    """Record a feedback observation (AC-Q165-1).
+
+    Writes a :class:`~graqle.compliance.evidence_state.FeedbackRecord`
+    to the append-only log. Observation-only — does NOT trigger any
+    recalibration or pipeline state change per the Q-PATENT 2026-05-22
+    boundary.
+    """
+    from graqle.compliance.evidence_state import (
+        FeedbackRecord,
+        append_feedback_record,
+    )
+    from datetime import datetime, timezone
+
+    rec = FeedbackRecord(
+        source="explicit_cli",
+        rating=float(rating),
+        timestamp_iso=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        session_id=session_id,
+        note=note,
+    )
+    try:
+        append_feedback_record(rec, Path(output).expanduser())
+    except (TypeError, ValueError) as exc:
+        console.print(f"[red]Invalid feedback record: {exc}[/red]")
+        raise typer.Exit(2) from exc
+    console.print(
+        f"[green]Recorded explicit_cli rating={rating} to {output}.[/green]"
+    )
+
+
+@feedback_app.command(name="ingest")
+def feedback_ingest_command(
+    input_file: str = typer.Option(
+        ...,
+        "--file",
+        "-f",
+        help="Path to JSONL input with external feedback records.",
+    ),
+    output: str = typer.Option(
+        ".graqle/feedback/feedback.jsonl",
+        "--output",
+        "-o",
+        help="Output JSONL log to append to.",
+    ),
+) -> None:
+    """Ingest external feedback JSONL (AC-Q165-2)."""
+    from graqle.compliance.evidence_state import ingest_feedback_jsonl
+
+    try:
+        records = ingest_feedback_jsonl(
+            Path(input_file).expanduser(),
+            Path(output).expanduser(),
+        )
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+    except ValueError as exc:
+        console.print(f"[red]Invalid feedback JSONL: {exc}[/red]")
+        raise typer.Exit(2) from exc
+    console.print(
+        f"[green]Ingested {len(records)} record(s) from {input_file} "
+        f"into {output}.[/green]"
+    )
