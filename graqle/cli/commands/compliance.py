@@ -634,3 +634,89 @@ def export_command(
             f"[green]Exported {session_count} session(s) to {output}"
             f"{sidecar_note}.[/green]"
         )
+
+
+# ---------------------------------------------------------------------------
+# PR-010d — `graq compliance baseline-doc generate` (CG-MKT-02 / Q16.1)
+# ---------------------------------------------------------------------------
+
+
+baseline_doc_app = typer.Typer(
+    name="baseline-doc",
+    help="VERITAS Q16.1 baseline-document operations (EU AI Act Article 11).",
+    no_args_is_help=True,
+)
+compliance_app.add_typer(baseline_doc_app)
+
+
+@baseline_doc_app.command(name="generate")
+def baseline_doc_generate_command(
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (JSONL by default, PDF when --format pdf).",
+    ),
+    signoff: str = typer.Option(
+        None,
+        "--signoff",
+        help="Email or identity of the human operator countersigning the artefact.",
+    ),
+    output_format: str = typer.Option(
+        "jsonl",
+        "--format",
+        "-f",
+        help="Output format: jsonl (default, append-only) or pdf (requires reportlab).",
+    ),
+    test_archive_ref: str = typer.Option(
+        None,
+        "--test-archive-ref",
+        help="SHA-256 of the CI test-run record (operator-supplied via CI).",
+    ),
+) -> None:
+    """Generate a fresh VERITAS Q16.1 baseline document.
+
+    Produces a dated, version-pinned baseline document with quantitative
+    metrics + test archive ref + version records + optional stakeholder
+    sign-off. Maps to EU AI Act Article 11 + ISO 42001 Cl. 6.2.
+
+    The artefact is content-addressed: identical SDK version + identical
+    metrics produce the same ``baseline_id`` (a SHA-256 hex digest).
+
+    See ``docs/compliance/eu-ai-act/baseline-document-schema.md`` for the
+    full schema and regulatory mapping.
+    """
+    from graqle.compliance.baseline_doc import (
+        build_baseline_document,
+        to_jsonl,
+        to_pdf,
+    )
+
+    fmt = output_format.strip().lower()
+    if fmt not in ("jsonl", "pdf"):
+        console.print(
+            f"[red]Invalid --format {output_format!r}; "
+            f"expected 'jsonl' or 'pdf'.[/red]"
+        )
+        raise typer.Exit(2)
+
+    doc = build_baseline_document(
+        signoff=signoff,
+        test_archive_ref=test_archive_ref,
+    )
+
+    out_path = Path(output).expanduser()
+    if fmt == "jsonl":
+        to_jsonl(doc, out_path)
+    else:  # pdf
+        try:
+            to_pdf(doc, out_path)
+        except RuntimeError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(2) from exc
+
+    signoff_str = f" (signoff: {signoff})" if signoff else " (unsigned)"
+    console.print(
+        f"[green]baseline_id={doc.baseline_id[:16]}… written to "
+        f"{out_path}{signoff_str}.[/green]"
+    )
