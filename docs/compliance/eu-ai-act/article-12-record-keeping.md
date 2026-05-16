@@ -87,6 +87,21 @@ Fields:
 - **No PII in input fields by default** — `secret_patterns.scan_for_secrets` is run on every input value before write; matches are replaced with `<redacted: type>`.
 - **Reason strings capped at 200 chars** (CR-004 PR-004a) to bound disclosure.
 
+> **Auditor note (R-COSM-01 added in CR-010 PR-010b-1):** the `graq compliance export` JSONL is **UTF-8 text in canonical form** — each line is the session JSON serialised with `json.dumps(sort_keys=True, separators=(",", ":"))` and **no trailing CR or LF**. On Windows the on-disk file uses CRLF line terminators, so a naïve `sha256sum` of each line (e.g. via Git Bash `read`) hashes the CR-stripped line whereas the sidecar hashes the canonical-form text. **The sidecar SHA-256 is the authoritative reference.** To verify cross-platform, decode the line as UTF-8, strip a trailing `\r` if present, then hash:
+>
+> ```python
+> # cross-platform verification snippet
+> from pathlib import Path
+> import hashlib
+>
+> evidence = Path("evidence.jsonl").read_text(encoding="utf-8").splitlines()
+> sidecar = Path("evidence.jsonl.sha256").read_text(encoding="utf-8").splitlines()
+> for line, expected in zip(evidence, sidecar):
+>     actual = hashlib.sha256(line.encode("utf-8")).hexdigest()
+>     assert actual == expected, f"tamper detected: {line[:40]}..."
+> print(f"verified {len(evidence)} session lines against sidecar.")
+> ```
+
 ### 4. Retention
 
 - **Default retention:** infinite (logs accumulate). Configurable via `GraqleConfig.governance.audit_log_retention_days` (set to `0` for infinite).
