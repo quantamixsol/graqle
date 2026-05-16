@@ -209,7 +209,12 @@ class TestNeverRaises:
         build_switch_status()  # no assert: success == not raising
 
     def test_build_status_never_raises_with_garbage_env(self, monkeypatch):
-        monkeypatch.setenv("GRAQLE_EU_AI_ACT_MODE", "\x00\x01garbage\xff")
+        # Linux disallows NUL in env-var values at the OS level
+        # (os.environ raises ValueError: embedded null byte). Use
+        # control chars + high-bytes that ARE valid in env vars on all
+        # OSes but unusual enough to exercise the probe's
+        # "tolerates surprising input" contract.
+        monkeypatch.setenv("GRAQLE_EU_AI_ACT_MODE", "\x01\x02garbage\x7f")
         monkeypatch.setenv("GRAQLE_AI_DISCLOSURE", "weird")
         build_switch_status()
 
