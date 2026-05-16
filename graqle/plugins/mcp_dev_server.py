@@ -8778,6 +8778,63 @@ class KogniDevServer:
                 "preflight": preflight_raw,
             })
 
+        # CG-MKT-01: EU AI Act Article 14(4)(c)+(d) human-review gate.
+        # Armed when --human-review-required is set OR GRAQLE_EU_AI_ACT_MODE=on.
+        # Refuses when generation confidence is below the configured threshold
+        # (default 0.75 — PLACEHOLDER pending R25-EU-CALIB-01).
+        try:
+            from graqle.compliance.article_14_gate import (
+                check_article_14_human_review,
+                DEFAULT_HUMAN_REVIEW_THRESHOLD,
+            )
+            # Sentinel pass 3 BLOCKER-1/-2: defensive lookup. getattr() with
+            # default never raises, but extracting the chain step-by-step
+            # keeps the threshold a finite float even when config is absent.
+            _gate_cfg = getattr(self, "_config", None)
+            _gov_cfg = getattr(_gate_cfg, "governance", None) if _gate_cfg else None
+            _threshold = getattr(
+                _gov_cfg,
+                "human_review_required_threshold",
+                DEFAULT_HUMAN_REVIEW_THRESHOLD,
+            ) if _gov_cfg else DEFAULT_HUMAN_REVIEW_THRESHOLD
+            # generation_result may be None when caller passed an explicit diff
+            # (not generated). Use 0.0 confidence in that case — the gate
+            # decision will be refusal under any armed configuration, which
+            # is the correct fail-closed posture.
+            _gen_conf_raw = (generation_result or {}).get("confidence", 0.0)
+            try:
+                _gen_conf = float(_gen_conf_raw) if _gen_conf_raw is not None else 0.0
+            except (TypeError, ValueError):
+                _gen_conf = 0.0
+            _gate_result = check_article_14_human_review(
+                confidence=_gen_conf,
+                human_review_required=args.get("human_review_required"),
+                threshold=float(_threshold),
+                action_label="edit",
+            )
+            if not _gate_result.allowed:
+                _envelope = _gate_result.to_refusal_envelope()
+                _envelope["preflight"] = preflight_raw
+                if generation_result is not None:
+                    _envelope["generation"] = {
+                        "confidence": _gen_conf,
+                        "patches_count": len(generation_result.get("patches", [])),
+                    }
+                _envelope["dry_run"] = True
+                return json.dumps(_envelope)
+        except ImportError as _gate_imp_err:
+            # Sentinel pass 1 MAJOR-1: log silent ImportError loudly so
+            # operators see that the Article 14 gate is INACTIVE. The gate
+            # module is part of the core compliance tree and should always
+            # be importable in any non-stripped build.
+            logger.warning(
+                "CG-MKT-01: Article 14 gate module unavailable "
+                "(ImportError: %s) — gate is INACTIVE for this run. "
+                "Stripped builds without graqle.compliance MUST NOT be "
+                "deployed in EU AI Act mode.",
+                _gate_imp_err,
+            )
+
         # Step 3: Safety check on the diff (S-012: word-boundary patterns)
         import re as _re
         _SECRET_PATTERNS = [
@@ -8980,6 +9037,47 @@ class KogniDevServer:
         expected_input_sha256 = args.get("expected_input_sha256")
         expected_markers = args.get("expected_markers")
         dry_run = bool(args.get("dry_run", True))
+
+        # CG-MKT-01: EU AI Act Article 14(4)(c)+(d) — the deterministic
+        # apply path is LLM-free, so there is no generation confidence to
+        # compare against the threshold. But Article 14 still requires
+        # *meaningful oversight*: when --human-review-required is set or
+        # GRAQLE_EU_AI_ACT_MODE=on, the caller must explicitly acknowledge
+        # human review of the proposed insertions via
+        # ``human_acknowledged=True``. Without that acknowledgement, refuse.
+        # This makes the oversight obligation explicit rather than implicit.
+        try:
+            from graqle.compliance.article_14_gate import (
+                _is_eu_ai_act_mode_on,
+                _coerce_bool,
+            )
+            _hrr = _coerce_bool(args.get("human_review_required"))
+            _ack = _coerce_bool(args.get("human_acknowledged"))
+            if (_hrr or _is_eu_ai_act_mode_on()) and not _ack:
+                return json.dumps({
+                    "success": False,
+                    "error_code": "ARTICLE_14_HUMAN_REVIEW_REQUIRED",
+                    "error": (
+                        "EU AI Act Article 14(4)(c)+(d) requires explicit "
+                        "human acknowledgement before apply when "
+                        "--human-review-required is set or "
+                        "GRAQLE_EU_AI_ACT_MODE=on. Re-invoke with "
+                        "human_acknowledged=true after a human has "
+                        "reviewed the proposed insertions."
+                    ),
+                    "article_14_clauses": ["14(4)(c)", "14(4)(d)"],
+                    "next_action": "review_insertions_and_set_human_acknowledged",
+                    "file_path": file_path,
+                    "insertions_count": len(insertions) if isinstance(insertions, list) else 0,
+                })
+        except ImportError as _gate_imp_err:
+            logger.warning(
+                "CG-MKT-01: Article 14 gate module unavailable for "
+                "graq_apply (ImportError: %s) — apply-time gate is "
+                "INACTIVE. Stripped builds without graqle.compliance "
+                "MUST NOT be deployed in EU AI Act mode.",
+                _gate_imp_err,
+            )
 
         # Reconstruct optional band tuple from min/max
         band_min = args.get("expected_byte_delta_min")
@@ -11593,6 +11691,45 @@ class KogniDevServer:
                     return _err(f"Governance gate blocked autonomous loop: {gate.reason}")
             except (ConnectionError, TimeoutError, OSError):
                 logger.warning("Governance pre-check unavailable, proceeding (per-iteration gates active)", exc_info=True)
+
+        # CG-MKT-01: EU AI Act Article 14(4)(c)+(d) — when the autonomous
+        # loop is invoked with --human-review-required OR with
+        # GRAQLE_EU_AI_ACT_MODE=on, refuse outright. The autonomous loop
+        # by definition has no per-iteration human reviewer; Article 14
+        # requires the *option* of human override at each meaningful
+        # decision point. We surface the refusal so the operator chooses
+        # between (a) running graq_edit per task with human-review, or
+        # (b) explicitly setting --human-review-required=false AND
+        # disabling EU AI Act mode for this run.
+        try:
+            from graqle.compliance.article_14_gate import (
+                _is_eu_ai_act_mode_on,
+                _coerce_bool,
+            )
+            _hrr = _coerce_bool(args.get("human_review_required"))
+            if _hrr or _is_eu_ai_act_mode_on():
+                return json.dumps({
+                    "success": False,
+                    "error_code": "ARTICLE_14_HUMAN_REVIEW_REQUIRED",
+                    "error": (
+                        "EU AI Act Article 14(4)(c)+(d) refuses the "
+                        "autonomous loop when --human-review-required is "
+                        "set or GRAQLE_EU_AI_ACT_MODE=on. The autonomous "
+                        "loop has no per-iteration human reviewer. Run "
+                        "graq_edit per task with --human-review-required, "
+                        "or disable EU AI Act mode for this run."
+                    ),
+                    "article_14_clauses": ["14(4)(c)", "14(4)(d)"],
+                    "next_action": "use_graq_edit_per_task_with_human_review",
+                })
+        except ImportError as _gate_imp_err:
+            logger.warning(
+                "CG-MKT-01: Article 14 gate module unavailable for "
+                "graq_auto (ImportError: %s) — autonomous loop gate is "
+                "INACTIVE. Stripped builds without graqle.compliance "
+                "MUST NOT be deployed in EU AI Act mode.",
+                _gate_imp_err,
+            )
 
         try:
             result = await asyncio.wait_for(

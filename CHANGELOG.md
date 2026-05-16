@@ -4,6 +4,65 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.57.0 (2026-05-16) - [cr-010 EU AI Act Wave 2]
+
+> **EU AI Act Wave 2 — every subsystem the deployer's compliance file needs, behind a single switch.** Six new capability gaps (CG-MKT-01..06) close in this release: Article 14 human-review enforcement on auto-apply paths; R25-EU11 v1.0 claim-limits typed vocabulary (17 canonical values, 6 categories, `x-` extension namespace); VERITAS Q16.1 baseline-document generator; Q16.3 periodic-assessment with auto-remediation triggers; Q16.5 OBSERVATION-ONLY feedback-trend tracker (with mandatory AST audit test enforcing the Q-PATENT 2026-05-22 patent-novelty boundary); README snapshot-lock test that fails CI if forbidden marketing words slip in; weekly EUR-Lex content-hash drift guard. Plus a new `graq compliance switch` command that surfaces every EU-AI-Act-aware subsystem in one envelope — the deployer can answer *"what is the effective EU AI Act posture of this install?"* with a single call. Marketing-vs-built honesty score moves from 78/100 to ~98/100 (per ADR-MARKETING-003 verification registry).
+
+### Added
+
+- **`graq compliance switch` command** (new). Single UX entry-point for the EU AI Act mode toggle. Three subcommands:
+  - `switch status [--format text|json]` — consolidated envelope showing master switch state + per-subsystem armed state for all 7 EU-AI-Act-aware subsystems (Article 50 disclosure, Article 14 gate, claim-limits, baseline-doc, periodic-assessment, feedback-trend, EUR-Lex guard). Versioned schema (`SWITCH_STATUS_SCHEMA_VERSION = "1.0"`) so CI consumers can pin against it.
+  - `switch on [--shell posix|powershell|cmd]` — prints a shell snippet for the user to `eval`/`Invoke-Expression`. Does NOT modify the user's shell directly (env var lives in the user's shell, not in GraQle state).
+  - `switch off [--shell ...]` — symmetric disable snippet.
+
+- **`graqle.compliance.switch_status` module** (new). Pure data-assembly layer that probes 7 subsystems and returns a JSON-serialisable envelope. Every probe wraps in try/except — must never raise. Used by `graq compliance switch status` AND embedded under `eu_ai_act_subsystems` in the existing `graq compliance status` JSON output (additive — schema_version stays at `"1"`, no breaking change for v0.56.0 consumers).
+
+- **`graqle.pct` package** (new — CR-010 PR-010b-1). Proof-Claims Token (PCT) issuer + validator + `x-ai-eu` extension namespace, per OPSF Use B framing (pre-action data-obligation permit). `graqle.pct.issuer.issue_pct()` mints a JWS (RS256 + kid header) carrying allowed_purposes / permitted_regions / extension claims; `graqle.pct.validator.validate_pct()` returns ALLOW/BLOCK with structured `failure_reasons`. Vendored OPSF schema pinned to commit SHA `f04bbc4862af836a2696e635275ead4bc835d9d1`. 64KB token-size cap (env-configurable via `GRAQLE_PCT_MAX_TOKEN_BYTES`) prevents DoS. Log-injection-safe `kid` sanitiser strips control chars + bidi-overrides. `graqle.pct.extensions.x_ai_eu.XAiEuExtension` is GraQle's first-public-draft of the `x-ai-eu` namespace (10 fields covering Article 6 classification, Article 9 risk-mgmt ref, Article 12 audit-log pointer, Article 13 transparency doc, Article 14 oversight mode, Article 50 disclosure mode, articles_covered, GPAI provider flag, Annex III category, compliance dossier ID). New CLI: `graq pct issue` + `graq pct validate`.
+
+- **`graqle.compliance.article_14_gate` module** (new — CR-010 PR-010c, CG-MKT-01). EU AI Act Article 14(4)(c)+(d) human-oversight gate. When `GRAQLE_EU_AI_ACT_MODE=on` (or `--human-review-required` is passed), automated write paths (`graq_edit`, `graq_apply`, `graq_auto`) refuse to auto-apply with a structured `ARTICLE_14_HUMAN_REVIEW_REQUIRED` envelope when generation `confidence < threshold`. Default threshold `0.75` is a **placeholder pending R25-EU-CALIB-01 calibration spike** — the refusal envelope advertises `threshold_status: "placeholder"` so auditors see the gate state explicitly. New config field: `GovernancePolicyConfig.human_review_required_threshold`.
+
+- **`graqle.compliance.claim_limits` package** (new — CR-010 PR-010c, CG-MKT-10). R25-EU11 v1.0 typed claim-limits vocabulary. Every governance record henceforth declares "what does this record explicitly NOT claim?" via 17 canonical values across 6 categories (temporal, model-dependency, data-scope, decision-scope, trust-boundary, compliance-scope) + operator-extension namespace `^x-[a-z0-9_-]{1,64}$`. L08 SHACL constraint `ClaimLimitsRequired` + L19 audit-trail rejection are fail-closed (default-deny). Backfill migration writes `["legacy_pre_R25_EU11"]` sentinel to pre-existing records. Public attribution: **Ricky Jones (TrinityOS)** LinkedIn 2026-05-13 formulation. Public taxonomy doc at `docs/compliance/eu-ai-act/claim-limits-taxonomy-v1.0.md`.
+
+- **`graqle.compliance.baseline_doc` module** (new — CR-010 PR-010d, CG-MKT-02). VERITAS Q16.1 baseline-document generator per R25-EU04. Dated, version-pinned, content-addressed (`baseline_id = SHA-256(canonicalize(B))`) artefact at SDK install/upgrade time. Maps to EU AI Act Article 11 (technical documentation) + ISO 42001 Cl. 6.2 (planning). 9-field frozen dataclass; live quantitative metrics (governance gates active, defences active) with `NOT_YET_AVAILABLE` sentinels for metrics whose feed isn't wired yet (fail-loud — auditor sees the gap explicitly rather than `0`/`null`). New CLI: `graq compliance baseline-doc generate --output --signoff --format jsonl|pdf --test-archive-ref`. Append-only JSONL by default; PDF emitter with graceful RuntimeError when `reportlab` isn't installed.
+
+- **`graqle.compliance.periodic_assessment` module** (new — CR-010 PR-010e, CG-MKT-03). VERITAS Q16.3 monthly/quarterly/annual assessment per R25-EU04. Computes 5 quality metrics over a trace-corpus window (`mean_confidence`, `p95_confidence`, `n_degraded`, `n_outcome_not_ok`, `n_governance_refusals`) and auto-creates remediation candidates on 3 default threshold breaches (`outcome>2% → high`, `degraded>5% → warn`, `mean_confidence<0.6 → warn`). Idempotent for same `(period, cadence, baseline_id)`. References the most recent baseline_id (AC-Q163-6 linkage to Q16.1). Maps to EU AI Act Article 9 + ISO 42001 Cl. 9.1. New CLI: `graq compliance periodic-assessment run`.
+
+- **`graqle.compliance.evidence_state` module** (new — CR-010 PR-010e, CG-MKT-04 Layer B). VERITAS Q16.5 OBSERVATION-ONLY feedback-trend tracker. `WelfordAccumulator` pure online statistics + `compute_drift_indicator(current_mean, baseline_mean, baseline_stdev)` z-score with NaN/inf guards. 2-sigma `DRIFT_ALARM_SIGMA` threshold. **CRITICAL — patent-novelty boundary** per Q-PATENT 2026-05-22 binding decision: the drift indicator is an OBSERVATION, never a TRIGGER. No code path in v0.57.0+ may allow `drift_indicator` to invoke `calibrate()`. Enforced by **mandatory AST audit test** `tests/test_compliance/test_q165_no_active_recalibration_path.py` (4 tests scanning for forbidden symbols + verifying frozen-dataclass invariants). Keeps R25-EU04 patent-clean under existing EP26167849.4 Claim 4. New CLI: `graq compliance feedback record/ingest`.
+
+- **`graqle.compliance.eur_lex_guard` module** (new — CR-010 PR-010f, CG-MKT-06). Weekly EUR-Lex authoritative-source drift guard. Enumerates `https://eur-lex.europa.eu/...` URLs from compliance docs (https-only regex; rejects http downgrade), fetches each (defense-in-depth URL re-validation at `_fetch_url` entry, 30s timeout, 10 MiB response cap, GET-only), SHA-256 hashes, compares vs committed `.graqle/eur-lex-baseline.json`. New CLI: `graq compliance eur-lex-check` (exit 1 on drift) + `eur-lex-refresh`. GitHub Actions workflow `.github/workflows/eur-lex-weekly.yml` (cron Monday 06:00 UTC) auto-opens a labelled issue if drift detected.
+
+- **README snapshot-lock test** (new — CR-010 PR-010f, CG-MKT-05). `tests/test_compliance/test_readme_snapshot_lock.py` fails CI if forbidden bare words (compliant/certified/guaranteed/end-to-end solution) appear in README or `docs/compliance/eu-ai-act/*.md`, with negative-lookbehind exemptions for compound technical adjectives (privacy-compliant, GDPR-compliant) and line-level exemptions for italic `*word*`, backticked `` `word` ``, anti-claim sentences ("never say compliant"). Also locks the 4 canonical positioning markers verbatim: "EU AI Act-aligned", "Articles 6, 9, 12, 13, 14, 15, 25, 50", "NOT high-risk", "NOT GPAI provider".
+
+- **Mandatory `test_q165_no_active_recalibration_path.py` AST audit** (CG-MKT-04 enforcement). 4 audit tests that fail the build if any symbol containing `calibrat`/`recalibrate`/`refresh_calibration` is called or imported from `evidence_state.py`. This is the patent-novelty *enforcement* — if a future contributor accidentally wires drift to recalibration, CI fails before the code merges.
+
+- **PCT extension namespace docs** at `graqle/pct/extensions/README.md` documenting the 10-field `x-ai-eu` namespace. GraQle is the first-public-draft author of this OPSF-style extension; PR-010b-1 ships the implementation, and a follow-on OPSF Issue will propose it upstream.
+
+### Changed
+
+- **`graq compliance status` JSON output** (additive change, schema_version stays at `"1"`). New nested envelope `eu_ai_act_subsystems` (versioned independently as `SWITCH_STATUS_SCHEMA_VERSION = "1.0"`) surfaces all 7 EU-AI-Act-aware subsystems. Existing top-level fields (`eu_ai_act_mode`, `articles_covered`, etc.) are unchanged — v0.56.0 consumers see every field they relied on.
+
+- **README rewritten** to lead with EU AI Act Wave 2. Article-by-Article table extended with new rows for Articles 9 + 11 (newly addressed in Wave 2). New "one switch flips every subsystem at once" code block. EU AI Act badge URL unchanged.
+
+- **New compliance tests** — 437 new tests across `tests/test_compliance/` + `tests/test_pct/`. Total compliance + PCT test suite: 658 passed, 1 skipped (no regression on v0.56.0 surface). The skip is `test_envelope_integration.py` (pre-existing, needs external Neo4j).
+
+### Positioning discipline (enforced in code, unchanged from v0.56.0)
+
+GraQle is documented as **"EU AI Act–aligned"** — never *compliant*, never *certified*, never *guaranteed*. The 3 substantive non-claims from v0.56.0 remain enforced. The new `test_readme_snapshot_lock.py` test extends the enforcement to *every* doc under `docs/compliance/eu-ai-act/` plus the README, with exemption regex for legitimate compound technical adjectives.
+
+### Public attribution (new in Wave 2)
+
+- **VERITAS Pillar 16 Part 1** (Andrii Matiash, LinkedIn 2026-05-12) — anchor for Q16.1 + Q16.3 + Q16.5 sub-questions.
+- **Claim-limits-as-typed-governance-field concept** (Ricky Jones, TrinityOS, LinkedIn 2026-05-13) — anchor for the R25-EU11 v1.0 taxonomy.
+
+The taxonomy file, the 17-value canonical set, the L08 SHACL constraint definition, the L19 audit-trail integration, the runtime validator, the `x-*` extension namespace, and the backfill protocol are GraQle's contribution under each public attribution.
+
+### Open follow-ons
+
+- **v0.57.1** (calibration spike): R25-EU-CALIB-01 replaces the placeholder `human_review_required_threshold = 0.75` with a calibrated value derived from a Research-Team-owned spike. The `threshold_status` field will flip from `"placeholder"` to `"calibrated"` in the refusal envelope.
+- **CG-MKT-11** (worktree-clone systemic blocker): the MCP server path resolver needs a `GRAQLE_WORKTREE_ROOT` env var honored by `graq_write`/`graq_generate`/`graq_edit` so the SDK can be developed end-to-end from any private-first worktree clone. Tracked as a separate CR; not blocking this release.
+
+---
+
 ## 0.56.0 (2026-05-15) - [cr-009 EU AI Act Wave 1]
 
 > **EU AI Act Wave 1 — GraQle is now EU AI Act–aligned by design.** The first developer reasoning SDK that ships a structured, version-pinned, CI-pinnable EU AI Act compliance surface. Seven articles documented (4, 12, 13, 14, 15, 25, 50), three new CLI surfaces (`graq compliance status`, `graq compliance export`, `--include-robustness`), Article 50(1) runtime disclosure (one-shot banner + machine-readable `ai_disclosure` envelope field), Article 15 machine-readable robustness attestation (17 named defences, 7 measurable claims with comparative-operator framing). Three substantive non-claims are enforced in code: GraQle is NOT itself a high-risk AI system, NOT a GPAI provider under Article 51, and we never say *compliant* or *certified* — only **EU AI Act–aligned**. The `TestNonClaimsInvariants` test class blocks any release that introduces a `compliant`/`certified` field anywhere in the machine-readable surface.

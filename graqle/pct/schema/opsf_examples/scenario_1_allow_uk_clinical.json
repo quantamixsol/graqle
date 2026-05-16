@@ -1,0 +1,75 @@
+{
+  "_scenario": "Scenario 1 — Permitted: UK clinical data, UK processing, valid consent",
+  "_expected_decision": "ALLOW",
+
+  "pct": {
+    "header": {
+      "alg": "RS256",
+      "kid": "pct-key-2026-03",
+      "typ": "PCT",
+      "pct_version": "0.1"
+    },
+    "payload": {
+      "pct_id": "f3a2b1c4-1234-4abc-8def-000000000001",
+      "issued_at": 1743000000,
+      "valid_from": 1743000000,
+      "expires_at": 1774536000,
+      "issuer": "https://orchestrator.opsf.org",
+      "subject_id": "dataset:patient-cohort-2026-03",
+      "subject_type": "ai_interaction",
+      "data_origin": "GB",
+      "data_categories": ["health", "special_category"],
+      "lawful_basis": {
+        "bases": ["consent"],
+        "framework": "UK_GDPR"
+      },
+      "allowed_purposes": ["clinical_analytics", "treatment_support"],
+      "consent_status": true,
+      "consent_scope": ["clinical_analytics", "treatment_support"],
+      "consent_record_ref": "https://consent.example.com/records/patient-cohort-2026-03",
+      "jurisdiction_rules": {
+        "permitted_regions": ["GB"],
+        "residency_required": true,
+        "sovereignty_framework": "UK_adequacy"
+      },
+      "data_hash": "n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is0V1sFbDwCgg",
+      "hash_algorithm": "sha-256",
+      "hash_scope": "full_payload",
+      "data_format": "application/json",
+      "ai_context": {
+        "model_id": "medai-v2-uk",
+        "model_region": "GB",
+        "risk_tier": "high",
+        "prohibited_use_check": true,
+        "human_oversight_required": true,
+        "training_data_flag": false,
+        "output_retention_permitted": false,
+        "conformity_assessment_ref": "https://conformity.example.com/medai-v2-uk"
+      }
+    }
+  },
+
+  "verification_request": {
+    "requested_action": "ai_call",
+    "requested_purpose": "clinical_analytics",
+    "processing_region": "GB",
+    "requestor_id": "pipeline:nhs-analytics-prod",
+    "request_timestamp": 1743000042,
+    "request_id": "req-00000001-0001-0001-0001-000000000001"
+  },
+
+  "expected_response": {
+    "decision": "ALLOW",
+    "decision_reasons": ["All checks passed"],
+    "checks": [
+      { "check_name": "signature_verification", "result": "pass" },
+      { "check_name": "expiry_check", "result": "pass" },
+      { "check_name": "data_binding_check", "result": "pass", "detail": "data_hash matches recomputed hash" },
+      { "check_name": "purpose_check", "result": "pass", "detail": "clinical_analytics is in allowed_purposes" },
+      { "check_name": "jurisdiction_check", "result": "pass", "detail": "GB is in permitted_regions" },
+      { "check_name": "consent_check", "result": "pass", "detail": "consent_status true, scope covers clinical_analytics" },
+      { "check_name": "data_category_check", "result": "pass" },
+      { "check_name": "transfer_restriction_check", "result": "pass", "detail": "no cross-border transfer" }
+    ]
+  }
+}

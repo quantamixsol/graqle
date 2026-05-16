@@ -50,8 +50,14 @@ CONTENT_DENY = [
     (re.compile(r"\bnovel\s+architectural\s+pattern\b", re.IGNORECASE), "novel architectural pattern"),
     (re.compile(r"strengthens\s+the\s+\w+\s+patent\s+narrative", re.IGNORECASE), "strengthens patent narrative"),
 
-    # Patent application numbers (EP, WO, US format)
-    (re.compile(r"\bEP\s?\d{6,}(?:\.\d+)?\b"), "European patent application number"),
+    # Patent application numbers (EP, WO, US format).
+    # GraQle's own published patent numbers (EP26167849.4 + EP26162901.8)
+    # are intentionally public per ADR-MARKETING-001 — they appear on
+    # README.md, LinkedIn, and the v0.56.0 PyPI wheel since 2026-05-15.
+    # The scanner remains active for ANY OTHER patent number that might
+    # appear (e.g. a draft application or a third-party patent), but
+    # GraQle's own numbers are whitelisted as approved public references.
+    (re.compile(r"\bEP\s?(?!26167849\.4\b|26162901\.8\b)\d{6,}(?:\.\d+)?\b"), "European patent application number (other than GraQle's published EP26167849.4 / EP26162901.8)"),
     (re.compile(r"\bWO\s?\d{4}/\d{4,}\b"), "WIPO patent application number"),
     (re.compile(r"\bUS\s?\d{4}/\d{6,}\b"), "US patent application number"),
 

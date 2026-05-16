@@ -38,12 +38,7 @@ jobs:
         uses: graqle/release-gate@v1
         with:
           target: pypi
-          # strict: 'false' on this repo — WARN verdicts surface as advisory
-          # notices instead of blocking merges. The per-CR sentinel review
-          # on private PRs is our load-bearing pre-publish gate. Consumers
-          # copying this template can flip strict back to 'true' for
-          # stricter local enforcement.
-          strict: 'false'
+          strict: 'true'
         env:
           GRAQLE_LICENSE: ${{ secrets.GRAQLE_LICENSE }}
 
