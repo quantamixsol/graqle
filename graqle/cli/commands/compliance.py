@@ -189,9 +189,21 @@ def _build_status_payload(repo_root: Path) -> dict[str, Any]:
     audit_meta = _read_audit_trail_metadata(
         safe_root / ".graqle" / "governance" / "audit"
     )
+    # v0.57.0: embed the CR-010 subsystem status under a dedicated key
+    # so the existing JSON schema stays backward-compatible (the old
+    # `eu_ai_act_mode` boolean still appears at top level; the new
+    # subsystem detail lives in its own nested envelope). Schema is
+    # versioned independently from this status payload's own
+    # schema_version.
+    try:
+        from graqle.compliance.switch_status import build_switch_status
+        eu_ai_act_subsystems = build_switch_status()
+    except ImportError:
+        eu_ai_act_subsystems = {"status": "unavailable"}
     return {
         "graqle_version": __version__,
         "eu_ai_act_mode": _read_eu_ai_act_mode(),
+        "eu_ai_act_subsystems": eu_ai_act_subsystems,
         "articles_covered": [a[0] for a in ARTICLES_COVERED],
         "articles_detail": [
             {
@@ -203,6 +215,11 @@ def _build_status_payload(repo_root: Path) -> dict[str, Any]:
         ],
         "system_card_url": SYSTEM_CARD_URL,
         "audit_trail": audit_meta,
+        # Schema version stays at "1" because the new `eu_ai_act_subsystems`
+        # field is purely ADDITIVE — existing consumers that pin on schema
+        # v1 still see every field they relied on. The subsystems envelope
+        # has its OWN versioning (`switch_status.SWITCH_STATUS_SCHEMA_VERSION`)
+        # so a future breaking change there doesn't force a top-level bump.
         "schema_version": "1",
     }
 
@@ -977,6 +994,188 @@ def eur_lex_check_command(
         f"[green]No EUR-Lex drift. "
         f"{report.n_unchanged}/{report.n_urls_checked} URLs verified.[/green]"
     )
+
+
+# ---------------------------------------------------------------------------
+# v0.57.0 — `graq compliance switch` (single-source UX for the EU AI Act toggle)
+# ---------------------------------------------------------------------------
+
+
+switch_app = typer.Typer(
+    name="switch",
+    help=(
+        "EU AI Act mode switch — consolidated status across every "
+        "compliance subsystem (Article 14, Article 50, claim-limits, "
+        "baseline-doc, periodic-assessment, feedback-trend, EUR-Lex guard)."
+    ),
+    no_args_is_help=True,
+)
+compliance_app.add_typer(switch_app)
+
+
+_SWITCH_ENV_VAR: str = "GRAQLE_EU_AI_ACT_MODE"
+_DISCLOSURE_ENV_VAR: str = "GRAQLE_AI_DISCLOSURE"
+
+
+@switch_app.command(name="status")
+def switch_status_command(
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text (human-readable) or json (machine-readable).",
+    ),
+) -> None:
+    """Show the consolidated EU AI Act mode posture.
+
+    Surfaces all 7 EU-AI-Act-aware subsystems in one envelope:
+    Article 50 disclosure, Article 14 human-review gate, R25-EU11
+    claim-limits, VERITAS Q16.1 baseline-doc, Q16.3 periodic-assessment,
+    Q16.5 OBSERVATION-ONLY feedback-trend, EUR-Lex drift guard.
+    """
+    from graqle.compliance.switch_status import build_switch_status
+
+    status = build_switch_status()
+
+    fmt = output_format.strip().lower()
+    if fmt == "json":
+        sys.stdout.write(json.dumps(status, indent=2, sort_keys=True) + "\n")
+        return
+    if fmt != "text":
+        console.print(
+            f"[red]Invalid --format {output_format!r}; "
+            f"expected 'text' or 'json'.[/red]"
+        )
+        raise typer.Exit(2)
+
+    # Rich text rendering.
+    master = status["master_switch"]
+    is_on = master["is_on"]
+    mode_color = "green" if is_on else "yellow"
+    mode_label = "ON" if is_on else "OFF (default)"
+
+    console.print()
+    console.print("[bold]GraQle EU AI Act mode switch[/bold]")
+    console.print(
+        f"  [bold]{_SWITCH_ENV_VAR}:[/bold] [{mode_color}]{mode_label}[/{mode_color}]"
+    )
+    raw = master["raw_value"]
+    if raw:
+        console.print(f"  Raw value: {raw!r}")
+    console.print(
+        f"  Truthy values accepted: "
+        f"{', '.join(master['truthy_values_accepted'])}"
+    )
+
+    from rich.table import Table
+
+    table = Table(title="EU AI Act subsystems", show_lines=False)
+    table.add_column("Subsystem", style="cyan", no_wrap=True)
+    table.add_column("Armed", style="white")
+    table.add_column("Anchor", style="dim")
+
+    subsystems = status["subsystems"]
+    rows = [
+        ("ai_disclosure", "article_50_user_disclosure"),
+        ("article_14_human_review_gate", "article_14_human_review_gate"),
+        ("claim_limits", "claim_limits_default_deny"),
+        ("baseline_document", "veritas_q161_baseline_document"),
+        ("periodic_assessment", "veritas_q163_periodic_assessment"),
+        ("feedback_trend", "veritas_q165_feedback_trend"),
+        ("eur_lex_drift_guard", "eur_lex_drift_guard"),
+    ]
+    for key, _ in rows:
+        s = subsystems.get(key, {})
+        if "status" in s:
+            armed = f"[red]unavailable[/red]"
+            anchor = s.get("error", "")[:60]
+        else:
+            armed_bool = s.get("armed", False)
+            armed = (
+                f"[green]ARMED[/green]" if armed_bool
+                else f"[yellow]ready (env-gated)[/yellow]"
+            )
+            anchor = s.get("anchor", "")
+        table.add_row(key, armed, anchor[:80])
+    console.print(table)
+
+    summary = status["summary"]
+    console.print(
+        f"\nSummary: {summary['subsystems_available']}/"
+        f"{summary['subsystems_total']} subsystems available, "
+        f"{summary['subsystems_armed_when_mode_on']} armed."
+    )
+    if not is_on:
+        console.print(
+            "\n[dim]Run `graq compliance switch on` to enable EU AI Act mode "
+            "for this shell session.[/dim]"
+        )
+
+
+@switch_app.command(name="on")
+def switch_on_command(
+    eval_format: str = typer.Option(
+        "posix",
+        "--shell",
+        help="Shell dialect for the eval snippet: posix (bash/zsh) | powershell | cmd.",
+    ),
+) -> None:
+    """Print a shell snippet that turns EU AI Act mode ON for this session.
+
+    The mode is controlled by the ``GRAQLE_EU_AI_ACT_MODE`` environment
+    variable. This command does NOT modify your shell directly (that
+    requires ``eval`` / ``source``) — it emits a snippet for you to
+    apply, then verifies what the snippet *would* set.
+
+    Usage:
+
+        eval "$(graq compliance switch on)"           # bash/zsh
+        graq compliance switch on --shell powershell | Out-String | Invoke-Expression   # PowerShell
+    """
+    dialect = eval_format.strip().lower()
+    if dialect == "posix":
+        sys.stdout.write(f'export {_SWITCH_ENV_VAR}=on\n')
+    elif dialect == "powershell":
+        sys.stdout.write(f'$env:{_SWITCH_ENV_VAR} = "on"\n')
+    elif dialect == "cmd":
+        sys.stdout.write(f'set {_SWITCH_ENV_VAR}=on\n')
+    else:
+        console.print(
+            f"[red]Unknown --shell {eval_format!r}; "
+            f"expected posix | powershell | cmd.[/red]"
+        )
+        raise typer.Exit(2)
+    console.print(
+        f"[dim]# Apply with: eval \"$(graq compliance switch on)\" (bash/zsh) "
+        f"or pipe to Invoke-Expression (PowerShell).[/dim]",
+    )
+
+
+@switch_app.command(name="off")
+def switch_off_command(
+    eval_format: str = typer.Option(
+        "posix",
+        "--shell",
+        help="Shell dialect for the eval snippet: posix (bash/zsh) | powershell | cmd.",
+    ),
+) -> None:
+    """Print a shell snippet that turns EU AI Act mode OFF for this session.
+
+    Symmetric to ``graq compliance switch on``.
+    """
+    dialect = eval_format.strip().lower()
+    if dialect == "posix":
+        sys.stdout.write(f'unset {_SWITCH_ENV_VAR}\n')
+    elif dialect == "powershell":
+        sys.stdout.write(f'Remove-Item Env:{_SWITCH_ENV_VAR} -ErrorAction SilentlyContinue\n')
+    elif dialect == "cmd":
+        sys.stdout.write(f'set {_SWITCH_ENV_VAR}=\n')
+    else:
+        console.print(
+            f"[red]Unknown --shell {eval_format!r}; "
+            f"expected posix | powershell | cmd.[/red]"
+        )
+        raise typer.Exit(2)
 
 
 @compliance_app.command(name="eur-lex-refresh")
