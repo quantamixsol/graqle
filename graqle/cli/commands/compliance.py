@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -923,4 +924,98 @@ def feedback_ingest_command(
     console.print(
         f"[green]Ingested {len(records)} record(s) from {input_file} "
         f"into {output}.[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-010f — `graq compliance eur-lex-check` + `eur-lex-refresh` (CG-MKT-06)
+# ---------------------------------------------------------------------------
+
+
+@compliance_app.command(name="eur-lex-check")
+def eur_lex_check_command(
+    docs_dir: str = typer.Option(
+        "docs/compliance",
+        "--docs-dir",
+        help="Root directory containing markdown files that reference EUR-Lex URLs.",
+    ),
+    baseline: str = typer.Option(
+        ".graqle/eur-lex-baseline.json",
+        "--baseline",
+        help="Path to the committed baseline JSON file.",
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Skip network fetches (air-gapped operators).",
+    ),
+) -> None:
+    """Check EUR-Lex authoritative-source drift vs the committed baseline.
+
+    Per CG-MKT-06. Runs weekly in CI. Returns exit 1 when any EUR-Lex
+    URL referenced in compliance docs has drifted vs the baseline,
+    so the compliance team can review the regulator-side change before
+    a customer audit team notices a stale citation.
+    """
+    from graqle.compliance.eur_lex_guard import check_drift
+
+    report = check_drift(
+        search_roots=[Path(docs_dir).expanduser()],
+        baseline_path=Path(baseline).expanduser(),
+        offline=offline,
+    )
+    sys.stdout.write(json.dumps(report.to_dict(), indent=2) + "\n")
+    if report.has_drift:
+        console.print(
+            f"[red]EUR-Lex drift detected: {report.n_drifted} drifted, "
+            f"{report.n_missing_from_baseline} new, "
+            f"{report.n_missing_from_current} removed, "
+            f"{report.n_fetch_errors} fetch errors.[/red]"
+        )
+        raise typer.Exit(1)
+    console.print(
+        f"[green]No EUR-Lex drift. "
+        f"{report.n_unchanged}/{report.n_urls_checked} URLs verified.[/green]"
+    )
+
+
+@compliance_app.command(name="eur-lex-refresh")
+def eur_lex_refresh_command(
+    docs_dir: str = typer.Option(
+        "docs/compliance",
+        "--docs-dir",
+        help="Root directory to scan for EUR-Lex URLs.",
+    ),
+    baseline: str = typer.Option(
+        ".graqle/eur-lex-baseline.json",
+        "--baseline",
+        help="Path to write the refreshed baseline JSON.",
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Skip network fetches and write an empty baseline.",
+    ),
+) -> None:
+    """Refresh the EUR-Lex baseline (operator review then commit).
+
+    Per CG-MKT-06. Run this after a human has reviewed the drift report
+    from ``eur-lex-check`` and confirmed that the regulator-side change
+    is acceptable (or that the docs have been updated to track it).
+    Bakes the new content hashes into the baseline file.
+    """
+    from graqle.compliance.eur_lex_guard import refresh_baseline
+
+    entries, errors = refresh_baseline(
+        search_roots=[Path(docs_dir).expanduser()],
+        baseline_path=Path(baseline).expanduser(),
+        offline=offline,
+    )
+    if errors:
+        for url, err in errors:
+            console.print(f"[yellow]fetch failed: {url} → {err}[/yellow]")
+    console.print(
+        f"[green]EUR-Lex baseline written: "
+        f"{len(entries)} URL(s) hashed, "
+        f"{len(errors)} fetch error(s).[/green]"
     )
