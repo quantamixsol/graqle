@@ -10,7 +10,7 @@
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
 [![EU AI Act–aligned](https://img.shields.io/badge/EU%20AI%20Act-aligned-22c55e.svg)](./docs/compliance/eu-ai-act/)
-[![Tests](https://img.shields.io/badge/tests-5%2C500%2B-06b6d4.svg)]()
+[![Tests](https://img.shields.io/badge/tests-5%2C900%2B-06b6d4.svg)]()
 [![LLM Backends](https://img.shields.io/badge/backends-14-06b6d4.svg)]()
 [![Model Agnostic](https://img.shields.io/badge/model-agnostic-06b6d4.svg)]()
 
@@ -26,33 +26,35 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
-## 🇪🇺 EU AI Act–aligned (v0.56.0, Wave 1)
+## 🇪🇺 EU AI Act–aligned (v0.57.0, Wave 2)
 
 **Articles 6, 9, 12, 13, 14, 15, 25, 50 become applicable on 2026-08-02.** GraQle gives your high-risk AI system the signals, audit trail, and disclosure primitives it needs — so the parts of your compliance file you can quote from us, you can quote *today*.
 
 ```bash
-# 1. Where do we stand on the AI Act?
-graq compliance status --include-robustness --format json
-# → version-pinned JSON: articles_covered, audit_trail, defences, claims
+# One switch flips every EU-AI-Act-aware subsystem at once
+graq compliance switch on        # shell snippet → eval to enable
+graq compliance switch status    # what's actually armed, in one envelope
+graq compliance switch off       # symmetric disable
 
-# 2. Pull last month's audit trail as Article 12 evidence
-graq compliance export --since 2026-08-01 --until 2026-08-31 \
-    -o august.jsonl --sha256-sidecar
-# → JSONL evidence + SHA-256 sidecar for tamper detection
-
-# 3. Arm Article 50(1) AI-disclosure surfaces
-export GRAQLE_EU_AI_ACT_MODE=on
-# → once-per-session banner + ai_disclosure block on every MCP envelope
+# Per-subsystem CLI surface
+graq compliance status                                    # legacy + new subsystems block
+graq compliance export --since 2026-08-01 --sha256-sidecar  # Article 12 evidence
+graq compliance baseline-doc generate --output baseline.jsonl  # Q16.1 baseline
+graq compliance periodic-assessment run --period-start ... --period-end ...  # Q16.3
+graq compliance feedback record --rating 5 --note "..."   # Q16.5 observation
+graq compliance eur-lex-check                             # weekly drift guard
 ```
 
 | Article | What GraQle ships | Where |
 |---|---|---|
 | **Art 4** — AI literacy | Integration guidance for providers + deployers | [docs/compliance/eu-ai-act/](./docs/compliance/eu-ai-act/article-04-ai-literacy.md) |
+| **Art 9** — Risk management | Q16.3 periodic-assessment artefacts with auto-remediation triggers | `graq compliance periodic-assessment run` |
+| **Art 11** — Technical documentation | Q16.1 dated, content-addressed baseline document at deployment | `graq compliance baseline-doc generate` |
 | **Art 12** — Record-keeping | JSONL audit export + SHA-256 tamper-detection sidecar | `graq compliance export` |
 | **Art 13** — Deployer transparency | `graph_health` + `confidence` on every reasoning envelope | every `graq_reason` call |
-| **Art 14** — Human oversight | Confidence-threshold gating + ⚠ degraded-reasoning banner | CLI + `GraqleConfig.governance` |
+| **Art 14** — Human oversight | **Confidence-gated refusal** of auto-apply + R25-EU11 claim-limits | `GRAQLE_EU_AI_ACT_MODE=on` + `graq_edit/apply/auto` |
 | **Art 15** — Accuracy / robustness / cybersecurity | 17 named defences + 7 measurable claims | `graq compliance status --include-robustness` |
-| **Art 25** — Value-chain responsibility | Intended-purpose statement + this doc set | [Art 25 doc](./docs/compliance/eu-ai-act/article-25-value-chain.md) |
+| **Art 25** — Value-chain responsibility | Intended-purpose + PCT (Proof-Claims Token) `x-ai-eu` extension namespace | [Art 25 doc](./docs/compliance/eu-ai-act/article-25-value-chain.md) + `graq pct issue/validate` |
 | **Art 50** — Transparency for users | Auto banner + `ai_disclosure` machine field | `GRAQLE_EU_AI_ACT_MODE=on` |
 
 **Three substantive non-claims kept legally clean:**
