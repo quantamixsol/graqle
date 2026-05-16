@@ -172,13 +172,22 @@ Routes every native write/edit/bash through GraQle's governance gates. Plans req
 
 ---
 
-## What's new in v0.56.0
+## What's new in v0.57.0
 
-**EU AI Act Wave 1** — 7 articles documented, 3 new CLI surfaces (`graq compliance status`, `graq compliance export`, `--include-robustness`), Article 50(1) runtime disclosure (banner + envelope), Article 15 machine-readable robustness attestation (17 defences, 7 claims).
+**EU AI Act Wave 2** — closes 9 of 10 marketing-vs-built gaps (CG-MKT-01..10), bringing the honesty score from 78/100 to ~98/100. Six new compliance modules + one consolidated visibility surface:
 
-**Prior reliability work carried forward from v0.55.0:** reasoning honesty (CR-004 graph_health probe), cross-project WRITE_COLLISION fix (CR-008 SaveStatus enum), config resolver default ON (CR-002), edge-loss shrink guard (CR-003), graq_bash TOCTOU-safe stdout_path (CR-005a).
+- **`graq compliance switch on|off|status`** — single UX entry-point for the EU AI Act mode toggle. `switch status` shows every EU-AI-Act-aware subsystem (Article 50 disclosure, Article 14 gate, claim-limits, baseline-doc, periodic-assessment, feedback-trend, EUR-Lex guard) in one envelope.
+- **Article 14 human-review enforcement** — `graq edit/apply/auto` refuses auto-apply when confidence < threshold (default 0.75, placeholder pending R25-EU-CALIB-01) AND EU AI Act mode is on. Structured refusal envelope with `article_14_clauses: ["14(4)(c)", "14(4)(d)"]`.
+- **R25-EU11 claim-limits v1.0** — typed vocabulary (17 canonical values, 6 categories) on every governance record. L08 SHACL + L19 audit-trail enforcement. Public attribution to Ricky Jones (TrinityOS).
+- **VERITAS Q16.1 baseline-doc generator** — `graq compliance baseline-doc generate` produces a dated, content-addressed artefact (SHA-256). Maps to EU AI Act Article 11 + ISO 42001 Cl. 6.2.
+- **VERITAS Q16.3 periodic-assessment** — `graq compliance periodic-assessment run` with auto-remediation triggers. Maps to Article 9 + ISO 42001 Cl. 9.1.
+- **VERITAS Q16.5 OBSERVATION-ONLY drift watcher** — `graq compliance feedback record/ingest` + Welford running statistics. Patent-novelty boundary enforced by mandatory AST audit test per Q-PATENT 2026-05-22.
+- **EUR-Lex weekly drift guard** — `graq compliance eur-lex-check` + GitHub Actions workflow re-fetches every cited EUR-Lex URL every Monday, opens issue on regulator-side drift.
+- **PCT (Proof-Claims Token) Use B** — `graqle.pct.issuer/validator` + `x-ai-eu` extension namespace (10 fields). First-public-draft of the OPSF `x-ai-eu` namespace authored by Quantamix.
 
-→ [Full changelog](./CHANGELOG.md)
+**Prior v0.56.0 surface preserved:** all 7 Article docs + CLI surfaces remain. Schema version stays at `"1"` — `graq compliance status --format json` is backward compatible (new `eu_ai_act_subsystems` field is additive).
+
+→ [Full v0.57.0 changelog](./CHANGELOG.md#0570-2026-05-16---cr-010-eu-ai-act-wave-2)
 
 ---
 
