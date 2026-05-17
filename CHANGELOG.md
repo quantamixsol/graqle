@@ -4,6 +4,22 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.57.2 (2026-05-17) - [cr-014 Compliance HTTP route surfacing]
+
+> **Surfaces the EU AI Act subsystem envelope as Studio HTTP endpoints.** The `graqle.compliance.switch_status.build_switch_status()` function shipped in v0.57.0 as a Python module + CLI command (`graq compliance switch status`), but there was no HTTP route to expose it to the Studio frontend / graqle.com /security page. v0.57.2 adds two routes that read-only wrap the same builder.
+
+### Added
+
+- **`graqle.studio.routes.compliance` module** (new). Mounts `/studio/api/compliance/switch/status` and `/studio/api/compliance/status` HTTP endpoints. Both call `graqle.compliance.switch_status.build_switch_status()` and return the JSON envelope. Fail-closed exception handler returns `schema_version: "1.0"` + structured error body on any internal failure (never raises). Backs the canonical capability statement on graqle.com that "one switch flips every subsystem at once".
+
+- **Studio app mounts `compliance_router` at `/studio/api/compliance`** in `graqle/studio/app.py`. No other route changes.
+
+### Notes
+
+- v0.57.2 is **functionally identical** to v0.57.1 except for the two new HTTP endpoints. No CLI changes, no compliance semantics changes. The same envelope that `graq compliance switch status --format json` already returned is now also reachable over HTTP.
+
+---
+
 ## 0.57.1 (2026-05-17) - [cr-011 Studio backend restoration]
 
 > **Bundled hotfix for three independent regressions found in the post-v0.57.0 Studio + Lambda audit.** Marketing on graqle.com advertised v0.57.0 + EU AI Act alignment but live curl of the production Lambda found `/studio/api/graph/visualization` returning HTTP 502 (response > 6 MB Lambda sync cap) and `/studio/api/traversal/hubs` returning HTTP 500 (`ModuleNotFoundError: neo4j` — the Neptune/Neo4j Bolt driver missing because v0.57.0 wheel ships `neo4j` only in `[all]`/`[all-gpu]` extras, not `[api]`, while the Lambda installs `[api]`). User-facing graph viz + traversal restored.
