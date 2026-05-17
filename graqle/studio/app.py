@@ -31,6 +31,7 @@ def mount_studio(app: Any, state: dict) -> None:
     from fastapi.templating import Jinja2Templates
 
     from graqle.studio.routes.api import router as api_router
+    from graqle.studio.routes.compliance import router as compliance_router
     from graqle.studio.routes.control import router as control_router
     from graqle.studio.routes.dashboard import router as dashboard_router
     from graqle.studio.routes.governance import router as governance_router
@@ -56,6 +57,7 @@ def mount_studio(app: Any, state: dict) -> None:
     app.include_router(traversal_router, prefix="/studio/api/traversal")
     app.include_router(control_router, prefix="/studio/api/control")
     app.include_router(learning_router, prefix="/studio/api/learning")
+    app.include_router(compliance_router, prefix="/studio/api/compliance")
     app.include_router(auto_router, prefix="/studio")
 
     # Ring-fence guard: Studio routes are read-only on the knowledge graph.
