@@ -289,12 +289,38 @@ async def metrics_roi(request: Request):
 
 
 @router.get("/graph/visualization")
-async def graph_visualization(request: Request):
-    """Return D3-compatible {nodes, links} JSON."""
+async def graph_visualization(
+    request: Request,
+    limit: int = Query(
+        2000,
+        ge=10,
+        le=10000,
+        description="Max nodes (top-by-degree). Caps response size to fit Lambda's 6MB sync limit.",
+    ),
+):
+    """Return D3-compatible {nodes, links} JSON.
+
+    For graphs larger than ``limit`` nodes, returns the top-N hub nodes by
+    degree centrality plus links between selected nodes. SF-05 guard
+    against AWS Lambda's 6 MB synchronous-response cap, which previously
+    produced HTTP 502 on large KGs (>~3k nodes). Response always includes
+    ``total_nodes``, ``total_edges``, and ``truncated`` so the UI can show
+    "viewing N of M" hints to the user.
+    """
     state = request.app.state.studio_state
     graph = state.get("graph")
     if not graph:
-        return {"nodes": [], "links": []}
+        return {
+            "nodes": [],
+            "links": [],
+            "total_nodes": 0,
+            "total_edges": 0,
+            "truncated": False,
+            "limit": limit,
+        }
+
+    total_nodes = len(graph.nodes)
+    total_edges = len(graph.edges)
 
     # Precompute degree map in one pass (avoids O(N×E) nested loop)
     degree_map: dict = {}
@@ -302,8 +328,40 @@ async def graph_visualization(request: Request):
         degree_map[edge.source_id] = degree_map.get(edge.source_id, 0) + 1
         degree_map[edge.target_id] = degree_map.get(edge.target_id, 0) + 1
 
+    # SF-05: Lambda 6 MB response cap guard. For large KGs (>limit nodes),
+    # return only top-N hub nodes by degree. Each serialized node is
+    # ~200-400 bytes; 2000 nodes ≈ 0.8 MB nodes + edges fits comfortably
+    # under the 6 MB cap (with headroom for headers, gzip overhead, edges).
+    # Uses heapq.nlargest (O(n log limit)) rather than sorted()[:limit]
+    # (O(n log n)) — meaningful on 64k-node KGs.
+    truncated = total_nodes > limit
+    if truncated:
+        import heapq
+        top_ids: set = {
+            nid for nid, _ in heapq.nlargest(
+                limit, degree_map.items(), key=lambda x: x[1]
+            )
+        }
+        # Backfill with isolated nodes (zero degree, not in degree_map).
+        # D3 force layout renders these as standalone dots — valid graph
+        # members (e.g. LESSON nodes, Entity nodes without edges).
+        # `truncated=True` in the response signals to the UI that this
+        # is a subset view.
+        if len(top_ids) < limit:
+            for nid in graph.nodes:
+                if nid not in top_ids:
+                    top_ids.add(nid)
+                    if len(top_ids) >= limit:
+                        break
+        selected_node_ids: set = top_ids
+    else:
+        selected_node_ids = set(graph.nodes.keys())
+
     nodes = []
-    for nid, node in graph.nodes.items():
+    for nid in selected_node_ids:
+        node = graph.nodes.get(nid)
+        if node is None:
+            continue
         chunk_count = len(node.properties.get("chunks", []))
         degree = degree_map.get(nid, 0)
         nodes.append({
@@ -317,17 +375,27 @@ async def graph_visualization(request: Request):
             "color": _type_color(node.entity_type),
         })
 
+    # Only include links where BOTH endpoints are in the selected set,
+    # otherwise D3 throws "missing node" on dangling source/target refs.
     links = []
     for eid, edge in graph.edges.items():
-        links.append({
-            "id": eid,
-            "source": edge.source_id,
-            "target": edge.target_id,
-            "relationship": edge.relationship,
-            "weight": getattr(edge, "weight", 1.0),
-        })
+        if edge.source_id in selected_node_ids and edge.target_id in selected_node_ids:
+            links.append({
+                "id": eid,
+                "source": edge.source_id,
+                "target": edge.target_id,
+                "relationship": edge.relationship,
+                "weight": getattr(edge, "weight", 1.0),
+            })
 
-    return {"nodes": nodes, "links": links}
+    return {
+        "nodes": nodes,
+        "links": links,
+        "total_nodes": total_nodes,
+        "total_edges": total_edges,
+        "truncated": truncated,
+        "limit": limit,
+    }
 
 
 @router.get("/graph/visualization/filtered")

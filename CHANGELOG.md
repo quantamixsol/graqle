@@ -4,6 +4,22 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.57.1 (2026-05-17) - [cr-011 Studio backend restoration]
+
+> **Bundled hotfix for three independent regressions found in the post-v0.57.0 Studio + Lambda audit.** Marketing on graqle.com advertised v0.57.0 + EU AI Act alignment but live curl of the production Lambda found `/studio/api/graph/visualization` returning HTTP 502 (response > 6 MB Lambda sync cap) and `/studio/api/traversal/hubs` returning HTTP 500 (`ModuleNotFoundError: neo4j` — the Neptune/Neo4j Bolt driver missing because v0.57.0 wheel ships `neo4j` only in `[all]`/`[all-gpu]` extras, not `[api]`, while the Lambda installs `[api]`). User-facing graph viz + traversal restored.
+
+### Fixed
+
+- **`[api]` optional-dependency extra now includes `neo4j>=5.0`** (SF-04). Previously only `[all]`/`[all-gpu]` included it. The studio Lambda installs `graqle[api]` and queries Neptune via the Bolt protocol through the `neo4j` Python driver; without this driver, `/studio/api/traversal/hubs` returned HTTP 500 (`ModuleNotFoundError: No module named 'neo4j'`). Restored after Lambda redeploy.
+
+- **`/studio/api/graph/visualization` now caps response at the configurable `?limit=` param (default 2000 nodes, max 10000)** (SF-05). On KGs larger than `limit`, returns the top-N hub nodes by degree centrality plus only the links between selected nodes (no dangling D3 endpoints). Response always includes `total_nodes`, `total_edges`, `truncated`, `limit` so the UI can show "viewing N of M" hints. Previously crashed with HTTP 502 (`LAMBDA_RUNTIME Failed to post handler success response. Http response code: 413`) on KGs > ~3k nodes because the serialized payload exceeded the AWS Lambda 6 MB synchronous-response cap. Surgical fix — only modifies `graph_visualization`, leaves `graph_visualization_filtered` and every other handler in `routes/api.py` untouched.
+
+### Notes
+
+- v0.57.1 is **functionally identical** to v0.57.0 except for the studio-Lambda path. No EU AI Act semantics change, no PCT change, no claim-limits change. All v0.57.0 tests continue to pass. The CR-011 audit report (auditor: Claude, autonomous cost-optimised mode) and the SF-01/SF-03 deferrals are documented in `.gcc/branches/studio-audit-2026-05-17/STUDIO-AUDIT-REPORT.md` on the auditor's worktree (not shipped in the wheel).
+
+---
+
 ## 0.57.0 (2026-05-16) - [cr-010 EU AI Act Wave 2]
 
 > **EU AI Act Wave 2 — every subsystem the deployer's compliance file needs, behind a single switch.** Six new capability gaps (CG-MKT-01..06) close in this release: Article 14 human-review enforcement on auto-apply paths; R25-EU11 v1.0 claim-limits typed vocabulary (17 canonical values, 6 categories, `x-` extension namespace); VERITAS Q16.1 baseline-document generator; Q16.3 periodic-assessment with auto-remediation triggers; Q16.5 OBSERVATION-ONLY feedback-trend tracker (with mandatory AST audit test enforcing the Q-PATENT 2026-05-22 patent-novelty boundary); README snapshot-lock test that fails CI if forbidden marketing words slip in; weekly EUR-Lex content-hash drift guard. Plus a new `graq compliance switch` command that surfaces every EU-AI-Act-aware subsystem in one envelope — the deployer can answer *"what is the effective EU AI Act posture of this install?"* with a single call. Marketing-vs-built honesty score moves from 78/100 to ~98/100 (per ADR-MARKETING-003 verification registry).
