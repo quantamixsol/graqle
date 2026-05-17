@@ -4,6 +4,20 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.57.3 (2026-05-17) - [cr-015 Neptune URI from environment variable]
+
+> **Fixes `/studio/api/traversal/hubs` HTTP 500 on the production Lambda.** v0.57.2 added the `neo4j` Bolt driver to the Lambda zip (CR-013), but `graqle.server.app` still passed `graph_cfg.uri = bolt://localhost:7687` to `Neo4jTraversal()`, so every traversal query hit `ConnectionRefusedError: [Errno 111] Connection refused` against localhost on the Lambda. v0.57.3 reads `NEPTUNE_ENDPOINT` + `NEPTUNE_PORT` env vars at app-startup and constructs a proper `bolt+s://endpoint:8182` URI for Neptune. Falls back to `graph_cfg.uri` when `NEPTUNE_ENDPOINT` is empty (local Neo4j + test environments unchanged).
+
+### Fixed
+
+- **`graqle/server/app.py` Neptune URI construction** (SF-06). When `NEPTUNE_ENDPOINT` env var is present, build `bolt+s://{endpoint}:{NEPTUNE_PORT or 8182}` for the `Neo4jTraversal` connector instead of consulting `graph_cfg.uri` (which defaults to `bolt://localhost:7687` from `graqle.yaml`). Restores `/studio/api/traversal/hubs` from HTTP 500 to 200 on AWS Lambda after redeploy.
+
+### Notes
+
+- v0.57.3 is **functionally identical** to v0.57.2 except for the Neptune URI override path. Local development with Neo4j desktop or `docker run neo4j` (no `NEPTUNE_ENDPOINT` env var) continues to use the existing `graph_cfg.uri` flow. No breaking change.
+
+---
+
 ## 0.57.2 (2026-05-17) - [cr-014 Compliance HTTP route surfacing]
 
 > **Surfaces the EU AI Act subsystem envelope as Studio HTTP endpoints.** The `graqle.compliance.switch_status.build_switch_status()` function shipped in v0.57.0 as a Python module + CLI command (`graq compliance switch status`), but there was no HTTP route to expose it to the Studio frontend / graqle.com /security page. v0.57.2 adds two routes that read-only wrap the same builder.

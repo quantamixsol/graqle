@@ -278,17 +278,44 @@ def create_app(
             # Track Neptune availability for cross-project queries
             state["neptune_enabled"] = neptune_enabled or state.get("neptune_project_id") is not None
 
-            # Initialize Neo4j traversal engine if Neo4j is configured
+            # Initialize Neo4j traversal engine if Neo4j is configured.
+            #
+            # SF-06 (CR-015, 2026-05-17): On AWS Lambda the connector points
+            # to Amazon Neptune (Bolt-compatible) via the NEPTUNE_ENDPOINT
+            # environment variable, not localhost. Without this override the
+            # traversal engine connects to bolt://localhost:7687, fails with
+            # ConnectionRefusedError, and /studio/api/traversal/hubs returns
+            # HTTP 500. We construct the Neptune URI from env vars when
+            # NEPTUNE_ENDPOINT is set, falling back to graph_cfg.uri for
+            # local Neo4j + tests.
             connector = getattr(getattr(state["config"], "graph", None), "connector", "networkx")
             if connector == "neo4j":
                 try:
+                    import os as _os
                     from graqle.connectors.neo4j_traversal import Neo4jTraversal
                     graph_cfg = state["config"].graph
+
+                    neptune_endpoint = _os.environ.get("NEPTUNE_ENDPOINT", "").strip()
+                    if neptune_endpoint:
+                        neptune_port = _os.environ.get("NEPTUNE_PORT", "8182").strip() or "8182"
+                        # Neptune Bolt requires TLS (bolt+s://) and IAM auth
+                        # is handled by the AWS SDK / neptune driver layer.
+                        bolt_uri = f"bolt+s://{neptune_endpoint}:{neptune_port}"
+                        bolt_user = ""
+                        bolt_pass = ""
+                        bolt_db = "neo4j"
+                        logger.info("Neo4j traversal using Neptune endpoint: %s", bolt_uri)
+                    else:
+                        bolt_uri = getattr(graph_cfg, "uri", None) or "bolt://localhost:7687"
+                        bolt_user = getattr(graph_cfg, "username", None) or "neo4j"
+                        bolt_pass = getattr(graph_cfg, "password", None) or ""
+                        bolt_db = getattr(graph_cfg, "database", None) or "neo4j"
+
                     state["neo4j_traversal"] = Neo4jTraversal(
-                        uri=getattr(graph_cfg, "uri", None) or "bolt://localhost:7687",
-                        username=getattr(graph_cfg, "username", None) or "neo4j",
-                        password=getattr(graph_cfg, "password", None) or "",
-                        database=getattr(graph_cfg, "database", None) or "neo4j",
+                        uri=bolt_uri,
+                        username=bolt_user,
+                        password=bolt_pass,
+                        database=bolt_db,
                     )
                     logger.info("Neo4j traversal engine initialized")
                 except Exception as te:
