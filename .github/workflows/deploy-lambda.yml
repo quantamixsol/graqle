@@ -131,13 +131,23 @@ jobs:
         run: |
           mkdir -p build/lambda
 
-          # Install deps for Linux Lambda runtime
+          # Install deps for Linux Lambda runtime.
+          # NOTE (CR-013, 2026-05-17): neo4j + cryptography + jsonschema +
+          # pyshacl + rdflib added explicitly. Without neo4j, traversal/hubs
+          # returns 500 (Neptune speaks Bolt). Without the others, v0.57.0
+          # compliance modules silently fail at import time, dropping their
+          # route registration. The graqle[api] extra in pyproject.toml
+          # already declares these, but this workflow hand-rolls a flat
+          # pip-install list and doesn't consult the [api] extra.
+          # TODO: switch to `pip install -e .[api] --target build/lambda`
+          # in a follow-on CR once the manylinux constraints are sorted.
           pip install --target build/lambda \
             --platform manylinux2014_x86_64 --only-binary=:all: \
             --python-version 3.10 --implementation cp \
             mangum fastapi uvicorn jinja2 pydantic pydantic-settings \
             pyyaml typer rich networkx numpy httpx anthropic openai \
-            requests
+            requests \
+            neo4j cryptography jsonschema pyshacl rdflib
 
           # Copy graqle source (not pip-installed — use repo version)
           cp -r graqle/ build/lambda/graqle/
