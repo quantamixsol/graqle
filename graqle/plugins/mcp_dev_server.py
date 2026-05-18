@@ -4995,20 +4995,54 @@ class KogniDevServer:
     def _project_root_from_graph_file(self, graph_file: "str | None") -> "Path":
         """Resolve project root from _graph_file, safely handling non-filesystem URIs.
 
-        When Neo4j/Neptune is active, _graph_file is set to a URI like
-        'neo4j://bolt://localhost:7687'. Path() on that string produces an
-        invalid Windows path (WinError 123). Detect any URI scheme and fall
-        back to GRAQLE_SERVE_CWD env var (set by mcp_serve()) or cwd().
+        Resolution precedence (highest to lowest):
+        1. ``GRAQLE_WORKTREE_ROOT`` env var (cr-016) — supports parallel
+           git-worktree clones for multi-CR SDK development. When set to an
+           absolute path, this overrides every other source so that
+           ``graq_write`` / ``graq_generate`` / ``graq_edit`` operate on the
+           worktree clone rather than the canonical project root.
+        2. ``graph_file`` parent directory (when ``graph_file`` is a regular
+           filesystem path, not a Neo4j/Neptune URI).
+        3. ``GRAQLE_SERVE_CWD`` env var (set by ``mcp serve``).
+        4. ``Path.cwd()`` as final fallback.
+
+        When Neo4j/Neptune is active, ``_graph_file`` is set to a URI like
+        ``neo4j://bolt://localhost:7687``. ``Path()`` on that string produces
+        an invalid Windows path (WinError 123). Detect any URI scheme and
+        fall through to env-var sources.
         """
         import os as _os
+        # 1. GRAQLE_WORKTREE_ROOT (cr-016) — highest priority for parallel
+        #    worktree clone support. Resolved/validated below.
+        worktree_root = _os.environ.get("GRAQLE_WORKTREE_ROOT", "")
+        if worktree_root:
+            try:
+                resolved = Path(worktree_root).resolve()
+                if resolved.is_dir():
+                    return resolved
+                # Malformed or non-existent path: fall through to next source
+                # rather than fail the request; surface a warning so operators
+                # see the misconfiguration.
+                logger.warning(
+                    "GRAQLE_WORKTREE_ROOT=%r is not a directory; ignoring",
+                    worktree_root,
+                )
+            except (OSError, ValueError):
+                logger.warning(
+                    "GRAQLE_WORKTREE_ROOT=%r failed to resolve; ignoring",
+                    worktree_root,
+                )
+        # 2. graph_file parent
         if graph_file and isinstance(graph_file, (str, Path)) and "://" not in str(graph_file):
             try:
                 return Path(str(graph_file)).resolve().parent
             except OSError:
                 pass
+        # 3. GRAQLE_SERVE_CWD
         serve_cwd = _os.environ.get("GRAQLE_SERVE_CWD", "")
         if serve_cwd:
             return Path(serve_cwd).resolve()
+        # 4. cwd fallback
         return Path.cwd().resolve()
 
     def _get_chat_ctx(self) -> "Any":
