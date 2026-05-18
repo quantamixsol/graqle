@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -130,6 +131,44 @@ async def _load_project_graph(request: Request, project: str):
         return None
 
 
+# Project name validation: reject path traversal, separators, and control chars.
+# Project names are user-supplied (``x-project-name`` header) and are interpolated
+# into an S3 key in :func:`_load_project_graph` — see SF-07 sentinel MAJOR #1.
+_PROJECT_NAME_RE = re.compile(r"\A[A-Za-z0-9._\- ]{1,128}\Z")
+
+
+async def _resolve_graph_for_request(request: Request):
+    """Resolve the appropriate Graqle graph for an HTTP request (SF-07, v0.57.4).
+
+    Reads the ``x-project-name`` header. If present and well-formed, returns
+    the project-specific graph from S3 (cached after first load via
+    :func:`_load_project_graph`). If the header is absent, malformed, or the
+    project load fails for any reason, falls back to the Lambda's default
+    graph at ``state["graph"]``.
+
+    This is the single source of truth for graph routing across all studio
+    routes. Behaviour is byte-identical to the prior ``state.get("graph")``
+    when the header is absent — see SF-07 / CR-022.
+
+    Validation: project name must match ``[A-Za-z0-9._\\- ]{1,128}``.
+    Rejected names log a warning and fall through to the default graph.
+    """
+    state = request.app.state.studio_state
+    project = request.headers.get("x-project-name")
+    if not project:
+        return state.get("graph")
+    if not _PROJECT_NAME_RE.match(project):
+        logger.warning("SF-07: rejecting malformed x-project-name header (%d chars)", len(project))
+        return state.get("graph")
+    try:
+        project_graph = await _load_project_graph(request, project)
+        if project_graph is not None:
+            return project_graph
+    except Exception as exc:
+        logger.warning("SF-07: project graph load failed for %r: %s", project, exc)
+    return state.get("graph")
+
+
 # ---------- Cross-project federation ----------
 
 
@@ -226,7 +265,7 @@ async def project_context(request: Request):
     Used by TopBar badge and Dashboard project card to show which graph is loaded.
     """
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if graph is not None:
         ctx = graph.project_context()
         ctx["graph_loaded"] = True
@@ -308,7 +347,7 @@ async def graph_visualization(
     "viewing N of M" hints to the user.
     """
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph:
         return {
             "nodes": [],
@@ -421,7 +460,7 @@ async def graph_visualization_filtered(
     from pathlib import Path
 
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph:
         return {"nodes": [], "links": [], "strategy": strategy, "total_before": 0}
 
@@ -619,7 +658,7 @@ async def graph_nodes(
 ):
     """Paginated node list with search and type filter."""
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph:
         return {"nodes": [], "total": 0}
 
@@ -651,7 +690,7 @@ async def graph_nodes(
 async def graph_node_detail(request: Request, node_id: str):
     """Single node detail with neighbors."""
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph or node_id not in graph.nodes:
         return {"error": "Node not found"}
 
@@ -720,7 +759,7 @@ async def reason_stream(request: Request):
     project = body.get("project")  # User's selected project
 
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
 
     # Per-project graph loading: if a project is specified and we have S3 access,
     # load that project's graph instead of the default Lambda graph.
@@ -866,7 +905,7 @@ async def governance_stats(request: Request):
         violation_count = None
         auto_correction_rate = None
 
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     protected_files_count = None
     try:
         if graph is not None and hasattr(graph, "nodes"):
@@ -896,7 +935,7 @@ async def governance_stats(request: Request):
 async def partial_metrics_cards(request: Request):
     """Auto-refreshing metrics cards fragment."""
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     metrics = state.get("metrics")
 
     node_count = len(graph.nodes) if graph else 0
@@ -944,7 +983,7 @@ async def partial_metrics_cards(request: Request):
 async def partial_node_detail(request: Request, node_id: str):
     """Node detail panel for HTMX."""
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph or node_id not in graph.nodes:
         return "<div class='node-detail'><p>Node not found</p></div>"
 
@@ -1026,7 +1065,7 @@ async def settings_view(request: Request):
     """Return read-only config for the Studio settings page."""
     state = request.app.state.studio_state
     config = state.get("config")
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
 
     node_count = len(getattr(graph, "nodes", {})) if graph else 0
     edge_count = len(getattr(graph, "edges", {})) if graph else 0
@@ -1092,7 +1131,7 @@ async def lessons(
     Free plan: lessons from local graph only.
     """
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph:
         return JSONResponse({"lessons": [], "count": 0, "source": "no_graph"})
 
@@ -1160,7 +1199,7 @@ async def neptune_upload(request: Request):
     """
     import time
     state = request.app.state.studio_state
-    graph = state.get("graph")
+    graph = await _resolve_graph_for_request(request)
     if not graph:
         return JSONResponse({"error": "No graph loaded in memory"}, status_code=400)
 
