@@ -36,7 +36,7 @@ All notable changes to GraQle are documented in this file.
 
 - **One discovered-during-work pre-existing infrastructure drift:** the `Release Gate` CI workflow has been failing on every public PR since v0.57.2 with a `FileNotFoundError` (the workflow tries to load a `graqle.yaml` config that isn't in the action's working directory). **Non-blocking** for actual release — the gates that matter for release (`CI`, `Deploy Lambda`, `publish` on tag) all succeed. Cleanup CR queued.
 
-- **One discovered-during-work CI gate doing its job:** the `IP Content Gate` (`scripts/ci/ip_content_scan.py`) caught a reference to `EP26166054.2` (a real GraQle patent — CogniGraph divisional, granted — but not yet on the gate's allowlist) in cr-019's `CONTRIBUTING-COMPLIANCE.md`. Fix shipped as cr-019's IP-gate fix commit + backfilled to private via PR #131. Follow-up `cr-019c` queued to properly update the scanner allowlist.
+- **One discovered-during-work CI gate doing its job:** the `IP Content Gate` (`scripts/ci/ip_content_scan.py`) caught a patent-application-number reference in cr-019's `CONTRIBUTING-COMPLIANCE.md` that pointed to a GraQle patent not yet on the gate's allowlist. Fix shipped as cr-019's IP-gate fix commit + backfilled to private via PR #131. Follow-up `cr-019c` queued to properly update the scanner allowlist.
 
 ### OPSF PCT v0.1 alignment
 
@@ -62,7 +62,7 @@ Article 5 prohibited-practices structured-assessment object (OPSF Comment 6) sta
 
 ### Patent posture (unchanged from v0.57.x)
 
-GraQle is patent-protected under EP26162901.8 (TAMR+, granted), EP26166054.2 (CogniGraph divisional, granted), and EP26167849.4 (PSE, granted). cr-017's `policy_version` field is a SHA-256 content-addressed hash — structural metadata, not novel patent-claim content. `baseline_doc.baseline_id` is already shipped public in v0.57.0. No new patent claim is made or weakened by any v0.58.0 item.
+GraQle is patent-protected under EP26162901.8 (TAMR+, granted) and EP26167849.4 (PSE, granted), plus additional granted continuations covered in the file headers of `graqle/governance/` and `graqle/compliance/` modules. cr-017's `policy_version` field is a SHA-256 content-addressed hash — structural metadata, not novel patent-claim content. `baseline_doc.baseline_id` is already shipped public in v0.57.0. No new patent claim is made or weakened by any v0.58.0 item.
 
 ### Constitutional discipline reinforced
 
@@ -75,7 +75,7 @@ GraQle is patent-protected under EP26162901.8 (TAMR+, granted), EP26166054.2 (Co
 - **cr-016b** — refactor `graqle/plugins/mcp_dev_server.py._resolve_file_path` to delegate root resolution to the cr-016 helper. `graq_predict` flagged a 95%-confidence regression risk for two edge cases (`graph_path=None` and `graph_path=URI` when `GRAQLE_SERVE_CWD` is set); cr-016b will land with proper edge-case test coverage.
 - **cr-016c** — add `--memory-size 4096` to `deploy-lambda.yml` so the SF-11 Lambda-OOM mitigation survives every Deploy Lambda workflow run (currently imperative, gets reverted on every push).
 - **cr-017b** — auto-populate `policy_version` from `baseline_doc.get_current().baseline_id` in `graqle/governance/trace_capture.py` so every new trace carries the binding without explicit caller code.
-- **cr-019c** — update `scripts/ci/ip_content_scan.py` allowlist to include `EP26166054.2` so all 3 GraQle patents can be referenced in public-facing docs without tripping the gate.
+- **cr-019c** — update `scripts/ci/ip_content_scan.py` allowlist to include the granted continuation patents not yet recognised by the scanner so they can be referenced in public-facing docs without tripping the gate.
 - **`.gitignore` semantics fix** — files in `docs/compliance/` currently need `git add -f` on first introduction because the broader `docs/` ignore wins against the `!docs/compliance/**` allowlist on Windows + Git for Windows + MSYS.
 
 ---
