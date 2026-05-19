@@ -4,6 +4,82 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.58.0 (unreleased) — [Research-Team v0.58.x directive: EU AI Act Wave 3 substrate, OPSF PCT alignment, parallel-worktree dev unblocked]
+
+> **The Research-Team-signed v0.58.x directive ships four substantive items (cr-016, cr-017, cr-019, cr-021) plus a measurement-only spike (cr-018) for the R25-EU01 Phase M1 Merkle + Sigstore Rekor anchoring centrepiece. Item #5 (`x-ai-eu-enforcement` sibling namespace) is deferred to v0.58.1. None of the items in this entry change runtime behaviour for end users unless the new env vars or HTTP header are set; the schema additions are byte-identical when unset/absent. v0.58.0 will tag once all 5 items land — currently 4-of-5 in.**
+
+### Added
+
+- **`GRAQLE_WORKTREE_ROOT` env var honoured by the MCP server path resolver** (cr-016 — closes CG-MKT-11). The MCP server's `_project_root_from_graph_file` helper at `graqle/plugins/mcp_dev_server.py` now consults `GRAQLE_WORKTREE_ROOT` as the highest-priority project-root source, above the existing `graph_file` parent / `GRAQLE_SERVE_CWD` / `Path.cwd()` precedence. When the env var is set to an absolute directory path, `graq_write` / `graq_generate` / `graq_edit` accept paths under that root — unblocking parallel-worktree development workflows. Path-validation hardening mirrors CR-005a `graq_bash stdout_path`: `Path.resolve()` canonicalisation, `is_dir()` check, `logger.warning` + fall-through on invalid values. **Backward-compatible:** when `GRAQLE_WORKTREE_ROOT` is unset, behaviour is byte-identical to v0.57.4. 29 new tests across 3 layers; 0% regression confirmed via `git stash` A/B.
+
+- **Audit-log record schema v2 + content-addressed `policy_version` binding** (cr-017 — closes the OPSF PCT v0.1 Comment 4 gap with shipped engineering). Every `GovernedTrace` record now carries two new fields: `schema_version: str = "2"` (wire-format generation marker; pre-cr-017 records read as implicit v1 via the new `classify_schema_version` helper) and `policy_version: str | None = None` (SHA-256 content-addressed binding to the active `baseline_doc.baseline_id`; readers needing a non-null value get the sentinel `legacy_pre_v058_unknown` from the new `get_policy_version_or_sentinel` helper for absent/None/empty values). The same `policy_version` field is added as the 11th field on `XAiEuExtension` so OPSF Use B PCT tokens carry the operator's compliance posture. Plus: `_trace_to_rdf` in `graqle/governance/shacl/validator.py` emits both as RDF triples (`schemaVersion` always; `policyVersion` conditionally when set) so downstream SHACL/RDF audit tooling can query them. Auto-population at trace creation time (read `baseline_doc.baseline_id` and write into every new trace) deferred to cr-017b. 66 new tests across 4 layers; 0% regression confirmed.
+
+- **`docs/compliance/eu-ai-act/article-43-conformity-assessment.md`** (cr-019 — closes the docs-asymmetry vs Fuzentry's Article 43 evidence map). Maps GraQle's existing substrate (baseline-doc + audit-log + periodic-assessment + robustness attestation + Article 50 disclosure + claim-limits + Article 14 gate + Article 25 PCT) to Annex VI internal-control requirements per Article 43(1). Explicit non-claim: GraQle does NOT perform conformity assessment itself — the deployer composes the substrate evidence into their own Annex VI file. The deployer remains the conformity-assessment subject.
+
+- **`CONTRIBUTING-COMPLIANCE.md`** (cr-019 follow-on). Repo-top-level contribution guide for EU AI Act docs specifically. Invites docs corrections, translations (DE/FR/ES/IT highest demand from EU-region deployers), compliance gap reports from deployers building Annex VI internal-control files, and cross-framework mappings (NIST AI RMF, ISO 42001, ENISA AI Threat Landscape, EBA AI guidelines). Explains the vocabulary discipline enforced in CI (snapshot-lock rejects `compliant`/`certified`/`guaranteed`/`end-to-end solution`), the four canonical positioning markers (`EU AI Act-aligned`, `Articles 6, 9, 12, 13, 14, 15, 25, 50`, `NOT high-risk`, `NOT GPAI provider`), and the three substantive non-claims enforced by `TestNonClaimsInvariants`.
+
+- **OPSF PCT v0.1 alignment block** (cr-021 — this CR, the release-notes cross-reference plumbing item from the directive item #6).
+
+### Changed
+
+- **`docs/compliance/eu-ai-act/README.md`** (cr-019). Added Article 43 row to the article-by-article table. Added a new "Recent EU AI Act-relevant changes" section with a per-release table linking each v0.5x release to its EU AI Act items + the relevant article docs. Added "Contributing to this documentation" section.
+
+- **`README.md`** (cr-019). Top-level repo / PyPI landing page README updated: Article 25 row now mentions cr-017's 11th field; new Article 43 row added; new "Contributions welcome on the compliance docs" subsection pointing at `CONTRIBUTING-COMPLIANCE.md`.
+
+### Notes
+
+- **Functionally byte-identical to v0.57.4 when the new env vars / HTTP header / schema fields are absent or `None`.** Constitutional 0% regression target met on all 3 code-touching CRs (cr-016, cr-017, cr-019's parity-test exclusion): verified by `git stash` A/B comparison on each.
+
+- **Sentinel chain across all 4 CRs:** all sentinel passes APPROVED (cr-016 + cr-017 used `focus=all` + `focus=security`; cr-019 + cr-021 used `focus=correctness` per cost-optimisation rules — docs/CHANGELOG CRs don't need the 6-agent expensive run).
+
+- **Pre-edit blast-radius prediction proved valuable on every code-touching CR.** `graq_reason` + `graq_predict(fold_back=false)` spent ~$0.10 per CR before any code was written; on cr-016 it caught a 95%-confidence regression risk that caused a proposed Edit 2 to be DROPPED before shipping; on cr-017 it flagged 4 ranked failure chains, 2 of which were subsequently dropped as phantom risks after a $0 grep audit.
+
+- **One discovered-during-work pre-existing infrastructure drift:** the `Release Gate` CI workflow has been failing on every public PR since v0.57.2 with a `FileNotFoundError` (the workflow tries to load a `graqle.yaml` config that isn't in the action's working directory). **Non-blocking** for actual release — the gates that matter for release (`CI`, `Deploy Lambda`, `publish` on tag) all succeed. Cleanup CR queued.
+
+- **One discovered-during-work CI gate doing its job:** the `IP Content Gate` (`scripts/ci/ip_content_scan.py`) caught a reference to `EP26166054.2` (a real GraQle patent — CogniGraph divisional, granted — but not yet on the gate's allowlist) in cr-019's `CONTRIBUTING-COMPLIANCE.md`. Fix shipped as cr-019's IP-gate fix commit + backfilled to private via PR #131. Follow-up `cr-019c` queued to properly update the scanner allowlist.
+
+### OPSF PCT v0.1 alignment
+
+GraQle v0.58.0 ships engineering that aligns with the OPSF PCT v0.1 public comment window (submission deadline 2026-06-28). Quantamix submits an independent practitioner-reference OPSF comment by 2026-06-24 citing the v0.58.0 commitments below:
+
+- GraQle PCT issuer ships RS256-only per OPSF PCT §5.2.
+  Aligns with: independent practitioner submission OPSF Comment 1 (Wesley Felix, 2026-05-18).
+  Source: graqle/pct/issuer.py (shipped v0.57.0, unchanged in v0.58.0).
+
+- v0.58.0 ships content-addressed policy_version per audit record + in x-ai-eu extension.
+  Aligns with: OPSF Comment 4 (Wesley Felix, 2026-05-18).
+  Source: SDK-Op-2 in this release (cr-017 audit-log schema v2 + x-ai-eu field 11).
+
+- v0.58.0 ships Merkle batch sealing + Sigstore Rekor external anchoring.
+  Aligns with: OPSF Comment 5 (Wesley Felix, 2026-05-18).
+  Source: SDK-Op-3 in this release (R25-EU01 Phase M1 — gated on R25-EU08 ADR + Senior `graq_reason` review at >= 75%; research-team target 2026-06-09).
+
+- v0.58.1 will ship x-ai-eu-enforcement sibling namespace.
+  Aligns with: OPSF Comments 2 + 3 (Wesley Felix, 2026-05-18).
+  Source: SDK-Op-5 in v0.58.1 (deferred from v0.58.0 to ship Merkle work cleanly).
+
+Article 5 prohibited-practices structured-assessment object (OPSF Comment 6) stays out-of-scope for GraQle's substrate per docs/compliance/eu-ai-act/out-of-scope-articles.md.
+
+### Patent posture (unchanged from v0.57.x)
+
+GraQle is patent-protected under EP26162901.8 (TAMR+, granted), EP26166054.2 (CogniGraph divisional, granted), and EP26167849.4 (PSE, granted). cr-017's `policy_version` field is a SHA-256 content-addressed hash — structural metadata, not novel patent-claim content. `baseline_doc.baseline_id` is already shipped public in v0.57.0. No new patent claim is made or weakened by any v0.58.0 item.
+
+### Constitutional discipline reinforced
+
+- 4 canonical positioning markers preserved verbatim across all docs: `EU AI Act-aligned`, `Articles 6, 9, 12, 13, 14, 15, 25, 50`, `NOT high-risk`, `NOT GPAI provider`.
+- 3 substantive non-claims enforced in code by `TestNonClaimsInvariants` (no `compliant`/`certified` boolean field anywhere in the machine-readable surface — the test refuses any field that would assert these as true).
+- README snapshot-lock CI gate refuses any new prose using `compliant` / `certified` / `guaranteed` / `end-to-end solution` (except italic / backtick / disavowal forms, per the test's `_LINE_EXEMPTION_PATTERNS`).
+
+### Open follow-ons (not in v0.58.0)
+
+- **cr-016b** — refactor `graqle/plugins/mcp_dev_server.py._resolve_file_path` to delegate root resolution to the cr-016 helper. `graq_predict` flagged a 95%-confidence regression risk for two edge cases (`graph_path=None` and `graph_path=URI` when `GRAQLE_SERVE_CWD` is set); cr-016b will land with proper edge-case test coverage.
+- **cr-016c** — add `--memory-size 4096` to `deploy-lambda.yml` so the SF-11 Lambda-OOM mitigation survives every Deploy Lambda workflow run (currently imperative, gets reverted on every push).
+- **cr-017b** — auto-populate `policy_version` from `baseline_doc.get_current().baseline_id` in `graqle/governance/trace_capture.py` so every new trace carries the binding without explicit caller code.
+- **cr-019c** — update `scripts/ci/ip_content_scan.py` allowlist to include `EP26166054.2` so all 3 GraQle patents can be referenced in public-facing docs without tripping the gate.
+- **`.gitignore` semantics fix** — files in `docs/compliance/` currently need `git add -f` on first introduction because the broader `docs/` ignore wins against the `!docs/compliance/**` allowlist on Windows + Git for Windows + MSYS.
+
+---
+
 ## 0.57.4 (2026-05-18) - [cr-022 SF-07 per-project graph routing across studio routes]
 
 > **Closes SF-07 from the 2026-05-17 studio backend audit.** Before v0.57.4, the Studio Lambda served the default 12,354-node monorepo graph on every request *except* `/reason`, even when the frontend sent an `x-project-name` header. This meant users with their own project graphs in S3 (e.g. Brand_Collaboration's 611 MB graph, CopyForge's 45 MB, Bynder's 7 MB, brandio-frontend's 3,825-node graph) could not see those graphs anywhere in the Studio UI — every endpoint silently returned the default. v0.57.4 introduces a single `_resolve_graph_for_request(request)` async helper in `graqle/studio/routes/api.py` that 12 existing route handlers consult instead of reading `state.get("graph")` directly. When the `x-project-name` HTTP header is present and well-formed, the helper returns the project-specific S3-loaded Graqle graph (cached via the existing `_load_project_graph`); otherwise it falls back to the Lambda's default graph at `state["graph"]`. **Behaviour is byte-identical to v0.57.3 when the header is absent.** All 110 existing studio tests continue to pass; 22 new tests added.
