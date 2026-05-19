@@ -29,7 +29,7 @@ The above rules exist because the EU AI Act distinguishes between providers of h
 ### Tier 3 — Not currently in scope
 
 - **New compliance subsystem implementations.** New code in `graqle/compliance/` that implements substrate evidence for a previously-uncovered article needs a Research-Team review before a PR can be opened. Open a discussion describing the proposed subsystem; the maintainers will route to research-team if appropriate.
-- **Patent-adjacent claims.** Certain parts of the substrate are covered by patents (EP26162901.8, EP26166054.2, EP26167849.4 — see file headers in `graqle/governance/` and `graqle/compliance/`). PRs that touch these surfaces require additional IP review.
+- **Patent-adjacent claims.** Certain parts of the substrate are covered by patents (EP26162901.8 and EP26167849.4 — see file headers in `graqle/governance/` and `graqle/compliance/`). PRs that touch these surfaces require additional IP review.
 
 ## What we cannot accept
 
