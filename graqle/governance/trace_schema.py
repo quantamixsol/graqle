@@ -117,6 +117,57 @@ _QUERY_MAX_LENGTH = 4000
 _NON_PRINTABLE_RE = re.compile(r"[^\x20-\x7E\t\n]")
 
 
+# -- cr-017: schema-versioning constants -------------------------------------
+#
+# Sentinel returned when reading a pre-v0.58.0 record that never carried a
+# ``policy_version`` field (the field was added in cr-017). Helpers that need
+# a non-null content-addressed identifier read the field; if it is missing
+# OR ``None``, they return this sentinel so downstream tooling (compliance
+# export, KG ingestion, OPSF Use B PCT validators) can distinguish
+# "trace pre-dates policy binding" from "policy binding intentionally absent".
+LEGACY_POLICY_VERSION_SENTINEL: str = "legacy_pre_v058_unknown"
+
+# Current wire-format schema version. Bumped to "2" in cr-017 (was implicit
+# "1" before this CR introduced explicit versioning). Pre-cr-017 records on
+# disk have NO ``schema_version`` field at all and are treated as v1 by
+# :func:`classify_schema_version`.
+CURRENT_SCHEMA_VERSION: str = "2"
+
+
+def classify_schema_version(raw: dict[str, Any] | None) -> str:
+    """Classify a serialized trace record's schema version.
+
+    Args:
+        raw: A trace dict parsed from JSONL/JSON. ``None`` is treated as v1
+            for symmetry with empty-record edge cases.
+
+    Returns:
+        ``"2"`` (or higher) if the record explicitly declares
+        ``schema_version``. ``"1"`` if the field is absent (pre-cr-017
+        records). The returned value is a string for forward compatibility
+        with future schema bumps (``"3"`` etc.).
+    """
+    if raw is None:
+        return "1"
+    version = raw.get("schema_version")
+    if isinstance(version, str) and version:
+        return version
+    return "1"
+
+
+def get_policy_version_or_sentinel(raw: dict[str, Any] | None) -> str:
+    """Read ``policy_version`` from a serialized trace, returning the sentinel
+    if absent or ``None``. Used by audit-export, OPSF Use B validation, and
+    KG-ingestion paths that need a non-null content-addressed identifier.
+    """
+    if raw is None:
+        return LEGACY_POLICY_VERSION_SENTINEL
+    value = raw.get("policy_version")
+    if isinstance(value, str) and value:
+        return value
+    return LEGACY_POLICY_VERSION_SENTINEL
+
+
 class GovernedTrace(BaseModel):
     """A single governed execution trace record.
 
@@ -155,6 +206,22 @@ class GovernedTrace(BaseModel):
     human_override: bool = False
     override_reason: str | None = None
     error: str | None = None
+
+    # -- cr-017: schema versioning + content-addressed policy binding -----
+    #
+    # ``schema_version`` marks the record's wire-format generation. Default
+    # ``"2"`` for any newly-constructed trace; legacy JSONL records persisted
+    # before cr-017 will be missing this field on disk and surface as
+    # implicitly v1 to readers (see :func:`SchemaVersion.classify`).
+    #
+    # ``policy_version`` is a content-addressed SHA-256 binding to the active
+    # baseline-doc at trace creation time (the ``baseline_id`` produced by
+    # :class:`graqle.compliance.baseline_doc.BaselineDoc.baseline_id`). When
+    # ``None``, the reader-side sentinel ``"legacy_pre_v058_unknown"`` is
+    # returned by helpers that need a non-null value (see Research-Team
+    # v0.58.x directive item #2; OPSF PCT comment 4 alignment).
+    schema_version: str = "2"
+    policy_version: str | None = None
 
     # -- Validators --------------------------------------------------------
 
