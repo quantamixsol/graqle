@@ -54,7 +54,8 @@ graq compliance eur-lex-check                             # weekly drift guard
 | **Art 13** — Deployer transparency | `graph_health` + `confidence` on every reasoning envelope | every `graq_reason` call |
 | **Art 14** — Human oversight | **Confidence-gated refusal** of auto-apply + R25-EU11 claim-limits | `GRAQLE_EU_AI_ACT_MODE=on` + `graq_edit/apply/auto` |
 | **Art 15** — Accuracy / robustness / cybersecurity | 17 named defences + 7 measurable claims | `graq compliance status --include-robustness` |
-| **Art 25** — Value-chain responsibility | Intended-purpose + PCT (Proof-Claims Token) `x-ai-eu` extension namespace | [Art 25 doc](./docs/compliance/eu-ai-act/article-25-value-chain.md) + `graq pct issue/validate` |
+| **Art 25** — Value-chain responsibility | Intended-purpose + PCT (Proof-Claims Token) `x-ai-eu` extension namespace (11 fields incl. content-addressed `policy_version` since v0.58.0 / cr-017) | [Art 25 doc](./docs/compliance/eu-ai-act/article-25-value-chain.md) + `graq pct issue/validate` |
+| **Art 43** — Conformity Assessment | Substrate evidence (baseline-doc + audit log + periodic assessment + robustness + Article 14 gate) for deployer's Annex VI internal-control file | [Art 43 doc](./docs/compliance/eu-ai-act/article-43-conformity-assessment.md) (since v0.58.0 / cr-019) |
 | **Art 50** — Transparency for users | Auto banner + `ai_disclosure` machine field | `GRAQLE_EU_AI_ACT_MODE=on` |
 
 **Three substantive non-claims kept legally clean:**
@@ -64,6 +65,10 @@ graq compliance eur-lex-check                             # weekly drift guard
 - We **provide signals and audit primitives**. We never say *compliant* or *certified*. The discipline is enforced in code — `TestNonClaimsInvariants` blocks any release that introduces a `compliant`/`certified` field.
 
 → **[Full Article-by-Article mapping in docs/compliance/eu-ai-act/](./docs/compliance/eu-ai-act/)**
+
+### Contributions welcome on the compliance docs
+
+The EU AI Act docs are deliberately open to contribution — **corrections, translations (DE/FR/ES/IT have highest demand), compliance gap reports from deployers building Annex VI internal-control files, and cross-framework mappings (NIST AI RMF, ISO 42001, ENISA, etc.) are all welcome.** See [CONTRIBUTING-COMPLIANCE.md](./CONTRIBUTING-COMPLIANCE.md) for the contribution guide, the vocabulary discipline the CI enforces, and what kinds of changes go through which review path.
 
 ---
 
