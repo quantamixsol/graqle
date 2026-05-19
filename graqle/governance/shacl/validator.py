@@ -136,6 +136,16 @@ def _trace_to_rdf(trace: GovernedTrace) -> Graph:
     g.add((trace_uri, _GQ.confidence, Literal(trace.confidence, datatype=XSD.double)))
     g.add((trace_uri, _GQ.outcome, Literal(trace.outcome.value, datatype=XSD.string)))
 
+    # cr-017: wire-format schema version and content-addressed policy binding.
+    # The shape set (R22 SGCV shapes.ttl) does not currently require either of
+    # these triples (no sh:closed on GovernanceTraceShape), so emission is
+    # purely additive at the RDF audit boundary. policy_version is conditional
+    # so legacy/None traces produce no triple and downstream tooling can use
+    # absence as the implicit "legacy_pre_v058_unknown" signal.
+    g.add((trace_uri, _GQ.schemaVersion, Literal(trace.schema_version, datatype=XSD.string)))
+    if trace.policy_version is not None:
+        g.add((trace_uri, _GQ.policyVersion, Literal(trace.policy_version, datatype=XSD.string)))
+
     # Gate decisions
     for i, gd in enumerate(trace.governance_decisions):
         gd_uri = URIRef(f"urn:graqle:gate:{trace.id}:{i}")
