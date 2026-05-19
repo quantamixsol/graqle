@@ -33,6 +33,7 @@ This is **"EU AI Act–aligned"** positioning. We do not claim certification. We
 | **Article 14** | Human Oversight | INDIRECTLY (we provide oversight UX primitives) | [article-14-human-oversight.md](./article-14-human-oversight.md) |
 | **Article 15** | Accuracy, Robustness, Cybersecurity | INDIRECTLY (we provide defence-in-depth measures) | [article-15-robustness.md](./article-15-robustness.md) |
 | **Article 25** | Responsibilities along the AI value chain | YES — when GraQle is a component of your high-risk system | [article-25-value-chain.md](./article-25-value-chain.md) |
+| **Article 43** | Conformity Assessment (Annex VI internal control) | INDIRECTLY — GraQle's substrate is evidence the deployer composes; deployer is the conformity-assessment subject | [article-43-conformity-assessment.md](./article-43-conformity-assessment.md) |
 | **Article 50** | Transparency for certain AI systems (applicable 2026-08-02) | YES — directly | [article-50-transparency.md](./article-50-transparency.md) |
 | **Article 53** | GPAI model provider obligations | N/A (we're a downstream user of GPAI) | [out-of-scope-articles.md](./out-of-scope-articles.md) |
 
@@ -74,6 +75,42 @@ Several signals GraQle exposes serve dual compliance purposes:
 - **Article 15 robustness** cross-references **ISO27001 § A.8.25** (secure development lifecycle).
 
 We note these in the individual documents.
+
+## Recent EU AI Act-relevant changes
+
+A condensed view of EU AI Act-relevant work shipped in the v0.5x line. For full per-release notes, see [CHANGELOG.md](../../../CHANGELOG.md).
+
+| Release | EU AI Act item shipped | This doc |
+|---|---|---|
+| **v0.58.0** (in progress) | `policy_version` content-addressed binding on every audit record + 11th field on `x-ai-eu` (cr-017); `GRAQLE_WORKTREE_ROOT` env var for parallel-worktree dev (cr-016); **this Article 43 doc** (cr-019); CHANGELOG OPSF cross-reference (cr-021) | [article-43-conformity-assessment.md](./article-43-conformity-assessment.md) |
+| v0.57.0 | Article 14 human-oversight gate; Q16.1 baseline-doc generator; Q16.3 periodic-assessment; Q16.5 OBSERVATION-ONLY drift watcher; R25-EU11 claim-limits v1.0; `graq compliance switch` UX; EUR-Lex weekly drift guard; README snapshot-lock CI gate | [article-14-human-oversight.md](./article-14-human-oversight.md), [baseline-document-schema.md](./baseline-document-schema.md), [claim-limits-taxonomy-v1.0.md](./claim-limits-taxonomy-v1.0.md), [veritas-pillar-16-mapping.md](./veritas-pillar-16-mapping.md) |
+| v0.56.0 | Article 12 audit-log JSONL with SHA-256 sidecar; Article 15 robustness attestation (17 defences, 7 measurable claims); Article 50 disclosure | [article-12-record-keeping.md](./article-12-record-keeping.md), [article-15-robustness.md](./article-15-robustness.md), [article-50-transparency.md](./article-50-transparency.md) |
+| v0.55.0 | Graph-health + confidence on every reasoning envelope (Article 13 substrate); the audit-log shipped here is what `graq compliance export` exports | [article-13-transparency-to-deployers.md](./article-13-transparency-to-deployers.md) |
+
+## Contributing to this documentation
+
+These docs are **deliberately open to contribution**. The EU AI Act is broad, deployers use GraQle in contexts the maintainers don't always see, and regulator guidance evolves — so corrections, clarifications, translations, and gap reports are all welcome.
+
+**Where contributions add the most value today:**
+
+- **Corrections to the article-by-article docs** — if a sentence says GraQle does X and your reading of the regulation or your auditor's reading is different, that's a real signal we want to capture.
+- **Translations of the EU AI Act docs** — DE / FR / ES / IT have the highest demand from EU-region deployers. Each doc is structured as a flat Markdown file with no code-side dependencies, so a translation is self-contained.
+- **Compliance gap reports** — if you're a deployer building an Annex VI internal-control file and you find an Annex IV requirement the substrate doesn't yet produce evidence for, file an issue tagged `compliance-gap`. We use these reports to scope future CRs.
+- **Article cross-mapping** — if your sector follows additional frameworks (NIST AI RMF, ISO 42001, ENISA AI Threat Landscape, EBA AI guidelines for financial services), a mapping between EU AI Act articles + your framework's controls is a high-leverage contribution.
+
+**How to contribute:**
+
+1. Open an issue first at [github.com/quantamixsol/graqle/issues](https://github.com/quantamixsol/graqle/issues) tagged `compliance` or `compliance-gap`. Describe the change + the reading or evidence motivating it.
+2. For docs corrections / translations: open a PR directly against the relevant `docs/compliance/eu-ai-act/article-NN-*.md` file. The CI gate [`tests/test_compliance/test_readme_snapshot_lock.py`](../../../tests/test_compliance/test_readme_snapshot_lock.py) will refuse PRs that use forbidden words (`compliant` / `certified` / `guaranteed` / `end-to-end solution`) — see [CONTRIBUTING-COMPLIANCE.md](../../../CONTRIBUTING-COMPLIANCE.md) for the full vocabulary discipline.
+3. For substantive interpretation differences: open a discussion at [github.com/quantamixsol/graqle/discussions](https://github.com/quantamixsol/graqle/discussions) before the PR so we can align on the reading.
+
+**What we cannot accept as contributions to these docs:**
+
+- Marketing-style language claiming GraQle is `compliant` or `certified` (the snapshot-lock CI gate rejects these mechanically).
+- Sentences that contradict the four canonical positioning markers: *"EU AI Act-aligned"*, *"Articles 6, 9, 12, 13, 14, 15, 25, 50"*, *"NOT high-risk"*, *"NOT GPAI provider"*.
+- Claims about the SDK that aren't backed by code in `graqle/compliance/` or test cases in `tests/test_compliance/`.
+
+If you're unsure whether a change fits, open an issue first — we'd rather discuss it than reject a PR.
 
 ## Disclaimer
 
