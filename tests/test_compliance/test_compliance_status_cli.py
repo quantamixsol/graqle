@@ -250,12 +250,27 @@ class TestAuditTrailMetadata:
 
 
 class TestArticlesCovered:
+    # cr-019: Article 43 is a PROCEDURAL / conformity-assessment article — it
+    # describes HOW a provider performs Annex VI internal-control assessment,
+    # not WHAT GraQle's subsystems substantively cover. GraQle's
+    # ``articles_covered`` envelope lists substantive articles (6, 9, 12,
+    # 13, 14, 15, 25, 50). The article-43-conformity-assessment.md doc
+    # explicitly states "Applies to GraQle? INDIRECTLY", and the doc maps
+    # GraQle's existing substrate to Annex VI requirements rather than
+    # introducing new claims. Excluding it from the parity check encodes
+    # this real architectural distinction.
+    _DOCS_PARITY_EXCLUSIONS: set[str] = {"43"}
+
     def test_articles_covered_list_matches_compliance_readme(self) -> None:
         """The in-code article list must match the docs index.
 
         If you add a doc file ``article-NN-*.md`` and forget to update
         ``ARTICLES_COVERED`` in compliance.py, this test fails and points
         at the drift.
+
+        ``_DOCS_PARITY_EXCLUSIONS`` carves out procedural / conformity
+        articles whose docs exist for evidence-mapping purposes but which
+        are not substantive members of ``ARTICLES_COVERED``.
         """
         repo_root = Path(__file__).resolve().parents[2]
         compliance_dir = repo_root / "docs" / "compliance" / "eu-ai-act"
@@ -267,6 +282,8 @@ class TestArticlesCovered:
             parts = stem.split("-")
             num = parts[1].lstrip("0") or "0"
             in_docs.add(num)
+        # Exclude procedural/conformity articles per cr-019.
+        in_docs -= self._DOCS_PARITY_EXCLUSIONS
         in_code = {a[0] for a in ARTICLES_COVERED}
         assert in_docs == in_code, (
             f"Drift: docs has {in_docs}, code has {in_code}. "
