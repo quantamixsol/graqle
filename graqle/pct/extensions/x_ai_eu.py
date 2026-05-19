@@ -97,11 +97,12 @@ AnnexIiiCategory = Literal[
 
 @dataclass(frozen=True)
 class XAiEuExtension:
-    """The 10-field EU AI Act PCT extension payload.
+    """The 11-field EU AI Act PCT extension payload.
 
-    Per ADR-205 §2.2. All fields are OPTIONAL except where noted as
-    CONDITIONAL — the dataclass enforces the conditional dependency at
-    construction time via :meth:`__post_init__`.
+    Per ADR-205 §2.2 + cr-017 (field 11 ``policy_version`` added).
+    All fields are OPTIONAL except where noted as CONDITIONAL — the
+    dataclass enforces the conditional dependency at construction time
+    via :meth:`__post_init__`.
 
     Attributes:
         article_6_classification: One of
@@ -131,6 +132,18 @@ class XAiEuExtension:
             :data:`AnnexIiiCategory` literals.
         cr_lookup_id: Optional pointer to a structured EU AI Act
             compliance dossier ID maintained by the operator.
+        policy_version: cr-017 (Research-Team v0.58.x directive item #2).
+            Content-addressed SHA-256 of the active baseline-doc at
+            token issuance time, sourced from
+            :attr:`graqle.compliance.baseline_doc.BaselineDoc.baseline_id`.
+            When emitted in a PCT token, this binds the token to the
+            operator's compliance baseline at issuance so OPSF Use B
+            validators (and downstream auditors) can detect drift
+            between the issued token and the baseline it was signed
+            against. ``None`` is permitted for issuers that have not
+            yet generated a baseline-doc; in that case the field is
+            omitted from the PCT payload (see
+            :meth:`to_pct_extension_dict`).
     """
 
     article_6_classification: Article6Classification | None = None
@@ -143,6 +156,7 @@ class XAiEuExtension:
     gpai_provider_flag: bool = False
     annex_iii_category: AnnexIiiCategory | None = None
     cr_lookup_id: str | None = None
+    policy_version: str | None = None
 
     def __post_init__(self) -> None:
         """Enforce conditional-field dependencies.
