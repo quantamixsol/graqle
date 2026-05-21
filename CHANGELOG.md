@@ -4,9 +4,9 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
-## 0.58.0 (unreleased) — [Research-Team v0.58.x directive: EU AI Act Wave 3 substrate, OPSF PCT alignment, parallel-worktree dev unblocked]
+## 0.58.0 (2026-05-21) — [Research-Team v0.58.x directive: EU AI Act Wave 3 substrate, OPSF PCT alignment, parallel-worktree dev unblocked]
 
-> **The Research-Team-signed v0.58.x directive ships four substantive items (cr-016, cr-017, cr-019, cr-021) plus a measurement-only spike (cr-018) for the R25-EU01 Phase M1 Merkle + Sigstore Rekor anchoring centrepiece. Item #5 (`x-ai-eu-enforcement` sibling namespace) is deferred to v0.58.1. None of the items in this entry change runtime behaviour for end users unless the new env vars or HTTP header are set; the schema additions are byte-identical when unset/absent. v0.58.0 will tag once all 5 items land — currently 4-of-5 in.**
+> **GraQle v0.58.0 ships the four built and sentinel-approved substantive items from the Research-Team-signed v0.58.x directive (cr-016, cr-017, cr-019, cr-021), plus the measurement-only cr-018 spike report that informed the R25-EU01 Phase M1 Merkle + Sigstore Rekor anchoring design. The cryptographic tamper-evidence layer itself (Merkle batch sealing + Sigstore Rekor external anchoring) ships separately as v0.59.0 — see the v0.59.0 entry when it lands. The previously-planned `x-ai-eu-enforcement` sibling namespace was not built for this release; it is folded into the broader R25-EU roadmap rather than a v0.58.1 point release. None of the four items change runtime behaviour for end users unless the new env vars or HTTP header are explicitly set; the new schema fields (cr-017 `schema_version` / `policy_version`) serialise byte-identically to v0.57.4 when absent or `None`. In other words: v0.58.0 adds new opt-in capability surface (env vars, an HTTP header, additive schema fields) but produces output byte-identical to v0.57.4 in the default/unconfigured state — the substantive additions are real and inert-until-activated, not a no-op release.**
 
 ### Added
 
