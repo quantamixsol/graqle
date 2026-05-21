@@ -26,7 +26,7 @@ pip install graqle && graq scan repo . && graq run "find every security bug in t
 
 ---
 
-## 🇪🇺 EU AI Act–aligned (v0.57.0, Wave 2)
+## 🇪🇺 EU AI Act–aligned (v0.58.0, Wave 3 substrate)
 
 **Articles 6, 9, 12, 13, 14, 15, 25, 50 become applicable on 2026-08-02.** GraQle gives your high-risk AI system the signals, audit trail, and disclosure primitives it needs — so the parts of your compliance file you can quote from us, you can quote *today*.
 
@@ -174,6 +174,23 @@ Routes every native write/edit/bash through GraQle's governance gates. Plans req
 | **Reproducible builds** | `SOURCE_DATE_EPOCH`-pinned, rebuild from tagged source and compare checksums. |
 
 → Full disclosure policy: [SECURITY.md](./SECURITY.md) · Report vulnerabilities to **security@quantamixsolutions.com**
+
+---
+
+## What's new in v0.58.0
+
+> Current release: **v0.58.1** — a documentation-only patch that refreshes this landing page to surface the v0.58.0 feature set (the package is byte-identical to v0.58.0).
+
+**EU AI Act Wave 3 substrate + OPSF PCT alignment.** Four built-and-sentinel-approved items, all backward-compatible (functionally byte-identical to v0.57.4 in the default/unconfigured state — the new capability surface is inert until activated):
+
+- **`GRAQLE_WORKTREE_ROOT` env var** (cr-016) — the MCP server path resolver now honours this as the highest-priority project-root source, unblocking parallel-worktree development for `graq_write` / `graq_generate` / `graq_edit`. Unset = byte-identical to v0.57.4.
+- **Audit-log record schema v2 + content-addressed `policy_version`** (cr-017) — every `GovernedTrace` record carries `schema_version` and a SHA-256 `policy_version` binding to the active baseline-doc; the same `policy_version` is the 11th field on the `x-ai-eu` PCT extension (OPSF PCT v0.1 Comment 4 alignment). Absent/`None` fields serialise identically to v0.57.4.
+- **Article 43 conformity-assessment docs** (cr-019) — new `docs/compliance/eu-ai-act/article-43-conformity-assessment.md` mapping GraQle's substrate to Annex VI internal-control requirements, plus `CONTRIBUTING-COMPLIANCE.md` inviting docs corrections, translations (DE/FR/ES/IT), and cross-framework mappings.
+- **OPSF PCT v0.1 alignment** (cr-021) — release-notes plumbing aligning the shipped engineering with the OPSF PCT public-comment window.
+
+The cryptographic tamper-evidence layer (RFC 6962 Merkle commitments + Sigstore Rekor external anchoring) ships next as **v0.59.0**.
+
+→ [Full v0.58.0 changelog](./CHANGELOG.md#0580-2026-05-21--research-team-v058x-directive-eu-ai-act-wave-3-substrate-opsf-pct-alignment-parallel-worktree-dev-unblocked)
 
 ---
 
