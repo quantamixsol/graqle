@@ -18,6 +18,8 @@ from typing import Any, ClassVar
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
+from graqle.config.attestation_config import AttestationConfig
+
 logger = logging.getLogger("graqle.config")
 
 
@@ -626,6 +628,7 @@ class GraqleConfig(BaseModel):
     coordinator: CoordinatorConfig = Field(default_factory=CoordinatorConfig)
     backends: BackendsConfig = Field(default_factory=BackendsConfig)
     chat: ChatConfig = Field(default_factory=ChatConfig)
+    attestation: AttestationConfig = Field(default_factory=AttestationConfig)
 
     # G4 (Wave 2 Phase 4): additional protected file patterns requiring
     # reviewer approval on write. Extends CG-14 defaults (graqle.yaml,
@@ -798,9 +801,20 @@ class GraqleConfig(BaseModel):
         # Migrate v0.23.x schema: backend.provider/model -> model.backend/model
         raw = _migrate_old_schema(raw)
 
+        # SECURITY: reject secret-class fields present in graqle.yaml BEFORE env
+        # interpolation, so a ${ENV_REF} value cannot obscure the fact that the
+        # field was supplied via yaml at all. Secret-class fields are env-var-only
+        # (read from their dedicated GRAQLE_* binding at config-build time), never
+        # from yaml — whether as a literal or an env-reference. This is
+        # defense-in-depth ahead of the per-field validators in attestation_config.
+        _reject_yaml_secrets(raw)
+
         # Interpolate environment variables
         raw = _interpolate_env(raw)
-        return cls.model_validate(raw)
+        # Pass source="yaml" so secret-class field validators (e.g.
+        # AttestationConfig.security.webhook_alert_url) can reject secrets that
+        # must be supplied via environment variables, not graqle.yaml.
+        return cls.model_validate(raw, context={"source": "yaml"})
 
     @classmethod
     def default(cls) -> GraqleConfig:
@@ -875,6 +889,39 @@ def _migrate_old_schema(raw: dict[str, Any]) -> dict[str, Any]:
     )
 
     return raw
+
+
+# Secret-class fields that must NEVER appear in graqle.yaml (literal OR ${env-ref}).
+# Each entry is a dotted path into the raw config dict. These values are read at
+# config-build time from their dedicated environment variable bindings only.
+_YAML_FORBIDDEN_SECRET_PATHS: tuple[tuple[str, ...], ...] = (
+    ("attestation", "security", "webhook_alert_url"),
+)
+
+
+def _reject_yaml_secrets(raw: Any) -> None:
+    """Raise ValueError if any secret-class field is present in the raw yaml dict.
+
+    Runs BEFORE ``_interpolate_env`` so that an ``${ENV_REF}`` value cannot hide
+    that the field was supplied via yaml. Secret-class fields are env-var-only.
+    """
+    if not isinstance(raw, dict):
+        return
+    for path in _YAML_FORBIDDEN_SECRET_PATHS:
+        node: Any = raw
+        for key in path[:-1]:
+            if not isinstance(node, dict) or key not in node:
+                node = None
+                break
+            node = node[key]
+        if isinstance(node, dict) and path[-1] in node and node[path[-1]] is not None:
+            dotted = ".".join(path)
+            env_var = "GRAQLE_" + "_".join(path).upper()
+            raise ValueError(
+                f"{dotted} is a secret-class field and must not be set in "
+                f"graqle.yaml (neither as a literal nor as a ${{ENV_REF}}). "
+                f"Provide it via the {env_var} environment variable instead."
+            )
 
 
 def _interpolate_env(obj: Any) -> Any:
