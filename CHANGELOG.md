@@ -4,6 +4,21 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.58.1 (2026-05-21) — [docs: refresh PyPI landing page to v0.58.0]
+
+> **Documentation-only patch.** No code changes — functionally identical to v0.58.0.
+
+### Changed
+
+- **`README.md` PyPI landing page refreshed to v0.58.0.** The v0.58.0 release shipped the four Wave-3-substrate items but the README's headline (`## 🇪🇺 EU AI Act–aligned`) and "What's new" section still referenced v0.57.0, so the PyPI project page (which renders `README.md`, not `CHANGELOG.md`) displayed a stale changelog. This patch adds a dedicated "What's new in v0.58.0" section (cr-016 `GRAQLE_WORKTREE_ROOT`, cr-017 audit-log schema v2 + `policy_version`, cr-019 Article 43 docs, cr-021 OPSF PCT alignment), updates the EU-AI-Act headline to "v0.58.0, Wave 3 substrate", and points the "Full changelog" link at the v0.58.0 entry. The prior v0.57.0 "What's new" section is preserved below the v0.58.0 one as release history.
+
+### Notes
+
+- **Zero code changes.** Only `README.md`, `graqle/__version__.py`, `pyproject.toml`, and `CHANGELOG.md` modified. The package contents are byte-identical to v0.58.0.
+- **Why a patch release:** PyPI per-version project descriptions are immutable once published, so refreshing the rendered landing page requires a new release. v0.58.1 is that refresh.
+
+---
+
 ## 0.58.0 (2026-05-21) — [Research-Team v0.58.x directive: EU AI Act Wave 3 substrate, OPSF PCT alignment, parallel-worktree dev unblocked]
 
 > **GraQle v0.58.0 ships the four built and sentinel-approved substantive items from the Research-Team-signed v0.58.x directive (cr-016, cr-017, cr-019, cr-021), plus the measurement-only cr-018 spike report that informed the R25-EU01 Phase M1 Merkle + Sigstore Rekor anchoring design. The cryptographic tamper-evidence layer itself (Merkle batch sealing + Sigstore Rekor external anchoring) ships separately as v0.59.0 — see the v0.59.0 entry when it lands. The previously-planned `x-ai-eu-enforcement` sibling namespace was not built for this release; it is folded into the broader R25-EU roadmap rather than a v0.58.1 point release. None of the four items change runtime behaviour for end users unless the new env vars or HTTP header are explicitly set; the new schema fields (cr-017 `schema_version` / `policy_version`) serialise byte-identically to v0.57.4 when absent or `None`. In other words: v0.58.0 adds new opt-in capability surface (env vars, an HTTP header, additive schema fields) but produces output byte-identical to v0.57.4 in the default/unconfigured state — the substantive additions are real and inert-until-activated, not a no-op release.**
