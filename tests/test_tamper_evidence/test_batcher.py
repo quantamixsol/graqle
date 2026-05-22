@@ -785,6 +785,177 @@ def test_tree_uses_enqueue_time_leaf_hashes_not_recommit_hash(tmp_path):
     assert captured["root"] == expected_root  # tree used enqueue-time hashes
 
 
+# ---- coverage completion: realistic exercise of defensive paths ---------------
+#
+# These cover the remaining defensive branches by triggering the real fault each
+# guards (not by hiding them). Each asserts the GRACEFUL-DEGRADATION behavior the
+# branch exists to provide, so coverage stays meaningful.
+
+
+def test_flush_without_committer_clears_wal(tmp_path):
+    """flush() with committer=None builds the tree, skips commit, clears the WAL.
+
+    Covers the `committer is None` branch: the no-downstream-commit integration
+    point (and the pre-PR-5 default). The records are still drained from the WAL.
+    """
+    b = WalBatcher(_config(), wal_root=tmp_path, committer=None)
+    for i in range(3):
+        b.enqueue(_record(i))
+    assert len(_wal_entries(tmp_path)) == 3
+    committed = b.flush()
+    assert committed == 3
+    assert b.pending_count == 0
+    assert _wal_entries(tmp_path) == []  # WAL cleared even with no committer
+
+
+def test_write_wal_entry_idempotent_when_file_exists(tmp_path):
+    """_write_wal_entry is a no-op if the final path already exists (in-flight retry).
+
+    Covers the `final_path.exists(): return` early return: a second write for an
+    already-persisted key must not rewrite or corrupt the entry.
+    """
+    b = WalBatcher(_config(), wal_root=tmp_path)
+    rec = _record(1)
+    key = b.enqueue(rec)
+    entry = Path(tmp_path) / WAL_SUBDIR / f"{key}.wal.json"
+    before = entry.read_bytes()
+    # Direct second write for the same key: must early-return without touching it.
+    b._write_wal_entry(key, rec)
+    assert entry.read_bytes() == before  # unchanged
+    assert len(_wal_entries(tmp_path)) == 1
+
+
+def test_post_write_stat_oserror_becomes_batcher_error(tmp_path, monkeypatch):
+    """An OSError from the post-write stat() surfaces as a BatcherError (line 409).
+
+    Covers the except-OSError arm of the S-015 size check: if the just-written
+    entry cannot even be stat'd, we refuse to acknowledge it.
+    """
+    b = WalBatcher(_config(), wal_root=tmp_path)
+    real_replace = os.replace
+
+    def replace_then_break_stat(src, dst):
+        real_replace(src, dst)
+        # After the real rename, make the next stat() on the final path raise.
+        orig_stat = Path.stat
+
+        def boom_stat(self, *a, **k):
+            if self.name.endswith(".wal.json"):
+                raise OSError("stat denied")
+            return orig_stat(self, *a, **k)
+
+        monkeypatch.setattr(Path, "stat", boom_stat)
+
+    monkeypatch.setattr(os, "replace", replace_then_break_stat)
+    with pytest.raises(BatcherError, match="could not be stat'd"):
+        b.enqueue(_record(1))
+
+
+def test_temp_cleanup_unlink_failure_is_swallowed(tmp_path, monkeypatch):
+    """If the write fails AND the temp-file cleanup unlink also fails, no crash.
+
+    Covers the finally-block `except OSError: pass` around the orphan temp unlink:
+    a cleanup failure must never mask the original error nor raise on its own.
+    """
+    b = WalBatcher(_config(), wal_root=tmp_path)
+
+    # Make fsync fail (crash before rename) so the finally cleanup path runs...
+    def boom_fsync(fd):
+        raise OSError("fsync failed")
+
+    # ...and make the cleanup unlink ALSO fail.
+    def boom_unlink(self, *a, **k):
+        raise OSError("unlink failed")
+
+    def boom_os_unlink(path):
+        raise OSError("unlink failed")
+
+    monkeypatch.setattr(os, "fsync", boom_fsync)
+    monkeypatch.setattr(os, "unlink", boom_os_unlink)  # cleanup uses os.unlink
+    # The original fsync OSError propagates; the unlink failure is swallowed.
+    with pytest.raises(OSError, match="fsync failed"):
+        b.enqueue(_record(1))
+
+
+def test_remove_wal_entry_missing_file_is_noop(tmp_path):
+    """_remove_wal_entry tolerates an already-deleted entry (FileNotFoundError arm)."""
+    b = WalBatcher(_config(), wal_root=tmp_path)
+    key = "d" * 64  # well-formed but no such file
+    b._remove_wal_entry(key)  # must not raise
+
+
+def test_recovery_rejects_valid_hex_key_not_matching_filename(tmp_path):
+    """A valid-hex stored key that differs from its filename stem is rejected (line 495).
+
+    Both key and filename are well-formed hex (so _is_valid_key passes), but they
+    DISAGREE — the entry was renamed or the filename was tampered. It must be
+    skipped before the content re-hash, so the filename↔key binding is enforced.
+    """
+    import json as _json
+
+    wal_dir = Path(tmp_path) / WAL_SUBDIR
+    wal_dir.mkdir(parents=True, exist_ok=True)
+    rec = _record(1)
+    # Filename stem = all 'a'; stored key = all 'b'. Both valid hex, but unequal.
+    (wal_dir / ("a" * 64 + ".wal.json")).write_text(
+        _json.dumps({"idempotency_key": "b" * 64, "record": rec}), encoding="utf-8"
+    )
+    b = WalBatcher(_config(), wal_root=tmp_path)
+    assert b.pending_count == 0  # stem != key => rejected at the binding check
+
+
+def test_recovery_no_double_leaf_for_same_content_under_two_filenames(tmp_path):
+    """INVARIANT GUARD: the same record under two different filenames cannot yield
+    two pending leaves on recovery.
+
+    This is the test that justifies removing the in-loop dedup branch: the
+    key==filename-stem binding is what guarantees one pending entry per content.
+    The canonical file (stem == content-address) is accepted; any second file
+    carrying the same record under a DIFFERENT stem is rejected because its stem
+    cannot equal the content's true address. So recovery produces exactly one
+    leaf for the content — proven here, not assumed.
+    """
+    import json as _json
+
+    wal_dir = Path(tmp_path) / WAL_SUBDIR
+    wal_dir.mkdir(parents=True, exist_ok=True)
+    rec = _record(9)
+    true_key = _idempotency_key(rec)
+    # File A: canonical (stem == true content-address) -> accepted.
+    (wal_dir / f"{true_key}.wal.json").write_text(
+        _json.dumps({"idempotency_key": true_key, "record": rec}), encoding="utf-8"
+    )
+    # File B: SAME record, but a different valid-hex stem with a matching stored
+    # key. Its stored key == its stem, but that key != the content's true address,
+    # so the content re-hash check rejects it.
+    decoy = "f" * 64
+    (wal_dir / f"{decoy}.wal.json").write_text(
+        _json.dumps({"idempotency_key": decoy, "record": rec}), encoding="utf-8"
+    )
+
+    committer = _RecordingCommitter()
+    b = WalBatcher(_config(), wal_root=tmp_path, committer=committer)
+    # Exactly ONE pending entry for the content (the canonical file); the decoy is
+    # rejected by the content-address re-hash, so no second leaf is produced.
+    assert b.pending_count == 1
+    b.flush()
+    assert committer.committed_record_ids == ["tr_000009"]
+    assert len(committer.batches[0][1]._leaves) == 1  # one leaf, not two
+
+
+def test_recover_from_wal_unreadable_dir_is_noop(tmp_path, monkeypatch):
+    """If the WAL dir cannot be listed, recovery degrades to a no-op (lines 453-454)."""
+    b = WalBatcher(_config(), wal_root=tmp_path)
+
+    def boom_iterdir(self):
+        raise OSError("iterdir denied")
+
+    monkeypatch.setattr(Path, "iterdir", boom_iterdir)
+    # A second batcher over the same root: recovery hits the OSError and returns.
+    b2 = WalBatcher(_config(), wal_root=tmp_path)
+    assert b2.pending_count == 0
+
+
 # ---- crash recovery: REAL process kill (genuine crash semantics) --------------
 
 _WORKER = Path(__file__).with_name("batcher_worker.py")
