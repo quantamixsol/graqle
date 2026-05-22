@@ -179,6 +179,23 @@ def test_root_hex_and_size():
     assert tree.size == 5
 
 
+def test_leaf_hash_at_returns_correct_leaf():
+    """leaf_hash_at(i) returns exactly the i-th leaf hash used to build the tree."""
+    leaves = _leaves(6)
+    tree = MerkleTree(leaves)
+    for i in range(6):
+        assert tree.leaf_hash_at(i) == leaves[i]
+
+
+def test_leaf_hash_at_out_of_range():
+    """leaf_hash_at rejects out-of-range indices with a descriptive IndexError."""
+    tree = MerkleTree(_leaves(4))
+    with pytest.raises(IndexError):
+        tree.leaf_hash_at(4)
+    with pytest.raises(IndexError):
+        tree.leaf_hash_at(-1)
+
+
 # ---- RFC 6962 §2.1 padding (duplicate last node) ------------------------------
 
 
