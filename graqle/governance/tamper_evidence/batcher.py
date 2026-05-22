@@ -458,8 +458,11 @@ class WalBatcher:
             if parsed is None:
                 continue  # corrupt/mismatched: skip, leave on disk
             key, record = parsed
-            if key in self._pending:
-                continue  # already recovered (duplicate on disk)
+            # No dedup check is needed here: _read_wal_entry enforces
+            # key == filename-stem, and directory filenames are unique, so each
+            # recovered key is necessarily distinct within this loop. (The
+            # exactly-once guarantee against the LIVE path is enforced separately
+            # by the `key in self._pending` check in enqueue().)
             leaf = leaf_hash_for_record(record)
             self._pending[key] = _PendingRecord(key=key, record=record, leaf_hash=leaf)
             if self._oldest_pending_at is None:
