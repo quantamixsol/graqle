@@ -166,7 +166,9 @@ class LayerStatusRegistry:
         transition_dir: str | Path | None = None,
     ) -> None:
         self._environment = environment
-        self._transition_dir = Path(transition_dir) if transition_dir is not None else _DEFAULT_TRANSITION_DIR
+        self._transition_dir = (
+            Path(transition_dir) if transition_dir is not None else _DEFAULT_TRANSITION_DIR
+        )
         self._lock = threading.RLock()
         if enabled is None:
             enabled = {lid: (lid != "l5_cryptographic_tamper_evidence") for lid in LAYER_IDS}

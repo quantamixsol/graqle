@@ -104,7 +104,9 @@ class TestCreateCommittedBatchSchema:
         cyphers = [c for (c, _) in log]
         assert len(cyphers) == 4
         assert all("IF NOT EXISTS" in c for c in cyphers)
-        assert any("CONSTRAINT batch_id_unique" in c and "b.batch_id IS UNIQUE" in c for c in cyphers)
+        assert any(
+            "CONSTRAINT batch_id_unique" in c and "b.batch_id IS UNIQUE" in c for c in cyphers
+        )
         assert any("INDEX batch_committed_at" in c and "b.committed_at_iso" in c for c in cyphers)
         assert any("INDEX batch_rekor_index" in c and "b.rekor_log_index" in c for c in cyphers)
         assert any("INDEX batch_quarter_idx" in c and "b.batch_quarter" in c for c in cyphers)
@@ -153,7 +155,11 @@ class TestPersistCommittedBatch:
     def test_explicit_batch_quarter_preserved(self):
         connector, log = _connector_with_fake()
         connector.persist_committed_batch(
-            {"batch_id": "b1", "committed_at_iso": "2026-06-14T11:23:45Z", "batch_quarter": "CUSTOM"}
+            {
+                "batch_id": "b1",
+                "committed_at_iso": "2026-06-14T11:23:45Z",
+                "batch_quarter": "CUSTOM",
+            }
         )
         _, node_params = log[0]
         assert node_params["props"]["batch_quarter"] == "CUSTOM"
