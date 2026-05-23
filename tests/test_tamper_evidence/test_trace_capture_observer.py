@@ -27,7 +27,11 @@ class _MemStore:
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # asyncio.run() creates + manages its own event loop. NOT
+    # asyncio.get_event_loop(), which raises "no current event loop" on a clean
+    # Python 3.10+ main thread (the codebase convention is asyncio.run — see
+    # tests/test_governance/test_trace_capture.py).
+    return asyncio.run(coro)
 
 
 async def _capture(observer=None, store=None, raise_in_handler=False):
