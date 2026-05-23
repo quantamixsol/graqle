@@ -29,7 +29,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from graqle.governance.trace_schema import (
     ClearanceLevel,
@@ -162,10 +162,18 @@ class TraceCapture:
         tool_name: str,
         arguments: dict[str, Any],
         store: TraceStore | None = None,
+        observer: Callable[[GovernedTrace], None] | None = None,
     ) -> None:
         self._tool_name = tool_name
         self._arguments = arguments
         self._store = store
+        # Optional, best-effort post-finalize observer (R25-EU01 PR-5). Invoked
+        # with the finalized trace AFTER it is persisted, so a downstream consumer
+        # (the Layer-5 committer) can observe completed traces without this module
+        # depending on it. A None observer (the default) preserves v0.58.x
+        # behaviour byte-for-byte. The observer is wrapped so it can NEVER affect
+        # the governed-trace path — the trace is the system of record.
+        self._observer = observer
         self._start_time: float = 0.0
         self.trace: GovernedTrace | None = None
         self.result: str = ""
@@ -254,5 +262,17 @@ class TraceCapture:
                 await self._store.append(self.trace)
             except Exception:
                 logger.warning("Failed to persist trace for %s", self._tool_name, exc_info=True)
+
+        # Post-finalize observer (R25-EU01 PR-5), best-effort. Runs AFTER persist
+        # so the trace is already the durable system of record; an observer
+        # failure is logged and swallowed — it must never affect the trace path
+        # or suppress a handler exception.
+        if self._observer is not None:
+            try:
+                self._observer(self.trace)
+            except Exception:
+                logger.warning(
+                    "Trace observer failed for %s (non-fatal)", self._tool_name, exc_info=True
+                )
 
         return False  # Never suppress exceptions
