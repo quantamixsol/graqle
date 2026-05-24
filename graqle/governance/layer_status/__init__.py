@@ -112,30 +112,26 @@ def request_enabled(layer_id: str, enabled: bool) -> LayerState:
     return get_default_registry().request_enabled(layer_id, enabled)
 
 
-def record_first_write(layer_id: str) -> LayerState:
+def record_first_write(layer_id: str, first_record_id: str | None = None) -> LayerState:
     """Module-level :meth:`LayerStatusRegistry.record_first_write`."""
-    return get_default_registry().record_first_write(layer_id)
+    return get_default_registry().record_first_write(layer_id, first_record_id)
 
 
-def flip_to_monotonic_on_atomic(layer_id: str, first_record_id: object = None) -> LayerState:
+def flip_to_monotonic_on_atomic(layer_id: str, first_record_id: str | None = None) -> LayerState:
     """Atomically flip ``layer_id`` to MONOTONIC_ON (ADR-RT-003 §10.3 API).
 
     Idempotent on success — flipping an already-MONOTONIC_ON layer returns its
     current state without a second transition record. The flip is race-free in
     process (the registry serialises it under its lock); PR-6.5 adds the LS-7
     cross-thread CAS-atomicity proof (50×200 threads, 10 runs, zero duplicate
-    flips) and the persisted COALESCE write-once Cypher.
+    flips) and the persisted COALESCE write-once Cypher driven via the registry's
+    ``persist_fn``.
 
-    ``first_record_id`` is accepted for API parity with the spec example and
-    recorded in the transition detail; the flip itself keys only on ``layer_id``.
+    ``first_record_id`` is recorded in the transition detail and pinned
+    write-once on the persisted node; the flip itself keys only on ``layer_id``.
+    The registry serialises the flip under its lock, so passing the id straight
+    through ``record_first_write`` (the single monotonic-on writer) is itself
+    race-free — the prior pre-read shortcut is unnecessary and is intentionally
+    removed so there is exactly one code path to the flip.
     """
-    registry = get_default_registry()
-    # record_first_write is the single monotonic-on writer; in production it
-    # performs the audited flip, in development it is a state no-op.
-    if first_record_id is not None:
-        # Surface the originating record id in the audit detail without widening
-        # the registry's primary API.
-        state = registry.get_layer_state(layer_id)
-        if state.monotonic_on:
-            return state
-    return registry.record_first_write(layer_id)
+    return get_default_registry().record_first_write(layer_id, first_record_id)
