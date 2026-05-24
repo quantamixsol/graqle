@@ -87,6 +87,32 @@ A **governance-led multi-agent reasoning system for code.** Scan any codebase in
 
 ---
 
+## Two surfaces, one substrate — govern how your AI is *built*, and what it *decides*
+
+GraQle is an EU AI Act–aligned governance substrate with **two deployment surfaces** on the
+same engine (knowledge graph → governed trace → RFC 6962 Merkle → ed25519 → Sigstore Rekor):
+
+| | **Build-time** (author surface) | **Run-time** (production surface) |
+|---|---|---|
+| Governs | how your AI **writes code** | what your deployed AI **decides** |
+| Trigger | a code change | a production decision (loan, hiring, triage, …) |
+| Emits | reviewed, impact-analysed, audit-logged changes | a tamper-evident, third-party-verifiable record per decision |
+| Status | **GA** | **substrate GA in v0.59.0**; capture middleware on the roadmap (see ADR-221) |
+
+**Run-time, today (v0.59.0):** every governed decision your deployed system makes can be
+canonicalised (RFC 8785), committed to a Merkle batch (RFC 6962), ed25519-signed, and
+anchored to the public Sigstore Rekor transparency log — so **anyone can detect tampering
+of an audit record with no access to your infrastructure**. The batcher adds 0 ms to the
+write path (commit is asynchronous). A runnable, end-to-end walkthrough on a real use case
+(a loan decision → lock → Merkle → sign → anchor → auditor verifies → tamper detected →
+key revoked) ships in [`examples/`](./examples/v059_cryptographic_governance_usecase.py).
+
+> Build-time governance proves *we hold ourselves to this standard* — GraQle is developed
+> through its own governance. Run-time governance lets you hold *your deployed AI* to the
+> same cryptographically-verifiable standard. Same substrate, both surfaces.
+
+---
+
 ## 90-second proof
 
 ```bash
