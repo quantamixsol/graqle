@@ -37,6 +37,7 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -157,6 +158,20 @@ class LayerStatusRegistry:
     transition_dir:
         Directory for the §8.3 transition audit sidecar. Injectable for tests so
         no writes touch the real ``~/.graqle`` store.
+    persist_fn:
+        Optional cross-process compare-and-set callback (PR-6.5 / LS-7). When
+        supplied, the FIRST production write under a layer drives this callback
+        with ``(layer_id, first_record_at_iso, first_record_id)`` to persist the
+        monotonic-on flag write-once — typically
+        :meth:`graqle.connectors.neo4j.Neo4jConnector.persist_monotonic_on`.
+        Called while the registry lock is held, so the in-process flip and the
+        persisted COALESCE flip are one atomic unit per layer. Defaults to
+        ``None`` — with no callback the registry behaves byte-identically to
+        PR-6 (process-local only). It returns ``True`` if THIS process won the
+        cross-process CAS; the value is recorded in the audit detail but never
+        suppresses the local flip (the local lock already guarantees a single
+        local transition, and a cross-process loser must still reflect the flag
+        locally to enforce LS-2 in *this* process).
     """
 
     def __init__(
@@ -164,11 +179,13 @@ class LayerStatusRegistry:
         environment: str = "production",
         enabled: dict[str, bool] | None = None,
         transition_dir: str | Path | None = None,
+        persist_fn: Callable[[str, str, str | None], bool] | None = None,
     ) -> None:
         self._environment = environment
         self._transition_dir = (
             Path(transition_dir) if transition_dir is not None else _DEFAULT_TRANSITION_DIR
         )
+        self._persist_fn = persist_fn
         self._lock = threading.RLock()
         if enabled is None:
             enabled = {lid: (lid != "l5_cryptographic_tamper_evidence") for lid in LAYER_IDS}
@@ -232,13 +249,18 @@ class LayerStatusRegistry:
                 if layer_id is None or t.layer_id == layer_id
             ]
 
-    def record_first_write(self, layer_id: str) -> LayerState:
+    def record_first_write(self, layer_id: str, first_record_id: str | None = None) -> LayerState:
         """Register that a governed record was written under ``layer_id``.
 
         In production, the FIRST such write flips the layer to ``MONOTONIC_ON``
         (idempotent: subsequent writes are no-ops). In development this is a
         no-op on state (monotonic-on does not apply) but is still logged. Returns
         the (copied) post-call :class:`LayerState`.
+
+        ``first_record_id`` (PR-6.5) is the id of the governed record that
+        triggered the flip; it is recorded in the audit detail and passed to the
+        cross-process ``persist_fn`` so the persisted node pins the same
+        provenance. It is only consulted on the flipping call.
         """
         with self._lock:
             self._require_known_layer(layer_id)
@@ -247,22 +269,44 @@ class LayerStatusRegistry:
                 return self.get_layer_state(layer_id)
             if state.monotonic_on:
                 return self.get_layer_state(layer_id)  # already flipped
-            self._flip_to_monotonic_on_locked(layer_id)
+            self._flip_to_monotonic_on_locked(layer_id, first_record_id)
             return self.get_layer_state(layer_id)
 
-    def _flip_to_monotonic_on_locked(self, layer_id: str) -> None:
+    def _flip_to_monotonic_on_locked(
+        self, layer_id: str, first_record_id: str | None = None
+    ) -> None:
         """Flip ``layer_id`` to MONOTONIC_ON + audit it (caller holds the lock).
 
         The single writer of the ``monotonic_on`` flag (LS-6: nothing else sets
         it, and nothing ever clears it). Records an LS-4 transition audit record
         via the §8.3 sidecar.
+
+        PR-6.5: when a ``persist_fn`` is configured, the persisted COALESCE
+        write-once CAS is driven here — inside the lock — so the in-process flip
+        and the cross-process flip commit as one atomic unit per layer. The CAS
+        result (``cas_won``: did THIS process win the cross-process race) is
+        folded into the audit detail. A persist failure propagates: a flip whose
+        durable record could not be written must NOT be silently treated as
+        complete (the in-memory ``state`` is left flipped — LS-6 forbids clearing
+        it — but the exception surfaces to the caller so the failure is visible
+        rather than masked). The local in-memory transition is the source of
+        truth for in-process LS-2 enforcement regardless of the CAS outcome.
         """
         now = _utc_now_iso()
         state = self._states[layer_id]
         state.monotonic_on = True
         state.enabled = True  # a layer that just recorded is, by definition, on
         state.first_record_at_iso = now
-        self._append_transition(layer_id, "monotonic_on", now, {"first_record_at_iso": now})
+        detail: dict[str, object] = {"first_record_at_iso": now}
+        if first_record_id is not None:
+            detail["first_record_id"] = first_record_id
+        if self._persist_fn is not None:
+            # Cross-process write-once CAS (LS-7). Runs under the lock so a
+            # second local thread cannot interleave; the COALESCE makes it safe
+            # against writers in OTHER processes too.
+            cas_won = self._persist_fn(layer_id, now, first_record_id)
+            detail["cas_won"] = bool(cas_won)
+        self._append_transition(layer_id, "monotonic_on", now, detail)
         logger.info("Layer %s flipped to MONOTONIC_ON at %s (production)", layer_id, now)
 
     def request_enabled(self, layer_id: str, enabled: bool) -> LayerState:
