@@ -2,10 +2,10 @@
 
 <img alt="GraQle — AI writes code. GraQle makes it safe." src="https://raw.githubusercontent.com/quantamixsol/graqle/master/assets/hero-dark-hq.png" width="800">
 
-# GraQle — EU AI Act–aligned reasoning for code
+# GraQle — the EU AI Act–aligned governance substrate for AI you *build* and AI you *run*
 
-> **The first developer reasoning SDK that ships a structured EU AI Act compliance surface — Article-by-Article, version-pinned, CI-pinnable.**
-> Scan any codebase into a knowledge graph. Every module becomes a reasoning agent. Every change is impact-analysed, audit-logged, and disclosure-ready.
+> **Govern how your AI writes code — and cryptographically prove what your deployed AI decides.** One substrate, two surfaces: build-time reasoning + governance, and a run-time tamper-evidence layer for production decisions (loan, hiring, triage). Article-by-Article, version-pinned, CI-pinnable.
+> Scan any codebase into a knowledge graph; every module becomes a reasoning agent and every change is impact-analysed and audit-logged. Then attach `attest()` to your deployed model and every decision becomes a tamper-evidence-ready, third-party-verifiable record.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-06b6d4.svg)](https://python.org)
@@ -97,15 +97,36 @@ same engine (knowledge graph → governed trace → RFC 6962 Merkle → ed25519 
 | Governs | how your AI **writes code** | what your deployed AI **decides** |
 | Trigger | a code change | a production decision (loan, hiring, triage, …) |
 | Emits | reviewed, impact-analysed, audit-logged changes | a tamper-evident, third-party-verifiable record per decision |
-| Status | **GA** | **substrate GA in v0.59.0**; capture middleware on the roadmap (see ADR-221) |
+| Status | **GA** | **GA** — `attest()` capture (v0.60.0) on the v0.59.0 cryptographic substrate; framework middleware + anchoring worker next (ADR-221) |
 
-**Run-time, today (v0.59.0):** every governed decision your deployed system makes can be
-canonicalised (RFC 8785), committed to a Merkle batch (RFC 6962), ed25519-signed, and
-anchored to the public Sigstore Rekor transparency log — so **anyone can detect tampering
-of an audit record with no access to your infrastructure**. The batcher adds 0 ms to the
-write path (commit is asynchronous). A runnable, end-to-end walkthrough on a real use case
-(a loan decision → lock → Merkle → sign → anchor → auditor verifies → tamper detected →
-key revoked) ships in [`examples/`](./examples/v059_cryptographic_governance_usecase.py).
+**Run-time, today — attach GraQle to a deployed AI system in one line (v0.60.0):**
+
+```python
+from graqle.governance.runtime import GovernedRuntime
+
+gov = GovernedRuntime(salt="your-deploy-salt")
+
+def score_application(app):
+    decision = model.predict(app)                # your deployed AI, untouched
+    gov.attest(                                  # <-- the one added line
+        domain="loan", model_id="credit-risk-v4",
+        inputs={"applicant_ref": gov.pseudonymize_ref(app.id)},   # PII-safe
+        output={"decision": decision.label, "reason_code": decision.reason},
+    )
+    return decision
+```
+
+Each call produces a durable, PII-safe governed record whose Merkle leaf hash is computed
+with the same shipped Layer 5 primitive the batcher uses — so a runtime record is
+byte-compatible with the cryptographic substrate (RFC 8785 → RFC 6962 Merkle → ed25519 →
+Sigstore Rekor). Capture adds **0 ms to the write path** (recording is out of band). See
+[`examples/runtime_attest_production_decisions.py`](./examples/runtime_attest_production_decisions.py).
+
+**The cryptographic substrate (v0.59.0):** a committed batch is Merkle-rooted, ed25519-signed,
+and anchored to the public Sigstore Rekor transparency log — so **anyone can detect tampering
+of an audit record with no access to your infrastructure**. End-to-end walkthrough (a loan
+decision → lock → Merkle → sign → anchor → auditor verifies → tamper detected → key revoked):
+[`examples/v059_cryptographic_governance_usecase.py`](./examples/v059_cryptographic_governance_usecase.py).
 
 > Build-time governance proves *we hold ourselves to this standard* — GraQle is developed
 > through its own governance. Run-time governance lets you hold *your deployed AI* to the

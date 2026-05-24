@@ -4,6 +4,54 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.60.0 (2026-05-24) — [Runtime Governance Layer (R0, Mode A): govern what your *deployed* AI decides]
+
+> **GraQle becomes dual-surface in code, not just positioning.** v0.59.0 shipped the
+> cryptographic substrate (Layer 5). v0.60.0 adds the first piece of the **Runtime
+> Governance Layer** (ADR-221): a deployed AI system can now govern what it *decides*
+> — one added line per decision produces a durable, PII-safe, tamper-evidence-ready
+> governed record on the same Layer 5 substrate, with 0 ms on the write path. Build-time
+> governance proves GraQle holds itself to this standard; run-time governance lets you
+> hold *your deployed AI* to it. Fully additive and opt-in — importing nothing from
+> `graqle.governance.runtime` leaves all prior behaviour byte-identical to v0.59.0.
+
+### Added
+
+- **`graqle.governance.runtime` — the Runtime Governance Layer (R0 / ADR-221 Mode A).**
+  Composition over the shipped Layer 5 primitives; nothing in `tamper_evidence` or
+  `layer_status` changed.
+  - **`GovernedRuntime.attest(domain, model_id, output, inputs=...)`** — the "one added
+    line" at the point of inference. Builds a GovernedTrace leaf record with the frozen
+    `LEAF_HASH_FIELDS`, computes the Merkle leaf hash via the **shipped**
+    `leaf_hash_for_record` (so a runtime record is byte-compatible with what the Layer 5
+    batcher/committer commit), folds `inputs`+`output` into a single `content_hash` (raw
+    PII never stored), and durably records it. Returns the record.
+  - **`RuntimeDecision`** dataclass + **`attest_decision()`** (structured-input form).
+  - **`AttestationSink`** Protocol + **`DurableJsonlSink`** (fsync, `O_APPEND`, `0o600`
+    owner-only) + **`InMemorySink`**. The forthcoming anchoring worker plugs into this
+    same one-method interface to batch → Merkle-commit → Sigstore-Rekor-anchor out of band.
+  - **`pseudonymize()` / `GovernedRuntime.pseudonymize_ref()`** — stable, non-reversible
+    identifiers for PII-safe references.
+  - Robustness: input validation (`domain`/`model_id` non-empty; `output`/`inputs` dict),
+    non-finite-value rejection via the shipped canonicalizer (fails loudly; nothing
+    written on failure), no-silent-drop sink contract, a `MAX_RECORD_BYTES` bound, and a
+    proven thread-safe shared-instance design (concurrent `attest()` → zero lost/duplicate
+    records).
+
+### Notes
+
+- **Opt-in & backward-compatible.** v0.60.0 output is byte-identical to v0.59.0 unless you
+  explicitly import and call `graqle.governance.runtime`.
+- **Scope (R0).** This release captures decisions into a durable, leaf-hash-compatible,
+  PII-safe record via a pluggable sink. Merkle batching + Rekor anchoring as a long-lived
+  worker, framework middleware (`@governed` / FastAPI), and a zero-touch sidecar are the
+  next runtime increments (ADR-221 R1–R4).
+- Runnable example: `examples/runtime_attest_production_decisions.py` — a deployed loan
+  service attesting a decision stream, with verifier recompute. See the "Runtime layer
+  (Mode A)" section of `examples/README.md`.
+
+---
+
 ## 0.59.0 (2026-05-24) — [Layer 5: cryptographic tamper-evidence (RFC 6962 Merkle + RFC 8785 JCS + Sigstore Rekor + ed25519) + runtime layer-switch with monotonic-on]
 
 > **GraQle v0.59.0 ships Layer 5 — cryptographic tamper-evidence — the step up from v0.58.0's *procedural* binding (tampering is detectable by inspection) to *cryptographic* binding (tampering is mathematically detectable by any third party with no GraQle infrastructure access). Governed-trace records are batched into RFC 6962 Merkle trees, canonicalised with RFC 8785 JCS, sealed under an ed25519-signed proof bundle, and the batch root is anchored to the public Sigstore Rekor transparency log. Implements R25-EU01 Phase M1 (Tasks 1.1–1.7) per ADR-RT-003. The whole layer is opt-in: with `attestation.enabled = false` (the default) v0.59.0 produces output byte-identical to v0.58.1 — the cryptographic machinery is real and inert-until-activated, not a no-op release. Layer 5 is the deepest of the five governance layers; a new runtime layer-switch architecture lets a deployment adopt L1–L5 on its own timeline, with a production "monotonic-on" rule (once a layer records its first governed write, it cannot be silently disabled — EU AI Act Article 12: once you start recording, you do not stop recording).**
