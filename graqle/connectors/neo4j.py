@@ -585,6 +585,108 @@ class Neo4jConnector(BaseConnector):
             record = result.single()
             return int(record["cnt"]) if record else 0
 
+    # --- Layer 5 tamper-evidence: monotonic-on CAS persistence (PR-6.5) ---
+
+    def persist_monotonic_on(
+        self,
+        layer_id: str,
+        first_record_at_iso: str,
+        first_record_id: str | None = None,
+    ) -> bool:
+        """Atomically persist a layer's monotonic-on flip (LS-7 / ADR-RT-003 §8.2).
+
+        This is the cross-process companion to the in-process flip in
+        :meth:`graqle.governance.layer_status.LayerStatusRegistry`. PR-6 made the
+        flip race-free *within* one process (an RLock); this makes it race-free
+        *across* processes by persisting the flag with a single write-once
+        compare-and-set in Neo4j.
+
+        Write-once is enforced with **COALESCE**, not ``ON CREATE`` /
+        ``ON MATCH`` (ADR-RT-003 §8.2 decision #7). ``ON CREATE`` only fires when
+        the MERGE creates the node, so two writers that both MERGE an already
+        existing ``:LayerStatus`` node — created, say, by an earlier *enable*
+        transition before the first record — would both take the ``ON MATCH``
+        branch and could each rewrite ``first_record_at_iso``: a double flip with
+        conflicting first-record provenance. ``COALESCE(s.monotonic_on, true)``
+        instead keeps the first non-null value regardless of which writer arrives
+        first or whether the node pre-existed, so the flip is genuinely write-once
+        and the first-record fields are pinned to the winner's values for all
+        time (LS-6: never cleared, never rewritten).
+
+        The whole thing runs in one ``execute_write`` transaction and reads back
+        whether THIS writer was the one that performed the transition. ``was_off``
+        captures the pre-state inside the transaction (so it reflects the value
+        the CAS actually saw, not a racy pre-read); the caller can use the return
+        to record an audit transition exactly once.
+
+        Parameters
+        ----------
+        layer_id:
+            Canonical governance layer id (the MERGE key — one ``:LayerStatus``
+            node per layer).
+        first_record_at_iso:
+            UTC ISO-8601 timestamp of the first governed record under this layer.
+            Pinned write-once via COALESCE; ignored if already set.
+        first_record_id:
+            Optional id of the originating governed record, pinned write-once for
+            provenance. ``None`` leaves the persisted field unset.
+
+        Returns
+        -------
+        bool
+            ``True`` if this call performed the flip (the layer was not yet
+            monotonic-on and is now), ``False`` if it was already monotonic-on
+            (idempotent no-op on the persisted state). Exactly one concurrent
+            writer per layer can ever get ``True`` — that is the LS-7 guarantee.
+
+        Raises
+        ------
+        ValueError
+            If ``layer_id`` is empty / not a non-empty string (never MERGE an
+            anonymous status node — the layer_id is the uniqueness key).
+        Exception
+            Any driver/transaction error propagates unchanged.
+        """
+        if not isinstance(layer_id, str) or not layer_id:
+            raise ValueError("layer_id must be a non-empty string")
+
+        driver = self._get_driver()
+
+        def _write(tx: Any) -> bool:
+            # Single write-once CAS. ``was_off`` is computed from the value the
+            # transaction observed BEFORE the COALESCE SET (coalesce(..., false)
+            # treats an absent node/property as not-yet-flipped), so the returned
+            # flag reflects the atomic pre-state, not a separate racy read.
+            result = tx.run(
+                "MERGE (s:LayerStatus {layer_id: $layer_id}) "
+                "WITH s, coalesce(s.monotonic_on, false) AS was_on "
+                "SET s.monotonic_on = COALESCE(s.monotonic_on, true), "
+                "    s.first_record_at_iso = "
+                "        COALESCE(s.first_record_at_iso, $first_record_at_iso), "
+                "    s.first_record_id = "
+                "        COALESCE(s.first_record_id, $first_record_id) "
+                "RETURN was_on",
+                layer_id=layer_id,
+                first_record_at_iso=first_record_at_iso,
+                first_record_id=first_record_id,
+            )
+            record = result.single()
+            was_on = bool(record["was_on"]) if record else False
+            return not was_on
+
+        with driver.session(database=self._database) as session:
+            # execute_write returns Any (the driver is untyped); _write itself is
+            # bool-typed, so coerce at the boundary to keep the public contract.
+            performed_flip = bool(session.execute_write(_write))
+
+        if performed_flip:
+            logger.info(
+                "Persisted MONOTONIC_ON flip for layer %s (CAS winner) at %s",
+                layer_id,
+                first_record_at_iso,
+            )
+        return performed_flip
+
     # --- Vector search ---
 
     def vector_search(
