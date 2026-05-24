@@ -4,6 +4,46 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.59.0 (2026-05-24) — [Layer 5: cryptographic tamper-evidence (RFC 6962 Merkle + RFC 8785 JCS + Sigstore Rekor + ed25519) + runtime layer-switch with monotonic-on]
+
+> **GraQle v0.59.0 ships Layer 5 — cryptographic tamper-evidence — the step up from v0.58.0's *procedural* binding (tampering is detectable by inspection) to *cryptographic* binding (tampering is mathematically detectable by any third party with no GraQle infrastructure access). Governed-trace records are batched into RFC 6962 Merkle trees, canonicalised with RFC 8785 JCS, sealed under an ed25519-signed proof bundle, and the batch root is anchored to the public Sigstore Rekor transparency log. Implements R25-EU01 Phase M1 (Tasks 1.1–1.7) per ADR-RT-003. The whole layer is opt-in: with `attestation.enabled = false` (the default) v0.59.0 produces output byte-identical to v0.58.1 — the cryptographic machinery is real and inert-until-activated, not a no-op release. Layer 5 is the deepest of the five governance layers; a new runtime layer-switch architecture lets a deployment adopt L1–L5 on its own timeline, with a production "monotonic-on" rule (once a layer records its first governed write, it cannot be silently disabled — EU AI Act Article 12: once you start recording, you do not stop recording).**
+
+### Added
+
+- **`graqle.governance.tamper_evidence` — the Layer 5 module** (R25-EU01 Phase M1):
+  - **`canonicalize.py`** — RFC 8785 JCS canonicalisation (Task 1.1). Separate `canon` (wrapper/signature scope) and `canon_leaf` (frozen leaf-input scope) functions; rejects non-finite floats (NaN/±Inf/−0.0) and non-JSON-native types so the leaf hash is deterministic across Python/JS/Go reference verifiers.
+  - **`merkle.py`** — custom RFC 6962 Merkle tree (Task 1.2): leaf/node domain separation, duplicate-last-node padding, `InclusionProof` scaffolding, bounded tree size.
+  - **`leaf_input_schema.py`** — the frozen leaf-hash-input allowlist (`LEAF_HASH_FIELDS`), separating it from the wrapper schema so wrapper fields can be added additively without changing any leaf hash (`proof_format_version` is *inside* the leaf to defeat version-relabel replay).
+  - **`batcher.py`** — async batcher with a write-ahead log (Task 1.3): `tempfile → fsync → os.replace` durable enqueue, SHA-256 content-addressed idempotency, crash-recovery replay.
+  - **`anchors/sigstore_rekor.py`** + **`local_replay_queue.py`** — Sigstore Rekor anchor (Task 1.4) with an independent circuit-breaker and a durable local replay queue fallback (CONDITION-3); `fail_open_on_anchor_error` defaults to `false` (an unreachable Rekor never silently skips anchoring).
+  - **`committer.py`** + audit-log v3 (Task 1.5) — orchestrates batch → Merkle → anchor → persist with a no-silent-drop `CommitStatus`.
+  - **`kg_persist.py`** + **`:CommittedBatch` Neo4j schema** (Task 1.6) — single-label, `batch_quarter`-partitioned schema; `Neo4jBatchPersister` mirrors each anchored batch into the KG write-once via `MERGE ... ON CREATE SET`.
+
+- **`graqle.governance.layer_status` — runtime layer-switch + monotonic-on** (ADR-RT-003 §2.2, LS-1..LS-7):
+  - Per-layer enabled/monotonic-on registry; production-mode first write flips a layer to `MONOTONIC_ON` and any later disable raises `LayerMonotonicityViolation` (the refused attempt is itself audited). Development mode toggles freely.
+  - `dependency_graph.py` validates L5 requires L1+L2+L3; queryable transition `history()`.
+  - **LS-7 monotonic-on CAS atomicity** — the in-process flip is lock-guarded, and `Neo4jConnector.persist_monotonic_on()` adds a cross-process **COALESCE write-once** compare-and-set so two concurrent writers can never double-flip (proven by a 50-threads × 200-iterations × 10-runs zero-duplicate test).
+
+- **`graqle.governance.custody.ed25519_key_manifest` — signing-key validity window** (Task 1.7 / C-P2-1). Per-`kid` `valid_from`/`valid_until` window and a monotonic `ACTIVE → RETIRED → REVOKED` lifecycle: ACTIVE signs + verifies, RETIRED is verify-only (historical proofs stay valid), REVOKED is rejected unconditionally. Lets a verifier decide whether a `kid` was trusted to sign at the moment a proof was produced. Uses the `cryptography` ed25519 primitives (a core dependency).
+
+- **`graqle.config.attestation_config` — Layer 5 config surface.** New `attestation:` block (all `extra="forbid"`); secrets (webhook URL, operator token, ed25519 signing-key path) are env-var-only. Omitting the block is byte-identical to v0.58.1.
+
+### Changed
+
+- **`graqle/governance/trace_capture.py`** gains one additive, opt-in observer hook for Merkle leaf emission; default behaviour unchanged.
+- **Version** bumped `0.58.1 → 0.59.0` (single bump for the whole Layer 5 PR sequence PR-0…PR-7).
+
+### Performance
+
+- **Write-path latency unchanged** (AC-5). The cr-018 measurement-only spike measured the Merkle commitment over 1,000 R18 traces at **~200× headroom under the AC-5 target** (≤227ms P95, 10% over the R18 baseline) — the user-observable write path is async (the batcher adds 0ms to the write path; per-record commit is bounded by `T_batch + Rekor_P95`). AC-1 commit latency target ≤60s.
+
+### Notes
+
+- **Opt-in and backward-compatible.** With `attestation.enabled = false` (default) and no `attestation:` config block, v0.59.0 output is byte-identical to v0.58.1.
+- **Cryptographic guarantee.** With Layer 5 enabled, tampering with any committed governed-trace record is detectable by any third party who can read the public Sigstore Rekor log — no GraQle infrastructure access required.
+
+---
+
 ## 0.58.1 (2026-05-21) — [docs: refresh PyPI landing page to v0.58.0]
 
 > **Documentation-only patch.** No code changes — functionally identical to v0.58.0.
