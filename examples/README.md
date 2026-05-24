@@ -8,6 +8,7 @@ Runnable examples for GraQle. Each is self-contained and uses only the public AP
 | `governance_example.py` | Governance primitives | ~10s |
 | **`v059_cryptographic_governance_usecase.py`** | **Layer 5 cryptographic tamper-evidence, a real use case, step by step** | ~3s |
 | **`v059_e2e_dogfood.py`** | Smoke-test every Layer 5 feature against the installed package | ~2s |
+| **`runtime_attest_production_decisions.py`** | **Runtime layer (Mode A): attach GraQle to a deployed AI system — attest every production decision** | ~2s |
 
 ---
 
@@ -65,6 +66,48 @@ python examples/v059_e2e_dogfood.py
 # -> 10/10 passed
 # -> ALL NEW v0.59.0 FEATURES VERIFIED WORKING
 ```
+
+---
+
+## 2b. Runtime layer (Mode A) — attach GraQle to a *deployed* AI system
+
+The examples above govern *build-time*. The **runtime layer** governs what your
+**deployed** AI decides: one added line per decision produces a durable, PII-safe,
+tamper-evidence-ready record on the same Layer 5 substrate — without changing your
+model or blocking the request path (0 ms write-path overhead; anchoring happens out
+of band). This is ADR-221 **Mode A — the explicit `attest()` call**.
+
+```bash
+python examples/runtime_attest_production_decisions.py
+# -> a deployed loan service attests each decision
+# -> durable audit trail + every leaf hash recomputable by a verifier
+# -> RUNTIME ATTEST COMPLETE
+```
+
+The one-line integration into an existing, already-deployed handler:
+
+```python
+from graqle.governance.runtime import GovernedRuntime
+
+gov = GovernedRuntime(salt="your-deploy-salt")   # durable JSONL sink by default
+
+def score_application(app):
+    decision = model.predict(app)                # your deployed AI, untouched
+    gov.attest(                                  # <-- the one added line
+        domain="loan",
+        model_id="credit-risk-v4",
+        inputs={"applicant_ref": gov.pseudonymize_ref(app.id)},  # PII-safe
+        output={"decision": decision.label, "reason_code": decision.reason},
+        decision_id=app.id,
+    )
+    return decision
+```
+
+`attest()` builds the GovernedTrace leaf record, computes its Merkle leaf hash with
+the **shipped** Layer 5 primitive (so the record is byte-compatible with what the
+batcher/committer commit), folds the inputs+output into a single `content_hash`
+(raw PII never enters the record), and durably appends it. Swap the sink for the R2
+anchoring worker to add Merkle batching + Sigstore Rekor anchoring out of band.
 
 ---
 
