@@ -61,7 +61,7 @@ __all__ = [
     "pseudonymize",
     # R1 — Mode B
     "governed",
-    "GraqleGovernanceMiddleware",
+    "GraqleGovernanceMiddleware",  # noqa: F822 - exposed lazily via module __getattr__ (PEP 562)
     "DomainMapping",
     "load_mapping",
     "MappingError",
