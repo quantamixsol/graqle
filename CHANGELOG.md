@@ -4,6 +4,59 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.61.0 (2026-05-25) — [Runtime Governance Layer (R1, Mode B): attach as FastAPI middleware]
+
+> v0.60.0 added Mode A (the explicit `attest()` call). v0.61.0 adds **Mode B** — the
+> "attach as middleware" path (ADR-221 §4.1). A deployed FastAPI/Starlette AI service can
+> now capture **every** governed decision as a durable, PII-safe, tamper-evidence-ready
+> record **with no change to the decision code** — by mounting one middleware or
+> decorating a route. Both compose the shipped R0 `GovernedRuntime.attest()`; nothing in
+> `tamper_evidence` or `layer_status` changed. Fully additive and opt-in — importing
+> nothing from `graqle.governance.runtime.fastapi` leaves all prior behaviour
+> byte-identical to v0.60.0.
+
+### Added
+
+- **`graqle.governance.runtime.fastapi` — Mode B attachment for deployed services.**
+  - **`GraqleGovernanceMiddleware`** (Starlette `BaseHTTPMiddleware`). Mount it once
+    (`app.add_middleware(GraqleGovernanceMiddleware, mapping="loan_mapping.yaml")`) and
+    every `application/json` decision response is captured. Capture runs on a Starlette
+    `BackgroundTask` after the response is produced — **0 ms on the response path**; the
+    client never waits on the capture.
+  - **`@governed(domain=..., mapping=...)`** decorator (sync + `async def`) for per-route
+    capture when you prefer not to mount app-wide.
+  - Both are exported from `graqle.governance.runtime`; the middleware is built lazily
+    (PEP 562) so the package imports cleanly without Starlette installed.
+- **`graqle.governance.runtime.mapping` — fail-closed per-domain capture mapping
+  (ADR-221 §4.3).** A `*_mapping.yaml` per domain declares, field by field, how a payload
+  is routed: `identity → pseudonymize` (stable salted reference, raw value never stored),
+  `hash_only → content_hash` (digest only), `governance → governance_metadata` (the
+  leaf-visible fields), `drop → never stored`. **Any field not explicitly mapped is dropped
+  by default** — a middleware that sees a whole payload cannot leak a newly-added PII field
+  by omission. `DomainMapping` + `load_mapping()`; `yaml.safe_load`; validated field names;
+  a field may be routed only one way.
+- Example `examples/runtime_middleware_fastapi.py` + `examples/runtime_mappings/loan_mapping.yaml`.
+
+### Notes
+
+- **Production-safety defaults.** Capture failure defaults to **fail-open with loud
+  structured logging** (`on_error="log"`) — an audit side-channel must not turn a healthy
+  response into an error for a real user; set `on_error="raise"` to fail-closed. Capture
+  error logs carry the exception **type + domain only, never the exception message** (no PII
+  leak via logs). A `max_body_bytes` cap (default 1 MiB) bounds the buffered response body
+  (oversize bodies are streamed back unmodified and skipped, logged as
+  `capture_skipped_oversize`). The shared default runtime is built behind a lock.
+- **Streaming caveat.** The middleware buffers `application/json` responses; do not mount it
+  on streaming/SSE decision routes (use the `@governed` decorator there). `text/event-stream`
+  and non-JSON responses pass through untouched.
+- **Opt-in & backward-compatible.** v0.61.0 output is byte-identical to v0.60.0 unless you
+  import and use `graqle.governance.runtime.fastapi`.
+- **Scope (R1).** This release is the framework attachment + mapping surface. The anchoring
+  worker that batches → Merkle-commits → Sigstore-Rekor-anchors the durable trail out of
+  band is the next increment (R2).
+
+---
+
 ## 0.60.0 (2026-05-24) — [Runtime Governance Layer (R0, Mode A): govern what your *deployed* AI decides]
 
 > **GraQle becomes dual-surface in code, not just positioning.** v0.59.0 shipped the

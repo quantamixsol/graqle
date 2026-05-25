@@ -97,7 +97,7 @@ same engine (knowledge graph → governed trace → RFC 6962 Merkle → ed25519 
 | Governs | how your AI **writes code** | what your deployed AI **decides** |
 | Trigger | a code change | a production decision (loan, hiring, triage, …) |
 | Emits | reviewed, impact-analysed, audit-logged changes | a tamper-evident, third-party-verifiable record per decision |
-| Status | **GA** | **GA** — `attest()` capture (v0.60.0) on the v0.59.0 cryptographic substrate; framework middleware + anchoring worker next (ADR-221) |
+| Status | **GA** | **GA** — `attest()` capture (v0.60.0) + FastAPI middleware / `@governed` (v0.61.0) on the v0.59.0 cryptographic substrate; anchoring worker next (ADR-221) |
 
 **Run-time, today — attach GraQle to a deployed AI system in one line (v0.60.0):**
 
