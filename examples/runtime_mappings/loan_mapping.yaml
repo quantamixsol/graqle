@@ -1,0 +1,38 @@
+# Example per-domain capture mapping for Mode B runtime governance (ADR-221 §4.3).
+#
+# Drop this beside your FastAPI app and attach it:
+#
+#     from graqle.governance.runtime.fastapi import GraqleGovernanceMiddleware
+#     app.add_middleware(GraqleGovernanceMiddleware, mapping="loan_mapping.yaml")
+#
+# Every JSON decision response flowing through the app is then captured as a
+# PII-safe, tamper-evidence-ready governed trace — with no change to the decision
+# code. The mapping is FAIL-CLOSED: any response field not named below is dropped,
+# never stored. Add a field here only when you have decided how it should be routed.
+
+domain: loan
+
+# Identity fields -> stable salted pseudonym (never the raw value). Lets an auditor
+# correlate a subject's decisions over time without the audit trail holding the PII.
+identity:
+  applicant_id: pseudonymize
+
+# Hashed into the decision's content_hash for integrity, but the raw value is never
+# stored on the leaf or wrapper.
+hash_only:
+  - features
+  - documents
+
+# Promoted into the leaf-visible governance_metadata. MUST be PII-free by construction
+# — these are the fields a regulator sees.
+governance:
+  - decision
+  - reason_code
+  - confidence
+  - human_review
+
+# Explicitly never stored. Advisory/self-documenting: unmapped fields are dropped by
+# default regardless, but listing known-sensitive fields here makes intent auditable.
+drop:
+  - raw_pii
+  - free_text_notes
