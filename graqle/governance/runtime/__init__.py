@@ -34,6 +34,14 @@ batch → Merkle-commit → Rekor-anchor out of band.
 
 from __future__ import annotations
 
+from typing import Any
+
+from graqle.governance.runtime.fastapi import governed
+from graqle.governance.runtime.mapping import (
+    DomainMapping,
+    MappingError,
+    load_mapping,
+)
 from graqle.governance.runtime.runtime import (
     AttestationSink,
     DurableJsonlSink,
@@ -44,10 +52,26 @@ from graqle.governance.runtime.runtime import (
 )
 
 __all__ = [
+    # R0 — Mode A
     "GovernedRuntime",
     "RuntimeDecision",
     "AttestationSink",
     "DurableJsonlSink",
     "InMemorySink",
     "pseudonymize",
+    # R1 — Mode B
+    "governed",
+    "GraqleGovernanceMiddleware",  # noqa: F822 - exposed lazily via module __getattr__ (PEP 562)
+    "DomainMapping",
+    "load_mapping",
+    "MappingError",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily re-export GraqleGovernanceMiddleware (PEP 562) — defers Starlette import."""
+    if name == "GraqleGovernanceMiddleware":
+        from graqle.governance.runtime.fastapi import GraqleGovernanceMiddleware
+
+        return GraqleGovernanceMiddleware
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
