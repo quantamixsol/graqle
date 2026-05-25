@@ -54,8 +54,9 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from graqle.governance.runtime.mapping import DomainMapping, load_mapping
 from graqle.governance.runtime.runtime import GovernedRuntime
@@ -63,7 +64,7 @@ from graqle.governance.runtime.runtime import GovernedRuntime
 logger = logging.getLogger("graqle.governance.runtime.fastapi")
 
 __all__ = [
-    "GraqleGovernanceMiddleware",
+    "GraqleGovernanceMiddleware",  # noqa: F822 - exposed lazily via module __getattr__ (PEP 562)
     "governed",
 ]
 
