@@ -28,12 +28,12 @@ runner = CliRunner()
 
 
 def _invoke(args: list[str]):
-    """Invoke govern_app directly.
+    """Invoke `govern serve` via the sub-app.
 
-    govern_app is a typer sub-app; with a single registered command (`serve`),
-    typer collapses the subcommand name — args are passed WITHOUT a leading "serve".
+    R2-PR3 added a second command (`health`), so typer no longer collapses the
+    single-command case — the `serve` subcommand name is now required.
     """
-    return runner.invoke(govern_app, args)
+    return runner.invoke(govern_app, ["serve", *args])
 
 
 # -- helpers ----------------------------------------------------------------
@@ -373,3 +373,274 @@ class TestWindowsSigtermBranch:
             signal.signal(signal.SIGINT, prev_int)
             if hasattr(signal, "SIGTERM") and prev_term is not None:
                 signal.signal(signal.SIGTERM, prev_term)
+
+
+# -- Health snapshot writes (R2-PR3) ---------------------------------------
+
+
+class TestHealthSnapshotWrite:
+    def test_writes_atomic_json(self, tmp_path):
+        from graqle.cli.commands.govern_serve import _write_health_snapshot
+
+        target = tmp_path / "govern.health.json"
+        snapshot = {"running": True, "ticks": 5, "records_committed": 12}
+        _write_health_snapshot(target, snapshot)
+        assert target.is_file()
+        import json
+        assert json.loads(target.read_text(encoding="utf-8")) == snapshot
+        # No leftover .tmp files (NamedTemporaryFile + os.replace is atomic)
+        assert not any(p.name.endswith(".tmp") for p in tmp_path.iterdir())
+
+    def test_creates_parent_dir(self, tmp_path):
+        from graqle.cli.commands.govern_serve import _write_health_snapshot
+
+        target = tmp_path / "subdir" / "govern.health.json"
+        _write_health_snapshot(target, {"ok": True})
+        assert target.is_file()
+
+    def test_write_failure_is_logged_not_raised_and_tempfile_cleaned(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """A write failure must NEVER propagate, AND must clean up any orphaned .tmp
+        file (defence in depth against disk-exhaustion via repeated failures)."""
+        import logging as _logging
+
+        from graqle.cli.commands import govern_serve as gs
+
+        target = tmp_path / "govern.health.json"
+
+        def _boom(*a, **k):
+            raise OSError("disk full")
+
+        # Patch os.replace (the final commit step) so the write fails inside the helper.
+        monkeypatch.setattr(gs.os, "replace", _boom)
+        with caplog.at_level(_logging.ERROR, logger="graqle.cli.govern_serve"):
+            gs._write_health_snapshot(target, {"ok": True})  # must not raise
+        assert any("health_snapshot_write_failed" in r.message for r in caplog.records)
+        # No orphaned .tmp files left in the destination directory
+        assert not any(p.name.endswith(".tmp") for p in tmp_path.iterdir()), (
+            f"orphaned tempfile not cleaned up: {list(tmp_path.iterdir())}"
+        )
+
+    def test_early_failure_before_tempfile_creation_logs_no_cleanup(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """If the failure happens BEFORE NamedTemporaryFile returns, there is no
+        tmp_path to clean up — the cleanup branch must safely skip (tmp_path is None)."""
+        import logging as _logging
+        import tempfile as _tempfile
+
+        from graqle.cli.commands import govern_serve as gs
+
+        target = tmp_path / "govern.health.json"
+
+        def _early_boom(*a, **k):
+            raise OSError("permission denied opening tempfile")
+
+        monkeypatch.setattr(_tempfile, "NamedTemporaryFile", _early_boom)
+        with caplog.at_level(_logging.ERROR, logger="graqle.cli.govern_serve"):
+            gs._write_health_snapshot(target, {"ok": True})  # must not raise
+        assert any("health_snapshot_write_failed" in r.message for r in caplog.records)
+
+    def test_tempfile_cleanup_failure_is_silently_tolerated(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """If the os.unlink cleanup itself fails, we keep the original error log
+        (operator needs the write failure, not a cascading cleanup error)."""
+        import logging as _logging
+
+        from graqle.cli.commands import govern_serve as gs
+
+        target = tmp_path / "govern.health.json"
+
+        def _replace_boom(*a, **k):
+            raise OSError("write boom")
+
+        def _unlink_boom(*a, **k):
+            raise OSError("cleanup boom")
+
+        monkeypatch.setattr(gs.os, "replace", _replace_boom)
+        monkeypatch.setattr(gs.os, "unlink", _unlink_boom)
+        with caplog.at_level(_logging.ERROR, logger="graqle.cli.govern_serve"):
+            gs._write_health_snapshot(target, {"ok": True})  # must not raise
+        # Only the original write-fail log is emitted; no second cascading log expected
+        msgs = [r.message for r in caplog.records]
+        assert any("health_snapshot_write_failed" in m for m in msgs)
+
+    def test_serve_with_non_anchoring_worker_skips_wrap_loudly(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """Defence in depth: a non-AnchoringWorker base (test stub) bypasses the class
+        swap with a structured warning rather than crashing the serve loop."""
+        import logging as _logging
+
+        monkeypatch.chdir(tmp_path)
+        cfg = _disabled_config_yaml(tmp_path)
+        worker = _fake_worker(committed=2)  # MagicMock — NOT an AnchoringWorker
+        with caplog.at_level(_logging.WARNING, logger="graqle.cli.govern_serve"):
+            with patch(
+                "graqle.cli.commands.govern_serve._build_worker", return_value=worker
+            ):
+                res = _invoke(["--config", str(cfg), "--once"])
+        assert res.exit_code == 0
+        assert any(
+            "health_writer_skipped_non_anchoring_worker" in r.message for r in caplog.records
+        ), "expected the skip-warning to be logged when wrap is bypassed"
+
+    def test_health_writing_worker_swallows_health_to_dict_errors(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """If health().to_dict() raises, the tick must still return — never crash the loop."""
+        import logging as _logging
+
+        from graqle.cli.commands.govern_serve import (
+            _build_health_writing_worker,
+            _build_worker,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        cfg = tmp_path / "graqle.yaml"
+        cfg.write_text(
+            "graph:\n  connector: networkx\n"
+            "attestation:\n  enabled: true\n  batch_max_seconds: 3\n",
+            encoding="utf-8",
+        )
+        base = _build_worker(str(cfg))
+        wrapped = _build_health_writing_worker(base, tmp_path / "h.json")
+
+        # Patch the wrapped worker's health() to return an object whose to_dict raises.
+        class _BoomHealth:
+            def to_dict(self):
+                raise RuntimeError("snapshot serialise boom")
+
+        monkeypatch.setattr(wrapped, "health", lambda: _BoomHealth())
+        with caplog.at_level(_logging.ERROR, logger="graqle.cli.govern_serve"):
+            wrapped.tick()  # must not raise
+        assert any(
+            "health_snapshot_tick_failed" in r.message for r in caplog.records
+        )
+
+    def test_health_writing_worker_subclasses_anchoring(self, tmp_path, monkeypatch):
+        """_build_health_writing_worker re-classes the base worker without losing state."""
+        from graqle.cli.commands.govern_serve import _build_health_writing_worker
+        from graqle.governance.tamper_evidence.worker import AnchoringWorker
+
+        monkeypatch.chdir(tmp_path)
+        # Build a real AnchoringWorker via the same path serve uses, then wrap it.
+        cfg = tmp_path / "graqle.yaml"
+        cfg.write_text(
+            "graph:\n  connector: networkx\n"
+            "attestation:\n  enabled: true\n  batch_max_seconds: 3\n",
+            encoding="utf-8",
+        )
+        from graqle.cli.commands.govern_serve import _build_worker
+        base = _build_worker(str(cfg))
+        assert isinstance(base, AnchoringWorker)
+
+        wrapped = _build_health_writing_worker(base, tmp_path / "h.json")
+        # In-place re-class: same instance, but subclassed type.
+        assert wrapped is base
+        assert isinstance(wrapped, AnchoringWorker)  # Liskov: still an AnchoringWorker
+        # Calling tick() now writes the snapshot file.
+        wrapped.tick()
+        assert (tmp_path / "h.json").is_file()
+
+
+# -- govern health sub-command (R2-PR3) ------------------------------------
+
+
+class TestGovernHealth:
+    def _seed_snapshot(self, tmp_path, content: dict):
+        snap = tmp_path / "govern.health.json"
+        import json
+        snap.write_text(json.dumps(content), encoding="utf-8")
+        return snap
+
+    def test_health_emits_json(self, tmp_path):
+        snap = self._seed_snapshot(
+            tmp_path,
+            {"running": True, "ticks": 7, "records_committed": 21, "replay_queue_depth": 3},
+        )
+        res = runner.invoke(govern_app, ["health", "--health-file", str(snap)])
+        assert res.exit_code == 0
+        # Pretty-printed JSON contains the values
+        assert '"running"' in res.output and "true" in res.output
+        assert '"ticks"' in res.output and "7" in res.output
+
+    def test_health_compact_mode(self, tmp_path):
+        snap = self._seed_snapshot(tmp_path, {"ticks": 1})
+        res = runner.invoke(
+            govern_app, ["health", "--health-file", str(snap), "--compact"]
+        )
+        assert res.exit_code == 0
+        # Compact mode emits single-line JSON
+        assert '{"ticks": 1}' in res.output.replace("\n", "")
+
+    def test_health_missing_file_exits_1(self, tmp_path):
+        res = runner.invoke(
+            govern_app, ["health", "--health-file", str(tmp_path / "nope.json")]
+        )
+        assert res.exit_code == 1
+        assert "Health snapshot not found" in res.output
+        assert "graqle govern serve" in res.output  # operator hint
+
+    def test_health_corrupt_json_exits_1(self, tmp_path):
+        snap = tmp_path / "govern.health.json"
+        snap.write_text("{not valid json", encoding="utf-8")
+        res = runner.invoke(govern_app, ["health", "--health-file", str(snap)])
+        assert res.exit_code == 1
+        assert "Corrupt health snapshot" in res.output
+
+    def test_health_read_oserror_exits_1(self, tmp_path, monkeypatch):
+        """An OSError reading the file is surfaced cleanly (not a stack trace)."""
+        snap = self._seed_snapshot(tmp_path, {"ok": True})
+
+        def _boom(self, *a, **k):
+            raise OSError("eaccess")
+
+        monkeypatch.setattr(Path, "read_text", _boom)
+        res = runner.invoke(govern_app, ["health", "--health-file", str(snap)])
+        assert res.exit_code == 1
+        assert "Cannot read health snapshot" in res.output
+
+    def test_health_negative_watch_rejected(self, tmp_path):
+        snap = self._seed_snapshot(tmp_path, {"ok": True})
+        res = runner.invoke(
+            govern_app, ["health", "--health-file", str(snap), "--watch", "-1"]
+        )
+        assert res.exit_code == 1
+        assert "--watch must be >= 0" in res.output
+
+    def test_health_watch_loops_then_stops_on_keyboard_interrupt(self, tmp_path, monkeypatch):
+        """--watch polls then exits cleanly on Ctrl-C."""
+        snap = self._seed_snapshot(tmp_path, {"running": True})
+        calls = {"n": 0}
+        import time as _time
+
+        def _sleep(_n):
+            calls["n"] += 1
+            if calls["n"] >= 2:
+                raise KeyboardInterrupt
+        monkeypatch.setattr(_time, "sleep", _sleep)
+        res = runner.invoke(
+            govern_app, ["health", "--health-file", str(snap), "--watch", "0.05"]
+        )
+        assert res.exit_code == 0
+        assert calls["n"] >= 2
+
+    def test_health_help_shows_options(self):
+        res = runner.invoke(govern_app, ["health", "--help"])
+        assert res.exit_code == 0
+        assert "--watch" in res.output and "--health-file" in res.output
+
+
+# -- _read_health_snapshot direct tests (defence in depth) ----------------
+
+
+class TestReadHealthSnapshot:
+    def test_returns_parsed_dict(self, tmp_path):
+        from graqle.cli.commands.govern_serve import _read_health_snapshot
+
+        target = tmp_path / "x.json"
+        target.write_text('{"a": 1, "b": "two"}', encoding="utf-8")
+        assert _read_health_snapshot(target) == {"a": 1, "b": "two"}
