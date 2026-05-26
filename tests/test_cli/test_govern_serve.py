@@ -36,6 +36,18 @@ def _invoke(args: list[str]):
     return runner.invoke(govern_app, ["serve", *args])
 
 
+# Rich/typer renders --help differently on Linux CI (ANSI-coloured table with hard
+# line-wraps inside flag names) vs Windows console (unwrapped plain text). Asserting
+# raw substrings is fragile cross-platform — this helper strips ANSI escapes and
+# collapses all whitespace so a flag like "--tick-seconds" still matches even when
+# the CLI renderer broke it across lines (e.g. "--ti\nck-seconds").
+def _normalise_help(output: str) -> str:
+    import re
+
+    no_ansi = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
+    return re.sub(r"\s+", "", no_ansi)
+
+
 # -- helpers ----------------------------------------------------------------
 
 
@@ -251,7 +263,11 @@ class TestCliSurface:
     def test_serve_help(self):
         res = _invoke(["--help"])
         assert res.exit_code == 0
-        assert "--once" in res.output and "--tick-seconds" in res.output
+        # Cross-platform: Rich may wrap flag names mid-token on narrow terminals
+        # (e.g. "--tick-seconds" → "--ti\nck-seconds" on Linux CI's coloured table).
+        # Strip ANSI + whitespace before asserting.
+        normalised = _normalise_help(res.output)
+        assert "--once" in normalised and "--tick-seconds" in normalised
 
     def test_govern_serve_registered_on_main_app(self):
         """govern_app is mounted on the top-level graqle CLI as `graqle govern`."""
@@ -631,7 +647,8 @@ class TestGovernHealth:
     def test_health_help_shows_options(self):
         res = runner.invoke(govern_app, ["health", "--help"])
         assert res.exit_code == 0
-        assert "--watch" in res.output and "--health-file" in res.output
+        normalised = _normalise_help(res.output)
+        assert "--watch" in normalised and "--health-file" in normalised
 
 
 # -- _read_health_snapshot direct tests (defence in depth) ----------------
