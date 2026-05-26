@@ -283,13 +283,17 @@ class TestCliSurface:
 
 class TestBuildWorkerConfigPaths:
     def test_build_worker_yaml_parse_error_exits_1(self, tmp_path):
-        import click
+        import typer
 
         from graqle.cli.commands.govern_serve import _build_worker
 
         bad = tmp_path / "graqle.yaml"
         bad.write_text("graph: [unclosed\n", encoding="utf-8")
-        with pytest.raises(click.exceptions.Exit) as exc:
+        # Catch typer.Exit (the production code raises this); newer typer versions
+        # vendor a separate `typer._click.exceptions.Exit` that isn't always identity-
+        # equal to `click.exceptions.Exit`, so use the production-facing class for
+        # cross-version robustness.
+        with pytest.raises(typer.Exit) as exc:
             _build_worker(str(bad))
         assert exc.value.exit_code == 1
 
@@ -297,7 +301,7 @@ class TestBuildWorkerConfigPaths:
         """attestation.security.fail_open_on_anchor_error=true triggers the worker's
         fail-closed precondition (via the _WorkerConfigView); CLI converts the
         WorkerError to a clean exit 1."""
-        import click
+        import typer
 
         from graqle.cli.commands.govern_serve import _build_worker
 
@@ -309,7 +313,9 @@ class TestBuildWorkerConfigPaths:
             "  security:\n    fail_open_on_anchor_error: true\n",
             encoding="utf-8",
         )
-        with pytest.raises(click.exceptions.Exit) as exc:
+        # Catch typer.Exit (production code), not click.exceptions.Exit — see the
+        # parallel test above for the cross-version rationale.
+        with pytest.raises(typer.Exit) as exc:
             _build_worker(str(cfg))
         assert exc.value.exit_code == 1
 
