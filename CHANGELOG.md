@@ -4,6 +4,27 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.62.1 (2026-05-27) — [docs-only: README v0.62.0 positioning rework on PyPI surface]
+
+> **Doc-only patch.** Functionally byte-identical to v0.62.0 — no production code, no
+> tests, no dependencies changed. Ships only to refresh the PyPI rendered description
+> with the v0.62.0 positioning rework that already landed on GitHub master (PR #174).
+> Updates: dev-first hero, runtime governance surfaced on top fold, `graqle govern serve`
+> + `graqle govern health` quickstart, new Article 72 row in EU AI Act table, "Independently
+> verifiable" callout, open-core pricing direction, all three patent numbers listed.
+> Trade-secret discipline locked: CI `ip_content_scan.py` PASS + 11-pattern custom scan
+> 0 violations + graq_predict combinatorial-disclosure mitigation applied.
+
+### Changed
+- `README.md` only (+140 / −135 lines, 287 → 292) — see PR #174 for full diff.
+
+### Verifiable
+- `pip install graqle==0.62.1 && pip show graqle` → version 0.62.1
+- `pip install graqle==0.62.1 && python -c "import graqle; print(graqle.__version__)"` → 0.62.1
+- All v0.62.0 surfaces (`govern serve`, `govern health`, `attest`, `@governed`, Layer 5) byte-identical.
+
+---
+
 ## 0.62.0 (2026-05-26) — [Runtime Governance Layer (R2): the anchoring worker turns Layer 5 into a continuously, publicly verifiable production audit trail]
 
 > **The "verifiable in production" story is now end-to-end shippable.** v0.59.0 shipped
