@@ -4,37 +4,106 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
-## 0.61.0 (2026-05-25) — [Runtime Governance Layer (R1, Mode B): attach as FastAPI middleware]
+## 0.62.0 (2026-05-26) — [Runtime Governance Layer (R2): the anchoring worker turns Layer 5 into a continuously, publicly verifiable production audit trail]
 
-> v0.60.0 added Mode A (the explicit `attest()` call). v0.61.0 adds **Mode B** — the
-> "attach as middleware" path (ADR-221 §4.1). A deployed FastAPI/Starlette AI service can
-> now capture **every** governed decision as a durable, PII-safe, tamper-evidence-ready
-> record **with no change to the decision code** — by mounting one middleware or
-> decorating a route. Both compose the shipped R0 `GovernedRuntime.attest()`; nothing in
-> `tamper_evidence` or `layer_status` changed. Fully additive and opt-in — importing
-> nothing from `graqle.governance.runtime.fastapi` leaves all prior behaviour
-> byte-identical to v0.60.0.
+> **The "verifiable in production" story is now end-to-end shippable.** v0.59.0 shipped
+> the cryptographic substrate. v0.60.0 (R0) added the one-line `attest()`. v0.61.0 (R1)
+> added the FastAPI middleware so a deployed AI service captures decisions with no code
+> change. **v0.62.0 closes the loop**: a long-lived `graqle govern serve` worker
+> continuously seals decisions into Merkle batches, anchors them to the **public**
+> Sigstore Rekor transparency log, and exposes Article 72 post-market monitoring health
+> — without changing any Layer 5 module. Fully additive + opt-in: importing nothing
+> from `graqle.governance.tamper_evidence.worker` (or not running `graqle govern serve`)
+> leaves all prior behaviour byte-identical to v0.61.0.
 
 ### Added
 
-- **`graqle.governance.runtime.fastapi` — Mode B attachment for deployed services.**
-  - **`GraqleGovernanceMiddleware`** (Starlette `BaseHTTPMiddleware`). Mount it once
-    (`app.add_middleware(GraqleGovernanceMiddleware, mapping="loan_mapping.yaml")`) and
-    every `application/json` decision response is captured. Capture runs on a Starlette
-    `BackgroundTask` after the response is produced — **0 ms on the response path**; the
-    client never waits on the capture.
-  - **`@governed(domain=..., mapping=...)`** decorator (sync + `async def`) for per-route
-    capture when you prefer not to mount app-wide.
-  - Both are exported from `graqle.governance.runtime`; the middleware is built lazily
-    (PEP 562) so the package imports cleanly without Starlette installed.
-- **`graqle.governance.runtime.mapping` — fail-closed per-domain capture mapping
-  (ADR-221 §4.3).** A `*_mapping.yaml` per domain declares, field by field, how a payload
-  is routed: `identity → pseudonymize` (stable salted reference, raw value never stored),
-  `hash_only → content_hash` (digest only), `governance → governance_metadata` (the
-  leaf-visible fields), `drop → never stored`. **Any field not explicitly mapped is dropped
-  by default** — a middleware that sees a whole payload cannot leak a newly-added PII field
-  by omission. `DomainMapping` + `load_mapping()`; `yaml.safe_load`; validated field names;
-  a field may be routed only one way.
+- **`graqle.governance.tamper_evidence.worker.AnchoringWorker`** — the long-lived
+  scheduler that wraps the **shipped** `Committer` + `LocalReplayQueue`. Each tick
+  calls `Committer.flush()` (honours `batch_max_seconds` for a service) and
+  `LocalReplayQueue.drain()` (re-anchors queued roots when Rekor recovers, respecting
+  the shipped circuit-breaker; at-least-once, never drops). Public surface:
+  `AnchoringWorker.run(max_ticks=None)`, `.tick()`, `.stop()`, `.health() -> WorkerHealth`,
+  `WorkerHealth.to_dict()`.
+- **Security wiring (load-bearing):**
+  - **Fail-closed precondition** — `AnchoringWorker.__init__` refuses to construct under
+    `fail_open_on_anchor_error=True` (the misconfig surfaces at startup, not silently
+    at the first Rekor outage).
+  - **PII-safe logging** — error logs carry `type(exc).__name__` + structural extras
+    only, never `str(exc)`.
+  - **Bounded shutdown flush** — a hung Rekor at process shutdown cannot block exit
+    forever; the WAL stays durable so a future `run()` re-seals what didn't complete.
+    Configurable via `shutdown_flush_timeout_seconds` (default 30s).
+- **`graqle govern serve` CLI** (`graqle/cli/commands/govern_serve.py`) — runs the
+  worker as a deployable service. Loads `AttestationConfig` from `graqle.yaml`,
+  assembles the Layer 5 commit pipeline, installs SIGINT/SIGTERM handlers (with a
+  `KeyboardInterrupt` fallback for Windows-console race), writes
+  `.graqle/govern.pid` + `.graqle/govern.version`. Distinct exit codes for orchestrators:
+  `1` = missing/corrupt config / worker refused / crash; `2` = `attestation.enabled=false`.
+  `--once` runs a single tick (cron-style catch-ups). `--tick-seconds` overrides the
+  loop interval. **`_WorkerConfigView`** bridges `AttestationConfig.security.fail_open_on_anchor_error`
+  to the top-level attribute the worker reads (without this bridge, a YAML misconfig
+  would silently disable the L5 no-silent-skip invariant).
+- **`graqle govern health` CLI** — reads `.graqle/govern.health.json` (the snapshot
+  the serve loop writes atomically every tick) and emits JSON for external monitoring.
+  `--health-file` overrides the path, `--watch N` polls every N seconds
+  (`KeyboardInterrupt`-safe), `--pretty/--compact` for human vs pipe-friendly output.
+  Fields (PII-safe — counts, booleans, exception **type** names only):
+  `running`, `ticks`, `records_committed`, `records_anchored`, `backfill_count`,
+  `replay_queue_depth`, `seconds_since_last_anchor`, `last_error_type`, `status_counts`.
+  This is the operator surface for **EU AI Act Article 72 post-market monitoring**.
+- **Atomic snapshot write** — `NamedTemporaryFile` in the destination directory +
+  `os.replace`, so a concurrent reader sees either the previous or the new snapshot
+  — never a torn write. Orphaned `.tmp` files are cleaned up on `os.replace` failure
+  to close a disk-exhaustion vector.
+- Example `examples/runtime_govern_serve_anchoring.py` demonstrating the worker
+  end-to-end with an in-memory sink.
+
+### Notes
+
+- **Opt-in & backward-compatible.** v0.62.0 output is byte-identical to v0.61.0 unless
+  you import `graqle.governance.tamper_evidence.worker` or run `graqle govern serve`.
+- **No changes to the cryptographic substrate.** R2 is pure assembly + lifecycle over
+  the v0.59.0 Layer 5 + v0.60.0/v0.61.0 runtime capture. Zero edits to
+  `tamper_evidence/{merkle,batcher,committer,sigstore_rekor,local_replay_queue,kg_persist,audit_log_v3,canonicalize,leaf_input_schema}.py`
+  or `runtime/runtime.py` in this release.
+- **Cryptographic guarantee, restated.** With `graqle govern serve` running, every
+  governed decision captured by R0 `attest()` or R1 middleware is durably sealed into a
+  Merkle batch and anchored to the public Sigstore Rekor log within
+  `batch_max_seconds`. Any third party can verify any decision later using only the
+  record + the Rekor entry + the public key — **no GraQle infrastructure access required.**
+
+### Quality
+
+- Triple-sentinel APPROVED 0 BLOCKERs across all three implementation PRs
+  (R2-PR1 worker, R2-PR2 CLI, R2-PR3 health). PII safety verified at every layer.
+- 100% statement+branch coverage on the new `worker.py`; 99% on `govern_serve.py`
+  (1 missed line = POSIX-only SIGTERM install, exercised on Linux/macOS CI via
+  `@skipif(win32)`).
+- ruff clean. Zero regressions across the 436 existing governance tests.
+
+---
+
+## 0.61.0 (2026-05-25) — [Runtime Governance Layer (R1, Mode B): attach as FastAPI middleware]
+
+> v0.60.0 added Mode A (the explicit `attest()` call). v0.61.0 adds **Mode B** — the
+> "attach as middleware" path (ADR-221 §4.1). A deployed FastAPI/Starlette AI service
+> can capture **every** governed decision as a durable, PII-safe, tamper-evidence-ready
+> record **with no change to the decision code** — by mounting one middleware or
+> decorating a route. Composes the shipped R0 `GovernedRuntime.attest()`; nothing in
+> `tamper_evidence` or `layer_status` changed. Fully additive + opt-in.
+
+### Added
+
+- **`graqle.governance.runtime.fastapi`** — `GraqleGovernanceMiddleware` (Starlette
+  `BaseHTTPMiddleware`) + `@governed` decorator (sync + async). Capture runs on a
+  Starlette `BackgroundTask` (0 ms on the response path); lazily built so the package
+  imports without Starlette (PEP 562).
+- **`graqle.governance.runtime.mapping`** — fail-closed per-domain `DomainMapping` +
+  `load_mapping(*_mapping.yaml)`: `identity → pseudonymize`, `hash_only → content_hash`,
+  `governance → governance_metadata` (the leaf), `drop → never stored`. **Any
+  unmapped field is dropped by default** — a middleware that sees a whole payload
+  cannot leak a newly-added PII field by omission.
 - Example `examples/runtime_middleware_fastapi.py` + `examples/runtime_mappings/loan_mapping.yaml`.
 
 ### Notes
@@ -53,7 +122,7 @@ All notable changes to GraQle are documented in this file.
   import and use `graqle.governance.runtime.fastapi`.
 - **Scope (R1).** This release is the framework attachment + mapping surface. The anchoring
   worker that batches → Merkle-commits → Sigstore-Rekor-anchors the durable trail out of
-  band is the next increment (R2).
+  band shipped in v0.62.0.
 
 ---
 
