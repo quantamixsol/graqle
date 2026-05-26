@@ -49,6 +49,7 @@ from graqle.cli.commands.auto import auto_command
 from graqle.cli.commands.compliance import compliance_app
 from graqle.cli.commands.pct import pct_app
 from graqle.cli.commands.neo4j_import import neo4j_import_cmd
+from graqle.cli.commands.govern_serve import govern_app
 from graqle.cli.commands.mcp_install import register_mcp_install_commands
 
 # Universal Unicode fix — MUST be first import (before Rich, before typer)
@@ -204,6 +205,11 @@ mcp_app = typer.Typer(
 )
 app.add_typer(mcp_app, name="mcp")
 register_mcp_install_commands(mcp_app)
+
+# Runtime governance services (ADR-221 §4.4 / R2). Mounts `graqle govern serve` —
+# a long-lived process that continuously seals + Sigstore-Rekor-anchors the
+# Layer 5 governed-trace trail via the shipped AnchoringWorker scheduler.
+app.add_typer(govern_app, name="govern")
 
 
 @mcp_app.command("serve")
