@@ -102,6 +102,24 @@ The serve loop writes `.graqle/govern.health.json` atomically after every tick �
 
 ---
 
+## 💰 Token economics — a worked case study
+
+A 4-developer team on a 50,000-node enterprise codebase **burns ~$40 per developer per day** on flat-file AI-coding tokens in 2026. The same team using GraQle's substrate:
+
+| Scenario | Annual (4 devs) | Saving |
+|---|---|---|
+| Flat-file baseline (Cursor / Claude Code default) | **$42,240** | — |
+| GraQle + frontier API (Sonnet 4.6) | **$19,874** | **−53%** |
+| GraQle + local SLM (Year 2, 90% migrated) | **$5,174** | **−88%** |
+
+Every number is auditable. Every assumption is sourced (Anthropic pricing, Cursor power-user data, Microsoft's killed Claude Code pilot, NCBI biomedical-KG research showing >50% token reduction, Qwen3-Coder SWE-Bench benchmarks). Scale linearly to a 40-developer enterprise: **~$224k/year saved in Year 1, ~$371k/year in Year 2**.
+
+Plus six things Cursor / Copilot / Codex do not offer at any subscription tier: cryptographic audit trail, EU AI Act Article 26 readiness (€15M fine exposure), patent-defensible substrate, survive-vendor-disappearance, multi-agent governance, public Sigstore Rekor anchoring.
+
+→ **[Read the full case study](./docs/case-study-token-economics.md)** — math, sources, and a `bash` snippet to re-run it on your own team's numbers.
+
+---
+
 ## What is GraQle
 
 A **governance-led multi-agent reasoning system for code**, with a built-in cryptographic audit substrate for the AI you ship to production. Scan any codebase into a persistent knowledge graph. Every module becomes a reasoning agent. Agents decompose, debate, and synthesize answers with clearance-level governance. Every change — and every production decision — is impact-analysed, gate-checked, and cryptographically committed.

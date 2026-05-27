@@ -113,6 +113,8 @@ docs/
 # despite the broader docs/ ignore. Specific sub-tree allow-list.
 !docs/compliance/
 !docs/compliance/**
+# v0.62.2: token economics case study (public marketing artifact)
+!docs/case-study-token-economics.md
 .graqle/
 .mcp.json
 graqle.yaml

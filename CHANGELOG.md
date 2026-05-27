@@ -4,6 +4,32 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.62.2 (2026-05-27) — [docs-only: token economics case study]
+
+> **Doc-only patch.** Functionally byte-identical to v0.62.1 — no production
+> code, no tests, no dependencies changed. Ships the worked enterprise
+> case study + hero callout in README.
+
+### Added
+- `docs/case-study-token-economics.md` — 4-developer team on a 50,000-node
+  codebase: **$42,240/yr flat-file → $19,874/yr GraQle+API (−53%) →
+  $5,174/yr GraQle+local SLM Year 2 (−88%)**. Every assumption stated, every
+  number cited to 2026 public sources (Anthropic pricing, Cursor power-user
+  data, Microsoft's killed Claude Code pilot, NCBI biomedical-KG research,
+  Qwen3-Coder SWE-Bench benchmarks, EU AI Act Articles 26 + 99).
+- README hero callout linking to the case study, right under the
+  Independently-verifiable section.
+
+### Changed
+- `pyproject.toml` version `0.62.1 → 0.62.2`
+- `graqle/__version__.py` version `0.62.1 → 0.62.2`
+
+### Verifiable
+- `pip install graqle==0.62.2 && python -c "import graqle; print(graqle.__version__)"` → `0.62.2`
+- All v0.62.0 + v0.62.1 surfaces byte-identical.
+
+---
+
 ## 0.62.1 (2026-05-27) — [docs-only: README v0.62.0 positioning rework on PyPI surface]
 
 > **Doc-only patch.** Functionally byte-identical to v0.62.0 — no production code, no
