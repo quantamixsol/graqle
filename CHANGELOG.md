@@ -4,6 +4,92 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.62.3 (2026-05-30) — [HOTFIX: structural activation schema split]
+
+> **Hotfix.** Eliminates a class of silent misconfiguration that caused
+> `graq_reason` to return identical hub-only nodes for every query when
+> `graph.connector: neo4j` + `activation.strategy: top_k` were both set
+> in `graqle.yaml`. The combination is now structurally unrepresentable
+> (the new schema makes it impossible to silently bypass the Cypher
+> vector index). Old field names continue to work with a loud
+> deprecation warning; will be removed in v0.65.
+
+### Added
+- New `ActivatorRegistry` (`graqle/activation/registry.py`) — single source
+  of truth keyed on `(backend, ranking)` pairs. Eagerly populated at module
+  import with 9 built-in combinations (local|neo4j|neptune × semantic|degree|none).
+  Thread-safe register (with lock timeout + DoS guard MAX_ENTRIES=100) and
+  lockless resolve (atomic dict read under CPython GIL).
+- `graqle/activation/factory_helpers.py` — extracted `DegreeRanker`,
+  `FullActivator`, and factory functions for every built-in pair.
+- `ActivationConfig.ranking` field (`semantic` | `degree` | `none`) — the
+  ranking algorithm, independent of backend.
+- `Graqle._infer_backend()` method — explicit cases for None / Neo4jConnector
+  / unknown type. Never returns "unknown" silently.
+- `scripts/migrate_activation_yaml.py` — auto-migrates `graqle.yaml` between
+  old and new schema with `--dry-run` and `--reverse` (rollback) modes.
+  Preserves comments via `ruamel.yaml` when installed.
+- `docs/migration_v0623.md` — full migration guide with field mapping table,
+  per-backend recommended configs, and verification commands.
+- `.gsm/decisions/SPEC-v0623-activation-schema.md` — design spec
+  (sentinel-approved at 95% confidence, 3 rounds).
+- 48 new tests across `tests/test_config/test_activation_schema_v0623.py`,
+  `tests/test_activation/test_registry.py`, `tests/test_activation/test_session0_regression.py`,
+  and `tests/test_scripts/test_migrate_activation_yaml.py`.
+
+### Changed
+- `ActivationConfig.strategy` is now a back-compat alias (default `None`).
+  Pydantic v2 `model_validator` promotes legacy values via
+  `STRATEGY_TO_RANKING` mapping (chunk→semantic, top_k→degree, full→none,
+  pcst→semantic, manual→none) and emits a single consolidated
+  `GRAQLE_LEGACY_ACTIVATION_SCHEMA` `DeprecationWarning` per config load.
+- `ActivationConfig.top_k` is now a back-compat alias for `max_nodes`.
+- `Graqle._activate_subgraph` rewritten from a ~140-line if/elif pile to
+  a ~80-line registry-dispatch implementation. Preserves all legacy
+  caller signatures (the `strategy` arg is now `str | None = None`).
+- The `(neo4j, degree)` combination — exactly the Session-0 silent-freeze
+  case — now logs a clear `WARNING` on every activation:
+  *"ranking=degree ignores your Neo4j vector index — semantic search is disabled"*.
+- `pyproject.toml` version `0.62.2 → 0.62.3`
+- `graqle/__version__.py` version `0.62.2 → 0.62.3`
+
+### Fixed
+- **CRITICAL silent misconfiguration:** `connector: neo4j` + `strategy: top_k`
+  no longer silently returns 50 hub nodes for every query. The deprecation
+  warning + the degree-on-neo4j warning + the conflict warning all surface
+  the misconfiguration loudly.
+
+### Security
+- `ActivatorRegistry.register` validates `backend` / `ranking` arguments
+  against `^[a-zA-Z][a-zA-Z0-9_]*$` (injection guard against config-parsed
+  values).
+- Runtime registration requires explicit `GRAQLE_ALLOW_RUNTIME_REGISTER=1`
+  env var; built-in registrations bypass this via `_builtin=True`.
+- `MAX_ENTRIES=100` cap prevents DoS via unbounded registration.
+- `register()` takes the registry lock with 1-second timeout to prevent
+  deadlock-style DoS.
+
+### Migration
+Existing configs continue to work without change. To silence the new
+deprecation warnings, replace:
+```yaml
+activation:
+  strategy: top_k    # rename to →   ranking: degree
+  top_k: 50          # rename to →   max_nodes: 50
+```
+Or run the auto-migrator:
+```bash
+python -m scripts.migrate_activation_yaml graqle.yaml
+```
+Full guide: [`docs/migration_v0623.md`](docs/migration_v0623.md).
+
+### Verifiable
+- `pip install graqle==0.62.3 && python -c "import graqle; print(graqle.__version__)"` → `0.62.3`
+- Old yaml from any prior version still parses and runs (back-compat verified by RT_01).
+- 3-question diagnostic against live Neo4j: `active_nodes` vary per question (semantic dispatch via `CypherActivation`), no longer returns frozen hub-only nodes.
+
+---
+
 ## 0.62.2 (2026-05-27) — [docs-only: token economics case study]
 
 > **Doc-only patch.** Functionally byte-identical to v0.62.1 — no production

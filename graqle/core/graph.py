@@ -2249,28 +2249,87 @@ class Graqle:
 
         return None
 
-    def _activate_subgraph(self, query: str, strategy: str) -> list[str]:
+    def _infer_backend(self) -> str:
+        """Determine backend identifier from this Graqle instance's state.
+
+        v0.62.3 (SPEC-v0623 §2.6a): explicit cases — NEVER returns 'unknown'
+        silently. The Session-0 freeze was caused by silent-fallback behaviour;
+        this function fails loudly on unexpected state to make sure that
+        class of bug cannot recur.
+
+        Returns:
+            "local"   — no Neo4j connector attached (default, in-memory + JSON)
+            "neo4j"   — Neo4jConnector attached
+            "neptune" — (future) NeptuneConnector attached
+
+        Raises:
+            RuntimeError: ``_neo4j_connector`` is set to an unexpected type.
+        """
+        nc = self._neo4j_connector
+        if nc is None:
+            return "local"
+        # Lazy import: keep core/graph.py import-cost low when neo4j optional dep missing
+        try:
+            from graqle.connectors.neo4j import Neo4jConnector
+            if isinstance(nc, Neo4jConnector):
+                return "neo4j"
+        except ImportError:
+            pass
+        # Future: NeptuneConnector
+        raise RuntimeError(
+            f"Graqle._infer_backend: graph._neo4j_connector is "
+            f"{type(nc).__name__}, expected None | Neo4jConnector. "
+            f"This is a graqle internal bug — please file an issue."
+        )
+
+    def _activate_subgraph(self, query: str, strategy: str | None = None) -> list[str]:
         """Select nodes to activate for a query.
 
-        Strategy resolution order:
-        1. "full" / "manual" / "top_k" — explicit strategies
-        2. Direct file lookup — query mentions a known filename
-        3. Neo4j CypherActivation — if connector available
-        4. ChunkScorer (default) — chunk-level embedding search, no PCST
-        5. PCST — legacy fallback (only if strategy="pcst" explicitly)
+        v0.62.3 structural rewrite (SPEC-v0623-activation-schema.md). Replaces
+        the if/elif pile with explicit (backend, ranking) factory dispatch via
+        ``ActivatorRegistry``. The Session-0 silent-freeze bug (connector=neo4j
+        + strategy=top_k returning frozen hub-only nodes) is now structurally
+        unrepresentable: the registry has no entry for "use Neo4j semantics
+        but rank by degree without warning" — that combination either logs a
+        WARNING (degree on neo4j) or raises ``UnregisteredActivatorError``.
+
+        Args:
+            query: User question text.
+            strategy: Optional legacy override. ``None`` (default) reads from
+                ``config.activation.ranking`` via the v0.62.3 schema. Legacy
+                string values (chunk / top_k / full / pcst / manual) are
+                accepted via ``STRATEGY_TO_RANKING`` mapping for back-compat
+                with callers in benchmarks/, mcp_dev_server.py, studio/.
         """
-        if strategy == "full":
-            return list(self.nodes.keys())
-        elif strategy == "manual":
-            raise ValueError("Manual strategy requires explicit node_ids")
-        elif strategy == "top_k":
-            sorted_nodes = sorted(
-                self.nodes.values(), key=lambda n: n.degree, reverse=True
-            )
-            k = min(self.config.activation.max_nodes, len(sorted_nodes))
-            return [n.id for n in sorted_nodes[:k]]
+        # --- Resolve ranking (legacy strategy arg vs new config.ranking) -----
+        from graqle.config.settings import STRATEGY_TO_RANKING, VALID_RANKINGS
+        if strategy is not None:
+            # Explicit-arg path: callers in benchmarks/mcp_dev_server/studio pass
+            # legacy strategy strings. Map them to the new ranking enum.
+            if strategy in STRATEGY_TO_RANKING:
+                ranking = STRATEGY_TO_RANKING[strategy]
+            elif strategy in VALID_RANKINGS:
+                ranking = strategy  # caller already passed new value
+            else:
+                logger.warning(
+                    "_activate_subgraph: unknown strategy=%r, defaulting to "
+                    "ranking='semantic'. Valid legacy: %s; valid new: %s",
+                    strategy, sorted(STRATEGY_TO_RANKING.keys()), sorted(VALID_RANKINGS),
+                )
+                ranking = "semantic"
         else:
-            # Direct file lookup bypass Layer 3)
+            # Config-driven path: read new ranking field
+            ranking = getattr(self.config.activation, "ranking", "semantic")
+
+        # --- Special case: manual ranking requires explicit node_ids ---------
+        # Old strategy=="manual" raised here; preserve that contract.
+        if strategy == "manual":
+            raise ValueError("Manual strategy requires explicit node_ids")
+
+        # --- Direct file lookup (query-side bypass; preserved from v0.62.2) --
+        # Only fires when ranking is semantic — degree/none consumers don't
+        # want filename-driven activation overriding their ranking choice.
+        if ranking == "semantic":
             direct = self._direct_file_lookup(query)
             if direct:
                 logger.info(
@@ -2279,95 +2338,35 @@ class Graqle:
                 )
                 return direct
 
-            # Neo4j CypherActivation (if connector available)
-            if self._neo4j_connector is not None:
-                try:
-                    from graqle.activation.cypher_activation import CypherActivation
-                    from graqle.activation.embeddings import EmbeddingEngine
+        # --- Factory dispatch via ActivatorRegistry --------------------------
+        from graqle.activation.registry import (
+            ActivatorRegistry,
+            UnregisteredActivatorError,
+        )
+        backend = self._infer_backend()
+        try:
+            factory = ActivatorRegistry.resolve(backend, ranking)
+        except UnregisteredActivatorError:
+            # Loud failure — never silent. Re-raise after enriching with the
+            # (backend, ranking) pair that was attempted.
+            logger.error(
+                "_activate_subgraph: no activator registered for "
+                "(backend=%r, ranking=%r). Check graqle.yaml.",
+                backend, ranking,
+            )
+            raise
 
-                    if self._activator is None or not isinstance(self._activator, CypherActivation):
-                        engine = EmbeddingEngine()
-                        self._activator = CypherActivation(
-                            connector=self._neo4j_connector,
-                            embedding_engine=engine,
-                            max_nodes=self.config.activation.max_nodes,
-                        )
-                    return self._activator.activate(self, query)
-                except Exception as exc:
-                    logger.warning("CypherActivation failed (%s), falling back", exc)
+        # Build (or re-build if config changed) the activator instance
+        # NOTE: caching self._activator by class is preserved from v0.62.2 for
+        # the hot path; the factory is cheap so re-calling it on cache miss is
+        # not a perf concern.
+        activator = factory(self)
+        self._activator = activator
 
-            # Legacy PCST — only if explicitly requested
-            if strategy == "pcst":
-                try:
-                    from graqle.activation.pcst import PCSTActivation
-
-                    if self._activator is None or not isinstance(
-                        self._activator, PCSTActivation
-                    ):
-                        self._activator = PCSTActivation(
-                            max_nodes=self.config.activation.max_nodes,
-                            prize_scaling=self.config.activation.prize_scaling,
-                            cost_scaling=self.config.activation.cost_scaling,
-                        )
-                    return self._activator.activate(self, query)
-                except ImportError:
-                    logger.warning("pcst_fast not installed, falling through to ChunkScorer")
-
-            # ChunkScorer (new default) — chunk-level embedding search
-            # v0.12: Adaptive node count — simple queries don't need max_nodes.
-            from graqle.activation.adaptive import QueryComplexityScorer
-            from graqle.activation.chunk_scorer import ChunkScorer
-
-            configured_max = self.config.activation.max_nodes
-            try:
-                scorer = QueryComplexityScorer()
-                profile = scorer.score(query)
-                tier_map = {
-                    "simple": max(4, configured_max // 4),
-                    "moderate": max(8, configured_max // 2),
-                    "complex": max(12, int(configured_max * 0.75)),
-                    "expert": configured_max,
-                }
-                adaptive_max = tier_map.get(profile.tier, configured_max)
-                logger.info(
-                    "Adaptive ChunkScorer: tier=%s, max_nodes=%d (configured=%d), "
-                    "composite=%.3f",
-                    profile.tier, adaptive_max, configured_max,
-                    profile.composite,
-                )
-            except Exception:
-                adaptive_max = configured_max
-
-            if self._activator is None or not isinstance(self._activator, ChunkScorer):
-                # Use config-driven embedding engine factory (BUG-5 fix)
-                # Routes to TitanV2Engine / EmbeddingEngine / SimpleEmbeddingEngine
-                # based on graqle.yaml embeddings config
-                _emb_engine = None
-                try:
-                    from graqle.activation.embeddings import create_embedding_engine
-                    _emb_engine = create_embedding_engine(self.config)
-                except Exception:
-                    pass
-                # Pass domain registry for skill-aware activation boost
-                _domain_reg = None
-                if self.config and self.config.activation.skill_aware:
-                    try:
-                        from graqle.ontology.domain_registry import DomainRegistry
-                        from graqle.ontology.domains import register_all_domains
-                        _domain_reg = DomainRegistry()
-                        register_all_domains(_domain_reg)
-                    except Exception:
-                        _domain_reg = None
-                self._activator = ChunkScorer(
-                    embedding_engine=_emb_engine,
-                    max_nodes=adaptive_max,
-                    domain_registry=_domain_reg,
-                )
-            else:
-                self._activator.max_nodes = adaptive_max
-
-            # v0.12.1: Pass activation memory boosts if available
-            activation_boosts = None
+        # --- Activation memory boosts (preserved from v0.62.2) ---------------
+        activation_boosts = None
+        if ranking == "semantic":
+            # Boosts only meaningful for semantic ranking; degree/none ignore them.
             try:
                 from graqle.learning.activation_memory import ActivationMemory
                 if self._activation_memory is None:
@@ -2382,9 +2381,21 @@ class Graqle:
             except Exception:
                 pass
 
-            return self._activator.activate(
-                self, query, activation_boosts=activation_boosts
+        # --- Call the activator ----------------------------------------------
+        # Some activators (ChunkScorer) accept activation_boosts; others don't.
+        try:
+            if activation_boosts:
+                return activator.activate(self, query, activation_boosts=activation_boosts)
+            return activator.activate(self, query)
+        except TypeError:
+            # Activator doesn't accept activation_boosts kwarg — call without it.
+            return activator.activate(self, query)
+        except Exception as exc:
+            logger.error(
+                "_activate_subgraph: activator %s.activate() failed: %s",
+                type(activator).__name__, exc,
             )
+            raise
 
     def _direct_file_lookup(self, query: str) -> list[str] | None:
         """Layer 3 Directly activate nodes matching filenames in the query.
