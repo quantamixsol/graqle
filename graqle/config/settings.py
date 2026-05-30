@@ -116,17 +116,173 @@ class EmbeddingsConfig(BaseModel):
     dimension: int = 0  # 0 = auto (384 for local, 1024 for bedrock, 128 for simple)
 
 
-class ActivationConfig(BaseModel):
-    """Subgraph activation configuration."""
+# ─── v0.62.3 structural fix (SPEC-v0623-activation-schema.md) ─────────────
+# Legacy `strategy:` overloaded backend-selection and ranking-algorithm.
+# v0.62.3 splits into `ranking:` (semantic|degree|none); backend is inferred
+# from graph.connector. Old field names still parse via the validator below.
+STRATEGY_TO_RANKING: dict[str, str] = {
+    "chunk": "semantic",
+    "top_k": "degree",
+    "full": "none",
+    "pcst": "semantic",   # pcst is a semantic variant
+    "manual": "none",     # manual = caller passes node_ids; behaves like none for dispatch
+}
+RANKING_TO_LEGACY_STRATEGY: dict[str, str] = {
+    "semantic": "chunk",
+    "degree": "top_k",
+    "none": "full",
+}
+VALID_RANKINGS: frozenset[str] = frozenset({"semantic", "degree", "none"})
 
-    strategy: str = "chunk"  # "chunk" (default), "pcst" (legacy), "full", "top_k"
-    max_nodes: int = 50
+
+class ActivationConfig(BaseModel):
+    """Subgraph activation configuration.
+
+    v0.62.3: `strategy:` is now split into `ranking:` (ranking algorithm —
+    semantic | degree | none). Backend is derived from `graph.connector`.
+    See docs/migration_v0623.md and .gsm/decisions/SPEC-v0623-activation-schema.md.
+
+    Old field names (`strategy:`, `top_k:`) still parse with a single
+    consolidated DeprecationWarning. Will be removed in v0.65.
+    """
+
+    # New schema (v0.62.3+)
+    ranking: str = Field(
+        default="semantic",
+        description="Ranking algorithm: semantic (embedding) | degree (graph topology) | none (return all)",
+    )
+    max_nodes: int = Field(
+        default=50,
+        ge=1,
+        description="Maximum number of nodes to activate per query",
+    )
+
+    # Legacy aliases (v0.62.3 deprecation, removed in v0.65). Stored on the
+    # model so programmatic setters from benchmarks still work; promoted into
+    # `ranking` / `max_nodes` by the validator below.
+    strategy: str | None = None
+    top_k: int | None = None
+
+    # Unchanged
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_engine: str = ""  # deprecated — use top-level embeddings section
     pcst_pruning: str = "strong"
     prize_scaling: float = 1.0
     cost_scaling: float = 1.0
     skill_aware: bool = True  # Boost nodes whose skills match query keywords
+
+    # validate_assignment=True so `config.activation.strategy = "pcst"` from
+    # benchmarks/* still triggers the legacy-promotion validator on each set.
+    model_config = {"validate_assignment": True}
+
+    @model_validator(mode="after")
+    def _promote_legacy_activation_schema(self) -> "ActivationConfig":
+        """v0.62.3: promote legacy `strategy:` / `top_k:` into new fields.
+
+        Conflict-resolution table is documented in SPEC-v0623-activation-schema.md §2.7.
+        Single consolidated DeprecationWarning per config load (not per field) so users
+        see OLD/NEW side-by-side once.
+        """
+        import warnings
+
+        if self.ranking not in VALID_RANKINGS:
+            raise ValueError(
+                f"activation.ranking={self.ranking!r} is invalid. "
+                f"Valid values: {sorted(VALID_RANKINGS)}"
+            )
+
+        legacy_strategy = self.strategy
+        legacy_top_k = self.top_k
+
+        if legacy_strategy is None and legacy_top_k is None:
+            return self  # pure new schema, no migration needed
+
+        # Detect which NEW fields the user explicitly provided. Pydantic v2's
+        # model_fields_set tracks exactly this — distinguishes "user passed
+        # ranking='semantic'" from "user left ranking at default". Falls back
+        # to value-equality if model_fields_set is missing (older Pydantic).
+        explicitly_set = getattr(self, "model_fields_set", set())
+        ranking_explicit = "ranking" in explicitly_set
+        max_nodes_explicit = "max_nodes" in explicitly_set
+
+        # --- Promote `strategy:` -> `ranking:` ---
+        promoted_ranking: str | None = None
+        unknown_strategy = False
+        if legacy_strategy is not None:
+            if legacy_strategy in STRATEGY_TO_RANKING:
+                promoted_ranking = STRATEGY_TO_RANKING[legacy_strategy]
+            else:
+                # Unknown legacy strategy value — pass through (some benchmarks use
+                # custom names). Default to semantic so we don't change runtime behaviour.
+                unknown_strategy = True
+                promoted_ranking = "semantic"
+
+            if not ranking_explicit:
+                # User left ranking at default → promote legacy strategy
+                if promoted_ranking != self.ranking:
+                    object.__setattr__(self, "ranking", promoted_ranking)
+            elif self.ranking != promoted_ranking:
+                # User set BOTH old strategy AND new ranking, and they conflict.
+                # New explicit value wins; emit a conflict warning so user notices.
+                warnings.warn(
+                    f"GRAQLE_ACTIVATION_CONFLICT: activation.strategy={legacy_strategy!r} "
+                    f"and activation.ranking={self.ranking!r} disagree. "
+                    f"Using new value ranking={self.ranking!r}. Remove the old "
+                    f"`strategy:` field to silence this warning.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
+        # --- Promote `top_k:` -> `max_nodes:` ---
+        if legacy_top_k is not None:
+            if legacy_top_k < 1:
+                raise ValueError(
+                    f"activation.top_k={legacy_top_k} is invalid; must be >= 1"
+                )
+            if not max_nodes_explicit:
+                # User left max_nodes at default → promote legacy top_k
+                if legacy_top_k != self.max_nodes:
+                    object.__setattr__(self, "max_nodes", legacy_top_k)
+            elif self.max_nodes != legacy_top_k:
+                warnings.warn(
+                    f"GRAQLE_ACTIVATION_CONFLICT: activation.top_k={legacy_top_k} "
+                    f"and activation.max_nodes={self.max_nodes} disagree. "
+                    f"Using new value max_nodes={self.max_nodes}. Remove the old "
+                    f"`top_k:` field to silence this warning.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
+        # --- Single consolidated migration warning (skip if only no-op default values) ---
+        non_default_legacy = (
+            (legacy_strategy is not None and legacy_strategy != "chunk")
+            or (legacy_top_k is not None and legacy_top_k != 50)
+        )
+        if non_default_legacy:
+            warnings.warn(
+                "GRAQLE_LEGACY_ACTIVATION_SCHEMA: your graqle.yaml uses the old "
+                "activation schema. The fields still work but will be removed in v0.65. "
+                f"Migration:\n"
+                f"  OLD:                   NEW:\n"
+                f"  activation:            activation:\n"
+                f"    strategy: {legacy_strategy!r}{'  ' * max(1, 20-len(repr(legacy_strategy)))}ranking: {self.ranking!r}\n"
+                f"    top_k: {legacy_top_k}{'  ' * max(1, 20-len(str(legacy_top_k)))}max_nodes: {self.max_nodes}\n"
+                f"See: docs/migration_v0623.md",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if unknown_strategy:
+            warnings.warn(
+                f"GRAQLE_UNKNOWN_STRATEGY: activation.strategy={legacy_strategy!r} "
+                f"is not in the known migration mapping {sorted(STRATEGY_TO_RANKING.keys())}. "
+                f"Defaulted to ranking='semantic'. If this is a custom strategy, "
+                f"migrate to ranking= explicitly.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        return self
 
 
 class SkillConfig(BaseModel):
