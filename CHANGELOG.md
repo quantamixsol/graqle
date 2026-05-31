@@ -4,6 +4,35 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.64.0 (2026-05-31) — [Standalone offline proof verifier + `graq attest verify`]
+
+> The canonical, free-forever offline verifier for GraQle-format tamper-evidence
+> proof bundles. Given a proof bundle and the signer's public key(s) — and
+> nothing else: no network, no GraQle service, no proprietary code — anyone can
+> verify a proof. This engineers the "survive-our-disappearance" guarantee: if
+> GraQle vanished, every proof we ever emitted still verifies.
+
+**Added**
+
+- `graqle.governance.tamper_evidence.verifier.verify_bundle(proof_bundle, trusted_keys)`
+  — composes leaf-hash recompute, Merkle inclusion, ed25519 windowed/3-state-lifecycle
+  trust, and an optional **offline** Rekor binding check into one verifier.
+  Returns a typed `VerifyResult` (never raises on a bad proof). Pure standard
+  library + `cryptography`; imports nothing from the server/studio/anchoring
+  surfaces. A runtime import-isolation guard enforces that at import time.
+- `graq attest verify <bundle.json> --key <pub.pem>` CLI (also `--keys <keyring.json>`
+  for explicit per-key validity windows + lifecycle states, `--rekor-sth`, and
+  `--format text|json`), plus the dependency-light `python -m graqle.verify`
+  entrypoint. Exit codes: `0` verified, `1` not verified, `2` usage error.
+- An import-isolation CI gate (AST allowlist) that fails the build if the verifier
+  or its surface ever imports outside the standard library, `cryptography`, and the
+  four tamper-evidence primitives — so the offline-verifiability guarantee cannot
+  silently regress.
+
+110 tests at 100% statement + branch coverage (real signed + Merkle-anchored
+fixtures, fault injection for every failure mode, and a studio-free subprocess
+invariant proving the verifier runs standalone).
+
 ## 0.63.1 (2026-05-31) — [Fix: graq_learn now persists to Neo4j]
 
 > Three fixes, all surfaced by dogfooding the v0.63.0 auto-grow loop on a
