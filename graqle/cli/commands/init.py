@@ -2465,10 +2465,13 @@ def _write_gcc_structure(root: Path) -> bool:
 
 
 def _install_auto_grow_hook(root: Path) -> None:
-    """Install a git post-commit hook that auto-updates graqle.json.
+    """Install a git post-commit hook that auto-updates the knowledge graph.
 
     This is the core promise: the graph adapts and grows with every commit.
-    The hook runs `graq grow` which does an incremental scan + ingest.
+    The hook runs `graq grow --embed` which does an incremental scan + ingest
+    + embeds the changed chunks so the new code is queryable by reasoning
+    (v0.63.0). Embedding is incremental (changed nodes only) so the hook
+    stays fast enough to run inline.
     """
     git_dir = root / ".git"
     if not git_dir.is_dir():
@@ -2479,13 +2482,24 @@ def _install_auto_grow_hook(root: Path) -> None:
     hooks_dir.mkdir(exist_ok=True)
     hook_path = hooks_dir / "post-commit"
 
-    # The hook script
+    # The hook script (v0.63.0).
+    # IMPORTANT: this deliberately does NOT use `--quiet`, `2>/dev/null`, or a
+    # backgrounded `&` subshell. Those swallow embedding/Neo4j/config errors —
+    # the silent-fail anti-pattern that caused the v0.62.2 activation freeze
+    # (see ADR-212). Failures must be visible. The hook always exits 0 so it
+    # never blocks a commit that has already happened.
     hook_content = """#!/bin/sh
 # GraQle auto-grow hook — updates the knowledge graph on every commit.
 # Installed by `graq init`. Remove this file to disable.
+# Errors are surfaced (no --quiet, no 2>/dev/null) but never block the commit.
 
-# Run in background so commits aren't slowed down
-(graq grow --quiet 2>/dev/null &)
+graq grow --embed
+status=$?
+if [ $status -ne 0 ]; then
+  echo "[graqle post-commit] graq grow exited $status — commit landed, KG NOT updated." >&2
+  echo "[graqle post-commit] Investigate with 'graq doctor' or re-run 'graq grow --embed'." >&2
+fi
+exit 0
 """
 
     if hook_path.exists():
