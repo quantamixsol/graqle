@@ -486,14 +486,30 @@ def test_isolation_guard_allows_lookalike_prefixes():
 
 
 def test_module_import_did_not_load_server_or_studio():
-    # The verifier import (top of this file) must not have pulled server/studio in.
-    assert not any(
-        name == "graqle.server"
-        or name.startswith("graqle.server.")
-        or name == "graqle.studio"
-        or name.startswith("graqle.studio.")
-        for name in sys.modules
+    # Importing the verifier must NOT pull graqle.server/graqle.studio into
+    # sys.modules. This is checked in a CLEAN subprocess (not the current
+    # interpreter): sys.modules is process-global, so other tests in the full
+    # suite that legitimately import server/studio would pollute a same-process
+    # check and make it spuriously fail (local-isolated-green != CI-full-suite).
+    # A fresh interpreter that imports only the verifier isolates the question to
+    # "does importing the verifier load server/studio" — which is what we mean.
+    script = (
+        "import sys;"
+        "import graqle.governance.tamper_evidence.verifier;"
+        "bad = [n for n in sys.modules if n == 'graqle.server' "
+        "or n.startswith('graqle.server.') or n == 'graqle.studio' "
+        "or n.startswith('graqle.studio.')];"
+        "assert not bad, bad;"
+        "print('CLEAN')"
     )
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "CLEAN" in proc.stdout
 
 
 # ── Subprocess invariant: verify in a studio-free interpreter (AC-1/AC-3) ─────
