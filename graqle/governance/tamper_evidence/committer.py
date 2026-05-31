@@ -119,12 +119,20 @@ class Committer:
         anchor: RekorAnchor | None = None,
         replay_queue: LocalReplayQueue | None = None,
         kg_persist: KgPersistFn | None = None,
+        meter_observer: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> None:
         self._config = config
         self._batcher = batcher
         self._anchor = anchor
         self._replay_queue = replay_queue
         self._kg_persist = kg_persist
+        # WS-B count point 2: a best-effort, never-raise callback invoked once per
+        # anchored leaf (the billable proof_anchored unit). Additive + optional;
+        # default None = no metering (Community local work is free). The callback
+        # itself must not raise (graqle.metering.make_meter_observer guarantees
+        # this); we still guard the call site so a misbehaving observer can never
+        # break the anchoring path — the proof is durable in Rekor regardless.
+        self._meter_observer = meter_observer
         self._lock = threading.RLock()
         # Commit records keyed by content-address (the batcher's idempotency key),
         # so a record submitted twice maps to one CommitRecord (mirrors the
@@ -269,6 +277,28 @@ class Committer:
                     for cr in batch_records:
                         cr.mark_anchored(receipt.log_index, receipt.log_id)
                     anchored = True
+                    # WS-B count point 2: each anchored leaf is one billable
+                    # proof. Fire the meter observer per leaf, keyed on the leaf
+                    # hash (cr.record_hash) — the SAME idempotency key as the
+                    # runtime path, so a proof reaching both paths bills once.
+                    # Guarded: a metering fault must never undo a durable anchor.
+                    if self._meter_observer is not None:
+                        for cr in batch_records:
+                            try:
+                                self._meter_observer(
+                                    cr.record_hash,
+                                    {
+                                        "batch_id": batch_id,
+                                        "merkle_root_hex": root_hex,
+                                        "rekor_log_index": receipt.log_index,
+                                        "rekor_log_id": receipt.log_id,
+                                    },
+                                )
+                            except Exception:  # never break the anchoring path
+                                logger.warning(
+                                    "meter observer raised on anchored leaf "
+                                    "(non-fatal); anchor is durable", exc_info=True
+                                )
                 except AnchorError as exc:
                     self._handle_anchor_failure(batch_id, root_hex, batch_records, exc)
 
