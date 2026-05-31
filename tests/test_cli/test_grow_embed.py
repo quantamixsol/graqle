@@ -103,12 +103,31 @@ class TestRedactingEmbedFn:
 
 # ───────────────────── grow_command CLI surface ───────────────────────
 class TestGrowSurface:
-    def test_help_shows_embed_and_backend(self):
+    def test_help_exposes_embed_and_backend(self):
+        """The flags must be on the command. Assert against the registered
+        params, NOT the rendered Rich --help text: Rich wraps + ANSI-colours
+        the help in CI's narrow terminal, splitting '--embed' across a box
+        border so a substring match on result.output is flaky (passed locally,
+        failed in CI). The param signature is the source of truth.
+        """
+        import inspect
+
+        from graqle.cli.commands.grow import grow_command
+
+        params = inspect.signature(grow_command).parameters
+        assert "embed" in params, "grow_command must expose an `embed` option"
+        assert "backend" in params, "grow_command must expose a `backend` option"
+        # The param defaults are typer OptionInfo objects; the real default
+        # value is on .default of the OptionInfo.
+        embed_default = getattr(params["embed"].default, "default", params["embed"].default)
+        backend_default = getattr(params["backend"].default, "default", params["backend"].default)
+        assert embed_default is True   # --embed on by default
+        assert backend_default == "auto"
+
+    def test_help_renders_without_error(self):
         from graqle.cli.main import app
         result = runner.invoke(app, ["grow", "--help"])
         assert result.exit_code == 0
-        assert "--embed" in result.output or "--no-embed" in result.output
-        assert "--backend" in result.output
 
 
 # ───────────── grow_command integration (local, monkeypatched) ─────────
