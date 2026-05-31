@@ -91,8 +91,11 @@ class TestRedactingEmbedFn:
                 import numpy as np
                 return np.array([0.1, 0.2, 0.3])
 
+        # v0.63.1 (Fix C): _make_redacting_embed_fn now builds the engine via
+        # create_embedding_engine(cfg), so patch THAT, not EmbeddingEngine.
         monkeypatch.setattr(
-            "graqle.activation.embeddings.EmbeddingEngine", lambda *a, **k: _Eng()
+            "graqle.activation.embeddings.create_embedding_engine",
+            lambda *a, **k: _Eng(),
         )
         fn = _make_redacting_embed_fn()
         secret = "AWS_SECRET_ACCESS_KEY=" + "B" * 40
