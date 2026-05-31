@@ -4,6 +4,40 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.63.1 (2026-05-31) — [Fix: graq_learn now persists to Neo4j]
+
+> Three fixes, all surfaced by dogfooding the v0.63.0 auto-grow loop on a
+> Neo4j-backed setup. The headline fix makes `graq_learn` actually persist on
+> Neo4j sessions for the first time (it previously failed with `SAVE_FAILED`
+> on every call and, even past that, never wrote the lesson to the backend).
+
+### Fixed
+- **`graq_learn` SAVE_FAILED on Neo4j sessions.** `_save_graph` guarded only
+  `if self._graph_file is None`, but a Neo4j session sets `_graph_file` to a
+  `neo4j://…` connection URI — so it fell through and tried to write a JSON file
+  literally named after the URI (invalid path → crash → `SAVE_FAILED`). A new
+  `_is_backend_only_graph_file()` now treats `neo4j://`/`bolt://`/`neptune://`/
+  `memgraph://` URIs the same as `None` → `NO_GRAPH_FILE` (a success state).
+- **`graq_learn` never persisted to Neo4j (latent).** `graph.add_node`/`add_edge`
+  are in-memory only; nothing flushed learned lesson/entity/knowledge nodes to
+  the Neo4j driver, so they were lost on restart. A new
+  `_persist_learn_to_backend()` writes the new node(s) + edges through via the
+  existing `Neo4jConnector.save` path when a backend connector is attached.
+  Backend write failure surfaces loudly (`SAVE_FAILED`) instead of a false
+  success. Local-JSON sessions are unchanged (the previous path still applies).
+- **`grow --embed` mis-routed Bedrock embeddings.** `grow`'s embed helpers built
+  a bare `EmbeddingEngine()` instead of the config-aware
+  `create_embedding_engine(cfg)`, so on a bedrock-backed project the Titan
+  model-id was fed to sentence-transformers and failed to load. Now both
+  `_embed_local` and the Neo4j `embed_fn` resolve the engine from config.
+
+### Notes
+- No CLI surface changes; fully backwards compatible. 16 new tests; the
+  existing `test_save_graph_status` suite continues to pass (the new backend
+  write-through is gated on a real connector being present).
+
+---
+
 ## 0.63.0 (2026-05-31) — [End-to-End Auto-Grow Loop]
 
 > `graq grow` now **embeds** new chunks and **writes the backend your graph
