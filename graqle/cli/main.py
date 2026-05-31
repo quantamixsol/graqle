@@ -47,6 +47,7 @@ from graqle.cli.commands.pr_guardian import pr_guardian_command
 from graqle.cli.commands.release_gate import release_gate_command
 from graqle.cli.commands.auto import auto_command
 from graqle.cli.commands.compliance import compliance_app
+from graqle.cli.commands.attest import attest_app
 from graqle.cli.commands.pct import pct_app
 from graqle.cli.commands.neo4j_import import neo4j_import_cmd
 from graqle.cli.commands.govern_serve import govern_app
@@ -117,6 +118,7 @@ app.command(name="release-gate")(release_gate_command)
 app.command(name="auto")(auto_command)
 app.add_typer(compliance_app, name="compliance")
 app.add_typer(pct_app, name="pct")
+app.add_typer(attest_app, name="attest")
 app.command(name="neo4j-import")(neo4j_import_cmd)
 app.add_typer(compile_command, name="compile")
 app.add_typer(verify_command, name="verify")
