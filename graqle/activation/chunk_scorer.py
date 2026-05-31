@@ -232,6 +232,287 @@ class ChunkScorer:
             len(desc_keys),
         )
 
+    @staticmethod
+    def _redact_texts_for_embedding(texts: list[str]) -> list[str]:
+        """Apply the G4 ContentSecurityGate to a batch of texts before embedding.
+
+        Mirrors build_cache's redaction (R-SEC-1): SECRET+ content is replaced
+        with the non-empty sentinel "[CONTENT_REDACTED]" (prevents Titan V2 400
+        on empty input + NaN cosine); INTERNAL and below is redacted in place.
+        Fail-CLOSED: if classification raises, the text is treated as sensitive.
+        """
+        from graqle.security.content_gate import ContentSecurityGate
+        from graqle.security.sensitivity import SensitivityClassifier, SensitivityLevel
+
+        gate = ContentSecurityGate()
+        classifier = SensitivityClassifier()
+        out: list[str] = []
+        for t in texts:
+            try:
+                level = classifier.classify_node({}, description=t)
+                if level >= SensitivityLevel.SECRET:
+                    out.append("[CONTENT_REDACTED]")
+                else:
+                    out.append(gate.redact_for_embedding(t))
+            except Exception:
+                # Fail-closed: never let a classification error leak raw content.
+                out.append("[CONTENT_REDACTED]")
+        return out
+
+    def update_cache_incremental(
+        self, graph: Any, changed_node_ids: set[str]
+    ) -> dict[str, int]:
+        """Incrementally refresh the embedding cache for changed nodes only.
+
+        v0.63.0 (BLOCKER-1 fix): rebuilding the full .npz on every `graq grow`
+        re-embeds the entire graph (64K+ nodes). This method embeds ONLY the
+        chunks/descriptions of ``changed_node_ids``, drops their stale cache
+        rows via a boolean mask, concatenates, and writes atomically.
+
+        Self-heals on drift: if the resulting cache key-set diverges from the
+        graph's expected key-set beyond the applied delta, it falls back to a
+        full ``build_cache`` rebuild (correctness backstop).
+
+        Args:
+            graph: the loaded Graqle graph (has ``.nodes`` mapping).
+            changed_node_ids: node ids whose chunks/desc must be re-embedded.
+
+        Returns:
+            {"reembedded_nodes", "reembedded_chunks", "reembedded_descs",
+             "rebuilt_full"} counts for logging/telemetry.
+        """
+        cache_path = Path(".graqle/chunk_embeddings.npz")
+
+        # No cache yet (first grow) OR empty delta → defer to full build.
+        if not cache_path.exists():
+            self.build_cache(graph)
+            return {
+                "reembedded_nodes": len(changed_node_ids),
+                "reembedded_chunks": len(self._chunk_keys),
+                "reembedded_descs": len(self._desc_keys),
+                "rebuilt_full": 1,
+            }
+        if not changed_node_ids:
+            return {"reembedded_nodes": 0, "reembedded_chunks": 0,
+                    "reembedded_descs": 0, "rebuilt_full": 0}
+
+        # ── Load existing cache ──────────────────────────────────────────
+        # NOTE: np.load returns a lazy NpzFile that keeps the underlying file
+        # OPEN on Windows — that handle blocks the later os.replace onto the
+        # same path (WinError 5). We eagerly copy every array out and close the
+        # NpzFile before doing any writing.
+        try:
+            with np.load(str(cache_path), allow_pickle=True) as data:
+                old_chunk_keys = list(data["chunk_keys"])
+                old_chunk_node_ids = list(data["chunk_node_ids"])
+                old_chunk_matrix = np.array(data["chunk_matrix"])
+                old_desc_keys = (
+                    list(data["desc_keys"]) if "desc_keys" in data else []
+                )
+                old_desc_matrix = (
+                    np.array(data["desc_matrix"]) if "desc_matrix" in data
+                    else np.empty((0, 0))
+                )
+        except Exception as e:
+            # Corrupt/unreadable cache → full rebuild (self-heal).
+            logger.warning("Embedding cache unreadable (%s) — full rebuild", e)
+            self.build_cache(graph)
+            return {"reembedded_nodes": len(changed_node_ids),
+                    "reembedded_chunks": len(self._chunk_keys),
+                    "reembedded_descs": len(self._desc_keys), "rebuilt_full": 1}
+
+        changed = set(changed_node_ids)
+
+        # ── Drop stale rows for changed nodes (boolean mask) ─────────────
+        if old_chunk_node_ids:
+            keep_chunk = np.array(
+                [nid not in changed for nid in old_chunk_node_ids], dtype=bool
+            )
+            kept_chunk_keys = [k for k, m in zip(old_chunk_keys, keep_chunk) if m]
+            kept_chunk_node_ids = [
+                n for n, m in zip(old_chunk_node_ids, keep_chunk) if m
+            ]
+            kept_chunk_matrix = (
+                old_chunk_matrix[keep_chunk]
+                if old_chunk_matrix.size else old_chunk_matrix
+            )
+        else:
+            kept_chunk_keys, kept_chunk_node_ids = [], []
+            kept_chunk_matrix = old_chunk_matrix
+
+        if old_desc_keys:
+            keep_desc = np.array(
+                [nid not in changed for nid in old_desc_keys], dtype=bool
+            )
+            kept_desc_keys = [k for k, m in zip(old_desc_keys, keep_desc) if m]
+            kept_desc_matrix = (
+                old_desc_matrix[keep_desc]
+                if old_desc_matrix.size else old_desc_matrix
+            )
+        else:
+            kept_desc_keys = []
+            kept_desc_matrix = old_desc_matrix
+
+        # ── Collect new texts for changed nodes (mirror build_cache) ─────
+        new_chunk_keys: list[str] = []
+        new_chunk_node_ids: list[str] = []
+        new_chunk_texts: list[str] = []
+        new_desc_keys: list[str] = []
+        new_desc_texts: list[str] = []
+
+        for node_id in changed:
+            node = graph.nodes.get(node_id)
+            if node is None:
+                continue  # node deleted — its rows already dropped, nothing re-added
+            chunks = node.properties.get("chunks", [])
+            if not chunks:
+                desc_text = f"{node.label} {node.entity_type} {node.description}"
+                new_desc_keys.append(node_id)
+                new_desc_texts.append(desc_text)
+                continue
+            for idx, chunk in enumerate(chunks):
+                if isinstance(chunk, dict):
+                    text = chunk.get("text", "")
+                    chunk_type = chunk.get("type", "")
+                elif isinstance(chunk, str):
+                    text, chunk_type = chunk, ""
+                else:
+                    continue
+                if not text or len(text.strip()) < 10:
+                    continue
+                new_chunk_keys.append(f"{node_id}::{idx}")
+                new_chunk_node_ids.append(node_id)
+                new_chunk_texts.append(f"{node.label} {chunk_type}: {text}")
+
+        # ── Redact + embed ONLY the new texts (R-SEC-1) ──────────────────
+        new_chunk_texts = self._redact_texts_for_embedding(new_chunk_texts)
+        new_desc_texts = self._redact_texts_for_embedding(new_desc_texts)
+
+        new_chunk_vecs = [self.embedding_engine.embed(t) for t in new_chunk_texts]
+        new_desc_vecs = [self.embedding_engine.embed(t) for t in new_desc_texts]
+
+        # ── Concatenate kept + new (dimension-safe) ──────────────────────
+        chunk_keys = list(kept_chunk_keys) + new_chunk_keys
+        chunk_node_ids = list(kept_chunk_node_ids) + new_chunk_node_ids
+        chunk_matrix = self._stack(kept_chunk_matrix, new_chunk_vecs)
+
+        desc_keys = list(kept_desc_keys) + new_desc_keys
+        desc_matrix = self._stack(kept_desc_matrix, new_desc_vecs)
+
+        # ── Drift check: expected key-set from graph vs cache key-set ─────
+        rebuilt_full = 0
+        if self._drift_detected(graph, set(chunk_keys), set(desc_keys)):
+            logger.warning(
+                "Embedding cache drift detected after incremental update "
+                "— self-healing with full rebuild"
+            )
+            self.build_cache(graph)
+            rebuilt_full = 1
+        else:
+            self._save_cache_atomic(
+                cache_path, chunk_keys, chunk_node_ids, chunk_matrix,
+                desc_keys, desc_matrix,
+            )
+            # Refresh in-memory state.
+            self._chunk_keys = chunk_keys
+            self._chunk_node_ids = chunk_node_ids
+            self._chunk_matrix = chunk_matrix
+            self._desc_keys = desc_keys
+            self._desc_matrix = desc_matrix
+            self._cache_loaded = True
+
+        logger.info(
+            "Incremental embed: %d node(s), +%d chunk(s), +%d desc(s)%s",
+            len(changed), len(new_chunk_keys), len(new_desc_keys),
+            " [full rebuild]" if rebuilt_full else "",
+        )
+        return {
+            "reembedded_nodes": len(changed),
+            "reembedded_chunks": len(new_chunk_keys),
+            "reembedded_descs": len(new_desc_keys),
+            "rebuilt_full": rebuilt_full,
+        }
+
+    @staticmethod
+    def _stack(kept_matrix: np.ndarray, new_vecs: list) -> np.ndarray:
+        """Concatenate a kept (N, dim) matrix with newly-embedded vectors."""
+        new_matrix = np.array(new_vecs) if new_vecs else np.empty((0, 0))
+        if kept_matrix.size and new_matrix.size:
+            return np.concatenate([kept_matrix, new_matrix], axis=0)
+        if kept_matrix.size:
+            return kept_matrix
+        return new_matrix
+
+    @staticmethod
+    def _expected_keys(graph: Any) -> tuple[set[str], set[str]]:
+        """Compute the chunk-key and desc-key sets the cache SHOULD contain."""
+        chunk_keys: set[str] = set()
+        desc_keys: set[str] = set()
+        for node_id, node in graph.nodes.items():
+            chunks = node.properties.get("chunks", [])
+            if not chunks:
+                desc_keys.add(node_id)
+                continue
+            for idx, chunk in enumerate(chunks):
+                if isinstance(chunk, dict):
+                    text = chunk.get("text", "")
+                elif isinstance(chunk, str):
+                    text = chunk
+                else:
+                    continue
+                if not text or len(text.strip()) < 10:
+                    continue
+                chunk_keys.add(f"{node_id}::{idx}")
+        return chunk_keys, desc_keys
+
+    def _drift_detected(
+        self, graph: Any, cache_chunk_keys: set[str], cache_desc_keys: set[str]
+    ) -> bool:
+        """True if the post-update cache key-set diverges from the graph."""
+        exp_chunk, exp_desc = self._expected_keys(graph)
+        return cache_chunk_keys != exp_chunk or cache_desc_keys != exp_desc
+
+    @staticmethod
+    def _save_cache_atomic(
+        cache_path: Path,
+        chunk_keys: list[str],
+        chunk_node_ids: list[str],
+        chunk_matrix: np.ndarray,
+        desc_keys: list[str],
+        desc_matrix: np.ndarray,
+    ) -> None:
+        """Write the npz via temp-file→rename so an interrupted grow is safe.
+
+        np.savez_compressed appends ".npz" to a path that lacks it, so we hand
+        it a base name (no .npz) and let it produce ``base.npz``, then atomically
+        os.replace that onto the final cache_path. We do NOT pre-create the temp
+        file (mkstemp + savez would leave an orphan empty file and trip a Windows
+        rename collision).
+        """
+        import os
+        import uuid
+
+        cache_path.parent.mkdir(exist_ok=True)
+        # Unique base name in the SAME dir (so os.replace is a same-volume rename).
+        tmp_base = str(cache_path.parent / f".chunk_embeddings.{uuid.uuid4().hex}.tmp")
+        tmp_npz = tmp_base + ".npz"
+        try:
+            np.savez_compressed(
+                tmp_base,
+                chunk_keys=np.array(chunk_keys, dtype=object),
+                chunk_node_ids=np.array(chunk_node_ids, dtype=object),
+                chunk_matrix=chunk_matrix,
+                desc_keys=np.array(desc_keys, dtype=object),
+                desc_matrix=desc_matrix,
+            )
+            os.replace(tmp_npz, str(cache_path))
+        finally:
+            if os.path.exists(tmp_npz):
+                try:
+                    os.remove(tmp_npz)
+                except OSError:
+                    pass
+
     def _score_cached(self, graph: Any, query: str) -> dict[str, float]:
         """Fast scoring using precomputed embedding cache."""
         query_embedding = self.embedding_engine.embed(query)
