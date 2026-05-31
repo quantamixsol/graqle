@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.62.3"
+version = "0.63.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Proprietary — see LICENSE"}
@@ -75,6 +75,12 @@ cpu = [
 lite = []
 neo4j = [
     "neo4j>=5.0",
+]
+watch = [
+    # v0.63.0: enables MCP background filesystem watcher (auto-grow on file
+    # change). SPEC-v063-mcp-background-grow.md + ADR-213. Optional — the
+    # watcher gracefully degrades to "disabled" if watchdog is missing.
+    "watchdog>=3.0,<5.0",
 ]
 api = [
     "anthropic>=0.18",
