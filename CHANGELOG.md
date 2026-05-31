@@ -4,6 +4,36 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.65.0 (2026-05-31) — [Metering layer: the billable unit for hosted proof anchoring]
+
+> The open-core meter. A billable event (`unit="proof_anchored"`) is recorded
+> only when a proof becomes *hosted* (anchored) — local work stays free — and is
+> deduped to exactly-once on the proof's Merkle `leaf_hash` across both
+> proof-production paths. Composition-only: no governed/anchoring internals are
+> modified beyond one additive, never-raise observer seam.
+
+**Added**
+
+- New `graqle.metering` package (Apache-2.0, Community):
+  - `MeterEvent` — the billable unit (`unit="proof_anchored"`, frozen, validated).
+  - `MeterSink` Protocol — the one-method sink interface (the seam hosted
+    backends implement); `LocalNullMeter` is the Community no-op (local = free).
+  - `MeteredAttestationSink` — count point 1: wraps any runtime `AttestationSink`,
+    meters the attested proof, then always delegates the durable write.
+  - `make_meter_observer()` — count point 2: a never-raise callback for the
+    Layer-5 `Committer`, fired once per leaf on the *anchored* transition.
+  - `MeterDedupeStore` — WAL-backed exactly-once gate keyed on `leaf_hash`
+    (atomic temp→fsync→replace→dir-fsync writes, integrity-checksum + content
+    validation on recovery, DoS size cap). Exactly-once under retry, dual-path,
+    and crash-mid-write.
+
+**Changed**
+
+- `Committer` gains an optional `meter_observer` parameter (additive, defaults
+  to `None` = no metering). Fired only on the anchored transition, guarded so a
+  metering fault can never break the anchoring path. No behavioural change when
+  unset.
+
 ## 0.64.0 (2026-05-31) — [Standalone offline proof verifier + `graq attest verify`]
 
 > The canonical, free-forever offline verifier for GraQle-format tamper-evidence
