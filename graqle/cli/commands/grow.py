@@ -217,10 +217,17 @@ def _embed_local(graph_path: Path, changed_node_ids: set[str], quiet: bool) -> N
     """
     try:
         from graqle.activation.chunk_scorer import ChunkScorer
+        from graqle.activation.embeddings import create_embedding_engine
+        from graqle.config._resolver_compat import load_via_resolver_or_legacy
         from graqle.core.graph import Graqle
 
         graph = Graqle.from_json(str(graph_path))
-        scorer = ChunkScorer()
+        # v0.63.1 (Fix C): build the embedding engine from CONFIG so a
+        # bedrock-backed project routes to Titan V2, instead of a bare
+        # EmbeddingEngine() that feeds the Titan model-id to sentence-
+        # transformers and fails to load.
+        _cfg = load_via_resolver_or_legacy()
+        scorer = ChunkScorer(embedding_engine=create_embedding_engine(_cfg))
         stats = scorer.update_cache_incremental(graph, changed_node_ids)
         if not quiet:
             console.print(
@@ -344,9 +351,13 @@ def _make_redacting_embed_fn():
     used by ChunkScorer so SECRET+ content never reaches the embedding API.
     """
     from graqle.activation.chunk_scorer import ChunkScorer
-    from graqle.activation.embeddings import EmbeddingEngine
+    from graqle.activation.embeddings import create_embedding_engine
+    from graqle.config._resolver_compat import load_via_resolver_or_legacy
 
-    engine = EmbeddingEngine()
+    # v0.63.1 (Fix C): config-aware engine — routes to Bedrock Titan V2 when
+    # the project config is bedrock-backed, instead of a bare EmbeddingEngine()
+    # that mis-loads the Titan model-id via sentence-transformers.
+    engine = create_embedding_engine(load_via_resolver_or_legacy())
 
     def embed_fn(text: str) -> list:
         redacted = ChunkScorer._redact_texts_for_embedding([text])[0]

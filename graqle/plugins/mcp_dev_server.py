@@ -167,6 +167,23 @@ class SaveGraphResult:
         raise IndexError(idx)
 
 
+# v0.63.1 (Bug A): a Neo4j/backend-backed session stores its _graph_file as a
+# connection URI ("neo4j://...", "bolt://...") rather than a filesystem path or
+# None. _save_graph must treat those exactly like None (no JSON to write) — a
+# bare `is None` check let the URI fall through to _write_with_lock, which then
+# tried to create a file literally named "neo4j://bolt://localhost:7687" and
+# crashed with SAVE_FAILED on every learn. Centralised so any future scheme
+# (neptune://, memgraph://, ...) is covered in one place.
+_BACKEND_ONLY_GRAPH_FILE_SCHEMES = ("neo4j://", "bolt://", "neptune://", "memgraph://")
+
+
+def _is_backend_only_graph_file(graph_file: object) -> bool:
+    """True if graph_file is a backend connection URI (not a writable path)."""
+    return isinstance(graph_file, str) and graph_file.startswith(
+        _BACKEND_ONLY_GRAPH_FILE_SCHEMES
+    )
+
+
 
 
 try:
@@ -7068,6 +7085,32 @@ class KogniDevServer:
                     )
                     graph.add_edge(edge)
 
+            # v0.63.1 (Bug B): on a Neo4j-backed session, write the new lesson
+            # node + LEARNED_FROM edges + reweighted edges THROUGH to the
+            # backend (add_node/add_edge are in-memory only). Scoped to just
+            # what this learn touched. A backend failure surfaces as SAVE_FAILED
+            # rather than a false success.
+            _backend_persisted = False
+            if getattr(graph, "_neo4j_connector", None) is not None:
+                try:
+                    touched_edges = [u["edge"] for u in updates]
+                    if lesson_node_id:
+                        touched_edges += [
+                            e.id for e in graph.edges.values()
+                            if e.source_id == lesson_node_id
+                        ]
+                    _backend_persisted = self._persist_learn_to_backend(
+                        graph,
+                        node_ids=([lesson_node_id] if lesson_node_id else []),
+                        edge_ids=touched_edges,
+                    )
+                except Exception as _be_exc:  # noqa: BLE001
+                    return json.dumps({
+                        "recorded": False, "mode": "outcome",
+                        "error_code": "SAVE_FAILED",
+                        "message": f"Neo4j backend persist failed: {type(_be_exc).__name__}",
+                    })
+
             # CR-008: status-aware save (see _learn_response_for_save_failure
             # for the COLLISION / SHRINK_REFUSED / SAVE_FAILED branches).
             # NO_GRAPH_FILE folds into success: Neo4j-backed sessions already
@@ -7079,7 +7122,9 @@ class KogniDevServer:
                     self._learn_response_for_save_failure(_save_result, "mode", "outcome")
                 )
             _retries = _save_result.retries
-            _persistence = _save_result.status.value
+            _persistence = (
+                "neo4j" if _backend_persisted else _save_result.status.value
+            )
         else:
             _retries = 0
             _persistence = "SKIPPED"
@@ -7135,6 +7180,25 @@ class KogniDevServer:
         auto_edges = 0
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([entity_id])
+
+        # v0.63.1 (Bug B): persist the new entity node + its edges through to
+        # Neo4j when backend-backed (add_node_simple is in-memory only).
+        _backend_persisted = False
+        if getattr(graph, "_neo4j_connector", None) is not None:
+            try:
+                _ent_edges = [
+                    e.id for e in graph.edges.values()
+                    if e.source_id == entity_id or e.target_id == entity_id
+                ]
+                _backend_persisted = self._persist_learn_to_backend(
+                    graph, node_ids=[entity_id], edge_ids=_ent_edges
+                )
+            except Exception as _be_exc:  # noqa: BLE001
+                return json.dumps({
+                    "recorded": False, "mode": "entity",
+                    "error_code": "SAVE_FAILED",
+                    "message": f"Neo4j backend persist failed: {type(_be_exc).__name__}",
+                })
 
         # CR-008: status-aware save. Neo4j-backed sessions (NO_GRAPH_FILE)
         # fold into success — the backend driver already persisted the entity.
@@ -7193,6 +7257,25 @@ class KogniDevServer:
         auto_edges = 0
         if hasattr(graph, "auto_connect"):
             auto_edges = graph.auto_connect([node_id])
+
+        # v0.63.1 (Bug B): persist the new knowledge node + its edges through
+        # to Neo4j when backend-backed (add_node_simple is in-memory only).
+        _backend_persisted = False
+        if getattr(graph, "_neo4j_connector", None) is not None:
+            try:
+                _kn_edges = [
+                    e.id for e in graph.edges.values()
+                    if e.source_id == node_id or e.target_id == node_id
+                ]
+                _backend_persisted = self._persist_learn_to_backend(
+                    graph, node_ids=[node_id], edge_ids=_kn_edges
+                )
+            except Exception as _be_exc:  # noqa: BLE001
+                return json.dumps({
+                    "recorded": False, "mode": "knowledge",
+                    "error_code": "SAVE_FAILED",
+                    "message": f"Neo4j backend persist failed: {type(_be_exc).__name__}",
+                })
 
         # CR-008: status-aware save. NO_GRAPH_FILE (Neo4j sessions) is NOT
         # a failure — the knowledge node was already created in-memory and
@@ -11952,6 +12035,74 @@ class KogniDevServer:
             "detail": result.detail,
         }
 
+    def _persist_learn_to_backend(
+        self,
+        graph: Any,
+        node_ids: list[str] | None = None,
+        edge_ids: list[str] | None = None,
+    ) -> bool:
+        """v0.63.1 (Bug B): write learned nodes/edges through to the Neo4j backend.
+
+        ``graph.add_node`` / ``add_edge`` only mutate the in-memory graph; on a
+        Neo4j-backed session nothing flushed those to the driver, so every
+        ``graq_learn`` was lost on MCP restart (and ``_save_graph`` could only
+        write a JSON file, which a backend-only session does not have). This
+        helper persists exactly the nodes/edges a learn handler just created
+        via the existing ``Neo4jConnector.save`` path.
+
+        Scoped write: only the given node_ids/edge_ids (defaults to all) are
+        sent, so a learn of one lesson does not re-upload the whole graph.
+
+        Returns True if a backend write happened, False if there is no backend
+        (local JSON session — caller relies on ``_save_graph`` instead). Never
+        raises: a backend failure is logged and reported via the return value
+        so the caller can surface it without crashing the learn.
+        """
+        connector = getattr(graph, "_neo4j_connector", None)
+        if connector is None:
+            return False
+        try:
+            raw_nodes: dict[str, Any] = {}
+            ids = node_ids if node_ids is not None else list(graph.nodes.keys())
+            for nid in ids:
+                node = graph.nodes.get(nid)
+                if node is None:
+                    continue
+                raw_nodes[nid] = {
+                    "label": node.label,
+                    "type": node.entity_type,
+                    "description": node.description,
+                    "properties": node.properties,
+                }
+
+            raw_edges: dict[str, Any] = {}
+            eids = edge_ids if edge_ids is not None else list(graph.edges.keys())
+            for eid in eids:
+                edge = graph.edges.get(eid)
+                if edge is None:
+                    continue
+                raw_edges[eid] = {
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "relationship": edge.relationship,
+                    "weight": edge.weight,
+                }
+
+            if raw_nodes or raw_edges:
+                connector.save(raw_nodes, raw_edges)
+            logger.info(
+                "graq_learn persisted to Neo4j: %d node(s), %d edge(s)",
+                len(raw_nodes), len(raw_edges),
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "graq_learn backend persist FAILED (%s: %s) — lesson is in "
+                "memory only and will be lost on MCP restart.",
+                type(exc).__name__, exc,
+            )
+            raise
+
     def _save_graph(self, graph: Any) -> SaveGraphResult:
         """Persist graph back to its source JSON file.
 
@@ -11995,14 +12146,19 @@ class KogniDevServer:
         Phase 2: after every local write, schedule a background S3 push
         so learned nodes are never lost on restart or machine change.
         """
-        if self._graph_file is None:
-            # CR-008: explicit status — Neo4j-backed (or any backend-only)
-            # session. NOT a collision — the in-memory mutation already
-            # happened via graph.add_node_simple / graph.add_edge.
+        if self._graph_file is None or _is_backend_only_graph_file(self._graph_file):
+            # CR-008 + v0.63.1 (Bug A): explicit status — Neo4j-backed (or any
+            # backend-only) session. The session sets _graph_file to a
+            # "neo4j://..."/"bolt://..." URI, NOT None — so a bare `is None`
+            # check let it fall through and try to write a JSON file literally
+            # named after the URI (invalid path -> SAVE_FAILED crash). Treat any
+            # non-filesystem scheme the same as None. NOT a collision — the
+            # in-memory mutation already happened; backend write-through is the
+            # caller's responsibility (see _persist_learn_to_backend).
             return SaveGraphResult(
                 status=SaveStatus.NO_GRAPH_FILE,
                 retries=0,
-                detail="No JSON file configured; in-memory + backend write only.",
+                detail="Backend-only session (no JSON path); in-memory + backend write.",
             )
 
         import os
