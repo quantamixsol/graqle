@@ -4,6 +4,54 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.63.0 (2026-05-31) — [End-to-End Auto-Grow Loop]
+
+> `graq grow` now **embeds** new chunks and **writes the backend your graph
+> actually reads from** (local JSON or Neo4j), so newly committed/saved code is
+> queryable by reasoning within seconds — delivering the "the graph grows with
+> every commit" promise. Embedding is incremental (only changed nodes), on by
+> default, and degrades quietly in CI/mock environments. Three triggers (CLI,
+> git hook, MCP background watcher) funnel through one fixed code path. No
+> breaking changes to the `graq grow` CLI surface. See
+> `docs/auto-grow-end-to-end.md` and ADR-213. Shared-team / Aura sync is
+> deferred to a later release (investigation-first).
+
+### Added
+- `graq grow --embed/--no-embed` (default **on**) — embeds the chunks of changed
+  nodes so they're queryable by `graq reason`. `--no-embed` reproduces the
+  pre-0.63 structure-only behaviour.
+- `graq grow --backend auto|local|neo4j` (default **auto**, derived from
+  `graph.connector`) — writes the resolved backend; Neo4j gets node/edge +
+  embedded-chunk writes, local gets `graqle.json` + a refreshed embedding cache.
+- `ChunkScorer.update_cache_incremental(graph, changed_node_ids)` — incremental
+  embedding cache update (boolean-mask drop of changed rows, embed only the
+  delta, atomic write) with NPZ↔graph drift detection + full-rebuild self-heal.
+  Avoids re-embedding the entire graph on every grow.
+- MCP background auto-grow watcher (`graqle[watch]` optional extra) — shells
+  `graq grow --embed` on debounced filesystem events so IDE saves keep the graph
+  current between commits. Tunable via `GRAQLE_DISABLE_BACKGROUND_GROW`,
+  `GRAQLE_BG_GROW_DEBOUNCE`, `GRAQLE_BG_GROW_RATE_LIMIT`. Degrades to disabled if
+  `watchdog` is absent.
+- `docs/auto-grow-end-to-end.md` — the 3-layer auto-grow guide.
+
+### Changed
+- `graq init`'s installed `post-commit` hook now runs `graq grow --embed` and
+  **surfaces errors** instead of the previous `(graq grow --quiet 2>/dev/null &)`
+  (which silently swallowed embedding/backend/config errors — the same
+  silent-fail anti-pattern addressed by ADR-212). The hook still never blocks a
+  commit.
+
+### Security
+- Sensitive (SECRET+) chunk content is redacted before any embedding call on
+  BOTH the local and Neo4j paths (R-SEC-1), reusing the existing content gate.
+
+### Notes
+- Fully backwards compatible: existing `graq grow` callers get embedding on by
+  default with no CLI surface change. The `graqle.json` node/edge serialization
+  is unchanged.
+
+---
+
 ## 0.62.3 (2026-05-30) — [HOTFIX: structural activation schema split]
 
 > **Hotfix.** Eliminates a class of silent misconfiguration that caused

@@ -3376,6 +3376,10 @@ class KogniDevServer:
         self._graph_file: str | None = None  # path to the loaded graph JSON
         self._graph_mtime: float = 0.0
         self._gov: Any = None  # GovernanceMiddleware, loaded lazily
+        # v0.63.0: MCP background filesystem watcher — auto-grow on file changes.
+        # Started once on first successful graph load; daemon thread, dies with
+        # MCP server. See SPEC-v063-l1l2l3-end-to-end.md + ADR-213.
+        self._bg_grow_watcher: Any = None
         self._neo4j_traversal: Any = None  # Neo4jTraversal, set when Neo4j active
         self._intent_learner: Any = None  # OnlineLearner, loaded lazily
         self._intent_ring_buffer: Any = None  # RingBuffer for dedup
@@ -3650,6 +3654,7 @@ class KogniDevServer:
                         len(self._graph.nodes),
                         len(self._graph.edges),
                     )
+                    self._maybe_start_background_grow()
                     return self._graph
                 except Exception as neo4j_exc:
                     logger.warning("Neo4j load failed (%s), falling back to JSON", neo4j_exc)
@@ -3673,6 +3678,7 @@ class KogniDevServer:
                         len(self._graph.edges),
                         candidate,
                     )
+                    self._maybe_start_background_grow()
                     return self._graph
 
             logger.warning("No graph file found in current directory")
@@ -3681,6 +3687,37 @@ class KogniDevServer:
         except Exception as exc:
             logger.error("Failed to load graph: %s", exc)
             return None
+
+    def _maybe_start_background_grow(self) -> None:
+        """Start the v0.63.0 background auto-grow watcher (once, best-effort).
+
+        Idempotent: only starts on the first call that succeeds. Guarded by
+        GRAQLE_DISABLE_BACKGROUND_GROW=1 and graceful when watchdog is absent.
+        Never raises — a watcher failure must not break graph load. The
+        watcher shells `graq grow --embed` on debounced filesystem events so
+        IDE saves (no commit) keep the graph queryable. See ADR-213.
+        """
+        # CG-01: os is intentionally NOT module-scoped here — import locally.
+        import os as _os
+        if getattr(self, "_bg_grow_watcher", None) is not None:
+            return  # already started
+        if _os.environ.get("GRAQLE_DISABLE_BACKGROUND_GROW", "0") == "1":
+            return
+        try:
+            from graqle.plugins.background_grow import BackgroundGrowWatcher
+
+            # Watch the directory that contains the graph file (project root).
+            if self._graph_file and not self._graph_file.startswith("neo4j://"):
+                watch_root = Path(self._graph_file).parent
+            else:
+                watch_root = Path.cwd()
+            watcher = BackgroundGrowWatcher(watch_root)
+            if watcher.start():
+                self._bg_grow_watcher = watcher
+                logger.info("Background auto-grow watcher started on %s", watch_root)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Background auto-grow watcher failed to start: %s", exc)
+            self._bg_grow_watcher = None
 
     def _load_graph(self) -> Any | None:
         """Thread-safe wrapper: waits for background load or loads synchronously.

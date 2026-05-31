@@ -182,6 +182,180 @@ def _incremental_scan(root: Path, changed_files: list[str]) -> tuple[list[dict],
     return nodes, edges
 
 
+def _resolve_backend(backend: str, config: str) -> str:
+    """Resolve the effective write backend.
+
+    'auto' derives from graqle.yaml graph.connector (neo4j -> 'neo4j', else
+    'local'). An explicit value is validated. Returns 'local' or 'neo4j'.
+    """
+    backend = (backend or "auto").lower()
+    if backend in ("local", "neo4j"):
+        return backend
+    if backend != "auto":
+        raise typer.BadParameter(
+            f"--backend must be auto|local|neo4j, got {backend!r}"
+        )
+    # auto: read graph.connector from config (best-effort; default local)
+    try:
+        from graqle.config.settings import GraqleConfig
+        cfg_path = Path(config)
+        if cfg_path.exists():
+            cfg = GraqleConfig.from_yaml(cfg_path)
+            connector = getattr(getattr(cfg, "graph", None), "connector", None)
+            if connector == "neo4j":
+                return "neo4j"
+    except Exception as exc:  # noqa: BLE001 — config read is best-effort
+        logger.info("Backend auto-resolve fell back to local (%s)", exc)
+    return "local"
+
+
+def _embed_local(graph_path: Path, changed_node_ids: set[str], quiet: bool) -> None:
+    """Incrementally embed changed nodes into .graqle/chunk_embeddings.npz.
+
+    Loud-on-real-error, quiet-on-expected-degradation (v0.63.0 §3.3a). Never
+    blocks the grow: embedding failure logs and returns.
+    """
+    try:
+        from graqle.activation.chunk_scorer import ChunkScorer
+        from graqle.core.graph import Graqle
+
+        graph = Graqle.from_json(str(graph_path))
+        scorer = ChunkScorer()
+        stats = scorer.update_cache_incremental(graph, changed_node_ids)
+        if not quiet:
+            console.print(
+                f"[dim]Embedded {stats['reembedded_nodes']} changed node(s): "
+                f"+{stats['reembedded_chunks']} chunk(s), "
+                f"+{stats['reembedded_descs']} desc(s)"
+                f"{' (full rebuild)' if stats.get('rebuilt_full') else ''}[/dim]"
+            )
+    except Exception as exc:  # noqa: BLE001
+        # Loud — the user must SEE embedding failed (anti-silent-fail guard).
+        logger.warning(
+            "Local embedding failed (%s: %s) — graph written but new nodes "
+            "are not yet queryable by semantic search. Re-run with --embed "
+            "once the cause is fixed.",
+            type(exc).__name__, exc,
+        )
+        if not quiet:
+            console.print(
+                f"[yellow]Embedding skipped: {type(exc).__name__}: {exc}[/yellow]"
+            )
+
+
+def _write_neo4j(
+    merged: dict[str, Any],
+    new_node_ids: set[str],
+    embed: bool,
+    config: str,
+    quiet: bool,
+) -> None:
+    """Write merged graph (and optionally embedded new chunks) to Neo4j.
+
+    Graceful-but-loud: if Neo4j is unreachable the caller still writes
+    graqle.json, so work is never lost. Connection-unavailable is logged
+    INFO once (not WARNING-per-grow) to avoid CI noise (§3.3a).
+    """
+    try:
+        from graqle.config.settings import GraqleConfig
+        from graqle.connectors.neo4j import Neo4jConnector
+
+        cfg_path = Path(config)
+        cfg = GraqleConfig.from_yaml(cfg_path) if cfg_path.exists() else None
+        graph_cfg = getattr(cfg, "graph", None) if cfg else None
+        # Only pass keys that are actually set so Neo4jConnector's own
+        # defaults (bolt://localhost:7687, user neo4j, db neo4j) apply when
+        # config is silent. Passing None would clobber those defaults.
+        conn_kwargs: dict[str, Any] = {}
+        for cfg_key, arg_key in (
+            ("uri", "uri"), ("username", "username"),
+            ("password", "password"), ("database", "database"),
+        ):
+            val = getattr(graph_cfg, cfg_key, None)
+            if val is not None:
+                conn_kwargs[arg_key] = val
+        connector = Neo4jConnector(**conn_kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.info(
+            "Neo4j backend selected but connector unavailable (%s) — "
+            "wrote graqle.json only; new nodes not in Neo4j until reachable.",
+            exc,
+        )
+        return
+
+    # Build nodes/edges dicts keyed by id from the merged graph.
+    nodes = {n["id"]: n for n in merged.get("nodes", []) if "id" in n}
+    edges = {
+        e.get("id", f"{e['source']}->{e['target']}"): e
+        for e in merged.get("links", merged.get("edges", []))
+        if e.get("source") and e.get("target")
+    }
+    try:
+        connector.save(nodes, edges)
+    except Exception as exc:  # noqa: BLE001
+        logger.info(
+            "Neo4j write unavailable (%s) — wrote graqle.json only.", exc
+        )
+        return
+
+    if embed:
+        try:
+            embed_fn = _make_redacting_embed_fn()
+            chunks_by_node = _chunks_for_nodes(nodes, new_node_ids)
+            written = connector.save_chunks(chunks_by_node, embed_fn=embed_fn)
+            if not quiet:
+                console.print(f"[dim]Neo4j: +{written} embedded chunk(s)[/dim]")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Neo4j chunk embedding failed (%s: %s) — nodes/edges saved "
+                "but new chunks not embedded in Neo4j.",
+                type(exc).__name__, exc,
+            )
+
+
+def _chunks_for_nodes(
+    nodes: dict[str, Any], new_node_ids: set[str]
+) -> dict[str, list[dict]]:
+    """Build {node_id: [chunk-dicts]} for the new nodes, for save_chunks().
+
+    Falls back to a single description-chunk when a node has no explicit
+    chunks (mirrors build_cache's desc-only path).
+    """
+    out: dict[str, list[dict]] = {}
+    for nid in new_node_ids:
+        node = nodes.get(nid)
+        if node is None:
+            continue
+        props = node.get("properties", {}) if isinstance(node, dict) else {}
+        chunks = props.get("chunks") or []
+        if chunks:
+            out[nid] = [c for c in chunks if isinstance(c, (dict, str))]
+        else:
+            desc = node.get("description", "") if isinstance(node, dict) else ""
+            if desc:
+                out[nid] = [{"text": desc, "type": "description"}]
+    return out
+
+
+def _make_redacting_embed_fn():
+    """Return embed_fn(text) -> list[float] with R-SEC-1 redaction applied.
+
+    Wraps EmbeddingEngine.embed and routes text through the same G4 gate
+    used by ChunkScorer so SECRET+ content never reaches the embedding API.
+    """
+    from graqle.activation.chunk_scorer import ChunkScorer
+    from graqle.activation.embeddings import EmbeddingEngine
+
+    engine = EmbeddingEngine()
+
+    def embed_fn(text: str) -> list:
+        redacted = ChunkScorer._redact_texts_for_embedding([text])[0]
+        vec = engine.embed(redacted)
+        return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+
+    return embed_fn
+
+
 def grow_command(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (for git hooks)"
@@ -192,11 +366,22 @@ def grow_command(
     config: str = typer.Option(
         "graqle.yaml", "--config", "-c", help="Config file path"
     ),
+    embed: bool = typer.Option(
+        True, "--embed/--no-embed",
+        help="Embed new chunks so they're queryable by reasoning (default: on). "
+             "Incremental — only changed nodes are re-embedded.",
+    ),
+    backend: str = typer.Option(
+        "auto", "--backend",
+        help="Where to write the graph: auto (from graqle.yaml graph.connector) "
+             "| local (graqle.json) | neo4j",
+    ),
 ) -> None:
     """Incrementally update the knowledge graph.
 
     Called automatically by the git post-commit hook. Scans changed files,
-    re-ingests markdown KG sources, and merges into graqle.json.
+    re-ingests markdown KG sources, merges into graqle.json, embeds the new
+    chunks, and writes to the configured backend (local JSON or Neo4j).
 
     \b
     Auto (git hook):
@@ -205,6 +390,14 @@ def grow_command(
     \b
     Manual full rescan:
         graq grow --full
+
+    \b
+    Skip embedding (legacy v0.62.x behaviour):
+        graq grow --no-embed
+
+    \b
+    Force a specific backend:
+        graq grow --backend neo4j
     """
     root = Path(".").resolve()
     start = time.perf_counter()
@@ -283,10 +476,21 @@ def grow_command(
     merged = _merge_graphs(existing, new_nodes, new_links)
     stats = merged.pop("_merge_stats", {})
 
-    # Write (atomic: temp file + rename to prevent data loss on MemoryError)
+    # Write (atomic: temp file + rename to prevent data loss on MemoryError).
+    # The graqle.json serialization is byte-for-byte unchanged from v0.62.x
+    # (EG_15 guard) — embedding + Neo4j writes are sidecar/separate-store only.
     from graqle.core.graph import _write_with_lock
     content = json.dumps(merged, indent=2, default=str, ensure_ascii=False)
     _write_with_lock(str(graph_path), content)
+
+    # v0.63.0: embed new chunks + write configured backend so new code is
+    # actually queryable by reasoning (the end-to-end auto-grow fix).
+    new_node_ids = {n["id"] for n in new_nodes if isinstance(n, dict) and "id" in n}
+    resolved_backend = _resolve_backend(backend, config)
+    if resolved_backend == "neo4j":
+        _write_neo4j(merged, new_node_ids, embed=embed, config=config, quiet=quiet)
+    if embed and new_node_ids:
+        _embed_local(graph_path, new_node_ids, quiet=quiet)
 
     elapsed = time.perf_counter() - start
 
