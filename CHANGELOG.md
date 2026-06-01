@@ -4,6 +4,27 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.66.0 (2026-06-01) — [Edition detection (`graqle.edition`)]
+
+> The open-core **edition detector** — the install/feature-set axis (Community /
+> Studio / Enterprise), distinct from the licence tier. Additive and reversible:
+> nothing gates on it yet; it composes with the existing licensing module and
+> defaults to Community.
+
+**Added**
+
+- New `graqle/edition.py`:
+  - `Edition` enum — `COMMUNITY` / `STUDIO` / `ENTERPRISE`.
+  - `detect_edition()` — resolves the active edition: a `GRAQLE_EDITION` env
+    override (exact-match only) → otherwise mapped from `LicenseManager`'s tier →
+    otherwise `COMMUNITY`. `lru_cache`d, with `reset_edition_cache()`.
+  - `is_community()` / `is_studio_or_higher()` / `is_enterprise()` helpers.
+- Fail-closed by design: every failure or malformed-input path resolves to
+  `COMMUNITY` — no input yields a paid edition without a valid licence or an
+  exact valid override. The detector only *reports* the edition; it grants no
+  entitlement (feature gating verifies the licence itself).
+- Composes with the existing `graqle.licensing` (no parallel edition stack).
+
 ## 0.65.0 (2026-05-31) — [Metering layer: the billable unit for hosted proof anchoring]
 
 > The open-core meter. A billable event (`unit="proof_anchored"`) is recorded
