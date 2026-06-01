@@ -52,6 +52,7 @@ from graqle.cli.commands.pct import pct_app
 from graqle.cli.commands.neo4j_import import neo4j_import_cmd
 from graqle.cli.commands.govern_serve import govern_app
 from graqle.cli.commands.mcp_install import register_mcp_install_commands
+from graqle.cli._edition_guard import requires_package  # WS-C C1: graceful-degrade proprietary cmds
 
 # Universal Unicode fix — MUST be first import (before Rich, before typer)
 # This reconfigures sys.stdout/stderr to UTF-8 on ALL platforms,
@@ -75,6 +76,22 @@ app = typer.Typer(
 )
 
 
+def _guard_typer_app(sub_app: "typer.Typer", label: str) -> "typer.Typer":
+    """WS-C C1: wrap every command in a proprietary sub-app with the edition guard.
+
+    Each registered command's callback is wrapped so that, in the Community wheel
+    (which omits the proprietary backend), invoking the command degrades to a
+    clean install-hint message instead of a raw ModuleNotFoundError traceback.
+    A no-op for sub-apps whose commands never touch a proprietary backend.
+    """
+    for cmd in sub_app.registered_commands:
+        if cmd.callback is not None:
+            cmd.callback = requires_package(f"{label} {cmd.name or cmd.callback.__name__}")(
+                cmd.callback
+            )
+    return sub_app
+
+
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -92,9 +109,9 @@ app.command(name="grow")(grow_command)
 app.command(name="metrics")(metrics_command)
 app.command(name="doctor")(doctor_command)
 app.command(name="setup-guide")(setup_guide_command)
-app.command(name="register")(register_command)
-app.command(name="activate")(activate_command)
-app.command(name="billing")(billing_command)
+app.command(name="register")(requires_package("graq register")(register_command))
+app.command(name="activate")(requires_package("graq activate")(activate_command))
+app.command(name="billing")(requires_package("graq billing")(billing_command))
 app.command(name="rebuild")(rebuild_command)
 app.command(name="audit")(audit_command)
 app.add_typer(learn_sub_app, name="learn")
@@ -103,11 +120,11 @@ app.add_typer(link_sub_app, name="link")
 app.command(name="self-update")(selfupdate_command)
 app.command(name="migrate")(migrate_command)
 app.command(name="config")(config_command)
-app.command(name="login")(login_command)
-app.command(name="logout")(logout_command)
-app.add_typer(sync_sub_app, name="sync")
-app.add_typer(team_sub_app, name="team")
-app.add_typer(cloud_app, name="cloud")
+app.command(name="login")(requires_package("graq login")(login_command))
+app.command(name="logout")(requires_package("graq logout")(logout_command))
+app.add_typer(_guard_typer_app(sync_sub_app, "graq sync"), name="sync")
+app.add_typer(_guard_typer_app(team_sub_app, "graq team"), name="team")
+app.add_typer(_guard_typer_app(cloud_app, "graq cloud"), name="cloud")
 app.add_typer(scorch_app, name="scorch")
 app.add_typer(phantom_app, name="phantom")
 app.add_typer(trustctl_app, name="trustctl")
@@ -869,7 +886,17 @@ def studio(
     # Build FastAPI app with studio mounted
     from fastapi import FastAPI
 
-    from graqle.studio.app import mount_studio
+    # WS-C C1: the Studio dashboard is a proprietary backend, excluded from the
+    # Community wheel. Degrade gracefully instead of a raw ModuleNotFoundError.
+    try:
+        from graqle.studio.app import mount_studio
+    except ModuleNotFoundError as exc:
+        from graqle.cli._edition_guard import _is_proprietary_absence, _degrade_message
+
+        if _is_proprietary_absence(exc) is not None:
+            console.print(_degrade_message(exc.name or "graqle.studio", "graq serve"))
+            raise typer.Exit(code=2) from None
+        raise
 
     app_instance = FastAPI(title="GraQle Studio", version="0.11.0")
 
