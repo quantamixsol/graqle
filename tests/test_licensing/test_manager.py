@@ -348,12 +348,33 @@ class TestLicenseManagerLoading:
         mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY="invalid.key")
         assert mgr.current_tier == LicenseTier.FREE
 
-    def test_expired_key_falls_to_free(self):
+    def test_expired_within_grace_keeps_tier(self):
+        # WS-D D1b: a licence expired 1 day ago is within the 60-day offline grace
+        # window, so it RETAINS its tier (the grace allowance — supersedes the
+        # pre-WS-D "expired => free" behaviour).
         expired = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
         key = _generate_key("pro", expires_at=expired)
         mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
-        # Key verified but expired => current_tier returns FREE
+        assert mgr.current_tier == LicenseTier.PRO
+
+    def test_expired_past_grace_falls_to_free(self):
+        # Past the grace window (>60 days expired) => FREE.
+        expired = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+        key = _generate_key("pro", expires_at=expired)
+        mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
         assert mgr.current_tier == LicenseTier.FREE
+
+    def test_expired_within_grace_falls_to_free_with_zero_grace(self):
+        # With grace disabled (0 days), expiry is strict again => FREE.
+        import os
+        expired = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        key = _generate_key("pro", expires_at=expired)
+        os.environ["GRAQLE_LICENSE_GRACE_DAYS"] = "0"
+        try:
+            mgr = _make_manager_safe(COGNIGRAPH_LICENSE_KEY=key)
+            assert mgr.current_tier == LicenseTier.FREE
+        finally:
+            os.environ.pop("GRAQLE_LICENSE_GRACE_DAYS", None)
 
 
 # ---------------------------------------------------------------------------
