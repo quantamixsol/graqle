@@ -4,6 +4,41 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.68.0 (2026-06-02) — [Ed25519 licence hardening + edition gating]
+
+> The licence layer moves to **ed25519** (asymmetric): the Community wheel
+> verifies licences with a public key it cannot forge with — the private signer
+> stays server-side. Adds offline grace, revocation (CRL + kid), replay
+> protection, and edition/feature entitlement gating. Existing HMAC licences keep
+> working during a deprecation window (see ADR-215).
+
+**Added**
+
+- `graqle.licensing.ed25519_license` — ed25519-signed licences with a `kid`
+  (reuses the ed25519 key manifest; a revoked `kid` invalidates everything it
+  signed). The default verification path is now ed25519 (v2).
+- `graqle.licensing.crl` — ed25519-signed revocation list (per-licence revocation
+  by id) with monotonic-sequence rollback defence; supports air-gapped signed
+  import.
+- `graqle.licensing.nonce_store` — durable accept-once licence-nonce store
+  (replay protection).
+- `graqle.entitlement` — `@requires_edition` / `@requires_feature` gates. The
+  free Community core is never gated.
+- Offline expiry **grace window** (default 60 days, `GRAQLE_LICENSE_GRACE_DAYS`).
+
+**Changed**
+
+- Licence verification is dual-format: ed25519 (v2) preferred, legacy HMAC (v1)
+  accepted during a back-compat window. **v1 HMAC verification now requires a
+  configured `GRAQLE_LICENSE_KEY_SECRET`** — the public dev fallback no longer
+  grants trust (closes a forgery vector for the public wheel).
+
+**Security**
+
+- The Community wheel ships verification keys only — no private signing key, and
+  the HMAC signer (`keygen.py`) is excluded. A public install cannot mint a
+  licence. See ADR-215 for the migration + deprecation posture.
+
 ## 0.67.0 (2026-06-01) — [Open-core packaging carve-out + Apache-2.0]
 
 > The Community ``graqle`` wheel is now genuinely Community-only: the proprietary
