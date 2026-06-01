@@ -4,6 +4,33 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.67.0 (2026-06-01) — [Open-core packaging carve-out + Apache-2.0]
+
+> The Community ``graqle`` wheel is now genuinely Community-only: the proprietary
+> commercial backends are excluded from the published wheel, the CLI degrades
+> gracefully when they are absent, and the licence is **Apache-2.0**. No
+> behavioural change when the backends are present.
+
+**Changed**
+
+- **Licence: Apache-2.0** (aligns ``pyproject.toml`` with the existing
+  Apache-2.0 ``LICENSE``). The ``NOTICE`` makes the open-core patent scope
+  explicit: the Apache-2.0 §3 patent grant covers only the published Community
+  code; patents on algorithms residing solely in the proprietary components are
+  reserved and not licensed via this distribution.
+- The Community wheel **excludes** the proprietary backends (``graqle.cloud`` /
+  ``graqle.leads`` / ``graqle.studio`` / ``graqle.server``). ``scorch`` and
+  ``phantom`` remain in Community.
+
+**Added**
+
+- ``graqle/cli/_edition_guard.py`` — proprietary CLI commands degrade with a
+  clean install hint (``pip install graqle-studio``) + exit code 2 when their
+  backend isn't installed, instead of a traceback. Genuine missing-dependency
+  errors are never masked.
+- Import-direction CI gate (``tests/test_packaging/``) — fails the build if any
+  Community module gains a module-level import of a proprietary package.
+
 ## 0.66.0 (2026-06-01) — [Edition detection (`graqle.edition`)]
 
 > The open-core **edition detector** — the install/feature-set axis (Community /

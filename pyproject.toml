@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.66.0"
+version = "0.67.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
-license = {text = "Proprietary — see LICENSE"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 authors = [
     { name = "Harish Kumar", email = "harish.kumar@quantamixsolutions.com" },
@@ -27,7 +27,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: System Administrators",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: Apache Software License",
     "Environment :: Console",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -172,6 +172,18 @@ exclude = [
     # readable even with opaque URNs; keep it server-side only until ADR-206
     # documents accepted disclosure posture before public PyPI.
     "graqle/governance/shacl/shapes.ttl",
+    # WS-C C1 (ADR-BIZ-001): the Community (Apache-2.0) wheel ships WITHOUT the
+    # proprietary commercial backends. These live in the source tree but are
+    # carved out of the public wheel; the proprietary graqle-studio /
+    # graqle-enterprise distributions re-include them. The thin cli/commands/*
+    # wrappers ship and degrade gracefully (graqle/cli/_edition_guard.py) when a
+    # backend is absent. An import-direction CI gate enforces that no Community
+    # module eagerly imports these (lazy-only invariant). scorch + phantom are
+    # NON-CORE plugins and intentionally REMAIN in Community (Harish, 2026-06-01).
+    "graqle/cloud/*",
+    "graqle/leads/*",
+    "graqle/studio/*",
+    "graqle/server/*",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
