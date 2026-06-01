@@ -8,9 +8,20 @@ The Graqle SDK source code is licensed under the Apache License 2.0.
 You may use, modify, and distribute this software in accordance with the
 Apache 2.0 license terms.
 
-Certain methods implemented in this software are protected by patent rights
-held by Quantamix Solutions B.V. Commercial use of patented methods may
-require a separate license. Contact: harish.kumar@quantamixsolutions.com
+PATENT NOTICE (open-core scope)
+-------------------------------
+This Community distribution is open core. The Apache License 2.0 — including its
+Section 3 patent grant — applies ONLY to the source code actually published in
+this distribution. The patent grant therefore extends only to patents
+necessarily practised by THIS published Community code.
+
+Quantamix Solutions B.V. holds patents covering certain algorithms that are NOT
+included in this Community distribution (they reside only in the proprietary
+GraQle Studio / GraQle Enterprise components, which are not distributed here).
+No license to those patents is granted by this Community distribution; all such
+patent rights are expressly reserved. Use of the proprietary components, or
+independent implementation of the reserved patented methods, may require a
+separate license. Contact: harish.kumar@quantamixsolutions.com
 
 ACADEMIC AND RESEARCH USE
 =========================
