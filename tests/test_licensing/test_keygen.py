@@ -18,6 +18,21 @@ import pytest
 from graqle.licensing.keygen import generate_license_key, main
 from graqle.licensing.manager import LicenseManager, LicenseTier
 
+_TEST_SECRET = "test-license-secret-keygen"
+
+
+@pytest.fixture(autouse=True)
+def _set_license_secret(monkeypatch):
+    """Configure a real HMAC secret so v1 generate+verify round-trips work.
+
+    WS-D: v1 HMAC verification now REQUIRES GRAQLE_LICENSE_KEY_SECRET to be set
+    (the dev fallback is public and refused). These keygen tests exercise the v1
+    generate→verify path, so they must run with a real (test) secret — exactly
+    as production issuance does.
+    """
+    monkeypatch.setenv("GRAQLE_LICENSE_KEY_SECRET", _TEST_SECRET)
+
+
 # ---------------------------------------------------------------------------
 # generate_license_key
 # ---------------------------------------------------------------------------

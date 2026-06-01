@@ -67,7 +67,11 @@ class TestStripeSignatureVerification:
 class TestLicenseGeneration:
     """Tests for license key generation from Stripe checkout."""
 
-    def test_generate_from_checkout_session(self) -> None:
+    def test_generate_from_checkout_session(self, monkeypatch) -> None:
+        # WS-D: v1 HMAC verify now requires a real secret (the public dev fallback
+        # is refused). The Stripe issuer signs with the production secret, so this
+        # generate→verify round-trip runs with a real (test) secret configured.
+        monkeypatch.setenv("GRAQLE_LICENSE_KEY_SECRET", "test-stripe-secret")
         from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {

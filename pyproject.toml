@@ -184,6 +184,13 @@ exclude = [
     "graqle/leads/*",
     "graqle/studio/*",
     "graqle/server/*",
+    # WS-D D-pkg (ADR-BIZ-001): the admin licence SIGNER must not ship in the
+    # public Community wheel. keygen.py embeds the legacy HMAC signing secret
+    # (its own docstring: "never distribute to end users"); generate_key signs
+    # licences. With ed25519 (WS-D) the wheel verifies with a PUBLIC key only and
+    # cannot forge, but excluding the signer is belt-and-suspenders — the public
+    # artifact carries verification, never issuance.
+    "graqle/licensing/keygen.py",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
