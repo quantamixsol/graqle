@@ -11,9 +11,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _set_license_secret(monkeypatch):
+    """WS-D: v1 HMAC generate+verify round-trips require a real secret configured
+    (the public dev fallback is refused). `graq activate` verifies the key, so
+    these tests run with a real (test) secret — as production does."""
+    monkeypatch.setenv("GRAQLE_LICENSE_KEY_SECRET", "test-license-secret-activate")
 
 
 class TestActivateCommand:
