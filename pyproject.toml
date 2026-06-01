@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.67.0"
+version = "0.68.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -184,6 +184,13 @@ exclude = [
     "graqle/leads/*",
     "graqle/studio/*",
     "graqle/server/*",
+    # WS-D D-pkg (ADR-BIZ-001): the admin licence SIGNER must not ship in the
+    # public Community wheel. keygen.py embeds the legacy HMAC signing secret
+    # (its own docstring: "never distribute to end users"); generate_key signs
+    # licences. With ed25519 (WS-D) the wheel verifies with a PUBLIC key only and
+    # cannot forge, but excluding the signer is belt-and-suspenders — the public
+    # artifact carries verification, never issuance.
+    "graqle/licensing/keygen.py",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
