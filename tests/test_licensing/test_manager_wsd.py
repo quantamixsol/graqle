@@ -191,10 +191,20 @@ def test_nonce_store_off_by_default(monkeypatch):
     assert M._get_nonce_store() is None
 
 
-def test_nonce_store_init_failure_disables(monkeypatch):
-    monkeypatch.setenv("GRAQLE_LICENSE_NONCE_DIR", "\x00illegal")  # invalid path
+def test_nonce_store_init_failure_disables(monkeypatch, tmp_path):
+    # If LicenseNonceStore construction raises for any reason, replay protection
+    # is disabled (None) without propagating — must never block licence load.
+    # Inject the failure portably by patching the constructor: a null-byte env
+    # value is rejected by os.environ on Linux BEFORE our code runs (AUD-010
+    # class: Windows-local-green != Linux-CI), so we patch the class instead.
+    monkeypatch.setenv("GRAQLE_LICENSE_NONCE_DIR", str(tmp_path))
+    import graqle.licensing.nonce_store as ns_mod
+
+    def boom(self, directory):
+        raise OSError("simulated nonce-store init failure")
+
+    monkeypatch.setattr(ns_mod.LicenseNonceStore, "__init__", boom)
     M._nonce_store_loaded = False
-    # init failure must not raise; store disabled
     assert M._get_nonce_store() is None
 
 
