@@ -353,6 +353,7 @@ class _SigstoreRekorTransport:
         # hex (set by the caller), not this data.hash.
         import hashlib
 
+        root_hex = bytes(root_bytes).hex()  # the Merkle root (offline binding)
         root_sha256_hex = hashlib.sha256(bytes(root_bytes)).hexdigest()
         proposal = rekor_types.Hashedrekord(
             spec=_hr.HashedrekordV001Schema(
@@ -398,20 +399,20 @@ class _SigstoreRekorTransport:
     def _entry_from_conflict(self, exc: Exception):  # pragma: no cover - needs sigstore + network
         """Return the existing LogEntry if ``exc`` is a 409 duplicate, else None.
 
-        Rekor answers a re-submission of an already-logged entry with HTTP 409 and
-        a body whose message embeds the existing entry's UUID
-        (``...already exists ... with UUID <uuid>``). We extract that UUID and
-        ``GET`` the entry — an already-anchored proof IS anchored, so this makes
-        :meth:`submit` idempotent rather than failing a duplicate.
+        Rekor answers a re-submission of an already-logged entry with HTTP 409
+        and a message embedding the existing entry's UUID
+        (``409: an equivalent entry already exists ... with UUID <uuid>``).
+        ``RekorClientError`` discards the underlying response but folds that
+        message into ``str(exc)``, so we parse the UUID from the message itself,
+        ``GET`` the entry, and use it — making :meth:`submit` idempotent (an
+        already-anchored proof IS anchored).
         """
         import re
 
-        http_error = getattr(exc, "http_error", None)
-        response = getattr(http_error, "response", None)
-        if response is None or getattr(response, "status_code", None) != 409:
+        message = str(exc)
+        if "409" not in message and "already exists" not in message:
             return None
-        text = getattr(response, "text", "") or str(exc)
-        match = re.search(r"UUID\s+([0-9a-fA-F]{64,80})", text)
+        match = re.search(r"UUID\s+([0-9a-fA-F]{64,80})", message)
         if not match:
             return None
         try:
