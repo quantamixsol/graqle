@@ -38,7 +38,11 @@ from graqle.governance.tamper_evidence.anchors.sigstore_rekor import (
 )
 from graqle.governance.tamper_evidence.merkle import MerkleTree
 
-from studio_backend.anchoring.signer import RootSigner
+from studio_backend.anchoring.signer import (
+    RootSigner,
+    _public_key_pem,
+    _sign_raw,
+)
 
 logger = logging.getLogger("studio_backend.anchoring.worker")
 
@@ -115,13 +119,28 @@ def anchor_records(
 
     tree = MerkleTree.from_records(records)
     root_hex = tree.root_hex
+    root_bytes = bytes.fromhex(root_hex)
     signed_at = _utc_now_iso(clock)
 
-    # 1. Anchor the single batch root to Rekor (fail-closed by default).
+    # 1. Sign the root ONCE (the signature commits to the root, which commits to
+    #    every leaf — RFC 6962 — so one signature covers the whole batch). We
+    #    produce TWO signatures from the same key:
+    #      * the SD-001 bundle signature (over canon{...}) — what verify_bundle checks;
+    #      * a raw signature over the root bytes — what Rekor's hashedrekord records.
+    signature_block = signer.sign_root(
+        proof_format_version=PROOF_FORMAT_VERSION,
+        merkle_root_hex=root_hex,
+        signed_at=signed_at,
+    )
+    root_signature = _sign_raw(signer, root_bytes)
+    public_key_pem = _public_key_pem(signer)
+
+    # 2. Anchor the signed root to Rekor (fail-closed by default). The real Rekor
+    #    hashedrekord records the (root-hash, signature, public-key) triple.
     rekor_block: dict[str, Any] | None = None
     rekor_log_index: int | None = None
     try:
-        receipt = anchor.anchor(bytes.fromhex(root_hex))
+        receipt = anchor.anchor(root_bytes, root_signature, public_key_pem)
         rekor_block = _receipt_to_bundle_block(receipt, root_hex)
         rekor_log_index = getattr(receipt, "log_index", None)
     except AnchorError as exc:
@@ -135,14 +154,6 @@ def anchor_records(
             "batch %s anchor failed but fail_open is set — committing without Rekor block",
             batch_id,
         )
-
-    # 2. Sign the root ONCE (the signature commits to the root, which commits to
-    #    every leaf — RFC 6962 — so one signature covers the whole batch).
-    signature_block = signer.sign_root(
-        proof_format_version=PROOF_FORMAT_VERSION,
-        merkle_root_hex=root_hex,
-        signed_at=signed_at,
-    )
 
     # 3. Assemble one verify_bundle-shaped proof bundle per leaf, and fire the
     #    meter once per anchored leaf.

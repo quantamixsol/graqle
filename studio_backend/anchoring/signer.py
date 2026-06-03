@@ -33,7 +33,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 from graqle.governance.custody.ed25519_key_manifest import Ed25519KeyManifest
 from graqle.governance.tamper_evidence.canonicalize import canon
@@ -81,6 +84,7 @@ class RootSigner:
 
     kid: str
     _manifest: Ed25519KeyManifest
+    _public_key: Ed25519PublicKey
 
     @classmethod
     def from_private_key(cls, kid: str, private_key: Ed25519PrivateKey) -> "RootSigner":
@@ -88,15 +92,16 @@ class RootSigner:
             raise SignerError("kid must be a non-empty string")
         if not isinstance(private_key, Ed25519PrivateKey):
             raise SignerError("private_key must be an Ed25519PrivateKey")
+        public_key = private_key.public_key()
         manifest = Ed25519KeyManifest()
         manifest.register(
             kid=kid,
-            public_key=private_key.public_key(),
+            public_key=public_key,
             valid_from=_WIDE_FROM,
             valid_until=_WIDE_UNTIL,
             private_key=private_key,
         )
-        return cls(kid=kid, _manifest=manifest)
+        return cls(kid=kid, _manifest=manifest, _public_key=public_key)
 
     @classmethod
     def from_private_bytes(cls, kid: str, raw_seed: bytes) -> "RootSigner":
@@ -143,6 +148,29 @@ class RootSigner:
             "sig": sig.hex(),
             "signed_at": signed_at,
         }
+
+
+def _sign_raw(signer: "RootSigner", message: bytes) -> bytes:
+    """Raw ed25519 signature over ``message`` (used for the Rekor hashedrekord).
+
+    Distinct from :meth:`RootSigner.sign_root` (which signs the SD-001 canonical
+    message): Rekor's ``hashedrekord`` records a signature over the *artifact*
+    (here the Merkle root bytes), so we sign those bytes directly.
+    """
+    try:
+        return signer._manifest.sign(signer.kid, message)
+    except Exception as exc:
+        raise SignerError(f"failed to raw-sign for Rekor: {exc}") from exc
+
+
+def _public_key_pem(signer: "RootSigner") -> bytes:
+    """The signer's public key as a PEM (for the Rekor hashedrekord publicKey)."""
+    from cryptography.hazmat.primitives import serialization
+
+    return signer._public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
 
 
 def load_signer_from_secrets_manager(

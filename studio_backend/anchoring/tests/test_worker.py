@@ -76,16 +76,20 @@ class _FakeReceipt:
 
 
 class _FakeAnchor:
-    """Stands in for RekorAnchor — records the root, returns a fake receipt."""
+    """Stands in for RekorAnchor — records the root + sig + key, returns a receipt."""
 
     def __init__(self, *, fail: bool = False):
         self.fail = fail
         self.anchored_roots: list[bytes] = []
+        self.last_signature: bytes | None = None
+        self.last_public_key: bytes | None = None
 
-    def anchor(self, root_bytes: bytes):
+    def anchor(self, root_bytes: bytes, signature=None, public_key=None):
         if self.fail:
             raise AnchorError("simulated rekor outage")
         self.anchored_roots.append(root_bytes)
+        self.last_signature = signature
+        self.last_public_key = public_key
         return _FakeReceipt()
 
 
@@ -110,6 +114,10 @@ def test_anchored_bundles_verify_true():
     assert len(result.bundles) == 3
     assert result.merkle_root and result.rekor_log_index == 7
     assert len(anchor.anchored_roots) == 1  # one root per batch
+    # The worker passes a real ed25519 signature over the root + the public-key
+    # PEM to the anchor (what a Rekor hashedrekord needs).
+    assert anchor.last_signature is not None and len(anchor.last_signature) == 64
+    assert anchor.last_public_key is not None and b"BEGIN PUBLIC KEY" in anchor.last_public_key
 
     # Every produced bundle verifies against the signer's public key (Phase-2 path).
     for bundle in result.bundles:
@@ -217,7 +225,7 @@ class _ReceiptNoLogIndex:
 
 
 class _AnchorNoLogIndex:
-    def anchor(self, root_bytes):
+    def anchor(self, root_bytes, signature=None, public_key=None):
         return _ReceiptNoLogIndex()
 
 
@@ -308,6 +316,29 @@ def test_signer_bad_signed_at():
     s, _ = _signer()
     with pytest.raises(SignerError):
         s.sign_root(proof_format_version="1", merkle_root_hex="ab" * 32, signed_at="")
+
+
+def test_sign_raw_and_public_key_pem_roundtrip():
+    """The raw signature over the root verifies under the published public key."""
+    from cryptography.hazmat.primitives import serialization
+
+    s, pub_pem = _signer()
+    root = bytes.fromhex("cd" * 32)
+    raw_sig = signer_mod._sign_raw(s, root)
+    pem = signer_mod._public_key_pem(s)
+    assert b"BEGIN PUBLIC KEY" in pem
+    pub = serialization.load_pem_public_key(pem)
+    pub.verify(raw_sig, root)  # raises on bad signature — passing == valid
+
+
+def test_sign_raw_wraps_failure(monkeypatch):
+    s, _ = _signer()
+    monkeypatch.setattr(
+        type(s._manifest), "sign",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    with pytest.raises(SignerError):
+        signer_mod._sign_raw(s, b"\x00" * 32)
 
 
 # ── Secrets Manager loader (injected fake client) ────────────────────────────

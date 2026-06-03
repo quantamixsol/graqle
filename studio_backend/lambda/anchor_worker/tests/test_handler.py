@@ -73,7 +73,7 @@ class _FakeAnchor:
     def __init__(self, fail=False):
         self.fail = fail
 
-    def anchor(self, root_bytes):
+    def anchor(self, root_bytes, signature=None, public_key=None):
         if self.fail:
             raise AnchorError("rekor down")
         return _FakeReceipt()
