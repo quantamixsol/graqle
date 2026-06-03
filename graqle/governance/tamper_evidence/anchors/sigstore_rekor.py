@@ -367,7 +367,20 @@ class _SigstoreRekorTransport:
                 ),
             ),
         )
-        entry = self._client.log.entries.post(proposal)
+        # A 409 "an equivalent entry already exists" is SUCCESS, not failure:
+        # the same root was already anchored (a retry, or two batches with the
+        # identical record set). Rekor returns the existing entry's UUID; fetch
+        # it and use it, so anchoring is idempotent. (Rekor de-dups by the entry
+        # content, so an already-present proof is a present proof.)
+        from sigstore._internal.rekor.client import RekorClientError  # type: ignore
+
+        try:
+            entry = self._client.log.entries.post(proposal)
+        except RekorClientError as exc:
+            existing = self._entry_from_conflict(exc)
+            if existing is None:
+                raise
+            entry = existing
 
         # Map sigstore's LogEntry -> our transport-neutral RekorReceipt. The
         # GraQle bundle convention records the anchored ROOT HEX as the
@@ -381,3 +394,28 @@ class _SigstoreRekorTransport:
             inclusion_cert=str(inclusion) if inclusion is not None else "",
             integrated_time=int(getattr(entry, "integrated_time", 0) or 0),
         )
+
+    def _entry_from_conflict(self, exc: Exception):  # pragma: no cover - needs sigstore + network
+        """Return the existing LogEntry if ``exc`` is a 409 duplicate, else None.
+
+        Rekor answers a re-submission of an already-logged entry with HTTP 409 and
+        a body whose message embeds the existing entry's UUID
+        (``...already exists ... with UUID <uuid>``). We extract that UUID and
+        ``GET`` the entry — an already-anchored proof IS anchored, so this makes
+        :meth:`submit` idempotent rather than failing a duplicate.
+        """
+        import re
+
+        http_error = getattr(exc, "http_error", None)
+        response = getattr(http_error, "response", None)
+        if response is None or getattr(response, "status_code", None) != 409:
+            return None
+        text = getattr(response, "text", "") or str(exc)
+        match = re.search(r"UUID\s+([0-9a-fA-F]{64,80})", text)
+        if not match:
+            return None
+        try:
+            return self._client.log.entries.get(uuid=match.group(1))
+        except Exception:
+            # Could not retrieve the existing entry — surface the original 409.
+            return None
