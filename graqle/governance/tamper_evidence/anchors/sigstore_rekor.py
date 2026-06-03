@@ -339,7 +339,17 @@ class _SigstoreRekorTransport:
         if self._client is None:  # pragma: no cover
             self._client = RekorClient.production()
 
-        root_hex = bytes(root_bytes).hex()
+        # Rekor verifies the entry's signature against data.hash, and for an
+        # ed25519 public key it only accepts SHA-512 (ed25519's native hash) —
+        # a SHA-256 data.hash is rejected ("unsupported hash algorithm").
+        # The artifact is the Merkle root *bytes*; we declare its SHA-512 digest
+        # as data.hash. The ed25519 signature is over the root bytes themselves
+        # (Rekor verifies ed25519 over the artifact). The GraQle offline binding
+        # is unaffected: the bundle's rekor.signed_tree_head still carries the
+        # Merkle root hex (set by the caller), which is what verify_bundle checks.
+        import hashlib
+
+        root_sha512_hex = hashlib.sha512(bytes(root_bytes)).hexdigest()
         proposal = rekor_types.Hashedrekord(
             spec=_hr.HashedrekordV001Schema(
                 signature=_hr.Signature(
@@ -348,7 +358,9 @@ class _SigstoreRekorTransport:
                         content=base64.b64encode(bytes(public_key)).decode("ascii")
                     ),
                 ),
-                data=_hr.Data(hash=_hr.Hash(algorithm="sha256", value=root_hex)),
+                data=_hr.Data(
+                    hash=_hr.Hash(algorithm="sha512", value=root_sha512_hex)
+                ),
             ),
         )
         entry = self._client.log.entries.post(proposal)
