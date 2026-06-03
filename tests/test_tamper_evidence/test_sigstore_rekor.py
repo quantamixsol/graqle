@@ -326,3 +326,58 @@ def test_receipt_is_frozen():
 def test_unavailable_error_is_anchor_error_subclass():
     """AnchorUnavailableError is catchable as AnchorError (callers may catch broadly)."""
     assert issubclass(AnchorUnavailableError, AnchorError)
+
+
+# ---- signature/public_key passthrough (hotfix: real Rekor hashedrekord) -------
+
+
+class _SigAwareTransport:
+    """A transport that records the signature + public_key it received."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def submit(self, root_bytes, signature=None, public_key=None) -> RekorReceipt:
+        self.calls.append((bytes(root_bytes), signature, public_key))
+        return _receipt()
+
+
+def test_anchor_passes_signature_and_public_key_when_provided():
+    t = _SigAwareTransport()
+    anchor = RekorAnchor(transport=t)
+    anchor.anchor(b"\x11" * 32, b"sig-bytes", b"-----BEGIN PUBLIC KEY-----\n")
+    assert len(t.calls) == 1
+    root, sig, pub = t.calls[0]
+    assert sig == b"sig-bytes"
+    assert pub == b"-----BEGIN PUBLIC KEY-----\n"
+
+
+def test_anchor_backcompat_single_arg_transport_still_works():
+    """A legacy 1-arg transport keeps working when anchor() is called with no sig."""
+
+    class _LegacyTransport:
+        def submit(self, root_bytes) -> RekorReceipt:  # original signature
+            return _receipt()
+
+    anchor = RekorAnchor(transport=_LegacyTransport())
+    # No signature/public_key → anchor() must call submit(root) with ONE arg.
+    assert anchor.anchor(b"\x22" * 32).log_index == 1
+
+
+def test_real_transport_requires_signature_and_key():
+    """The real sigstore transport refuses to build a hashedrekord without sig+key."""
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32)  # no signature/public_key → cannot build entry
+
+
+def test_real_transport_rejects_empty_signature():
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32, b"", b"-----BEGIN PUBLIC KEY-----\n")
+
+
+def test_real_transport_rejects_non_pem_public_key():
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32, b"sig", b"not-a-pem")

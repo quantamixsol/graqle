@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.63.1"
+version = "0.68.1"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -123,7 +123,10 @@ all-gpu = [
     "graqle[all,gpu]",
 ]
 security = [
-    "sigstore>=2.0",
+    # V-CR-BIZQ-001-NATIVE-S2-010: pin sigstore to 2.x — the Rekor transport
+    # (anchors/sigstore_rekor.py) uses the 2.x RekorClient.production +
+    # entries.post(Hashedrekord) API; 3.x/4.x restructured sigstore._internal.rekor.
+    "sigstore>=2.0,<3.0",
     "cyclonedx-bom>=4.0",
     "pip-audit>=2.6",
 ]
