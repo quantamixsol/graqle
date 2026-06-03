@@ -191,6 +191,12 @@ def anchor_records(
             }
             if rekor_log_index is not None:
                 context["rekor_log_index"] = rekor_log_index
+            # Per-record billing attribution: each leaf carries ITS OWN record's
+            # tenant_id (a batch may mix tenants), threaded from the ingress
+            # (SqsAttestationSink) so StudioMeter bills the right tenant.
+            tenant_id = record.get("tenant_id") if isinstance(record, dict) else None
+            if isinstance(tenant_id, str) and tenant_id:
+                context["tenant_id"] = tenant_id
             meter_observer(leaf_hash_hex, context)
 
     return AnchoredBatch(

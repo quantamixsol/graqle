@@ -504,3 +504,29 @@ def test_load_ecdsa_rekor_signer_fetch_error():
 
     with pytest.raises(SignerError):
         load(secret_id="x", client=_Boom())
+
+
+# ── Phase 4: tenant_id threading into the meter context ──────────────────────
+def test_meter_context_carries_per_record_tenant_id():
+    s, _ = _signer()
+    fired = []
+    recs = [
+        {**_record("r1"), "tenant_id": "acme"},
+        {**_record("r2"), "tenant_id": "globex"},
+    ]
+    anchor_records(
+        recs, signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="bt",
+        meter_observer=lambda h, ctx: fired.append(ctx), clock=lambda: FIXED_NOW,
+    )
+    tenants = [c.get("tenant_id") for c in fired]
+    assert tenants == ["acme", "globex"]  # each leaf billed to ITS record's tenant
+
+
+def test_meter_context_omits_tenant_when_absent():
+    s, _ = _signer()
+    fired = []
+    anchor_records(
+        [_record("r1")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="bt2",
+        meter_observer=lambda h, ctx: fired.append(ctx), clock=lambda: FIXED_NOW,
+    )
+    assert "tenant_id" not in fired[0]  # no tenant on record -> StudioMeter uses fallback

@@ -51,11 +51,19 @@ class SqsAttestationSink:
         self,
         queue_url: str,
         *,
+        tenant_id: str | None = None,
         client: Any = None,
         region_name: str = "eu-central-1",
     ) -> None:
         if not isinstance(queue_url, str) or not queue_url:
             raise IngestError("queue_url must be a non-empty string")
+        # The billing tenant for proofs enqueued through THIS sink. The ingress
+        # constructs one sink per authenticated request (the Studio API key →
+        # account), so the tenant is known here and stamped onto each record for
+        # the meter (StudioMeter bills per (tenant_id, edition, month)).
+        if tenant_id is not None and (not isinstance(tenant_id, str) or not tenant_id):
+            raise IngestError("tenant_id, when given, must be a non-empty string")
+        self._tenant_id = tenant_id
         self._queue_url = queue_url
         self._client = client
         self._region_name = region_name
@@ -81,6 +89,12 @@ class SqsAttestationSink:
                 "record is missing 'proof_format_version' (required by the "
                 "leaf/canon contract); refusing to enqueue an un-anchorable record"
             )
+        # Stamp the billing tenant onto the enqueued record (the worker reads it
+        # into the meter). A tenant_id already on the record is NOT overwritten —
+        # only add ours when the caller hasn't set one. Copy so we never mutate
+        # the caller's dict.
+        if self._tenant_id is not None and not record.get("tenant_id"):
+            record = {**record, "tenant_id": self._tenant_id}
         try:
             body = json.dumps(record, sort_keys=True, default=str)
         except (TypeError, ValueError) as exc:
