@@ -123,10 +123,11 @@ all-gpu = [
     "graqle[all,gpu]",
 ]
 security = [
-    # V-CR-BIZQ-001-NATIVE-S2-010: pin sigstore to 2.x — the Rekor transport
-    # (anchors/sigstore_rekor.py) uses the 2.x RekorClient.production +
-    # entries.post(Hashedrekord) API; 3.x/4.x restructured sigstore._internal.rekor.
-    "sigstore>=2.0,<3.0",
+    # V-CR-BIZQ-001-NATIVE-S2-010/012: pin sigstore to 3.x — the Rekor transport
+    # (anchors/sigstore_rekor.py) uses RekorClient.production() + the rekor_types
+    # Hashedrekord proposal. 2.x's bundled TUF trust root has aged out of the live
+    # Sigstore infra ("no active Rekor key"); 4.x restructured the Rekor v2 client.
+    "sigstore>=3.0,<4.0",
     "cyclonedx-bom>=4.0",
     "pip-audit>=2.6",
 ]

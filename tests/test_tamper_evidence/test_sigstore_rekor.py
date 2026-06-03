@@ -384,8 +384,8 @@ def test_real_transport_rejects_non_pem_public_key():
 
 
 @pytest.mark.skipif(
-    __import__("importlib").util.find_spec("sigstore_rekor_types") is None,
-    reason="sigstore optional dependency not installed",
+    __import__("importlib").util.find_spec("rekor_types") is None,
+    reason="sigstore (rekor_types) optional dependency not installed",
 )
 def test_real_transport_builds_valid_hashedrekord_proposal():
     """The transport builds a hashedrekord with kind+apiVersion and maps LogEntry.

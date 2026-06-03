@@ -328,35 +328,27 @@ class _SigstoreRekorTransport:
         # sigstore unless an actual submission is attempted.  # pragma: no cover
         import base64  # pragma: no cover
 
+        # sigstore 3.x: RekorClient.production() carries its own current trust
+        # root (no TUF bootstrap arg), and rekor_types is the standalone proposal
+        # package. (2.x's bundled TUF root has aged out of the live Sigstore
+        # infra — "no active Rekor key" — which is why the pin is >=3.0,<4.)
         from sigstore._internal.rekor.client import RekorClient  # type: ignore  # pragma: no cover
-        from sigstore._internal.tuf import TrustUpdater  # type: ignore  # pragma: no cover
-        from sigstore_rekor_types import (  # type: ignore  # pragma: no cover
-            Data,
-            Hash,
-            Hashedrekord,
-            HashedrekordV001Schema,
-            PublicKey1,
-            Signature1,
-        )
+        import rekor_types  # type: ignore  # pragma: no cover
+        from rekor_types import hashedrekord as _hr  # type: ignore  # pragma: no cover
 
         if self._client is None:  # pragma: no cover
-            # The intended production construction (sigstore.sign uses the same):
-            # bootstrap trust via TUF, then a production RekorClient.
-            updater = TrustUpdater.production()
-            self._client = RekorClient.production(updater)
+            self._client = RekorClient.production()
 
         root_hex = bytes(root_bytes).hex()
-        proposal = Hashedrekord(
-            kind="hashedrekord",
-            apiVersion="0.0.1",
-            spec=HashedrekordV001Schema(
-                signature=Signature1(
+        proposal = rekor_types.Hashedrekord(
+            spec=_hr.HashedrekordV001Schema(
+                signature=_hr.Signature(
                     content=base64.b64encode(bytes(signature)).decode("ascii"),
-                    publicKey=PublicKey1(
+                    public_key=_hr.PublicKey(
                         content=base64.b64encode(bytes(public_key)).decode("ascii")
                     ),
                 ),
-                data=Data(hash=Hash(algorithm="sha256", value=root_hex)),
+                data=_hr.Data(hash=_hr.Hash(algorithm="sha256", value=root_hex)),
             ),
         )
         entry = self._client.log.entries.post(proposal)
