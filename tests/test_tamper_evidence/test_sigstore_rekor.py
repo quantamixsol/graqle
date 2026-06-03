@@ -425,15 +425,16 @@ def test_real_transport_builds_valid_hashedrekord_proposal():
     j = captured["json"]
     assert j["kind"] == "hashedrekord"
     assert j["apiVersion"] == "0.0.1"
-    # ed25519 hashedrekord: Rekor requires SHA-512 data.hash (not sha256). The
-    # value is sha512 of the root bytes; the ed25519 signature stays over the
-    # root bytes. (Rekor rejects sha256 for an ed25519 key.)
-    assert j["spec"]["data"]["hash"]["algorithm"] == "sha512"
-    assert j["spec"]["data"]["hash"]["value"] == hashlib.sha512(root).hexdigest()
+    # hashedrekord uses an ECDSA signature over a prehashed SHA-256 digest (raw
+    # ed25519 is unsupported by hashedrekord, sigstore/rekor#851). data.hash is
+    # the sha256 of the root bytes; the caller's `signature` is ECDSA over that
+    # same digest.
+    assert j["spec"]["data"]["hash"]["algorithm"] == "sha256"
+    assert j["spec"]["data"]["hash"]["value"] == hashlib.sha256(root).hexdigest()
     assert "content" in j["spec"]["signature"]
     assert "content" in j["spec"]["signature"]["publicKey"]
     # LogEntry -> RekorReceipt mapping, with the GraQle root-hex binding (the
-    # bundle's signed_tree_head carries the Merkle ROOT HEX, unaffected by the
-    # Rekor data.hash being sha512).
+    # bundle's signed_tree_head carries the Merkle ROOT HEX, separate from the
+    # Rekor data.hash).
     assert receipt.log_index == 99
     assert receipt.signed_tree_head == root.hex()

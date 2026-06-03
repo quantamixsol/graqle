@@ -339,17 +339,21 @@ class _SigstoreRekorTransport:
         if self._client is None:  # pragma: no cover
             self._client = RekorClient.production()
 
-        # Rekor verifies the entry's signature against data.hash, and for an
-        # ed25519 public key it only accepts SHA-512 (ed25519's native hash) —
-        # a SHA-256 data.hash is rejected ("unsupported hash algorithm").
-        # The artifact is the Merkle root *bytes*; we declare its SHA-512 digest
-        # as data.hash. The ed25519 signature is over the root bytes themselves
-        # (Rekor verifies ed25519 over the artifact). The GraQle offline binding
-        # is unaffected: the bundle's rekor.signed_tree_head still carries the
-        # Merkle root hex (set by the caller), which is what verify_bundle checks.
+        # Rekor's `hashedrekord` records {data.hash, signature, public_key} and
+        # re-verifies the signature against the hash. Sigstore/Rekor support an
+        # ECDSA signature over a prehashed SHA-256 digest here (the well-trodden
+        # path sigstore.sign itself uses); raw **ed25519 is NOT supported by
+        # hashedrekord** (sigstore/rekor#851). So the caller signs the Merkle
+        # root's SHA-256 digest with an ECDSA key and passes that signature +
+        # the ECDSA public-key PEM; we declare the matching sha256 data.hash.
+        #
+        # This Rekor signature is SEPARATE from the bundle's own ed25519 SD-001
+        # signature (which verify_bundle checks). The GraQle offline binding is
+        # unaffected: the bundle's rekor.signed_tree_head carries the Merkle root
+        # hex (set by the caller), not this data.hash.
         import hashlib
 
-        root_sha512_hex = hashlib.sha512(bytes(root_bytes)).hexdigest()
+        root_sha256_hex = hashlib.sha256(bytes(root_bytes)).hexdigest()
         proposal = rekor_types.Hashedrekord(
             spec=_hr.HashedrekordV001Schema(
                 signature=_hr.Signature(
@@ -359,7 +363,7 @@ class _SigstoreRekorTransport:
                     ),
                 ),
                 data=_hr.Data(
-                    hash=_hr.Hash(algorithm="sha512", value=root_sha512_hex)
+                    hash=_hr.Hash(algorithm="sha256", value=root_sha256_hex)
                 ),
             ),
         )
