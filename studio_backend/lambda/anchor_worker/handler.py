@@ -53,25 +53,36 @@ def _build_dependencies():
     Imports are local so importing this module for unit testing the pure
     record-parsing helpers does not require boto3/sigstore.
     """
-    from studio_backend.anchoring.signer import load_signer_from_secrets_manager
+    from studio_backend.anchoring.signer import (
+        load_ecdsa_rekor_signer_from_secrets_manager,
+        load_signer_from_secrets_manager,
+    )
     from graqle.governance.tamper_evidence.anchors.sigstore_rekor import RekorAnchor
 
     region = _env("ANCHOR_REGION", _DEFAULT_REGION)
     secret_id = _env("ANCHOR_SIGNING_SECRET_ID")
     kid = _env("ANCHOR_SIGNING_KID")
+    rekor_secret_id = _env("ANCHOR_REKOR_SIGNING_SECRET_ID")
     if not secret_id or not kid:
         raise RuntimeError(
             "ANCHOR_SIGNING_SECRET_ID and ANCHOR_SIGNING_KID must be set"
         )
+    if not rekor_secret_id:
+        raise RuntimeError("ANCHOR_REKOR_SIGNING_SECRET_ID (ECDSA key) must be set")
     signer = load_signer_from_secrets_manager(
         secret_id=secret_id, kid=kid, region_name=region
+    )
+    # Dedicated ECDSA P-256 key for the Rekor hashedrekord (ed25519 unsupported
+    # by Rekor hashedrekord — sigstore/rekor#851).
+    rekor_signer = load_ecdsa_rekor_signer_from_secrets_manager(
+        secret_id=rekor_secret_id, region_name=region
     )
     anchor = RekorAnchor()  # real Sigstore Rekor (needs the sigstore extra + egress)
 
     import boto3
 
     s3 = boto3.client("s3", region_name=region)
-    return signer, anchor, s3
+    return signer, rekor_signer, anchor, s3
 
 
 def parse_records(event: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -127,7 +138,7 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
     batch_id = uuid4().hex
 
     try:
-        signer, anchor, s3 = _build_dependencies()
+        signer, rekor_signer, anchor, s3 = _build_dependencies()
     except Exception:
         # Cannot build the signer/anchor → fail the WHOLE batch for redrive
         # (do not silently drop; a config/secret outage must be retried).
@@ -142,6 +153,7 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
         result = anchor_records(
             records,
             signer=signer,
+            rekor_signer=rekor_signer,
             anchor=anchor,
             batch_id=batch_id,
             meter_observer=meter_observer,

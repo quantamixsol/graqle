@@ -38,11 +38,7 @@ from graqle.governance.tamper_evidence.anchors.sigstore_rekor import (
 )
 from graqle.governance.tamper_evidence.merkle import MerkleTree
 
-from studio_backend.anchoring.signer import (
-    RootSigner,
-    _public_key_pem,
-    _sign_raw,
-)
+from studio_backend.anchoring.signer import EcdsaRekorSigner, RootSigner
 
 logger = logging.getLogger("studio_backend.anchoring.worker")
 
@@ -78,6 +74,7 @@ def anchor_records(
     records: list[dict[str, Any]],
     *,
     signer: RootSigner,
+    rekor_signer: EcdsaRekorSigner,
     anchor: RekorAnchor,
     batch_id: str,
     meter_observer: MeterObserver | None = None,
@@ -132,8 +129,10 @@ def anchor_records(
         merkle_root_hex=root_hex,
         signed_at=signed_at,
     )
-    root_signature = _sign_raw(signer, root_bytes)
-    public_key_pem = _public_key_pem(signer)
+    # Rekor's hashedrekord needs an ECDSA signature over the root's SHA-256
+    # digest (raw ed25519 is unsupported there). The dedicated ECDSA anchoring
+    # key signs for Rekor; the bundle's own signature stays ed25519 (above).
+    root_signature, public_key_pem = rekor_signer.sign_root_for_rekor(root_bytes)
 
     # 2. Anchor the signed root to Rekor (fail-closed by default). The real Rekor
     #    hashedrekord records the (root-hash, signature, public-key) triple.

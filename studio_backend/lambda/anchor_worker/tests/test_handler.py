@@ -102,8 +102,20 @@ def signer():
     return RootSigner.from_private_key(KID, priv), pub_pem
 
 
+def _ecdsa_rekor_signer():
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    return signer_mod.EcdsaRekorSigner.from_private_key(
+        ec.generate_private_key(ec.SECP256R1())
+    )
+
+
 def _patch_deps(monkeypatch, signer, anchor, s3):
-    monkeypatch.setattr(handler_mod, "_build_dependencies", lambda: (signer, anchor, s3))
+    rekor_signer = _ecdsa_rekor_signer()
+    monkeypatch.setattr(
+        handler_mod, "_build_dependencies",
+        lambda: (signer, rekor_signer, anchor, s3),
+    )
     monkeypatch.setenv("ANCHOR_S3_BUCKET", "graqle-graphs-eu")
     monkeypatch.setenv("ANCHOR_S3_PREFIX", "proofs")
 
