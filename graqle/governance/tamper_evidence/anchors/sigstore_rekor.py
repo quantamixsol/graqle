@@ -329,7 +329,7 @@ class _SigstoreRekorTransport:
         import base64  # pragma: no cover
 
         from sigstore._internal.rekor.client import RekorClient  # type: ignore  # pragma: no cover
-        from sigstore._internal.trustroot import TrustUpdater  # type: ignore  # pragma: no cover
+        from sigstore._internal.tuf import TrustUpdater  # type: ignore  # pragma: no cover
         from sigstore_rekor_types import (  # type: ignore  # pragma: no cover
             Data,
             Hash,
@@ -347,6 +347,8 @@ class _SigstoreRekorTransport:
 
         root_hex = bytes(root_bytes).hex()
         proposal = Hashedrekord(
+            kind="hashedrekord",
+            apiVersion="0.0.1",
             spec=HashedrekordV001Schema(
                 signature=Signature1(
                     content=base64.b64encode(bytes(signature)).decode("ascii"),
@@ -355,7 +357,7 @@ class _SigstoreRekorTransport:
                     ),
                 ),
                 data=Data(hash=Hash(algorithm="sha256", value=root_hex)),
-            )
+            ),
         )
         entry = self._client.log.entries.post(proposal)
 

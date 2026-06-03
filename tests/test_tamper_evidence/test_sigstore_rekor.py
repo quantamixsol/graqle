@@ -381,3 +381,52 @@ def test_real_transport_rejects_non_pem_public_key():
     transport = sr._SigstoreRekorTransport(RekorConfig())
     with pytest.raises(AnchorError):
         transport.submit(b"\x33" * 32, b"sig", b"not-a-pem")
+
+
+@pytest.mark.skipif(
+    __import__("importlib").util.find_spec("sigstore_rekor_types") is None,
+    reason="sigstore optional dependency not installed",
+)
+def test_real_transport_builds_valid_hashedrekord_proposal():
+    """The transport builds a hashedrekord with kind+apiVersion and maps LogEntry.
+
+    Exercises the real ``submit`` body up to (not including) the network POST by
+    injecting a fake client — so a wrong proposal shape (missing kind/apiVersion,
+    wrong field aliases) or a wrong LogEntry mapping is caught WITHOUT live Rekor.
+    This is the regression guard for the two API-shape bugs the live smoke found.
+    """
+    captured = {}
+
+    class _FakeEntries:
+        def post(self, proposal):
+            captured["json"] = proposal.model_dump(mode="json", by_alias=True)
+
+            class _LE:
+                log_index = 99
+                log_id = "fake"
+                integrated_time = 1748000000
+                inclusion_proof = None
+
+            return _LE()
+
+    class _FakeLog:
+        entries = _FakeEntries()
+
+    class _FakeClient:
+        log = _FakeLog()
+
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    transport._client = _FakeClient()  # skip TUF bootstrap + network
+    root = b"\xab" * 32
+    receipt = transport.submit(root, b"a-signature", b"-----BEGIN PUBLIC KEY-----\nx\n")
+
+    j = captured["json"]
+    assert j["kind"] == "hashedrekord"
+    assert j["apiVersion"] == "0.0.1"
+    assert j["spec"]["data"]["hash"]["algorithm"] == "sha256"
+    assert j["spec"]["data"]["hash"]["value"] == root.hex()
+    assert "content" in j["spec"]["signature"]
+    assert "content" in j["spec"]["signature"]["publicKey"]
+    # LogEntry -> RekorReceipt mapping, with the GraQle root-hex binding.
+    assert receipt.log_index == 99
+    assert receipt.signed_tree_head == root.hex()
