@@ -97,8 +97,20 @@ class RekorTransport(Protocol):
     network: a fake transport returns a canned :class:`RekorReceipt` or raises.
     """
 
-    def submit(self, root_bytes: bytes) -> RekorReceipt:
-        """Submit a Merkle root, returning its inclusion certificate, or raise."""
+    def submit(
+        self,
+        root_bytes: bytes,
+        signature: bytes | None = None,
+        public_key: bytes | None = None,
+    ) -> RekorReceipt:
+        """Submit a Merkle root, returning its inclusion certificate, or raise.
+
+        ``signature`` (over ``root_bytes``) and ``public_key`` (PEM) are required
+        by a real Rekor ``hashedrekord`` entry (Rekor records a *signed* artifact,
+        not a bare hash). They are optional on the Protocol so existing fake
+        transports — which return a canned receipt and ignore them — keep working
+        unchanged; the real sigstore transport raises if they are absent.
+        """
         ...
 
 
@@ -143,7 +155,12 @@ class RekorAnchor:
             return True
         return _sigstore_importable()
 
-    def anchor(self, root_bytes: bytes) -> RekorReceipt:
+    def anchor(
+        self,
+        root_bytes: bytes,
+        signature: bytes | None = None,
+        public_key: bytes | None = None,
+    ) -> RekorReceipt:
         """Anchor ``root_bytes`` to Rekor, retrying transient failures.
 
         Tries up to ``config.retry_max_attempts`` times with exponential backoff
@@ -151,6 +168,12 @@ class RekorAnchor:
         :class:`RekorReceipt`. If every attempt fails, raises :class:`AnchorError`
         chaining the last transport error — the failure is surfaced, never
         silently dropped (fail-closed).
+
+        ``signature`` (an ed25519 signature over ``root_bytes``) and
+        ``public_key`` (its PEM) are passed through to the transport. A real Rekor
+        ``hashedrekord`` entry records a *signed* artifact, so the production
+        transport needs them; they are optional here so injected fake transports
+        (used in tests) keep working with a bare ``anchor(root_bytes)`` call.
         """
         if not isinstance(root_bytes, (bytes, bytearray)):
             raise AnchorError(
@@ -170,7 +193,12 @@ class RekorAnchor:
         last_error: Exception | None = None
         for attempt in range(attempts):
             try:
-                return transport.submit(bytes(root_bytes))
+                # Back-compat: only pass the signature/public_key through when
+                # provided, so an existing transport with the original
+                # single-argument ``submit(root_bytes)`` signature keeps working.
+                if signature is None and public_key is None:
+                    return transport.submit(bytes(root_bytes))
+                return transport.submit(bytes(root_bytes), signature, public_key)
             except AnchorUnavailableError:
                 # The dependency is absent — retrying cannot help; surface now.
                 raise
@@ -269,18 +297,126 @@ class _SigstoreRekorTransport:
         self._config = config
         self._client: Any = None  # lazily created on first submit
 
-    def submit(self, root_bytes: bytes) -> RekorReceipt:  # pragma: no cover - needs sigstore + network
-        # Import inside the method so even constructing the adapter never imports
-        # sigstore unless an actual submission is attempted.
-        from sigstore._internal.rekor import client as _rekor_client  # type: ignore
+    def submit(
+        self,
+        root_bytes: bytes,
+        signature: bytes | None = None,
+        public_key: bytes | None = None,
+    ) -> RekorReceipt:
+        # A Rekor `hashedrekord` records a SIGNED artifact: the artifact's hash,
+        # the signature over it, and the public key. The Merkle root IS the
+        # artifact; we anchor the ed25519 signature we already compute over it
+        # (SD-001). Without a signature+key a real Rekor entry cannot be built —
+        # surface that clearly (BEFORE importing the optional sigstore dep, so the
+        # usage error is reported even where sigstore is not installed).
+        if signature is None or public_key is None:
+            raise AnchorError(
+                "real Rekor anchoring requires a signature over the root and the "
+                "signer's public key (a hashedrekord records a signed artifact); "
+                "RekorAnchor.anchor(root, signature=..., public_key=...)"
+            )
+        # Sanity-check the material before building a proposal: a non-empty
+        # signature and a PEM-looking public key. (base64 of the bytes is always
+        # well-formed, so the residual risk is an empty/garbage input, which
+        # Rekor would reject anyway — fail fast with a clear message instead.)
+        if not isinstance(signature, (bytes, bytearray)) or not signature:
+            raise AnchorError("signature must be non-empty bytes")
+        if not isinstance(public_key, (bytes, bytearray)) or b"BEGIN" not in bytes(public_key):
+            raise AnchorError("public_key must be PEM-encoded bytes")
 
-        if self._client is None:
-            self._client = _rekor_client.RekorClient(self._config.url)
-        entry = self._client.log.entries.create(root_bytes)
+        # Import inside the method so even constructing the adapter never imports
+        # sigstore unless an actual submission is attempted.  # pragma: no cover
+        import base64  # pragma: no cover
+
+        # sigstore 3.x: RekorClient.production() carries its own current trust
+        # root (no TUF bootstrap arg), and rekor_types is the standalone proposal
+        # package. (2.x's bundled TUF root has aged out of the live Sigstore
+        # infra — "no active Rekor key" — which is why the pin is >=3.0,<4.)
+        from sigstore._internal.rekor.client import RekorClient  # type: ignore  # pragma: no cover
+        import rekor_types  # type: ignore  # pragma: no cover
+        from rekor_types import hashedrekord as _hr  # type: ignore  # pragma: no cover
+
+        if self._client is None:  # pragma: no cover
+            self._client = RekorClient.production()
+
+        # Rekor's `hashedrekord` records {data.hash, signature, public_key} and
+        # re-verifies the signature against the hash. Sigstore/Rekor support an
+        # ECDSA signature over a prehashed SHA-256 digest here (the well-trodden
+        # path sigstore.sign itself uses); raw **ed25519 is NOT supported by
+        # hashedrekord** (sigstore/rekor#851). So the caller signs the Merkle
+        # root's SHA-256 digest with an ECDSA key and passes that signature +
+        # the ECDSA public-key PEM; we declare the matching sha256 data.hash.
+        #
+        # This Rekor signature is SEPARATE from the bundle's own ed25519 SD-001
+        # signature (which verify_bundle checks). The GraQle offline binding is
+        # unaffected: the bundle's rekor.signed_tree_head carries the Merkle root
+        # hex (set by the caller), not this data.hash.
+        import hashlib
+
+        root_hex = bytes(root_bytes).hex()  # the Merkle root (offline binding)
+        root_sha256_hex = hashlib.sha256(bytes(root_bytes)).hexdigest()
+        proposal = rekor_types.Hashedrekord(
+            spec=_hr.HashedrekordV001Schema(
+                signature=_hr.Signature(
+                    content=base64.b64encode(bytes(signature)).decode("ascii"),
+                    public_key=_hr.PublicKey(
+                        content=base64.b64encode(bytes(public_key)).decode("ascii")
+                    ),
+                ),
+                data=_hr.Data(
+                    hash=_hr.Hash(algorithm="sha256", value=root_sha256_hex)
+                ),
+            ),
+        )
+        # A 409 "an equivalent entry already exists" is SUCCESS, not failure:
+        # the same root was already anchored (a retry, or two batches with the
+        # identical record set). Rekor returns the existing entry's UUID; fetch
+        # it and use it, so anchoring is idempotent. (Rekor de-dups by the entry
+        # content, so an already-present proof is a present proof.)
+        from sigstore._internal.rekor.client import RekorClientError  # type: ignore
+
+        try:
+            entry = self._client.log.entries.post(proposal)
+        except RekorClientError as exc:
+            existing = self._entry_from_conflict(exc)
+            if existing is None:
+                raise
+            entry = existing
+
+        # Map sigstore's LogEntry -> our transport-neutral RekorReceipt. The
+        # GraQle bundle convention records the anchored ROOT HEX as the
+        # signed_tree_head (the offline binding the verifier checks); the raw
+        # inclusion proof is kept as the inclusion_cert for external rekor-cli.
+        inclusion = getattr(entry, "inclusion_proof", None)
         return RekorReceipt(
             log_index=int(entry.log_index),
             log_id=str(entry.log_id),
-            signed_tree_head=str(getattr(entry, "signed_tree_head", "")),
-            inclusion_cert=str(getattr(entry, "inclusion_proof", "")),
-            integrated_time=int(getattr(entry, "integrated_time", 0)),
+            signed_tree_head=root_hex,
+            inclusion_cert=str(inclusion) if inclusion is not None else "",
+            integrated_time=int(getattr(entry, "integrated_time", 0) or 0),
         )
+
+    def _entry_from_conflict(self, exc: Exception):  # pragma: no cover - needs sigstore + network
+        """Return the existing LogEntry if ``exc`` is a 409 duplicate, else None.
+
+        Rekor answers a re-submission of an already-logged entry with HTTP 409
+        and a message embedding the existing entry's UUID
+        (``409: an equivalent entry already exists ... with UUID <uuid>``).
+        ``RekorClientError`` discards the underlying response but folds that
+        message into ``str(exc)``, so we parse the UUID from the message itself,
+        ``GET`` the entry, and use it — making :meth:`submit` idempotent (an
+        already-anchored proof IS anchored).
+        """
+        import re
+
+        message = str(exc)
+        if "409" not in message and "already exists" not in message:
+            return None
+        match = re.search(r"UUID\s+([0-9a-fA-F]{64,80})", message)
+        if not match:
+            return None
+        try:
+            return self._client.log.entries.get(uuid=match.group(1))
+        except Exception:
+            # Could not retrieve the existing entry — surface the original 409.
+            return None

@@ -326,3 +326,115 @@ def test_receipt_is_frozen():
 def test_unavailable_error_is_anchor_error_subclass():
     """AnchorUnavailableError is catchable as AnchorError (callers may catch broadly)."""
     assert issubclass(AnchorUnavailableError, AnchorError)
+
+
+# ---- signature/public_key passthrough (hotfix: real Rekor hashedrekord) -------
+
+
+class _SigAwareTransport:
+    """A transport that records the signature + public_key it received."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def submit(self, root_bytes, signature=None, public_key=None) -> RekorReceipt:
+        self.calls.append((bytes(root_bytes), signature, public_key))
+        return _receipt()
+
+
+def test_anchor_passes_signature_and_public_key_when_provided():
+    t = _SigAwareTransport()
+    anchor = RekorAnchor(transport=t)
+    anchor.anchor(b"\x11" * 32, b"sig-bytes", b"-----BEGIN PUBLIC KEY-----\n")
+    assert len(t.calls) == 1
+    root, sig, pub = t.calls[0]
+    assert sig == b"sig-bytes"
+    assert pub == b"-----BEGIN PUBLIC KEY-----\n"
+
+
+def test_anchor_backcompat_single_arg_transport_still_works():
+    """A legacy 1-arg transport keeps working when anchor() is called with no sig."""
+
+    class _LegacyTransport:
+        def submit(self, root_bytes) -> RekorReceipt:  # original signature
+            return _receipt()
+
+    anchor = RekorAnchor(transport=_LegacyTransport())
+    # No signature/public_key → anchor() must call submit(root) with ONE arg.
+    assert anchor.anchor(b"\x22" * 32).log_index == 1
+
+
+def test_real_transport_requires_signature_and_key():
+    """The real sigstore transport refuses to build a hashedrekord without sig+key."""
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32)  # no signature/public_key → cannot build entry
+
+
+def test_real_transport_rejects_empty_signature():
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32, b"", b"-----BEGIN PUBLIC KEY-----\n")
+
+
+def test_real_transport_rejects_non_pem_public_key():
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    with pytest.raises(AnchorError):
+        transport.submit(b"\x33" * 32, b"sig", b"not-a-pem")
+
+
+@pytest.mark.skipif(
+    __import__("importlib").util.find_spec("rekor_types") is None,
+    reason="sigstore (rekor_types) optional dependency not installed",
+)
+def test_real_transport_builds_valid_hashedrekord_proposal():
+    """The transport builds a hashedrekord with kind+apiVersion and maps LogEntry.
+
+    Exercises the real ``submit`` body up to (not including) the network POST by
+    injecting a fake client — so a wrong proposal shape (missing kind/apiVersion,
+    wrong field aliases) or a wrong LogEntry mapping is caught WITHOUT live Rekor.
+    This is the regression guard for the two API-shape bugs the live smoke found.
+    """
+    captured = {}
+
+    class _FakeEntries:
+        def post(self, proposal):
+            captured["json"] = proposal.model_dump(mode="json", by_alias=True)
+
+            class _LE:
+                log_index = 99
+                log_id = "fake"
+                integrated_time = 1748000000
+                inclusion_proof = None
+
+            return _LE()
+
+    class _FakeLog:
+        entries = _FakeEntries()
+
+    class _FakeClient:
+        log = _FakeLog()
+
+    transport = sr._SigstoreRekorTransport(RekorConfig())
+    transport._client = _FakeClient()  # skip TUF bootstrap + network
+    root = b"\xab" * 32
+    receipt = transport.submit(root, b"a-signature", b"-----BEGIN PUBLIC KEY-----\nx\n")
+
+    import hashlib
+
+    j = captured["json"]
+    assert j["kind"] == "hashedrekord"
+    assert j["apiVersion"] == "0.0.1"
+    # hashedrekord uses an ECDSA signature over a prehashed SHA-256 digest (raw
+    # ed25519 is unsupported by hashedrekord, sigstore/rekor#851). data.hash is
+    # the sha256 of the root bytes; the caller's `signature` is ECDSA over that
+    # same digest.
+    assert j["spec"]["data"]["hash"]["algorithm"] == "sha256"
+    assert j["spec"]["data"]["hash"]["value"] == hashlib.sha256(root).hexdigest()
+    assert "content" in j["spec"]["signature"]
+    assert "content" in j["spec"]["signature"]["publicKey"]
+    # LogEntry -> RekorReceipt mapping, with the GraQle root-hex binding (the
+    # bundle's signed_tree_head carries the Merkle ROOT HEX, separate from the
+    # Rekor data.hash).
+    assert receipt.log_index == 99
+    assert receipt.signed_tree_head == root.hex()
