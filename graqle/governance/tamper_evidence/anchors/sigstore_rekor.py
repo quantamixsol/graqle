@@ -328,36 +328,60 @@ class _SigstoreRekorTransport:
         # sigstore unless an actual submission is attempted.  # pragma: no cover
         import base64  # pragma: no cover
 
+        # sigstore 3.x: RekorClient.production() carries its own current trust
+        # root (no TUF bootstrap arg), and rekor_types is the standalone proposal
+        # package. (2.x's bundled TUF root has aged out of the live Sigstore
+        # infra — "no active Rekor key" — which is why the pin is >=3.0,<4.)
         from sigstore._internal.rekor.client import RekorClient  # type: ignore  # pragma: no cover
-        from sigstore._internal.trustroot import TrustUpdater  # type: ignore  # pragma: no cover
-        from sigstore_rekor_types import (  # type: ignore  # pragma: no cover
-            Data,
-            Hash,
-            Hashedrekord,
-            HashedrekordV001Schema,
-            PublicKey1,
-            Signature1,
-        )
+        import rekor_types  # type: ignore  # pragma: no cover
+        from rekor_types import hashedrekord as _hr  # type: ignore  # pragma: no cover
 
         if self._client is None:  # pragma: no cover
-            # The intended production construction (sigstore.sign uses the same):
-            # bootstrap trust via TUF, then a production RekorClient.
-            updater = TrustUpdater.production()
-            self._client = RekorClient.production(updater)
+            self._client = RekorClient.production()
 
-        root_hex = bytes(root_bytes).hex()
-        proposal = Hashedrekord(
-            spec=HashedrekordV001Schema(
-                signature=Signature1(
+        # Rekor's `hashedrekord` records {data.hash, signature, public_key} and
+        # re-verifies the signature against the hash. Sigstore/Rekor support an
+        # ECDSA signature over a prehashed SHA-256 digest here (the well-trodden
+        # path sigstore.sign itself uses); raw **ed25519 is NOT supported by
+        # hashedrekord** (sigstore/rekor#851). So the caller signs the Merkle
+        # root's SHA-256 digest with an ECDSA key and passes that signature +
+        # the ECDSA public-key PEM; we declare the matching sha256 data.hash.
+        #
+        # This Rekor signature is SEPARATE from the bundle's own ed25519 SD-001
+        # signature (which verify_bundle checks). The GraQle offline binding is
+        # unaffected: the bundle's rekor.signed_tree_head carries the Merkle root
+        # hex (set by the caller), not this data.hash.
+        import hashlib
+
+        root_hex = bytes(root_bytes).hex()  # the Merkle root (offline binding)
+        root_sha256_hex = hashlib.sha256(bytes(root_bytes)).hexdigest()
+        proposal = rekor_types.Hashedrekord(
+            spec=_hr.HashedrekordV001Schema(
+                signature=_hr.Signature(
                     content=base64.b64encode(bytes(signature)).decode("ascii"),
-                    publicKey=PublicKey1(
+                    public_key=_hr.PublicKey(
                         content=base64.b64encode(bytes(public_key)).decode("ascii")
                     ),
                 ),
-                data=Data(hash=Hash(algorithm="sha256", value=root_hex)),
-            )
+                data=_hr.Data(
+                    hash=_hr.Hash(algorithm="sha256", value=root_sha256_hex)
+                ),
+            ),
         )
-        entry = self._client.log.entries.post(proposal)
+        # A 409 "an equivalent entry already exists" is SUCCESS, not failure:
+        # the same root was already anchored (a retry, or two batches with the
+        # identical record set). Rekor returns the existing entry's UUID; fetch
+        # it and use it, so anchoring is idempotent. (Rekor de-dups by the entry
+        # content, so an already-present proof is a present proof.)
+        from sigstore._internal.rekor.client import RekorClientError  # type: ignore
+
+        try:
+            entry = self._client.log.entries.post(proposal)
+        except RekorClientError as exc:
+            existing = self._entry_from_conflict(exc)
+            if existing is None:
+                raise
+            entry = existing
 
         # Map sigstore's LogEntry -> our transport-neutral RekorReceipt. The
         # GraQle bundle convention records the anchored ROOT HEX as the
@@ -371,3 +395,28 @@ class _SigstoreRekorTransport:
             inclusion_cert=str(inclusion) if inclusion is not None else "",
             integrated_time=int(getattr(entry, "integrated_time", 0) or 0),
         )
+
+    def _entry_from_conflict(self, exc: Exception):  # pragma: no cover - needs sigstore + network
+        """Return the existing LogEntry if ``exc`` is a 409 duplicate, else None.
+
+        Rekor answers a re-submission of an already-logged entry with HTTP 409
+        and a message embedding the existing entry's UUID
+        (``409: an equivalent entry already exists ... with UUID <uuid>``).
+        ``RekorClientError`` discards the underlying response but folds that
+        message into ``str(exc)``, so we parse the UUID from the message itself,
+        ``GET`` the entry, and use it — making :meth:`submit` idempotent (an
+        already-anchored proof IS anchored).
+        """
+        import re
+
+        message = str(exc)
+        if "409" not in message and "already exists" not in message:
+            return None
+        match = re.search(r"UUID\s+([0-9a-fA-F]{64,80})", message)
+        if not match:
+            return None
+        try:
+            return self._client.log.entries.get(uuid=match.group(1))
+        except Exception:
+            # Could not retrieve the existing entry — surface the original 409.
+            return None
