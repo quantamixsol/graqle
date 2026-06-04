@@ -40,11 +40,53 @@ logging.getLogger().setLevel(logging.INFO)
 _DEFAULT_BUCKET = "graqle-graphs-eu"
 _DEFAULT_PREFIX = "proofs"
 _DEFAULT_REGION = "eu-central-1"
+_DEFAULT_FREE_ALLOWANCE = 1000
+# Dedupe rows only need to outlive the redrive/retry window (the proof itself is
+# permanent in Rekor + S3). 14 days is generous headroom; the table TTL reaps them.
+_DEDUPE_TTL_SECONDS = 14 * 24 * 3600
 
 
 def _env(name: str, default: str | None = None) -> str | None:
     val = os.environ.get(name)
     return val if val not in (None, "") else default
+
+
+def _build_meter_observer():
+    """Build the Phase-4 metering observer (StudioMeter + DynamoDB dedupe).
+
+    Env:
+      * ``ANCHOR_METER_USAGE_TABLE``   — DynamoDB usage table (per-tenant monthly).
+      * ``ANCHOR_METER_DEDUPE_TABLE``  — DynamoDB dedupe table (PK ``leaf_hash``).
+      * ``ANCHOR_METER_FREE_ALLOWANCE``— free anchors/tenant/month (default 1000).
+
+    If the usage table is unset, fall back to the Community no-op observer
+    (anchoring still works, just unmetered) — metering must never block a proof
+    that is already durably anchored. Built lazily so unit tests can monkeypatch.
+    """
+    from graqle.metering.committer_hook import make_meter_observer
+
+    usage_table = _env("ANCHOR_METER_USAGE_TABLE")
+    if not usage_table:
+        logger.info("metering not configured (no ANCHOR_METER_USAGE_TABLE) — no-op meter")
+        return make_meter_observer(edition="studio")
+
+    from studio_backend.metering.dynamo_dedupe import DynamoDbDedupeStore
+    from studio_backend.metering.studio_meter import StudioMeter
+
+    region = _env("ANCHOR_REGION", _DEFAULT_REGION)
+    try:
+        allowance = int(_env("ANCHOR_METER_FREE_ALLOWANCE", str(_DEFAULT_FREE_ALLOWANCE)))
+    except (TypeError, ValueError):
+        allowance = _DEFAULT_FREE_ALLOWANCE
+    meter = StudioMeter(usage_table, free_allowance=allowance, region_name=region)
+
+    dedupe = None
+    dedupe_table = _env("ANCHOR_METER_DEDUPE_TABLE")
+    if dedupe_table:
+        dedupe = DynamoDbDedupeStore(
+            dedupe_table, region_name=region, ttl_seconds=_DEDUPE_TTL_SECONDS
+        )
+    return make_meter_observer(meter=meter, dedupe=dedupe, edition="studio")
 
 
 def _build_dependencies():
@@ -53,25 +95,36 @@ def _build_dependencies():
     Imports are local so importing this module for unit testing the pure
     record-parsing helpers does not require boto3/sigstore.
     """
-    from studio_backend.anchoring.signer import load_signer_from_secrets_manager
+    from studio_backend.anchoring.signer import (
+        load_ecdsa_rekor_signer_from_secrets_manager,
+        load_signer_from_secrets_manager,
+    )
     from graqle.governance.tamper_evidence.anchors.sigstore_rekor import RekorAnchor
 
     region = _env("ANCHOR_REGION", _DEFAULT_REGION)
     secret_id = _env("ANCHOR_SIGNING_SECRET_ID")
     kid = _env("ANCHOR_SIGNING_KID")
+    rekor_secret_id = _env("ANCHOR_REKOR_SIGNING_SECRET_ID")
     if not secret_id or not kid:
         raise RuntimeError(
             "ANCHOR_SIGNING_SECRET_ID and ANCHOR_SIGNING_KID must be set"
         )
+    if not rekor_secret_id:
+        raise RuntimeError("ANCHOR_REKOR_SIGNING_SECRET_ID (ECDSA key) must be set")
     signer = load_signer_from_secrets_manager(
         secret_id=secret_id, kid=kid, region_name=region
+    )
+    # Dedicated ECDSA P-256 key for the Rekor hashedrekord (ed25519 unsupported
+    # by Rekor hashedrekord — sigstore/rekor#851).
+    rekor_signer = load_ecdsa_rekor_signer_from_secrets_manager(
+        secret_id=rekor_secret_id, region_name=region
     )
     anchor = RekorAnchor()  # real Sigstore Rekor (needs the sigstore extra + egress)
 
     import boto3
 
     s3 = boto3.client("s3", region_name=region)
-    return signer, anchor, s3
+    return signer, rekor_signer, anchor, s3
 
 
 def parse_records(event: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -127,21 +180,24 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
     batch_id = uuid4().hex
 
     try:
-        signer, anchor, s3 = _build_dependencies()
+        signer, rekor_signer, anchor, s3 = _build_dependencies()
     except Exception:
         # Cannot build the signer/anchor → fail the WHOLE batch for redrive
         # (do not silently drop; a config/secret outage must be retried).
         logger.exception("failed to build anchoring dependencies")
         return {"batchItemFailures": [{"itemIdentifier": m} for m in message_ids]}
 
-    # Stub meter for Phase 3 (LocalNullMeter via make_meter_observer with no sink).
-    # Phase 4 swaps in StudioMeter + a DynamoDB-backed MeterDedupeStore.
-    meter_observer = make_meter_observer(edition="studio")
+    # Phase 4: StudioMeter (billable proof_anchored) + DynamoDB exactly-once
+    # dedupe (distributed, keyed on leaf_hash). If the meter env is not
+    # configured, fall back to the no-op observer (anchoring still works; just
+    # unmetered) — metering must never block a proof that is already anchored.
+    meter_observer = _build_meter_observer()
 
     try:
         result = anchor_records(
             records,
             signer=signer,
+            rekor_signer=rekor_signer,
             anchor=anchor,
             batch_id=batch_id,
             meter_observer=meter_observer,

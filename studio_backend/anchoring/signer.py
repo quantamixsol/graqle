@@ -33,7 +33,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 from graqle.governance.custody.ed25519_key_manifest import Ed25519KeyManifest
 from graqle.governance.tamper_evidence.canonicalize import canon
@@ -81,6 +84,7 @@ class RootSigner:
 
     kid: str
     _manifest: Ed25519KeyManifest
+    _public_key: Ed25519PublicKey
 
     @classmethod
     def from_private_key(cls, kid: str, private_key: Ed25519PrivateKey) -> "RootSigner":
@@ -88,15 +92,16 @@ class RootSigner:
             raise SignerError("kid must be a non-empty string")
         if not isinstance(private_key, Ed25519PrivateKey):
             raise SignerError("private_key must be an Ed25519PrivateKey")
+        public_key = private_key.public_key()
         manifest = Ed25519KeyManifest()
         manifest.register(
             kid=kid,
-            public_key=private_key.public_key(),
+            public_key=public_key,
             valid_from=_WIDE_FROM,
             valid_until=_WIDE_UNTIL,
             private_key=private_key,
         )
-        return cls(kid=kid, _manifest=manifest)
+        return cls(kid=kid, _manifest=manifest, _public_key=public_key)
 
     @classmethod
     def from_private_bytes(cls, kid: str, raw_seed: bytes) -> "RootSigner":
@@ -143,6 +148,111 @@ class RootSigner:
             "sig": sig.hex(),
             "signed_at": signed_at,
         }
+
+
+@dataclass(frozen=True)
+class EcdsaRekorSigner:
+    """Signs Merkle roots for Rekor with a DEDICATED ECDSA P-256 key.
+
+    Why a separate key from the ed25519 :class:`RootSigner`: Sigstore Rekor's
+    ``hashedrekord`` does NOT support raw ed25519 (sigstore/rekor#851) — it
+    accepts an ECDSA signature over a prehashed SHA-256 digest (the path
+    ``sigstore.sign`` itself uses). So Rekor anchoring uses its own ECDSA P-256
+    key, while the proof bundle's SD-001 signature + licences stay ed25519.
+
+    The Rekor entry's ECDSA signature is independent of bundle verification:
+    ``verify_bundle`` checks the ed25519 SD-001 signature; the ECDSA signature
+    only proves to Rekor that we hold a key over the anchored root.
+    """
+
+    _private_key: Any  # ec.EllipticCurvePrivateKey
+
+    @classmethod
+    def from_private_key(cls, private_key: Any) -> "EcdsaRekorSigner":
+        from cryptography.hazmat.primitives.asymmetric import ec
+
+        if not isinstance(private_key, ec.EllipticCurvePrivateKey):
+            raise SignerError("Rekor signing key must be an EC private key")
+        return cls(_private_key=private_key)
+
+    @classmethod
+    def from_pem(cls, pem_bytes: bytes) -> "EcdsaRekorSigner":
+        from cryptography.hazmat.primitives import serialization
+
+        try:
+            key = serialization.load_pem_private_key(bytes(pem_bytes), password=None)
+        except Exception as exc:
+            raise SignerError(f"invalid ECDSA private key PEM: {exc}") from exc
+        return cls.from_private_key(key)
+
+    def sign_root_for_rekor(self, root_bytes: bytes) -> tuple[bytes, bytes]:
+        """Return ``(ecdsa_signature, public_key_pem)`` for a Rekor hashedrekord.
+
+        Signs the SHA-256 digest of ``root_bytes`` with ECDSA(prehashed SHA-256)
+        — exactly what Rekor verifies for an ECDSA hashedrekord. The matching
+        ``data.hash`` (sha256 of the root) is set by the SDK transport.
+        """
+        import hashlib
+
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+        digest = hashlib.sha256(bytes(root_bytes)).digest()
+        try:
+            sig = self._private_key.sign(
+                digest, ec.ECDSA(utils.Prehashed(hashes.SHA256()))
+            )
+        except Exception as exc:
+            raise SignerError(f"failed to ECDSA-sign root for Rekor: {exc}") from exc
+        pem = self._private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        return sig, pem
+
+
+def load_ecdsa_rekor_signer_from_secrets_manager(
+    *,
+    secret_id: str,
+    client: Any = None,
+    region_name: str = "eu-central-1",
+) -> EcdsaRekorSigner:
+    """Build an :class:`EcdsaRekorSigner` from an ECDSA P-256 PEM in Secrets Manager."""
+    if client is None:  # pragma: no cover - real AWS only
+        import boto3
+
+        client = boto3.client("secretsmanager", region_name=region_name)
+    try:
+        resp = client.get_secret_value(SecretId=secret_id)
+    except Exception as exc:
+        raise SignerError(f"could not fetch Rekor signing key: {exc}") from exc
+    pem = resp.get("SecretString")
+    if not isinstance(pem, str) or not pem.strip():
+        raise SignerError("Rekor signing secret must be a PEM SecretString")
+    return EcdsaRekorSigner.from_pem(pem.encode("utf-8"))
+
+
+def _sign_raw(signer: "RootSigner", message: bytes) -> bytes:
+    """Raw ed25519 signature over ``message`` (used for the Rekor hashedrekord).
+
+    Distinct from :meth:`RootSigner.sign_root` (which signs the SD-001 canonical
+    message): Rekor's ``hashedrekord`` records a signature over the *artifact*
+    (here the Merkle root bytes), so we sign those bytes directly.
+    """
+    try:
+        return signer._manifest.sign(signer.kid, message)
+    except Exception as exc:
+        raise SignerError(f"failed to raw-sign for Rekor: {exc}") from exc
+
+
+def _public_key_pem(signer: "RootSigner") -> bytes:
+    """The signer's public key as a PEM (for the Rekor hashedrekord publicKey)."""
+    from cryptography.hazmat.primitives import serialization
+
+    return signer._public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
 
 
 def load_signer_from_secrets_manager(
@@ -199,6 +309,8 @@ def _seed_bytes_from_secret(resp: dict[str, Any]) -> bytes:
 __all__ = [
     "SignerError",
     "RootSigner",
+    "EcdsaRekorSigner",
     "signed_message",
     "load_signer_from_secrets_manager",
+    "load_ecdsa_rekor_signer_from_secrets_manager",
 ]

@@ -90,3 +90,31 @@ def test_satisfies_attestation_sink_protocol():
 
     sink = SqsAttestationSink("https://q", client=_FakeSqs())
     assert isinstance(sink, AttestationSink)  # runtime_checkable Protocol
+
+
+def test_write_stamps_tenant_id():
+    sqs = _FakeSqs()
+    sink = SqsAttestationSink("https://q", tenant_id="acme", client=sqs)
+    sink.write(_record())
+    body = json.loads(sqs.sent[0]["MessageBody"])
+    assert body["tenant_id"] == "acme"
+
+
+def test_write_does_not_override_existing_tenant_id():
+    sqs = _FakeSqs()
+    sink = SqsAttestationSink("https://q", tenant_id="acme", client=sqs)
+    sink.write({**_record(), "tenant_id": "preset"})
+    body = json.loads(sqs.sent[0]["MessageBody"])
+    assert body["tenant_id"] == "preset"  # caller-set tenant wins
+
+
+def test_write_no_tenant_when_unset():
+    sqs = _FakeSqs()
+    SqsAttestationSink("https://q", client=sqs).write(_record())
+    body = json.loads(sqs.sent[0]["MessageBody"])
+    assert "tenant_id" not in body
+
+
+def test_bad_tenant_id_rejected():
+    with pytest.raises(IngestError):
+        SqsAttestationSink("https://q", tenant_id="", client=_FakeSqs())

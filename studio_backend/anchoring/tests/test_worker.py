@@ -76,16 +76,20 @@ class _FakeReceipt:
 
 
 class _FakeAnchor:
-    """Stands in for RekorAnchor — records the root, returns a fake receipt."""
+    """Stands in for RekorAnchor — records the root + sig + key, returns a receipt."""
 
     def __init__(self, *, fail: bool = False):
         self.fail = fail
         self.anchored_roots: list[bytes] = []
+        self.last_signature: bytes | None = None
+        self.last_public_key: bytes | None = None
 
-    def anchor(self, root_bytes: bytes):
+    def anchor(self, root_bytes: bytes, signature=None, public_key=None):
         if self.fail:
             raise AnchorError("simulated rekor outage")
         self.anchored_roots.append(root_bytes)
+        self.last_signature = signature
+        self.last_public_key = public_key
         return _FakeReceipt()
 
 
@@ -99,17 +103,33 @@ def _signer() -> tuple[Any, str]:
     return s, pub_pem
 
 
+def _rekor_signer():
+    """A dedicated ECDSA P-256 Rekor signer (separate from the ed25519 RootSigner)."""
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    EcdsaRekorSigner = signer_mod.EcdsaRekorSigner
+    return EcdsaRekorSigner.from_private_key(ec.generate_private_key(ec.SECP256R1()))
+
+
+_REKOR = _rekor_signer()
+
+
 # ── the closed loop: anchored bundles verify ─────────────────────────────────
 def test_anchored_bundles_verify_true():
     s, pub_pem = _signer()
     anchor = _FakeAnchor()
     records = [_record("r1"), _record("r2"), _record("r3")]
     result = anchor_records(
-        records, signer=s, anchor=anchor, batch_id="b1", clock=lambda: FIXED_NOW
+        records, signer=s, rekor_signer=_REKOR, anchor=anchor, batch_id="b1", clock=lambda: FIXED_NOW
     )
     assert len(result.bundles) == 3
     assert result.merkle_root and result.rekor_log_index == 7
     assert len(anchor.anchored_roots) == 1  # one root per batch
+    # The worker passes a real ECDSA signature over the root + the EC public-key
+    # PEM to the anchor (what a Rekor hashedrekord needs; ed25519 is unsupported
+    # by hashedrekord so anchoring uses a dedicated ECDSA key).
+    assert anchor.last_signature is not None and len(anchor.last_signature) > 0
+    assert anchor.last_public_key is not None and b"BEGIN PUBLIC KEY" in anchor.last_public_key
 
     # Every produced bundle verifies against the signer's public key (Phase-2 path).
     for bundle in result.bundles:
@@ -128,7 +148,7 @@ def test_anchored_bundles_verify_true():
 def test_tampered_bundle_fails_verify():
     s, pub_pem = _signer()
     result = anchor_records(
-        [_record("r1"), _record("r2")], signer=s, anchor=_FakeAnchor(),
+        [_record("r1"), _record("r2")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(),
         batch_id="b2", clock=lambda: FIXED_NOW,
     )
     bundle = result.bundles[0]
@@ -144,7 +164,7 @@ def test_meter_observer_fires_once_per_anchored_leaf():
     fired: list[tuple[str, dict]] = []
     anchor_records(
         [_record("r1"), _record("r2"), _record("r3")],
-        signer=s, anchor=_FakeAnchor(), batch_id="b3",
+        signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="b3",
         meter_observer=lambda h, ctx: fired.append((h, ctx)),
         clock=lambda: FIXED_NOW,
     )
@@ -163,7 +183,7 @@ def test_fail_closed_anchor_error_raises_no_emit():
     fired = []
     with pytest.raises(AnchorWorkerError):
         anchor_records(
-            [_record("r1")], signer=s, anchor=_FakeAnchor(fail=True), batch_id="b4",
+            [_record("r1")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(fail=True), batch_id="b4",
             meter_observer=lambda h, ctx: fired.append(h),
             clock=lambda: FIXED_NOW,
         )
@@ -174,7 +194,7 @@ def test_fail_open_anchor_error_emits_unanchored_no_meter():
     s, pub_pem = _signer()
     fired = []
     result = anchor_records(
-        [_record("r1"), _record("r2")], signer=s, anchor=_FakeAnchor(fail=True),
+        [_record("r1"), _record("r2")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(fail=True),
         batch_id="b5", fail_open_on_anchor_error=True,
         meter_observer=lambda h, ctx: fired.append(h),
         clock=lambda: FIXED_NOW,
@@ -191,7 +211,7 @@ def test_fail_open_anchor_error_emits_unanchored_no_meter():
 def test_empty_records_raises():
     s, _ = _signer()
     with pytest.raises(AnchorWorkerError):
-        anchor_records([], signer=s, anchor=_FakeAnchor(), batch_id="b6")
+        anchor_records([], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="b6")
 
 
 def test_naive_clock_is_normalised_to_utc():
@@ -199,7 +219,7 @@ def test_naive_clock_is_normalised_to_utc():
     s, pub_pem = _signer()
     naive = datetime(2026, 6, 2, 12, 0, 0)  # no tzinfo
     result = anchor_records(
-        [_record("r1")], signer=s, anchor=_FakeAnchor(), batch_id="b7",
+        [_record("r1")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="b7",
         clock=lambda: naive,
     )
     signed_at = result.bundles[0]["signature"]["signed_at"]
@@ -217,7 +237,7 @@ class _ReceiptNoLogIndex:
 
 
 class _AnchorNoLogIndex:
-    def anchor(self, root_bytes):
+    def anchor(self, root_bytes, signature=None, public_key=None):
         return _ReceiptNoLogIndex()
 
 
@@ -225,7 +245,7 @@ def test_meter_context_omits_log_index_when_absent():
     s, _ = _signer()
     fired = []
     anchor_records(
-        [_record("r1")], signer=s, anchor=_AnchorNoLogIndex(), batch_id="b8",
+        [_record("r1")], signer=s, rekor_signer=_REKOR, anchor=_AnchorNoLogIndex(), batch_id="b8",
         meter_observer=lambda h, ctx: fired.append(ctx), clock=lambda: FIXED_NOW,
     )
     assert len(fired) == 1
@@ -310,6 +330,29 @@ def test_signer_bad_signed_at():
         s.sign_root(proof_format_version="1", merkle_root_hex="ab" * 32, signed_at="")
 
 
+def test_sign_raw_and_public_key_pem_roundtrip():
+    """The raw signature over the root verifies under the published public key."""
+    from cryptography.hazmat.primitives import serialization
+
+    s, pub_pem = _signer()
+    root = bytes.fromhex("cd" * 32)
+    raw_sig = signer_mod._sign_raw(s, root)
+    pem = signer_mod._public_key_pem(s)
+    assert b"BEGIN PUBLIC KEY" in pem
+    pub = serialization.load_pem_public_key(pem)
+    pub.verify(raw_sig, root)  # raises on bad signature — passing == valid
+
+
+def test_sign_raw_wraps_failure(monkeypatch):
+    s, _ = _signer()
+    monkeypatch.setattr(
+        type(s._manifest), "sign",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    with pytest.raises(SignerError):
+        signer_mod._sign_raw(s, b"\x00" * 32)
+
+
 # ── Secrets Manager loader (injected fake client) ────────────────────────────
 class _FakeSM:
     def __init__(self, payload):
@@ -364,3 +407,126 @@ def test_load_signer_fetch_error():
 
     with pytest.raises(SignerError):
         load_signer_from_secrets_manager(secret_id="x", kid=KID, client=_Boom())
+
+
+# ── EcdsaRekorSigner (the dedicated Rekor anchoring key) ─────────────────────
+def test_ecdsa_rekor_signer_signs_and_verifies():
+    """sign_root_for_rekor returns an ECDSA sig over prehashed-SHA256(root) + EC PEM."""
+    import hashlib
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+    rk = _rekor_signer()
+    root = bytes.fromhex("ab" * 32)
+    sig, pem = rk.sign_root_for_rekor(root)
+    assert b"BEGIN PUBLIC KEY" in pem
+    pub = serialization.load_pem_public_key(pem)
+    # The signature is over the SHA-256 digest, prehashed (Rekor's expectation).
+    digest = hashlib.sha256(root).digest()
+    pub.verify(sig, digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))  # raises if bad
+
+
+def test_ecdsa_rekor_signer_rejects_non_ec_key():
+    EcdsaRekorSigner = signer_mod.EcdsaRekorSigner
+    with pytest.raises(SignerError):
+        EcdsaRekorSigner.from_private_key("not a key")
+
+
+def test_ecdsa_rekor_signer_from_pem_roundtrip():
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    EcdsaRekorSigner = signer_mod.EcdsaRekorSigner
+    priv = ec.generate_private_key(ec.SECP256R1())
+    pem = priv.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    rk = EcdsaRekorSigner.from_pem(pem)
+    sig, pub_pem = rk.sign_root_for_rekor(b"\x01" * 32)
+    assert sig and b"BEGIN PUBLIC KEY" in pub_pem
+
+
+def test_ecdsa_rekor_signer_from_pem_bad():
+    EcdsaRekorSigner = signer_mod.EcdsaRekorSigner
+    with pytest.raises(SignerError):
+        EcdsaRekorSigner.from_pem(b"not a pem")
+
+
+def test_ecdsa_rekor_signer_sign_failure_wrapped(monkeypatch):
+    rk = _rekor_signer()
+    monkeypatch.setattr(type(rk._private_key), "sign",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("hsm down")))
+    with pytest.raises(SignerError):
+        rk.sign_root_for_rekor(b"\x00" * 32)
+
+
+def test_load_ecdsa_rekor_signer_from_secrets_manager():
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    load = signer_mod.load_ecdsa_rekor_signer_from_secrets_manager
+    priv = ec.generate_private_key(ec.SECP256R1())
+    pem = priv.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode("ascii")
+
+    class _SM:
+        def get_secret_value(self, SecretId):
+            return {"SecretString": pem}
+
+    rk = load(secret_id="x", client=_SM())
+    sig, _ = rk.sign_root_for_rekor(b"\x02" * 32)
+    assert sig
+
+
+def test_load_ecdsa_rekor_signer_missing_pem():
+    load = signer_mod.load_ecdsa_rekor_signer_from_secrets_manager
+
+    class _SM:
+        def get_secret_value(self, SecretId):
+            return {}
+
+    with pytest.raises(SignerError):
+        load(secret_id="x", client=_SM())
+
+
+def test_load_ecdsa_rekor_signer_fetch_error():
+    load = signer_mod.load_ecdsa_rekor_signer_from_secrets_manager
+
+    class _Boom:
+        def get_secret_value(self, SecretId):
+            raise RuntimeError("denied")
+
+    with pytest.raises(SignerError):
+        load(secret_id="x", client=_Boom())
+
+
+# ── Phase 4: tenant_id threading into the meter context ──────────────────────
+def test_meter_context_carries_per_record_tenant_id():
+    s, _ = _signer()
+    fired = []
+    recs = [
+        {**_record("r1"), "tenant_id": "acme"},
+        {**_record("r2"), "tenant_id": "globex"},
+    ]
+    anchor_records(
+        recs, signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="bt",
+        meter_observer=lambda h, ctx: fired.append(ctx), clock=lambda: FIXED_NOW,
+    )
+    tenants = [c.get("tenant_id") for c in fired]
+    assert tenants == ["acme", "globex"]  # each leaf billed to ITS record's tenant
+
+
+def test_meter_context_omits_tenant_when_absent():
+    s, _ = _signer()
+    fired = []
+    anchor_records(
+        [_record("r1")], signer=s, rekor_signer=_REKOR, anchor=_FakeAnchor(), batch_id="bt2",
+        meter_observer=lambda h, ctx: fired.append(ctx), clock=lambda: FIXED_NOW,
+    )
+    assert "tenant_id" not in fired[0]  # no tenant on record -> StudioMeter uses fallback

@@ -73,7 +73,7 @@ class _FakeAnchor:
     def __init__(self, fail=False):
         self.fail = fail
 
-    def anchor(self, root_bytes):
+    def anchor(self, root_bytes, signature=None, public_key=None):
         if self.fail:
             raise AnchorError("rekor down")
         return _FakeReceipt()
@@ -102,8 +102,20 @@ def signer():
     return RootSigner.from_private_key(KID, priv), pub_pem
 
 
+def _ecdsa_rekor_signer():
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    return signer_mod.EcdsaRekorSigner.from_private_key(
+        ec.generate_private_key(ec.SECP256R1())
+    )
+
+
 def _patch_deps(monkeypatch, signer, anchor, s3):
-    monkeypatch.setattr(handler_mod, "_build_dependencies", lambda: (signer, anchor, s3))
+    rekor_signer = _ecdsa_rekor_signer()
+    monkeypatch.setattr(
+        handler_mod, "_build_dependencies",
+        lambda: (signer, rekor_signer, anchor, s3),
+    )
     monkeypatch.setenv("ANCHOR_S3_BUCKET", "graqle-graphs-eu")
     monkeypatch.setenv("ANCHOR_S3_PREFIX", "proofs")
 
@@ -210,3 +222,29 @@ def test_handler_partial_s3_failure(monkeypatch, signer):
     failed = {f["itemIdentifier"] for f in resp["batchItemFailures"]}
     assert len(failed) == 1            # only the message whose S3 put failed
     assert len(s3_one_fail.objects) == 1  # the other bundle was written
+
+
+# ── Phase 4: _build_meter_observer env wiring ────────────────────────────────
+def test_build_meter_observer_noop_when_unconfigured(monkeypatch):
+    monkeypatch.delenv("ANCHOR_METER_USAGE_TABLE", raising=False)
+    obs = handler_mod._build_meter_observer()
+    # No-op observer: callable, fires harmlessly (no AWS), bills nothing.
+    obs("a" * 64, {"tenant_id": "x"})  # must not raise / touch AWS
+
+
+def test_build_meter_observer_builds_studio_meter_when_configured(monkeypatch):
+    monkeypatch.setenv("ANCHOR_METER_USAGE_TABLE", "usage-t")
+    monkeypatch.setenv("ANCHOR_METER_DEDUPE_TABLE", "dedupe-t")
+    monkeypatch.setenv("ANCHOR_METER_FREE_ALLOWANCE", "5")
+    # Built lazily; we only assert it constructs without touching AWS (clients are
+    # created lazily on first call, not at construction).
+    obs = handler_mod._build_meter_observer()
+    assert callable(obs)
+
+
+def test_build_meter_observer_bad_allowance_falls_back(monkeypatch):
+    monkeypatch.setenv("ANCHOR_METER_USAGE_TABLE", "usage-t")
+    monkeypatch.delenv("ANCHOR_METER_DEDUPE_TABLE", raising=False)
+    monkeypatch.setenv("ANCHOR_METER_FREE_ALLOWANCE", "not-an-int")
+    obs = handler_mod._build_meter_observer()  # must not raise
+    assert callable(obs)
