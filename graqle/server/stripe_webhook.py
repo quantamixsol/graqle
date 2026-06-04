@@ -111,8 +111,123 @@ def verify_stripe_signature(payload: bytes, signature: str, secret: str) -> bool
         return False
 
 
+# ── ed25519 issuance (ADR-215 §5 cutover) ──────────────────────────────────
+# The licence-issuing key is a DEDICATED ed25519 key (separate from the
+# proof-bundle / Rekor keys), held server-side in AWS Secrets Manager. The
+# Community wheel verifies with the PUBLIC key only and cannot forge (asymmetric);
+# this issuer is in graqle/server/* which is excluded from the public wheel.
+#
+# Env:
+#   GRAQLE_LICENSE_ISSUING_SECRET_ID — Secrets Manager id of the ed25519 seed
+#     (64-char hex SecretString, or 32 raw SecretBinary bytes).
+#   GRAQLE_LICENSE_ISSUING_KID — the signing kid (published to the trust source).
+#   AWS_REGION / GRAQLE_LICENSE_ISSUING_REGION — region (default eu-central-1).
+# The issuing key is fetched from Secrets Manager once and cached for the life of
+# a warm Lambda container, then reused. This is the standard AWS Lambda pattern
+# (the SDK's own anchor signer caches the same way): the private key has to be in
+# this process's memory to sign at all, so per-request re-fetch would add latency
+# + Secrets Manager API cost without reducing the in-memory exposure (the key is
+# in memory during every signing regardless). Rotation is handled by Secrets
+# Manager versioning + a new key picked up on the next cold start. The key never
+# leaves this process — never logged, never serialised, never in the response.
+_ISSUING_MANIFEST: Any = None  # cached across warm Lambda invocations
+_ISSUING_KID: str | None = None
+
+# A licence-issuing key is trusted across a wide window at sign time; the licence
+# carries its own issued_at/expires_at as the real lifecycle. We register the kid
+# ACTIVE over a wide window so signing never trips the manifest's own window
+# guard; revocation lives in the published trust source + the CRL.
+_WIDE_FROM = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_WIDE_UNTIL = datetime(9999, 12, 31, tzinfo=timezone.utc)
+
+
+class IssuanceError(Exception):
+    """Raised when a licence cannot be issued (config / key / signing failure)."""
+
+
+def _seed_bytes_from_secret(resp: dict[str, Any]) -> bytes:
+    """Extract a 32-byte ed25519 seed from a Secrets Manager response.
+
+    Accepts ``SecretBinary`` (raw 32 bytes) or ``SecretString`` (64-char hex).
+    """
+    binary = resp.get("SecretBinary")
+    if binary:
+        return bytes(binary)
+    text = resp.get("SecretString")
+    if isinstance(text, str) and text.strip():
+        try:
+            return bytes.fromhex(text.strip())
+        except ValueError as exc:
+            raise IssuanceError("SecretString must be a 64-char hex ed25519 seed") from exc
+    raise IssuanceError("issuing secret has neither SecretBinary nor SecretString")
+
+
+def _get_issuing_manifest() -> tuple[Any, str]:
+    """Build (and cache) the Ed25519KeyManifest holding the licence private key.
+
+    Returns ``(manifest, kid)``. Raises :class:`IssuanceError` if the issuing
+    env/secret is not configured (issuance fails loudly rather than silently
+    falling back to an unforgeable-but-wrong key).
+    """
+    global _ISSUING_MANIFEST, _ISSUING_KID
+    if _ISSUING_MANIFEST is not None and _ISSUING_KID is not None:
+        return _ISSUING_MANIFEST, _ISSUING_KID
+
+    secret_id = os.environ.get("GRAQLE_LICENSE_ISSUING_SECRET_ID")
+    kid = os.environ.get("GRAQLE_LICENSE_ISSUING_KID")
+    if not secret_id or not kid:
+        raise IssuanceError(
+            "ed25519 licence issuance requires GRAQLE_LICENSE_ISSUING_SECRET_ID "
+            "and GRAQLE_LICENSE_ISSUING_KID"
+        )
+    region = (
+        os.environ.get("GRAQLE_LICENSE_ISSUING_REGION")
+        or os.environ.get("AWS_REGION")
+        or "eu-central-1"
+    )
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from graqle.governance.custody.ed25519_key_manifest import Ed25519KeyManifest
+
+    import boto3
+
+    client = boto3.client("secretsmanager", region_name=region)
+    try:
+        resp = client.get_secret_value(SecretId=secret_id)
+    except Exception as exc:
+        # Log the detail server-side (CloudWatch) but raise a GENERIC message —
+        # the underlying boto3 error can embed the secret ARN / AWS internals,
+        # which must not leak into a caller-visible exception (A09).
+        logger.error("licence issuing key fetch failed: %s", exc)
+        raise IssuanceError("could not fetch the licence issuing key") from None
+    seed = _seed_bytes_from_secret(resp)
+    if len(seed) != 32:
+        raise IssuanceError("licence issuing seed must be 32 ed25519 bytes")
+    try:
+        priv = Ed25519PrivateKey.from_private_bytes(seed)
+    except Exception as exc:
+        raise IssuanceError(f"invalid ed25519 issuing seed: {exc}") from exc
+
+    manifest = Ed25519KeyManifest()
+    manifest.register(
+        kid=kid,
+        public_key=priv.public_key(),
+        valid_from=_WIDE_FROM,
+        valid_until=_WIDE_UNTIL,
+        private_key=priv,
+    )
+    _ISSUING_MANIFEST, _ISSUING_KID = manifest, kid
+    return manifest, kid
+
+
 def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
-    """Generate a GraQle license key from a Stripe checkout session.
+    """Generate a GraQle ed25519 (v2) license key from a Stripe checkout session.
+
+    Cutover (ADR-215 §5): issues an ed25519-signed v2 licence (forgery-resistant —
+    the public wheel verifies with the public key and cannot mint) instead of the
+    legacy HMAC v1. Existing v1 customers keep working via the manager's dual-verify
+    until their licence renews as v2.
 
     Parameters
     ----------
@@ -122,9 +237,11 @@ def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
     Returns
     -------
     dict
-        Contains: license_key, tier, email, holder, expires_at
+        Contains: license_key, license_id, tier, email, holder, expires_at, ...
     """
-    from graqle.licensing.manager import LicenseManager
+    import secrets
+
+    from graqle.licensing.ed25519_license import issue_ed25519_license
 
     # Extract customer info
     email = session.get("customer_email") or session.get("customer_details", {}).get("email", "")
@@ -137,31 +254,47 @@ def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
 
     # Duration
     duration_days = TIER_DURATION_DAYS.get(tier, 365)
-    expires_at = (
-        datetime.now(timezone.utc) + timedelta(days=duration_days)
-    ).isoformat()
+    now = datetime.now(timezone.utc)
+    issued_at = now.isoformat()
+    expires_at = (now + timedelta(days=duration_days)).isoformat()
 
-    # Generate the signed license key
-    license_key = LicenseManager.generate_key(
+    # license_id is derived from the Stripe session so it is stable + idempotent
+    # on webhook retries (a retry re-issues the SAME license_id, not a second
+    # licence) and traceable to the purchase; the CRL revokes against it.
+    session_id = session.get("id", "")
+    license_id = f"lic_{session_id}" if session_id else f"lic_{secrets.token_hex(12)}"
+    nonce = secrets.token_hex(16)  # fresh per issue — replay protection
+
+    manifest, kid = _get_issuing_manifest()
+    license_key = issue_ed25519_license(
+        manifest,
+        kid,
+        license_id=license_id,
         tier=tier,
         holder=name or email,
         email=email,
+        issued_at=issued_at,
+        nonce=nonce,
         expires_at=expires_at,
+        features=[],  # parity with v1: tier drives entitlement (cutover v1)
+        at=now,
     )
 
     result = {
         "license_key": license_key,
+        "license_id": license_id,
         "tier": tier,
         "email": email,
         "holder": name or email,
         "expires_at": expires_at,
-        "stripe_session_id": session.get("id", ""),
+        "stripe_session_id": session_id,
         "stripe_customer_id": session.get("customer", ""),
+        "license_format": "graqle-license-v2",
     }
 
     logger.info(
-        f"License generated: tier={tier}, email={email}, "
-        f"expires={expires_at}, session={session.get('id', '')}"
+        "ed25519 licence issued: license_id=%s tier=%s email=%s expires=%s session=%s kid=%s",
+        license_id, tier, email, expires_at, session_id, kid,
     )
 
     return result

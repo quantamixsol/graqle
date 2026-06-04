@@ -14,6 +14,37 @@ import hmac
 import json
 import time
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _issuing_key(monkeypatch):
+    """Inject a fresh in-memory ed25519 licence-issuing key for every test.
+
+    The cutover (ADR-215 §5) issues ed25519 v2 licences signed with a Secrets-
+    Manager key; tests substitute a generated key by patching _get_issuing_manifest
+    so no AWS is touched. The one test that asserts "issuance fails without a key"
+    overrides this by clearing the module globals + env itself.
+    """
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from graqle.governance.custody.ed25519_key_manifest import Ed25519KeyManifest
+    import graqle.server.stripe_webhook as sw
+
+    priv = Ed25519PrivateKey.generate()
+    kid = "graqle-license-test"
+    manifest = Ed25519KeyManifest()
+    manifest.register(
+        kid=kid,
+        public_key=priv.public_key(),
+        valid_from=sw._WIDE_FROM,
+        valid_until=sw._WIDE_UNTIL,
+        private_key=priv,
+    )
+    monkeypatch.setattr(sw, "_get_issuing_manifest", lambda: (manifest, kid))
+    # Expose for tests that want to verify the issued token.
+    return manifest, kid
+
 
 class TestStripeSignatureVerification:
     """Tests for Stripe webhook signature verification."""
@@ -67,12 +98,10 @@ class TestStripeSignatureVerification:
 class TestLicenseGeneration:
     """Tests for license key generation from Stripe checkout."""
 
-    def test_generate_from_checkout_session(self, monkeypatch) -> None:
-        # WS-D: v1 HMAC verify now requires a real secret (the public dev fallback
-        # is refused). The Stripe issuer signs with the production secret, so this
-        # generate→verify round-trip runs with a real (test) secret configured.
-        monkeypatch.setenv("GRAQLE_LICENSE_KEY_SECRET", "test-stripe-secret")
+    def test_generate_from_checkout_issues_ed25519_v2(self, _issuing_key) -> None:
+        manifest, kid = _issuing_key
         from graqle.server.stripe_webhook import generate_license_from_checkout
+        from graqle.licensing.ed25519_license import verify_ed25519_license
 
         session = {
             "id": "cs_test_123",
@@ -88,21 +117,33 @@ class TestLicenseGeneration:
         assert result["tier"] == "team"
         assert result["email"] == "buyer@company.com"
         assert result["holder"] == "Jane Buyer"
-        assert result["license_key"]  # Non-empty
-        assert "." in result["license_key"]  # payload.signature format
+        assert result["license_format"] == "graqle-license-v2"
+        # license_id is derived from the Stripe session (stable + idempotent).
+        assert result["license_id"] == "lic_cs_test_123"
+        # v2 token shape: payload.kid.sig (3 dot-parts).
+        assert result["license_key"].count(".") == 2
 
-        # Verify the generated key is valid
-        from graqle.licensing.manager import LicenseManager
-        manager = LicenseManager.__new__(LicenseManager)
-        manager._license = None
-        license_obj = manager._verify_key(result["license_key"])
+        # The issued token verifies against the SAME issuing key (the public half).
+        payload = verify_ed25519_license(result["license_key"], manifest)
+        assert payload is not None
+        assert payload["tier"] == "team"
+        assert payload["email"] == "buyer@company.com"
+        assert payload["license_id"] == "lic_cs_test_123"
+        assert payload["format"] == "graqle-license-v2"
+        assert payload["nonce"]  # a fresh replay nonce is present
 
-        assert license_obj is not None
-        assert license_obj.tier.value == "team"
-        assert license_obj.email == "buyer@company.com"
-        assert license_obj.is_valid is True
+    def test_issuance_idempotent_license_id_on_retry(self) -> None:
+        """A Stripe webhook retry re-issues the SAME license_id (derived from session)."""
+        from graqle.server.stripe_webhook import generate_license_from_checkout
 
-    def test_enterprise_tier_mapping(self) -> None:
+        session = {"id": "cs_retry_1", "customer_email": "a@b.com",
+                   "customer_details": {"name": "A"}, "metadata": {"graqle_tier": "pro"},
+                   "payment_status": "paid"}
+        r1 = generate_license_from_checkout(session)
+        r2 = generate_license_from_checkout(session)
+        assert r1["license_id"] == r2["license_id"] == "lic_cs_retry_1"
+
+    def test_enterprise_tier_mapping(self, monkeypatch) -> None:
         from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {
@@ -117,7 +158,7 @@ class TestLicenseGeneration:
         result = generate_license_from_checkout(session)
         assert result["tier"] == "enterprise"
 
-    def test_default_tier_is_team(self) -> None:
+    def test_default_tier_is_team(self, monkeypatch) -> None:
         from graqle.server.stripe_webhook import generate_license_from_checkout
 
         session = {
@@ -131,6 +172,22 @@ class TestLicenseGeneration:
 
         result = generate_license_from_checkout(session)
         assert result["tier"] == "team"
+
+    def test_issuance_requires_configured_key(self, monkeypatch) -> None:
+        """Issuance fails loudly (no silent fallback) when the issuing key is unset."""
+        import importlib
+
+        import graqle.server.stripe_webhook as sw
+
+        # Reload the module so the autouse fixture's patch of _get_issuing_manifest
+        # is gone — we want the REAL builder, which must fail without config.
+        sw = importlib.reload(sw)
+        monkeypatch.setattr(sw, "_ISSUING_MANIFEST", None)
+        monkeypatch.setattr(sw, "_ISSUING_KID", None)
+        monkeypatch.delenv("GRAQLE_LICENSE_ISSUING_SECRET_ID", raising=False)
+        monkeypatch.delenv("GRAQLE_LICENSE_ISSUING_KID", raising=False)
+        with pytest.raises(sw.IssuanceError):
+            sw.generate_license_from_checkout({"id": "cs_x", "metadata": {}, "payment_status": "paid"})
 
 
 class TestWebhookEventHandler:
