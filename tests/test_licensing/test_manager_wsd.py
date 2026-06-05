@@ -217,7 +217,32 @@ def test_trusted_manifest_malformed_disables(monkeypatch):
     assert M._get_trusted_license_manifest() is None
 
 
-def test_trusted_manifest_none_when_unset(monkeypatch):
+def test_trusted_manifest_uses_vendored_file_when_env_unset(monkeypatch):
+    """With no env, the loader now falls back to the VENDORED trusted_keys.json
+    (shipped since the ed25519 cutover, ADR-215 §5). It trusts the cutover kid."""
+    monkeypatch.delenv("GRAQLE_LICENSE_PUBLIC_KEYS", raising=False)
+    M._trusted_manifest_loaded = False
+    manifest = M._get_trusted_license_manifest()
+    assert manifest is not None
+    assert "graqle-license-2026-Q2" in manifest.kids()
+
+
+def test_trusted_manifest_none_when_env_and_vendored_both_absent(monkeypatch):
+    """When neither the env nor a vendored file exists, the manifest is None
+    (a Community user with no v2 trust source is unaffected — falls back to HMAC).
+    Simulate the absent vendored file by making its read raise (no file)."""
+    monkeypatch.delenv("GRAQLE_LICENSE_PUBLIC_KEYS", raising=False)
+    import pathlib
+
+    real_read = pathlib.Path.read_text
+    real_exists = pathlib.Path.exists
+
+    def _exists(self):
+        if self.name == "trusted_keys.json":
+            return False
+        return real_exists(self)
+
+    monkeypatch.setattr(pathlib.Path, "exists", _exists)
     M._trusted_manifest_loaded = False
     assert M._get_trusted_license_manifest() is None
 
