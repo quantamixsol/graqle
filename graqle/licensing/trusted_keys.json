@@ -1,0 +1,9 @@
+[
+  {
+    "kid": "graqle-license-2026-Q2",
+    "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEANNtYPREngyslJNMafV+5MYBR31zj3DSAwl2bi63kcY8=\n-----END PUBLIC KEY-----\n",
+    "valid_from": "2026-06-05T00:00:00+00:00",
+    "valid_until": "2031-06-05T00:00:00+00:00",
+    "state": "active"
+  }
+]
