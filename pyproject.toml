@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.69.0"
+version = "0.70.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -165,6 +165,10 @@ exclude = ["graqle/benchmarks/data/*", "paper/*", "patent/*"]
 artifacts = [
     "graqle/integrations/bridges/*.md",
     "graqle/docs/*.md",  # T09 (v0.51.6): ship MCP tool inventory in wheel
+    # ed25519 cutover (ADR-215 §5): the Community trust source — PUBLIC licence
+    # signing keys so offline installs can verify v2 licences. Public-key-only
+    # (the private signer is server-side; keygen.py is excluded below).
+    "graqle/licensing/trusted_keys.json",
 ]
 
 [tool.hatch.build.targets.wheel]
