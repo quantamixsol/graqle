@@ -149,14 +149,34 @@ def _make_full_activator(graph: Any) -> FullActivator:  # noqa: ARG001
 
 
 def _make_cypher_activation(graph: Any) -> Any:
-    """(neo4j, semantic) -> CypherActivation."""
+    """(neo4j, semantic) -> CypherActivation.
+
+    The embedding engine MUST come from create_embedding_engine(cfg) — NOT a
+    bare EmbeddingEngine() — so the query embeds in the SAME space as the Neo4j
+    vector index. A hardcoded EmbeddingEngine() produced 384-dim MiniLM vectors
+    (and in fact failed to construct when embeddings.model was a Titan id),
+    which cannot query the 1024-dim Titan vector index: vector_search then
+    raised and CypherActivation silently fell back to the full graph. Mirrors
+    _make_chunk_scorer so both semantic paths share one embedding space.
+    """
     from graqle.activation.cypher_activation import CypherActivation
-    from graqle.activation.embeddings import EmbeddingEngine
+    from graqle.activation.embeddings import create_embedding_engine
+
+    cfg = graph.config
+    try:
+        emb_engine = create_embedding_engine(cfg)
+    except Exception as exc:
+        logger.warning(
+            "CypherActivation: embedding engine init failed (%s); proceeding "
+            "with default engine",
+            type(exc).__name__,
+        )
+        emb_engine = None
 
     return CypherActivation(
         connector=graph._neo4j_connector,
-        embedding_engine=EmbeddingEngine(),
-        max_nodes=graph.config.activation.max_nodes,
+        embedding_engine=emb_engine,
+        max_nodes=cfg.activation.max_nodes,
     )
 
 
