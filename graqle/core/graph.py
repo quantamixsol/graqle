@@ -2419,47 +2419,70 @@ class Graqle:
 
         query_lower = query.lower()
 
-        # Build a lookup: bare_name → node_id, full_label → node_id
-        # Only for nodes whose label looks like a filename (contains '.')
-        label_to_id: dict[str, str] = {}
-        bare_to_id: dict[str, str] = {}
+        # Build a lookup: filename-with-extension → {node_ids sharing that file}.
+        #
+        # CRITICAL: match on the FILENAME extracted from the node ID PATH, NOT
+        # node.label. In this graph labels are symbol names ("get_proof") or
+        # description text — never filenames — so the old label-based matching
+        # (a) never matched a real file and (b) false-fired on incidental query
+        # words that happened to be bare tokens ("gate" in "require_role gate
+        # access", "api" inside "read_api", "dashboard" inside a path), shadowing
+        # the semantic CypherActivation path. Node IDs ARE the path, e.g.
+        # "studio_backend/dashboard/read_api.py::get_proof" -> "read_api.py".
+        # We only seed when the full filename token (with its real extension)
+        # appears in the query at a word boundary — GRAQLE option (d).
+        fname_to_ids: dict[str, set[str]] = {}
+        fname_to_paths: dict[str, set[str]] = {}
+        for nid in self.nodes:
+            # Strip a trailing "::symbol" so foo.py::bar -> foo.py. split() with
+            # no "::" returns the whole id unchanged, so this is always safe.
+            path = nid.split("::", 1)[0].replace("\\", "/").lower()
+            base = path.rsplit("/", 1)[-1]
+            # Require a real-looking extension (".py", ".ts", ".tsx", ...).
+            # base is already lowercased, so uppercase extensions are covered.
+            if len(base) >= 3 and _re.search(r"\.[a-z0-9]{1,8}$", base):
+                fname_to_ids.setdefault(base, set()).add(nid)
+                fname_to_paths.setdefault(base, set()).add(path)
 
-        for nid, node in self.nodes.items():
-            label = (node.label or "").strip()
-            if not label or len(label) < 3:
-                continue
-
-            label_lower = label.lower()
-            # Normalize paths to basename
-            if "/" in label_lower or "\\" in label_lower:
-                label_lower = label_lower.replace("\\", "/").rsplit("/", 1)[-1]
-
-            if "." in label_lower:
-                # It looks like a filename
-                label_to_id[label_lower] = nid
-                bare = label_lower.rsplit(".", 1)[0]
-                if len(bare) >= 3:
-                    bare_to_id[bare] = nid
-
-        if not label_to_id and not bare_to_id:
+        if not fname_to_ids:
             return None
 
+        # A precise file reference (e.g. "read_api.py") maps to only a handful of
+        # symbol nodes. A common basename ("__init__.py") maps to hundreds across
+        # packages — seeding all of them floods activation and shadows semantics.
+        # For such ambiguous filenames, require the query to ALSO name a full path
+        # so we can scope to the intended package; otherwise skip the filename
+        # and let the semantic CypherActivation path handle it.
+        _COMMON_BASENAME_MAX = 12
+
         matched_nodes: set[str] = set()
+        for fname, nids in fname_to_ids.items():
+            if fname not in query_lower:
+                continue
+            # Word-boundary guard so "api.py" does not match inside
+            # "read_api.py" and a real filename is not a substring of a word.
+            pattern = (
+                rf"(?:^|[\s\-/\\,;:\"'()])"
+                rf"{_re.escape(fname)}"
+                rf"(?:[\s\-/\\,;:\"'()]|$)"
+            )
+            if not _re.search(pattern, query_lower):
+                continue
 
-        # Check full filename matches (e.g., "auth.ts" in query)
-        for fname, nid in label_to_id.items():
-            if fname in query_lower:
-                matched_nodes.add(nid)
-
-        # Check bare name matches with word boundary (e.g., "auth" in query)
-        for bare, nid in bare_to_id.items():
-            if nid in matched_nodes:
-                continue  # Already matched by full name
-            if bare in query_lower:
-                # Word boundary check to avoid substring false matches
-                pattern = rf"(?:^|[\s\-_/\\.,;:\"'()]){_re.escape(bare)}(?:[\s\-_/\\.,;:\"'()]|$)"
-                if _re.search(pattern, query_lower):
-                    matched_nodes.add(nid)
+            if len(nids) > _COMMON_BASENAME_MAX:
+                # Ambiguous common basename — only accept nodes whose full path
+                # the query explicitly names (directory-scoped disambiguation).
+                scoped_paths = {
+                    p for p in fname_to_paths[fname] if p in query_lower
+                }
+                if not scoped_paths:
+                    continue  # no path context → defer to semantic activation
+                matched_nodes.update(
+                    n for n in nids
+                    if n.split("::", 1)[0].replace("\\", "/").lower() in scoped_paths
+                )
+            else:
+                matched_nodes.update(nids)
 
         if not matched_nodes:
             return None
