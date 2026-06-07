@@ -4,6 +4,32 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.72.1 (2026-06-08) — [Authentic, model-aware "Cost Saved" metric]
+
+> The dashboard's **Cost Saved** figure is now a defensible number: real tokens
+> valued at the **real per-model price**, from a single dated source of truth —
+> not a hardcoded, model-agnostic flat rate.
+
+**Added**
+
+- **`graqle/pricing.py`** — the single source of truth for token pricing.
+  A dated per-model `$/1M` table (`PRICING_AS_OF`; Opus 4.x $5/$25, Sonnet
+  $3/$15, Haiku $1/$5), `cost_saved(tokens, model)` valued at the model's
+  **input** rate, a fail-safe `DEFAULT_MODEL` (Sonnet) for unknown ids, and
+  `pricing_basis()` so the UI can render the figure honestly (model + as-of date).
+
+**Changed**
+
+- **Eliminated three conflicting hardcoded cost rates** ($3/1M dashboard partial,
+  $15/1M `metrics.html`, $0.015/1K engine+dashboard). All now read
+  `pricing.cost_saved` via `MetricsEngine.get_summary()['cost_saved_usd']`.
+- **Cost is now model-aware.** `MetricsEngine.set_cost_model()` records the model
+  behind a saving (wired from reasoning), so the figure reflects the model the
+  user actually ran. At 88.2M tokens saved: $264.60 (Sonnet) / $441.00 (Opus 4.8)
+  / $88.20 (Haiku).
+
+---
+
 ## 0.72.0 (2026-06-07) — [Constitution for every client: OpenAI Codex (AGENTS.md)]
 
 > The governance constitution now renders into **every supported AI client**,
