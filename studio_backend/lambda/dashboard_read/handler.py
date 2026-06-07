@@ -78,6 +78,113 @@ _DEFAULT_ROLE_CLAIM = "custom:role"
 # scan (the read-API also bounds its own page count).
 _MAX_LIST_LIMIT = 200
 
+# ── Cognito ID-token verification (the real security boundary on a public URL) ──
+# On a bare Lambda Function URL there is NO API-Gateway authorizer, so
+# ``requestContext.authorizer.claims`` is attacker-controlled. We therefore verify
+# the caller's Cognito ID token ourselves (RS256, against the pool's JWKS) and
+# derive the tenant from the *verified* email claim. tenant_id = sha256(lowercase
+# email) is the product-wide tenant convention (matches graqle._email_hash and the
+# Studio S3 layout). See ADR-PHASE5-001.
+#
+# NOTE: a Cognito user-pool id is NOT a secret — it is public metadata (it appears
+# in every token's `iss` and in the JWKS URL the client fetches). It is provided as
+# an env-overridable default so non-prod stacks can point at a different pool.
+_COGNITO_REGION = os.environ.get("COGNITO_REGION") or _DEFAULT_REGION
+_COGNITO_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID") or "eu-central-1_RwEo6O1ow"
+_COGNITO_ISS = (
+    f"https://cognito-idp.{_COGNITO_REGION}.amazonaws.com/{_COGNITO_POOL_ID}"
+)
+_COGNITO_JWKS_URL = f"{_COGNITO_ISS}/.well-known/jwks.json"
+
+# Module-level cached JWKS client (PyJWKClient caches keys across invocations, so a
+# warm Lambda reuses them — no JWKS fetch per request). Built lazily on first use.
+_jwks_client: Any = None
+
+
+def _get_jwks_client() -> Any:
+    global _jwks_client
+    if _jwks_client is None:
+        from jwt import PyJWKClient
+
+        _jwks_client = PyJWKClient(_COGNITO_JWKS_URL)
+    return _jwks_client
+
+
+def _bearer_token(event: dict[str, Any]) -> str | None:
+    """Extract the Bearer token from the Authorization header.
+
+    Header field names are case-insensitive per RFC 7230, and different Lambda
+    triggers deliver different casings (``Authorization`` vs ``authorization``),
+    so we match case-insensitively by design.
+    """
+    if not isinstance(event, dict):
+        return None
+    headers = event.get("headers")
+    if not isinstance(headers, dict):
+        return None
+    auth = None
+    for k, v in headers.items():
+        if isinstance(k, str) and k.lower() == "authorization":
+            auth = v
+            break
+    if not isinstance(auth, str):
+        return None
+    parts = auth.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
+        return parts[1].strip()
+    return None
+
+
+def _verify_bearer(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Cryptographically verify a Cognito ID token; return its claims or None.
+
+    Never raises and ALWAYS fails CLOSED: every failure path returns None, which
+    the caller maps to 401 (denied) — a masked error can only deny access, never
+    grant it. This is the trust root when the Lambda is on a public Function URL.
+    """
+    token = _bearer_token(event)
+    if not token:
+        return None
+
+    import jwt  # PyJWT
+    from jwt import PyJWKClientError
+
+    try:
+        signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=_COGNITO_ISS,
+            # Cognito ID tokens carry `aud` = the app client id; we do not pin a
+            # single client here (multiple Studio clients exist), so we verify
+            # everything else and check token_use explicitly below.
+            options={"verify_aud": False, "require": ["exp", "iss"]},
+        )
+    except jwt.InvalidTokenError as exc:
+        # Normal reject: bad signature, expired, wrong issuer, malformed, missing
+        # required claim. Fail closed.
+        logger.info("dashboard read: bearer token rejected (%s)", type(exc).__name__)
+        return None
+    except PyJWKClientError as exc:
+        # Could not obtain the signing key (unknown kid / JWKS unreachable). We
+        # cannot assert validity, so fail closed — never open.
+        logger.warning(
+            "dashboard read: could not resolve signing key (%s)", type(exc).__name__
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001 - unexpected: still fail closed, but loudly
+        logger.error(
+            "dashboard read: unexpected token-verification error (%s)",
+            type(exc).__name__,
+        )
+        return None
+
+    if claims.get("token_use") != "id":
+        logger.info("dashboard read: bearer token is not an ID token")
+        return None
+    return claims
+
 
 class AuthError(Exception):
     """No authenticated tenant could be resolved from the request (→ 401)."""
@@ -86,6 +193,21 @@ class AuthError(Exception):
 def _env(name: str, default: str | None = None) -> str | None:
     val = os.environ.get(name)
     return val if val not in (None, "") else default
+
+
+def _trust_authorizer() -> bool:
+    """Whether to trust ``requestContext.authorizer.claims`` for identity.
+
+    MUST be False (the default) for a public Function URL: there the caller
+    controls the whole event, so authorizer claims are forgeable. Set
+    ``DASHBOARD_TRUST_AUTHORIZER=true`` ONLY when a real API-Gateway / Cognito
+    authorizer fronts the Lambda and overwrites client-supplied claims.
+    """
+    return (_env("DASHBOARD_TRUST_AUTHORIZER", "false") or "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 def _claims(event: dict[str, Any]) -> dict[str, Any]:
@@ -119,6 +241,37 @@ def _identity(event: dict[str, Any]) -> tuple[str, str]:
     tenant). A missing role claim defaults to the least-privileged ``viewer``
     (it can still only ever read its OWN tenant's data, never escalate).
     """
+    # Preferred path: a cryptographically VERIFIED Cognito ID token. On a public
+    # Function URL this is the only trustworthy identity — derive the tenant from
+    # the verified email claim (tenant_id = sha256(lower(email)), the product-wide
+    # convention), never from an unverified authorizer-claims blob.
+    verified = _verify_bearer(event)
+    if verified is not None:
+        email = verified.get("email")
+        if isinstance(email, str) and email.strip():
+            import hashlib
+
+            tenant_id = hashlib.sha256(email.strip().lower().encode()).hexdigest()
+            role = verified.get(_env("DASHBOARD_ROLE_CLAIM", _DEFAULT_ROLE_CLAIM))
+            if not isinstance(role, str) or not role.strip():
+                role = "viewer"  # least privilege; RBAC + tenant scoping still apply
+            return tenant_id, role.strip()
+        # A verified token with no usable email is still unauthenticated.
+        raise AuthError("verified token has no email claim")
+
+    # Fallback: API-Gateway / Cognito AUTHORIZER claims.
+    #
+    # SECURITY: ``requestContext.authorizer.claims`` is only trustworthy when a
+    # REAL authorizer fronts the Lambda (it overwrites/strips client-supplied
+    # values). On a bare public Function URL the caller controls the ENTIRE event,
+    # including requestContext — so trusting these claims there is a full
+    # cross-tenant bypass (an attacker just sends forged claims and no bearer
+    # token). We therefore gate this path behind an explicit opt-in flag that the
+    # OPERATOR sets ONLY for the behind-an-authorizer deployment shape. It is OFF
+    # by default, so a public Function URL is JWT-only and fails closed.
+    if not _trust_authorizer():
+        raise AuthError("no verified bearer token")
+
     claims = _claims(event)
     tenant_claim = _env("DASHBOARD_TENANT_CLAIM", _DEFAULT_TENANT_CLAIM)
     role_claim = _env("DASHBOARD_ROLE_CLAIM", _DEFAULT_ROLE_CLAIM)
