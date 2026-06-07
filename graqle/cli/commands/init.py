@@ -1209,6 +1209,7 @@ def _build_graqle_yaml(
 SUPPORTED_IDES = {
     "auto": "Auto-detect from project files",
     "claude": "Claude Code (.mcp.json + CLAUDE.md)",
+    "codex": "OpenAI Codex (.mcp.json + AGENTS.md)",
     "cursor": "Cursor (.cursor/mcp.json + .cursorrules)",
     "vscode": "VS Code (.vscode/mcp.json + .github/copilot-instructions.md)",
     "windsurf": "Windsurf (.mcp.json + .windsurfrules)",
@@ -1224,6 +1225,11 @@ def _detect_ide(root: Path) -> str:
         return "vscode"
     if (root / ".windsurfrules").exists():
         return "windsurf"
+    # Codex reads AGENTS.md as its instruction file. Detect it before the
+    # generic CLAUDE.md/.mcp.json fallback so an AGENTS.md project renders the
+    # constitution into the right file.
+    if (root / "AGENTS.md").exists():
+        return "codex"
     if (root / "CLAUDE.md").exists() or (root / ".mcp.json").exists():
         return "claude"
     # Default to claude for backward compat, but show as generic-compatible
@@ -1330,6 +1336,9 @@ def _get_instructions_path(root: Path, ide: str) -> Path:
         return root / ".github" / "copilot-instructions.md"
     elif ide == "windsurf":
         return root / ".windsurfrules"
+    elif ide == "codex":
+        # OpenAI Codex reads AGENTS.md as its project instruction file.
+        return root / "AGENTS.md"
     else:
         # claude or generic
         return root / "CLAUDE.md"
