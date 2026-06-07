@@ -252,17 +252,42 @@ class CloudGateway:
         email: str,
         project: str,
         scorecard_data: str | None = None,
+        team_id: str | None = None,
     ) -> dict[str, Any]:
         """Upload a full graph to S3 cloud storage.
 
         This is the real cloud upload — not a stub.
+
+        Track B (B2.1): when ``team_id`` is provided, the graph is written to the
+        TEAM prefix ``graphs/team-{team_id}/{project}`` so every team member's
+        read resolves to it (the shared-graph monetization path). When ``team_id``
+        is None (the default) the behaviour is BYTE-IDENTICAL to before: the
+        per-user prefix ``graphs/{sha256(email)}/{project}``. The caller is
+        responsible for authorising the team write (``share_graph_to_team`` does
+        the RBAC check via :class:`~graqle.cloud.team_registry.TeamRegistry`);
+        ``team_id`` here is a validated slug, never a raw client value.
         """
         if not self.is_connected:
             return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
 
         import hashlib
-        email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
-        s3_prefix = f"graphs/{email_hash}/{project}"
+
+        from graqle.cloud.team_registry import _PROJECT_NAME_RE, _TEAM_ID_RE
+
+        # Sentinel SF-TRACKB-1: validate ``project`` HERE (gateway boundary), not
+        # only at the HTTP layer — a path-traversal value like '../../other-tenant'
+        # would otherwise escape the per-tenant S3 prefix (OWASP A01). This is the
+        # single chokepoint both the HTTP endpoint and the CLI funnel through.
+        if not isinstance(project, str) or not _PROJECT_NAME_RE.match(project):
+            return {"error": f"invalid project: {project!r}", "status": "failed"}
+
+        if team_id is not None:
+            if not _TEAM_ID_RE.match(team_id):
+                return {"error": f"invalid team_id: {team_id!r}", "status": "failed"}
+            s3_prefix = f"graphs/{team_id}/{project}"
+        else:
+            email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+            s3_prefix = f"graphs/{email_hash}/{project}"
 
         try:
             import boto3
@@ -289,6 +314,64 @@ class CloudGateway:
         except Exception as e:
             logger.error("Cloud upload failed: %s", e)
             return {"error": str(e), "status": "failed"}
+
+    def share_graph_to_team(
+        self,
+        graph_data: str,
+        member_hash: str,
+        team_id: str,
+        project: str,
+        registry: Any = None,
+        scorecard_data: str | None = None,
+    ) -> dict[str, Any]:
+        """Explicit "Share to team" — publish the caller's graph as the TEAM graph.
+
+        Track B (B2.3, monetization moment). The authorisation is the whole point:
+
+        * ``member_hash`` is the caller's VERIFIED identity (sha256(lower(email))
+          from :func:`graqle.studio.auth.verified_email_from_request`), NEVER a raw
+          header value.
+        * The caller MUST have ``can_teach`` on ``team_id`` (owner/admin/member);
+          a ``viewer`` or non-member is rejected with a FORBIDDEN result — the
+          RBAC check runs against the registry row keyed by the verified hash, so a
+          forged role cannot escalate (same trust model as A1b).
+        * Only after the check passes does the graph land at
+          ``graphs/team-{team_id}/{project}`` (via :meth:`upload_graph`), where every
+          member's read resolves to it.
+
+        Returns ``{"status": "shared", ...}`` on success, or a ``FORBIDDEN`` /
+        error dict. Fails CLOSED: any registry/authorisation failure denies.
+        """
+        if not self.is_connected:
+            return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
+
+        from graqle.cloud.team_registry import (
+            ForbiddenError,
+            TeamRegistry,
+            TeamRegistryError,
+        )
+
+        reg = registry if registry is not None else TeamRegistry()
+        try:
+            reg.assert_can_write(member_hash, team_id)
+        except ForbiddenError as exc:
+            logger.info("share_graph_to_team denied for %s…: %s", member_hash[:8], exc)
+            return {"status": "forbidden", "code": "FORBIDDEN", "error": str(exc)}
+        except TeamRegistryError as exc:
+            logger.warning("share_graph_to_team registry error: %s", exc)
+            return {"status": "failed", "error": str(exc)}
+
+        result = self.upload_graph(
+            graph_data=graph_data,
+            email="",  # unused on the team path
+            project=project,
+            scorecard_data=scorecard_data,
+            team_id=team_id,
+        )
+        if result.get("status") == "uploaded":
+            result["status"] = "shared"
+            result["team_id"] = team_id
+        return result
 
     def push_delta(self, delta: dict[str, Any], team_id: str) -> dict[str, Any]:
         """Push a delta to the cloud graph.
@@ -328,19 +411,37 @@ class CloudGateway:
             "phase": "foundation",
         }
 
-    def register_team(self, team_name: str, owner_email: str) -> dict[str, Any]:
-        """Register a new team with the cloud gateway.
+    def register_team(
+        self,
+        team_name: str,
+        owner_email: str,
+        registry: Any = None,
+    ) -> dict[str, Any]:
+        """Register a new team in the cloud registry (Track B, B1.2).
 
-        Phase 1: Returns local config. Phase 2+: actual registration.
+        Creates the team in the DynamoDB :class:`~graqle.cloud.team_registry.
+        TeamRegistry` with ``owner_email`` (the caller's VERIFIED identity) as the
+        ``owner`` member. Returns the real ``team_id``. ``registry`` is injectable
+        for tests. On a registry error the team is NOT created — we surface the
+        failure rather than silently pretending success.
         """
         if not self.is_connected:
             return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
 
+        from graqle.cloud.team_registry import TeamRegistry, TeamRegistryError
+
+        reg = registry if registry is not None else TeamRegistry()
+        try:
+            rec = reg.register_team(team_name, owner_email)
+        except TeamRegistryError as exc:
+            return {"status": "failed", "error": str(exc)}
+
         return {
-            "status": "registered_locally",
-            "team_id": f"team-{team_name.lower().replace(' ', '-')}",
-            "message": "Team registered locally (cloud registration available in next release)",
-            "phase": "foundation",
+            "status": "registered",
+            "team_id": rec.team_id,
+            "team_name": rec.team_name,
+            "owner_hash": rec.owner_hash,
+            "message": f"Team '{rec.team_name}' registered as {rec.team_id}",
         }
 
     def get_observability(self, team_id: str) -> dict[str, Any]:
