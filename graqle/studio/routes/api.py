@@ -1043,6 +1043,115 @@ async def cloud_disconnect():
     return {"success": True}
 
 
+# ---------- Team graph (Track B, B2.3) ----------
+
+
+@router.get("/team/membership")
+async def team_membership(request: Request):
+    """Return the caller's active team membership, or null (Track B).
+
+    Identity comes ONLY from a verified Cognito token (A1b). The Studio UI uses
+    this to decide whether to offer the "team graph" scope and the Share action.
+    """
+    from graqle.studio.auth import tenant_hash, verified_email_from_request
+
+    email = verified_email_from_request(request)
+    if not email:
+        return JSONResponse({"team": None, "error": "Not authenticated"}, status_code=401)
+
+    try:
+        from graqle.cloud.team_registry import TeamRegistry
+
+        membership = TeamRegistry().resolve_team_for_member(tenant_hash(email))
+    except Exception as exc:  # noqa: BLE001 - registry unavailable → no team (fail closed)
+        logger.warning("team membership lookup failed: %s", type(exc).__name__)
+        return {"team": None}
+
+    if membership is None:
+        return {"team": None}
+    return {
+        "team": {
+            "team_id": membership.team_id,
+            "role": membership.role,
+            "can_teach": membership.can_teach,
+        }
+    }
+
+
+@router.post("/team/share")
+async def team_share_endpoint(request: Request):
+    """Publish the caller's project graph as the SHARED team graph (Track B).
+
+    Body: ``{"project": "<name>"}``. The caller's identity is the VERIFIED email
+    (A1b); authorisation (must be an active team member with a teach role) and the
+    team-prefix routing are enforced by ``gateway.share_graph_to_team`` /
+    ``TeamRegistry`` — a forged identity or a viewer cannot write. The graph
+    published is the one already loaded for this caller+project from their OWN
+    per-user S3 prefix (so they can only share what they themselves own).
+    """
+    import os
+
+    from graqle.studio.auth import tenant_hash, verified_email_from_request
+
+    email = verified_email_from_request(request)
+    if not email:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    project = body.get("project") if isinstance(body, dict) else None
+    if not isinstance(project, str) or not _PROJECT_NAME_RE.match(project):
+        return JSONResponse({"error": "invalid or missing project"}, status_code=400)
+
+    member = tenant_hash(email)
+
+    # Resolve the team for this verified member (fail closed → 403 if none).
+    try:
+        from graqle.cloud.team_registry import TeamRegistry
+
+        registry = TeamRegistry()
+        membership = registry.resolve_team_for_member(member)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("team/share registry error: %s", type(exc).__name__)
+        return JSONResponse({"error": "team registry unavailable"}, status_code=503)
+
+    if membership is None:
+        return JSONResponse({"error": "not a team member"}, status_code=403)
+
+    # Load the caller's OWN graph for this project from S3 (their per-user prefix).
+    try:
+        import boto3
+
+        bucket = os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+        key = f"graphs/{member}/{project}/graqle.json"
+        graph_data = s3.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8")
+    except Exception as exc:  # noqa: BLE001
+        logger.info("team/share: caller has no graph at their prefix: %s", type(exc).__name__)
+        return JSONResponse({"error": "no graph to share for this project"}, status_code=404)
+
+    from graqle.cloud.gateway import CloudGateway
+
+    gateway = CloudGateway(api_key="studio")  # connected marker; S3 write uses Lambda role
+    result = gateway.share_graph_to_team(
+        graph_data=graph_data,
+        member_hash=member,
+        team_id=membership.team_id,
+        project=project,
+        registry=registry,
+    )
+
+    if result.get("status") == "shared":
+        return {"status": "shared", "team_id": membership.team_id, "project": project}
+    if result.get("code") == "FORBIDDEN":
+        return JSONResponse({"error": "not permitted to share (need teach role)"}, status_code=403)
+    return JSONResponse(
+        {"error": result.get("error", "share failed")}, status_code=502
+    )
+
+
 # ---------- Settings ----------
 
 
