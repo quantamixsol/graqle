@@ -55,11 +55,10 @@ class TestCloudGateway:
         assert result.get("phase") == "foundation"
         assert "delta" in result
 
-    def test_register_team_foundation(self):
-        gw = CloudGateway(api_key="grq_test123")
+    def test_register_team_not_connected(self):
+        gw = CloudGateway()
         result = gw.register_team("My Team", "owner@test.com")
-        assert result.get("phase") == "foundation"
-        assert "team-my-team" in result.get("team_id", "")
+        assert result.get("code") == "NOT_CONNECTED"
 
     def test_observability_foundation(self):
         gw = CloudGateway(api_key="grq_test123")
@@ -112,3 +111,169 @@ class TestCloudValueProps:
             assert len(prop["features"]) > 0
             assert "min_plan" in prop
             assert "price" in prop
+
+
+# ───────────────────────────── Track B (B2.1) ──────────────────────────────
+# Team-aware upload_graph + the explicit share_graph_to_team RBAC gate.
+
+import hashlib
+from unittest.mock import MagicMock, patch
+
+from graqle.cloud.team_registry import ForbiddenError
+
+
+def _put_keys(mock_s3):
+    """Return the list of S3 Keys that were put_object'd."""
+    return [c.kwargs["Key"] for c in mock_s3.put_object.call_args_list]
+
+
+class TestTeamAwareUpload:
+    def test_user_path_is_byte_identical_when_no_team(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj")
+        assert res["status"] == "uploaded"
+        eh = hashlib.sha256(b"dev@acme.com").hexdigest()
+        assert res["s3_prefix"] == f"graphs/{eh}/proj"
+        assert _put_keys(mock_s3) == [f"graphs/{eh}/proj/graqle.json"]
+
+    def test_team_id_routes_to_team_prefix(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj",
+                                  team_id="team-acme")
+        assert res["status"] == "uploaded"
+        assert res["s3_prefix"] == "graphs/team-acme/proj"
+        # email is NOT in the key on the team path
+        assert _put_keys(mock_s3) == ["graphs/team-acme/proj/graqle.json"]
+
+    def test_invalid_team_id_is_rejected_before_any_write(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj",
+                                  team_id="../../etc")
+        assert res["status"] == "failed"
+        mock_s3.put_object.assert_not_called()
+
+    def test_upload_not_connected(self):
+        gw = CloudGateway()  # no key
+        res = gw.upload_graph("{}", "a@b.co", "proj", team_id="team-acme")
+        assert res.get("code") == "NOT_CONNECTED"
+
+    def test_traversal_project_is_rejected_before_any_write(self):
+        # Sentinel SF-TRACKB-1: a path-traversal project must be rejected at the
+        # gateway boundary (defence-in-depth, not only the HTTP layer).
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            for bad in ["../../etc", "a/b", "x\\y", "..", "p\nq"]:
+                res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", bad)
+                assert res["status"] == "failed", bad
+        mock_s3.put_object.assert_not_called()
+
+
+class _FakeReg:
+    """Registry double that grants/denies a single member_hash."""
+
+    def __init__(self, allow_hash=None):
+        self.allow = allow_hash
+
+    def assert_can_write(self, mh, team_id):
+        if mh != self.allow:
+            raise ForbiddenError("not permitted")
+        return MagicMock(can_teach=True)
+
+
+class TestShareGraphToTeam:
+    def test_member_can_share_routes_to_team_prefix(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mh = hashlib.sha256(b"dev@acme.com").hexdigest()
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.share_graph_to_team('{"nodes":[]}', mh, "team-acme", "proj",
+                                         registry=_FakeReg(allow_hash=mh))
+        assert res["status"] == "shared"
+        assert res["team_id"] == "team-acme"
+        assert _put_keys(mock_s3) == ["graphs/team-acme/proj/graqle.json"]
+
+    def test_viewer_or_outsider_is_forbidden_and_writes_nothing(self):
+        gw = CloudGateway(api_key="grq_test123")
+        outsider = hashlib.sha256(b"evil@x.com").hexdigest()
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.share_graph_to_team('{"nodes":[]}', outsider, "team-acme",
+                                         "proj", registry=_FakeReg(allow_hash="someoneelse"))
+        assert res["status"] == "forbidden" and res["code"] == "FORBIDDEN"
+        mock_s3.put_object.assert_not_called()
+
+    def test_share_not_connected(self):
+        gw = CloudGateway()
+        res = gw.share_graph_to_team("{}", "h" * 64, "team-acme", "proj",
+                                     registry=_FakeReg(allow_hash="h" * 64))
+        assert res.get("code") == "NOT_CONNECTED"
+
+    def test_registry_error_fails_closed(self):
+        from graqle.cloud.team_registry import TeamRegistryError
+        gw = CloudGateway(api_key="grq_test123")
+
+        class _BoomReg:
+            def assert_can_write(self, mh, team_id):
+                raise TeamRegistryError("registry down")
+
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.share_graph_to_team("{}", "h" * 64, "team-acme", "proj",
+                                         registry=_BoomReg())
+        assert res["status"] == "failed"
+        mock_s3.put_object.assert_not_called()
+
+
+class TestUploadBranches:
+    def test_scorecard_is_also_uploaded(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj",
+                                  scorecard_data='{"score":1}', team_id="team-acme")
+        assert res["status"] == "uploaded"
+        keys = _put_keys(mock_s3)
+        assert "graphs/team-acme/proj/graqle.json" in keys
+        assert "graphs/team-acme/proj/scorecard.json" in keys
+
+    def test_upload_s3_failure_returns_failed(self):
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        mock_s3.put_object.side_effect = RuntimeError("s3 boom")
+        with patch("boto3.client", return_value=mock_s3):
+            res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj")
+        assert res["status"] == "failed" and "s3 boom" in res["error"]
+
+
+class TestRegisterTeamWired:
+    def test_register_team_creates_via_registry(self):
+        from graqle.cloud.team_registry import TeamRegistry
+        from tests.test_cloud.test_team_registry import FakeTable
+
+        gw = CloudGateway(api_key="grq_test123")
+        reg = TeamRegistry(table_resource=FakeTable())
+        res = gw.register_team("Acme Corp", "owner@acme.com", registry=reg)
+        assert res["status"] == "registered"
+        assert res["team_id"] == "team-acme-corp"
+        # the owner is now an active member in the registry
+        from graqle.cloud.team_registry import member_hash
+        m = reg.get_membership(member_hash("owner@acme.com"), "team-acme-corp")
+        assert m is not None and m.role == "owner"
+
+    def test_register_team_registry_error_surfaces_failure(self):
+        from graqle.cloud.team_registry import TeamRegistryError
+
+        class _BoomReg:
+            def register_team(self, name, email):
+                raise TeamRegistryError("bad email")
+
+        gw = CloudGateway(api_key="grq_test123")
+        res = gw.register_team("Acme", "not-an-email", registry=_BoomReg())
+        assert res["status"] == "failed" and "bad email" in res["error"]

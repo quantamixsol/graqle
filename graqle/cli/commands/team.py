@@ -295,3 +295,88 @@ def team_info() -> None:
     console.print("  Observability:  [dim]Coming soon[/dim]")
     console.print("  Metrics:        [dim]Coming soon[/dim]")
     console.print("  Cross-repo:     [dim]Coming soon[/dim]")
+
+
+@team_app.command("share")
+def team_share(
+    project: str = typer.Option("", "--project", "-p", help="Project name (default: repo folder)"),
+    root: str = typer.Option(".", "--root", help="Repo root containing graqle.json"),
+) -> None:
+    """Share your local graph as the TEAM graph (Track B).
+
+    \b
+    Publishes this repo's graqle.json to the team's shared graph so every
+    active team member resolves to it ("one teaches, everyone benefits").
+    Requires Team plan, an active membership, and a teach role
+    (owner/admin/member — viewers are read-only).
+
+    \b
+    Examples:
+        graq team share
+        graq team share --project Brand_Collaboration
+    """
+    if not _check_team_gate():
+        raise typer.Exit(1)
+
+    from pathlib import Path
+
+    from graqle.cloud.credentials import load_credentials
+    from graqle.cloud.gateway import CloudGateway
+    from graqle.cloud.team import load_team_config
+    from graqle.cloud.team_registry import member_hash
+
+    config = load_team_config()
+    if not config.is_configured:
+        console.print(
+            "[yellow]No team configured.[/yellow] "
+            "Create one: [cyan]graq team create <name>[/cyan]"
+        )
+        raise typer.Exit(1)
+
+    creds = load_credentials()
+    if not creds.email:
+        console.print("[yellow]Not logged in.[/yellow] Run [cyan]graq login[/cyan] first.")
+        raise typer.Exit(1)
+
+    root_path = Path(root).resolve()
+    graph_path = root_path / "graqle.json"
+    if not graph_path.exists():
+        console.print(f"[bold red]No graqle.json found in {root_path}[/bold red]")
+        console.print("Build the graph first: [cyan]graq scan repo .[/cyan]")
+        raise typer.Exit(1)
+
+    project_name = project or root_path.name
+    graph_data = graph_path.read_text(encoding="utf-8")
+
+    gateway = CloudGateway(api_key=creds.api_key)
+    result = gateway.share_graph_to_team(
+        graph_data=graph_data,
+        member_hash=member_hash(creds.email),
+        team_id=config.team_id,
+        project=project_name,
+    )
+
+    status = result.get("status")
+    if status == "shared":
+        console.print(Panel(
+            f"[bold green]Graph shared with your team![/bold green]\n\n"
+            f"  Team:     [bold]{config.team_name}[/bold] ([cyan]{config.team_id}[/cyan])\n"
+            f"  Project:  {project_name}\n\n"
+            f"[dim]Active members can now read it with the team graph scope.[/dim]",
+            border_style="green",
+            title="Shared to Team",
+        ))
+    elif result.get("code") == "FORBIDDEN":
+        console.print("[bold red]Not permitted to share to this team.[/bold red]")
+        console.print(
+            "[dim]You need a teach role (owner/admin/member). Viewers are read-only.[/dim]"
+        )
+        raise typer.Exit(1)
+    elif result.get("code") == "NOT_CONNECTED":
+        console.print(
+            "[yellow]Not connected to GraQle Cloud.[/yellow] Run [cyan]graq login[/cyan]."
+        )
+        raise typer.Exit(1)
+    else:
+        console.print(f"[bold red]Share failed:[/bold red] {result.get('error', 'unknown error')}")
+        raise typer.Exit(1)

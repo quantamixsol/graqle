@@ -359,3 +359,82 @@ def test_proxy_trust_header_read_error_is_swallowed(monkeypatch):
         headers = _H()
 
     assert auth.verified_email_from_request(_Req2()) is None
+
+
+# ───────────────────── Track B (B2.2): team-aware owner resolution ──────────
+
+class _FakeMembership:
+    def __init__(self, team_id):
+        self.team_id = team_id
+
+
+class _FakeReg:
+    """resolve_team_for_member returns a membership for one specific hash."""
+    def __init__(self, active_hash=None, team_id="team-acme", boom=False):
+        self.active_hash = active_hash
+        self.team_id = team_id
+        self.boom = boom
+
+    def resolve_team_for_member(self, mh):
+        if self.boom:
+            raise RuntimeError("registry down")
+        if mh == self.active_hash:
+            return _FakeMembership(self.team_id)
+        return None
+
+
+def _req_scoped(rsa_key, email, scope=None):
+    headers = {"authorization": f"Bearer {_mint(rsa_key, claims=_good_claims(email))}"}
+    if scope is not None:
+        headers["x-graph-scope"] = scope
+    return _Req(headers)
+
+
+def test_owner_prefix_none_when_unauthenticated():
+    assert auth.resolve_graph_owner_prefix(_Req({})) is None
+
+
+def test_owner_prefix_is_self_hash_without_scope(rsa_key):
+    req = _req_scoped(rsa_key, "dev@acme.com")
+    assert auth.resolve_graph_owner_prefix(req) == auth.tenant_hash("dev@acme.com")
+
+
+def test_owner_prefix_self_when_scope_self(rsa_key):
+    req = _req_scoped(rsa_key, "dev@acme.com", scope="self")
+    assert auth.resolve_graph_owner_prefix(req) == auth.tenant_hash("dev@acme.com")
+
+
+def test_owner_prefix_team_for_active_member(rsa_key):
+    mh = auth.tenant_hash("dev@acme.com")
+    reg = _FakeReg(active_hash=mh, team_id="team-acme")
+    req = _req_scoped(rsa_key, "dev@acme.com", scope="team")
+    assert auth.resolve_graph_owner_prefix(req, registry=reg) == "team-acme"
+
+
+def test_owner_prefix_falls_back_to_self_when_not_a_member(rsa_key):
+    # Asked for team scope but no membership → own graph (NOT denied, NOT team).
+    reg = _FakeReg(active_hash="someoneelse")
+    req = _req_scoped(rsa_key, "dev@acme.com", scope="team")
+    assert auth.resolve_graph_owner_prefix(req, registry=reg) == auth.tenant_hash("dev@acme.com")
+
+
+def test_owner_prefix_team_scope_registry_error_falls_back_to_self(rsa_key):
+    reg = _FakeReg(boom=True)
+    req = _req_scoped(rsa_key, "dev@acme.com", scope="team")
+    assert auth.resolve_graph_owner_prefix(req, registry=reg) == auth.tenant_hash("dev@acme.com")
+
+
+def test_owner_prefix_shared_alias_scope(rsa_key):
+    mh = auth.tenant_hash("dev@acme.com")
+    reg = _FakeReg(active_hash=mh)
+    req = _req_scoped(rsa_key, "dev@acme.com", scope="SHARED")  # case-insensitive alias
+    assert auth.resolve_graph_owner_prefix(req, registry=reg) == "team-acme"
+
+
+def test_wants_team_scope_header_read_error_is_false():
+    class _H:
+        def get(self, k, default=None):
+            raise RuntimeError("boom")
+    class _R:
+        headers = _H()
+    assert auth._wants_team_scope(_R()) is False
