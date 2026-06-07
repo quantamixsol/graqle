@@ -939,7 +939,13 @@ async def partial_metrics_cards(request: Request):
     tokens_saved = m.get("tokens_saved", 0)
     queries = m.get("queries", 0)
     context_loads = m.get("context_loads", 0)
-    savings_usd = tokens_saved * 0.000003  # ~$3 per 1M tokens (Claude Sonnet input pricing)
+    # Authentic: the summary already computes cost at the REAL per-model INPUT
+    # price (single source of truth, graqle.pricing) and exposes cost_saved_usd.
+    # Fall back to a fresh computation only if an older summary lacks the field.
+    savings_usd = m.get("cost_saved_usd")
+    if savings_usd is None:
+        from graqle import pricing
+        savings_usd = pricing.cost_saved(tokens_saved, m.get("cost_model"))
 
     return f"""
     <div class="grid-4">
