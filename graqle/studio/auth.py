@@ -229,4 +229,62 @@ def tenant_hash(email: str) -> str:
     return hashlib.sha256(email.strip().lower().encode()).hexdigest()
 
 
-__all__ = ["verified_email_from_request", "tenant_hash"]
+# ── team-aware S3 owner resolution (Track B, B2.2) ──
+# The S3 graph key is ``graphs/{owner}/{project}/graqle.json``. ``owner`` is
+# normally ``sha256(lower(email))`` (the caller's own graph). When the caller is
+# an ACTIVE member of a team AND explicitly asks for team scope (header
+# ``x-graph-scope: team``), ``owner`` becomes ``team-{team_id}`` so they read the
+# SHARED team graph. Membership is resolved from the registry keyed by the
+# VERIFIED email's hash — never a client-supplied team id — so a forged scope
+# header can only ever resolve to a team the caller actually belongs to.
+
+_TEAM_SCOPE_VALUES = ("team", "shared")
+
+
+def _wants_team_scope(request: Any) -> bool:
+    try:
+        scope = request.headers.get("x-graph-scope", "")
+    except Exception:  # noqa: BLE001
+        return False
+    return isinstance(scope, str) and scope.strip().lower() in _TEAM_SCOPE_VALUES
+
+
+def resolve_graph_owner_prefix(request: Any, registry: Any = None) -> str | None:
+    """Return the S3 owner segment for the caller, or None if unauthenticated.
+
+    * No verified email → None (caller gets no per-tenant graph; same as before).
+    * ``x-graph-scope: team`` AND the verified caller is an ACTIVE team member →
+      ``team-{team_id}`` (the shared graph).
+    * Otherwise → ``sha256(lower(email))`` (the caller's own graph — unchanged
+      default behaviour; team resolution NEVER changes the self path implicitly).
+
+    Fails CLOSED to the SELF prefix on any registry error — a team lookup failure
+    must never deny a user their own graph, and must never grant a team graph
+    without an active membership.
+    """
+    email = verified_email_from_request(request)
+    if not email:
+        return None
+
+    self_prefix = tenant_hash(email)
+    if not _wants_team_scope(request):
+        return self_prefix
+
+    try:
+        from graqle.cloud.team_registry import TeamRegistry
+
+        reg = registry if registry is not None else TeamRegistry()
+        membership = reg.resolve_team_for_member(self_prefix)
+    except Exception as exc:  # noqa: BLE001 - registry unavailable → fall back to self
+        logger.warning(
+            "studio auth: team resolve failed, using self graph (%s)", type(exc).__name__
+        )
+        return self_prefix
+
+    if membership is not None and getattr(membership, "team_id", None):
+        return membership.team_id  # already a validated 'team-<slug>'
+    # Asked for team scope but not an active member → their own graph (not denied).
+    return self_prefix
+
+
+__all__ = ["verified_email_from_request", "tenant_hash", "resolve_graph_owner_prefix"]
