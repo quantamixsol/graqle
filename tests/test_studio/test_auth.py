@@ -25,9 +25,16 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
+
+# PyJWT + cryptography are required to mint/verify test tokens. They ship in the
+# `dev` and `api` extras; skip cleanly if a slim env lacks them so a missing
+# optional dep never breaks test COLLECTION (it would, at module import).
+jwt = pytest.importorskip("jwt", reason="PyJWT ([dev]/[api] extra) required for auth tests")
+rsa = pytest.importorskip(
+    "cryptography.hazmat.primitives.asymmetric.rsa",
+    reason="cryptography ([dev]/[api] extra) required for auth tests",
+)
 
 from graqle.studio import auth
 
