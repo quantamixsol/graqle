@@ -402,19 +402,37 @@ class CloudGateway:
             "phase": "foundation",
         }
 
-    def register_team(self, team_name: str, owner_email: str) -> dict[str, Any]:
-        """Register a new team with the cloud gateway.
+    def register_team(
+        self,
+        team_name: str,
+        owner_email: str,
+        registry: Any = None,
+    ) -> dict[str, Any]:
+        """Register a new team in the cloud registry (Track B, B1.2).
 
-        Phase 1: Returns local config. Phase 2+: actual registration.
+        Creates the team in the DynamoDB :class:`~graqle.cloud.team_registry.
+        TeamRegistry` with ``owner_email`` (the caller's VERIFIED identity) as the
+        ``owner`` member. Returns the real ``team_id``. ``registry`` is injectable
+        for tests. On a registry error the team is NOT created — we surface the
+        failure rather than silently pretending success.
         """
         if not self.is_connected:
             return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
 
+        from graqle.cloud.team_registry import TeamRegistry, TeamRegistryError
+
+        reg = registry if registry is not None else TeamRegistry()
+        try:
+            rec = reg.register_team(team_name, owner_email)
+        except TeamRegistryError as exc:
+            return {"status": "failed", "error": str(exc)}
+
         return {
-            "status": "registered_locally",
-            "team_id": f"team-{team_name.lower().replace(' ', '-')}",
-            "message": "Team registered locally (cloud registration available in next release)",
-            "phase": "foundation",
+            "status": "registered",
+            "team_id": rec.team_id,
+            "team_name": rec.team_name,
+            "owner_hash": rec.owner_hash,
+            "message": f"Team '{rec.team_name}' registered as {rec.team_id}",
         }
 
     def get_observability(self, team_id: str) -> dict[str, Any]:

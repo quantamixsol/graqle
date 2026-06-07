@@ -55,11 +55,10 @@ class TestCloudGateway:
         assert result.get("phase") == "foundation"
         assert "delta" in result
 
-    def test_register_team_foundation(self):
-        gw = CloudGateway(api_key="grq_test123")
+    def test_register_team_not_connected(self):
+        gw = CloudGateway()
         result = gw.register_team("My Team", "owner@test.com")
-        assert result.get("phase") == "foundation"
-        assert "team-my-team" in result.get("team_id", "")
+        assert result.get("code") == "NOT_CONNECTED"
 
     def test_observability_foundation(self):
         gw = CloudGateway(api_key="grq_test123")
@@ -240,3 +239,30 @@ class TestUploadBranches:
         with patch("boto3.client", return_value=mock_s3):
             res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", "proj")
         assert res["status"] == "failed" and "s3 boom" in res["error"]
+
+
+class TestRegisterTeamWired:
+    def test_register_team_creates_via_registry(self):
+        from graqle.cloud.team_registry import TeamRegistry
+        from tests.test_cloud.test_team_registry import FakeTable
+
+        gw = CloudGateway(api_key="grq_test123")
+        reg = TeamRegistry(table_resource=FakeTable())
+        res = gw.register_team("Acme Corp", "owner@acme.com", registry=reg)
+        assert res["status"] == "registered"
+        assert res["team_id"] == "team-acme-corp"
+        # the owner is now an active member in the registry
+        from graqle.cloud.team_registry import member_hash
+        m = reg.get_membership(member_hash("owner@acme.com"), "team-acme-corp")
+        assert m is not None and m.role == "owner"
+
+    def test_register_team_registry_error_surfaces_failure(self):
+        from graqle.cloud.team_registry import TeamRegistryError
+
+        class _BoomReg:
+            def register_team(self, name, email):
+                raise TeamRegistryError("bad email")
+
+        gw = CloudGateway(api_key="grq_test123")
+        res = gw.register_team("Acme", "not-an-email", registry=_BoomReg())
+        assert res["status"] == "failed" and "bad email" in res["error"]
