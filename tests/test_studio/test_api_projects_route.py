@@ -34,6 +34,18 @@ def _mock_s3_paginator(project_names: list[str]):
     return mock_paginator
 
 
+@pytest.fixture
+def trust_proxy_email(monkeypatch):
+    """A1b: the authenticated listing tests below identify the tenant via the
+    ``x-user-email`` header, which is ONLY trusted behind a real authorizer
+    (``GRAQLE_TRUST_PROXY_EMAIL=true``). On a public Function URL (the default,
+    flag OFF) that header is forgeable and ignored — see
+    ``test_raw_header_ignored_without_trust_flag``. These tests opt into the
+    trusted-proxy deployment shape so they exercise the S3-listing logic."""
+    monkeypatch.setenv("GRAQLE_TRUST_PROXY_EMAIL", "true")
+    yield
+
+
 class TestProjectsRoute:
 
     def test_no_auth_returns_401(self):
@@ -43,7 +55,20 @@ class TestProjectsRoute:
         data = resp.json()
         assert data["projects"] == []
 
-    def test_returns_sorted_project_list(self):
+    def test_raw_header_ignored_without_trust_flag(self, monkeypatch):
+        """A1b SECURITY: a raw x-user-email header with NO verified token and the
+        trust flag OFF (the public-Function-URL default) must NOT authenticate —
+        this is the cross-tenant hole that A1b closes."""
+        monkeypatch.delenv("GRAQLE_TRUST_PROXY_EMAIL", raising=False)
+        client = TestClient(_make_app())
+        resp = client.get(
+            "/api/projects",
+            headers={"x-user-email": "victim@example.com"},
+        )
+        assert resp.status_code == 401
+        assert resp.json()["projects"] == []
+
+    def test_returns_sorted_project_list(self, trust_proxy_email):
         client = TestClient(_make_app())
         paginator = _mock_s3_paginator(["graqle-studio", "graqle-sdk", "crawlq"])
 
@@ -63,7 +88,7 @@ class TestProjectsRoute:
         assert "graqle-sdk" in names
         assert "graqle-studio" in names
 
-    def test_count_matches_project_list(self):
+    def test_count_matches_project_list(self, trust_proxy_email):
         client = TestClient(_make_app())
         paginator = _mock_s3_paginator(["proj-a", "proj-b", "proj-c"])
 
@@ -80,7 +105,7 @@ class TestProjectsRoute:
         assert data["count"] == len(data["projects"])
         assert data["count"] == 3
 
-    def test_s3_error_returns_empty_gracefully(self):
+    def test_s3_error_returns_empty_gracefully(self, trust_proxy_email):
         """S3 failure must not raise — return empty list with error message."""
         client = TestClient(_make_app())
 
@@ -98,7 +123,7 @@ class TestProjectsRoute:
         assert data["projects"] == []
         assert "error" in data
 
-    def test_empty_bucket_returns_empty_list(self):
+    def test_empty_bucket_returns_empty_list(self, trust_proxy_email):
         client = TestClient(_make_app())
         paginator = _mock_s3_paginator([])
 
