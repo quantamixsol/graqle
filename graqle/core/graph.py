@@ -2127,6 +2127,18 @@ class Graqle:
             if not engine._session_active:
                 engine.start_session()
 
+            # Authentic cost valuation: record the model that produced this
+            # result so cost_saved is valued at the REAL per-model input price
+            # (graqle.pricing). The model id lives in result.metadata (set by the
+            # reasoning backend); fall back to the configured default model.
+            _model = None
+            if isinstance(result.metadata, dict):
+                _model = result.metadata.get("model") or result.metadata.get("backend_model")
+            if not _model:
+                _cfg = getattr(self, "config", None)
+                _model = getattr(_cfg, "default_model", None) if _cfg else None
+            engine.set_cost_model(_model)
+
             # Record the query — estimate result tokens from answer length
             result_tokens = len(result.answer) // 4  # ~4 chars per token
             engine.record_query(query, result_tokens)
