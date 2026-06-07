@@ -180,7 +180,9 @@ tools only (every change is checked), a defined *investigate → plan → review
 apply → learn* workflow, built-in token-cost rules, and the project's known
 pitfalls baked in. One rulebook — shipped as
 [`graqle/data/constitution/`](./graqle/data/constitution/) — renders for every
-client, so editing it once keeps Claude Code, Cursor, and VS Code in sync.
+client (Claude Code → `CLAUDE.md`, OpenAI Codex → `AGENTS.md`, Cursor →
+`.cursorrules`, Windsurf → `.windsurfrules`), so editing it once keeps them all
+in sync.
 
 `gate-install` then routes every native write/edit/bash through GraQle's governance gates and adds a `permissions` backstop to `.claude/settings.json`. Plans required for risky changes. Trade-secret scanning on git commits. Path-traversal hardening on subprocess capture. CG-01 through CG-20 — all on, all auditable.
 
@@ -264,21 +266,19 @@ The EU AI Act docs are deliberately open to contribution — **corrections, tran
 
 ---
 
-## What's new in v0.71.0
+## What's new in v0.72.0
 
-**A governed first run.** `graq init` now sets up a governed development
-experience out of the box. The full GraQle rulebook — the **constitution** —
-ships as a single source of truth and is rendered into your AI tool's instruction
-file, so a brand-new user pair-programs with a disciplined senior engineer from
-the first command instead of a generic assistant.
+**One constitution, every AI client.** The governance rulebook now renders into
+every supported client from a single source — including **OpenAI Codex** via
+`AGENTS.md`, which previously had no instruction file. Run `graq init` and your
+AI tool pair-programs with a disciplined senior engineer from the first command,
+whichever tool you use.
 
-- **The constitution** ([`graqle/data/constitution/`](./graqle/data/constitution/)) — governed-tools-only rules, the 9-phase workflow, the full MCP tool inventory, token-cost rules, learned-behaviour workarounds, and a configurable (off-by-default) EU AI Act section. Modular Markdown fragments; edit once, every client stays in sync.
-- **`graq init`** assembles and renders it into `CLAUDE.md`, with a fail-safe fallback so init never breaks on a stripped wheel.
+- **The constitution** ([`graqle/data/constitution/`](./graqle/data/constitution/)) — governed-tools-only rules, the 9-phase workflow, the full MCP tool inventory, token-cost rules, learned-behaviour workarounds, and a configurable (off-by-default) EU AI Act section. Modular Markdown; edit once, every client stays in sync.
+- **Per-client rendering:** Claude Code → `CLAUDE.md`, **OpenAI Codex → `AGENTS.md`** (new), Cursor → `.cursorrules`, Windsurf → `.windsurfrules`. Append-under-marker and idempotent — an existing file is never clobbered.
 - **`graq gate-install`** adds a non-destructive `permissions` backstop to `.claude/settings.json` (deny native write/exec, allow the governed `graq_*` tools) behind the existing PreToolUse hook.
 
-> `AGENTS.md` (Codex) and `.cursorrules` / `.windsurfrules` rendering follow in the next release.
-
-→ [Full v0.71.0 changelog](./CHANGELOG.md)
+→ [Full v0.72.0 changelog](./CHANGELOG.md)
 
 ---
 

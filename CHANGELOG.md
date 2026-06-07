@@ -4,6 +4,32 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.72.0 (2026-06-07) — [Constitution for every client: OpenAI Codex (AGENTS.md)]
+
+> The governance constitution now renders into **every supported AI client**,
+> not just Claude Code. `graq init` writes the same single-source rulebook into
+> the right instruction file per client — including **OpenAI Codex** via
+> `AGENTS.md`, which had no instruction file before. Implements ADR-222 P2.
+
+**Added**
+
+- **OpenAI Codex is now a first-class `graq init` client.** `codex` is a
+  supported IDE; `graq init` renders the full constitution into **`AGENTS.md`**
+  (Codex's project instruction file) and registers the MCP server in `.mcp.json`.
+- **Auto-detection:** a project containing `AGENTS.md` is detected as `codex`
+  (checked before the generic Claude fallback; Cursor/Windsurf markers still
+  take precedence when present).
+
+**Notes**
+
+- Cursor (`.cursorrules`) and Windsurf (`.windsurfrules`) already rendered the
+  constitution; P2 completes the set so all of Claude Code, Codex, Cursor, and
+  Windsurf get the identical rulebook from one source.
+- Writing is **append-under-marker and idempotent**: an existing `AGENTS.md` is
+  never clobbered, and re-running `graq init` does not duplicate the section.
+
+---
+
 ## 0.71.0 (2026-06-07) — [Governance constitution: a governed first run]
 
 > `graq init` now sets up a **governed development experience out of the box**.
