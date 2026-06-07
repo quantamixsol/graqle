@@ -4,6 +4,50 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.71.0 (2026-06-07) — [Governance constitution: a governed first run]
+
+> `graq init` now sets up a **governed development experience out of the box**.
+> The full GraQle rulebook ships as a single source of truth and is rendered
+> into your AI tool's instruction file, so a brand-new user pair-programs with a
+> disciplined senior engineer from the first command — not a generic assistant.
+> Implements ADR-222 P1 (+ the bundled Claude Code install-time guardrail).
+
+**Added**
+
+- **`graqle/data/constitution/`** — the governance constitution as modular,
+  shippable Markdown fragments and the single source of truth for every client:
+  - `00-core` — the prime rules (governed tools only; five non-negotiables;
+    when to use GraQle).
+  - `10-tools` — the full MCP tool inventory by role + cheapest-correct-tool
+    selection.
+  - `20-workflows` — the 9-phase backbone, per-task phase subsets, and the
+    private→public ship sequence.
+  - `30-cost` — token cost-optimisation rules.
+  - `40-workarounds` — learned-behaviour workarounds and protected-path /
+    spend-governance rules.
+  - `50-eu-ai-act` — the configurable, **off-by-default** EU AI Act section.
+- **`graq init`** assembles the constitution via `importlib.resources` (sorted,
+  UTF-8) and renders it into `CLAUDE.md`. It is **fail-safe**: if the package
+  data is unavailable it degrades to an inline fallback, so `graq init` never
+  breaks on a stripped wheel.
+
+**Changed**
+
+- `graq gate-install` now merges a `permissions` backstop into
+  `.claude/settings.json` **non-destructively** (deny native write/exec, allow
+  the governed `graq_*`/`kogni_*` tools; user entries preserved). This is the
+  structural layer behind the existing PreToolUse hook for Claude Code.
+
+**Notes**
+
+- The constitution renders into `CLAUDE.md` today; `AGENTS.md` (Codex) and
+  `.cursorrules` / `.windsurfrules` writers follow in a later release (ADR-222 P2).
+- The EU AI Act section is a configurable helper that **supports** the Act's
+  record-keeping / traceability expectations; it makes no claim that the Act
+  requires any specific switch.
+
+---
+
 ## 0.68.0 (2026-06-02) — [Ed25519 licence hardening + edition gating]
 
 > The licence layer moves to **ed25519** (asymmetric): the Community wheel

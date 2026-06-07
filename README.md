@@ -170,10 +170,19 @@ Runs **fully offline** with Ollama. No telemetry. Code stays on your machine. AP
 ## Governance gate — drop-in for Claude Code, Cursor, VS Code
 
 ```bash
-graq gate-install      # one-time, project-local
+graq init              # sets up a governed project (writes the constitution → CLAUDE.md)
+graq gate-install      # one-time, project-local — enforce it for Claude Code
 ```
 
-Routes every native write/edit/bash through GraQle's governance gates. Plans required for risky changes. Trade-secret scanning on git commits. Path-traversal hardening on subprocess capture. CG-01 through CG-20 — all on, all auditable.
+**`graq init` writes the GraQle constitution into your project**, so your AI tool
+behaves like a disciplined senior engineer from the very first command: governed
+tools only (every change is checked), a defined *investigate → plan → review →
+apply → learn* workflow, built-in token-cost rules, and the project's known
+pitfalls baked in. One rulebook — shipped as
+[`graqle/data/constitution/`](./graqle/data/constitution/) — renders for every
+client, so editing it once keeps Claude Code, Cursor, and VS Code in sync.
+
+`gate-install` then routes every native write/edit/bash through GraQle's governance gates and adds a `permissions` backstop to `.claude/settings.json`. Plans required for risky changes. Trade-secret scanning on git commits. Path-traversal hardening on subprocess capture. CG-01 through CG-20 — all on, all auditable.
 
 → [Governance Gate spec](./docs/governance-gate.md)
 
@@ -255,22 +264,27 @@ The EU AI Act docs are deliberately open to contribution — **corrections, tran
 
 ---
 
-## What's new in v0.62.0
+## What's new in v0.71.0
 
-**Runtime Governance Layer R2 — continuous anchoring as a service.** The cryptographic substrate (v0.59.0) and the `attest()` capture path (v0.60.0) and FastAPI middleware (v0.61.0) were always meant to be operated continuously in production. v0.62.0 lands that operator surface as first-class CLI:
+**A governed first run.** `graq init` now sets up a governed development
+experience out of the box. The full GraQle rulebook — the **constitution** —
+ships as a single source of truth and is rendered into your AI tool's instruction
+file, so a brand-new user pair-programs with a disciplined senior engineer from
+the first command instead of a generic assistant.
 
-- **`graqle govern serve`** — long-lived anchoring worker over the shipped Layer 5 Committer + LocalReplayQueue. Fail-closed precondition (refuses `attestation.security.fail_open_on_anchor_error=true`), bounded shutdown, atomic health snapshots.
-- **`graqle govern serve --once`** — cron-style single-tick mode for environments where a long-lived service isn't appropriate.
-- **`graqle govern health`** — reads `.graqle/govern.health.json` and prints the Article-72-style monitoring snapshot as JSON. Pipes cleanly into any external monitor.
-- **`WorkerHealth.to_dict()`** — programmatic Article 72 surface for libraries: `running`, `ticks`, `records_committed`, `records_anchored`, `backfill_count`, `replay_queue_depth`, `seconds_since_last_anchor`, `last_error_type`, `status_counts`.
-- **Comprehensively tested** — full statement+branch coverage on the worker, end-to-end dogfooded from a clean PyPI wheel, CI matrix across Linux + Windows on Python 3.10 / 3.11 / 3.12.
+- **The constitution** ([`graqle/data/constitution/`](./graqle/data/constitution/)) — governed-tools-only rules, the 9-phase workflow, the full MCP tool inventory, token-cost rules, learned-behaviour workarounds, and a configurable (off-by-default) EU AI Act section. Modular Markdown fragments; edit once, every client stays in sync.
+- **`graq init`** assembles and renders it into `CLAUDE.md`, with a fail-safe fallback so init never breaks on a stripped wheel.
+- **`graq gate-install`** adds a non-destructive `permissions` backstop to `.claude/settings.json` (deny native write/exec, allow the governed `graq_*` tools) behind the existing PreToolUse hook.
 
-→ [Full v0.62.0 changelog](./CHANGELOG.md)
+> `AGENTS.md` (Codex) and `.cursorrules` / `.windsurfrules` rendering follow in the next release.
+
+→ [Full v0.71.0 changelog](./CHANGELOG.md)
 
 ---
 
 ## Recent releases
 
+- **v0.62.0** — Runtime R2: `graqle govern serve` continuous anchoring worker + `govern health` Article-72 monitoring snapshot.
 - **v0.61.0** — Runtime R1: FastAPI middleware + `@governed` decorator. Drop-in governance for any FastAPI app.
 - **v0.60.0** — Runtime R0 Mode A: `GovernedRuntime.attest()` and PII-safe `pseudonymize_ref()`.
 - **v0.59.0** — Layer 5 cryptographic substrate GA: RFC 8785 canonicalisation + RFC 6962 Merkle commitments + ed25519 signatures + Sigstore Rekor anchoring + local replay queue.
