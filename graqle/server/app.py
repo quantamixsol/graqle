@@ -332,7 +332,13 @@ def create_app(
         """
         if request is not None:
             project = request.headers.get("x-project-name", "")
-            email = request.headers.get("x-user-email", "")
+            # V-A1B-NATIVE-002: A1b — email from a VERIFIED Cognito token only.
+            # The raw x-user-email header is forgeable on a public Function URL;
+            # using it to scope the per-project graph + per-tenant metrics S3
+            # write was a cross-tenant hole (OWASP A01). Fails closed → default
+            # graph when unverified. See graqle.studio.auth.
+            from graqle.studio.auth import verified_email_from_request
+            email = verified_email_from_request(request) or ""
             if project and email:
                 try:
                     from graqle.studio.routes.api import _load_project_graph

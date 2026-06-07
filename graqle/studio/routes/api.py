@@ -43,28 +43,20 @@ async def _load_project_graph(request: Request, project: str):
     if project in _project_graph_cache:
         return _project_graph_cache[project]
 
-    # Get user email from request headers (set by Studio frontend)
-    email = None
-    auth_header = request.headers.get("authorization", "")
-    user_email_header = request.headers.get("x-user-email", "")
+    # V-A1B-NATIVE-002: native Edit — graq_edit literal failed "file not found"
+    # (S-010: MCP resolves relative path against site-packages, not graqle-sdk/).
+    # A1b: resolve the caller's email from a CRYPTOGRAPHICALLY VERIFIED source
+    # only (Cognito ID token verified against the pool JWKS). The raw
+    # ``x-user-email`` header is forgeable on a public Function URL, and an
+    # unverified base64-decode of a JWT accepts a self-minted ``alg:none`` token
+    # — either one previously allowed a forged identity to read ANY tenant's
+    # graph (OWASP A01). ``verified_email_from_request`` fails closed.
+    from graqle.studio.auth import verified_email_from_request
 
-    if user_email_header:
-        email = user_email_header
-    elif auth_header:
-        # Try to extract email from JWT payload (base64 decode middle segment)
-        try:
-            import base64
-            token = auth_header.replace("Bearer ", "")
-            payload = token.split(".")[1]
-            # Add padding
-            payload += "=" * (4 - len(payload) % 4)
-            decoded = json.loads(base64.b64decode(payload))
-            email = decoded.get("email", "")
-        except Exception:
-            pass
+    email = verified_email_from_request(request)
 
     if not email:
-        logger.debug("No email found for project graph loading")
+        logger.debug("No verified email for project graph loading")
         return None
 
     # Compute S3 key
@@ -183,20 +175,12 @@ async def list_projects(request: Request):
     import hashlib
     import os
 
-    auth_header = request.headers.get("authorization", "")
-    user_email_header = request.headers.get("x-user-email", "")
+    # V-A1B-NATIVE-002: A1b — verified identity only (see _load_project_graph).
+    # Listing a tenant's projects scans graphs/{sha256(email)}/ in S3, so the
+    # email MUST be from a verified Cognito token, never the raw header.
+    from graqle.studio.auth import verified_email_from_request
 
-    email = user_email_header
-    if not email and auth_header:
-        try:
-            import base64
-            token = auth_header.replace("Bearer ", "")
-            payload = token.split(".")[1]
-            payload += "=" * (4 - len(payload) % 4)
-            decoded = json.loads(base64.b64decode(payload))
-            email = decoded.get("email", "")
-        except Exception:
-            pass
+    email = verified_email_from_request(request)
 
     if not email:
         return JSONResponse({"projects": [], "error": "Not authenticated"}, status_code=401)
