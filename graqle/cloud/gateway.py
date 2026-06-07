@@ -252,17 +252,33 @@ class CloudGateway:
         email: str,
         project: str,
         scorecard_data: str | None = None,
+        team_id: str | None = None,
     ) -> dict[str, Any]:
         """Upload a full graph to S3 cloud storage.
 
         This is the real cloud upload — not a stub.
+
+        Track B (B2.1): when ``team_id`` is provided, the graph is written to the
+        TEAM prefix ``graphs/team-{team_id}/{project}`` so every team member's
+        read resolves to it (the shared-graph monetization path). When ``team_id``
+        is None (the default) the behaviour is BYTE-IDENTICAL to before: the
+        per-user prefix ``graphs/{sha256(email)}/{project}``. The caller is
+        responsible for authorising the team write (``share_graph_to_team`` does
+        the RBAC check via :class:`~graqle.cloud.team_registry.TeamRegistry`);
+        ``team_id`` here is a validated slug, never a raw client value.
         """
         if not self.is_connected:
             return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
 
         import hashlib
-        email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
-        s3_prefix = f"graphs/{email_hash}/{project}"
+        if team_id is not None:
+            from graqle.cloud.team_registry import _TEAM_ID_RE
+            if not _TEAM_ID_RE.match(team_id):
+                return {"error": f"invalid team_id: {team_id!r}", "status": "failed"}
+            s3_prefix = f"graphs/{team_id}/{project}"
+        else:
+            email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+            s3_prefix = f"graphs/{email_hash}/{project}"
 
         try:
             import boto3
@@ -289,6 +305,64 @@ class CloudGateway:
         except Exception as e:
             logger.error("Cloud upload failed: %s", e)
             return {"error": str(e), "status": "failed"}
+
+    def share_graph_to_team(
+        self,
+        graph_data: str,
+        member_hash: str,
+        team_id: str,
+        project: str,
+        registry: Any = None,
+        scorecard_data: str | None = None,
+    ) -> dict[str, Any]:
+        """Explicit "Share to team" — publish the caller's graph as the TEAM graph.
+
+        Track B (B2.3, monetization moment). The authorisation is the whole point:
+
+        * ``member_hash`` is the caller's VERIFIED identity (sha256(lower(email))
+          from :func:`graqle.studio.auth.verified_email_from_request`), NEVER a raw
+          header value.
+        * The caller MUST have ``can_teach`` on ``team_id`` (owner/admin/member);
+          a ``viewer`` or non-member is rejected with a FORBIDDEN result — the
+          RBAC check runs against the registry row keyed by the verified hash, so a
+          forged role cannot escalate (same trust model as A1b).
+        * Only after the check passes does the graph land at
+          ``graphs/team-{team_id}/{project}`` (via :meth:`upload_graph`), where every
+          member's read resolves to it.
+
+        Returns ``{"status": "shared", ...}`` on success, or a ``FORBIDDEN`` /
+        error dict. Fails CLOSED: any registry/authorisation failure denies.
+        """
+        if not self.is_connected:
+            return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
+
+        from graqle.cloud.team_registry import (
+            ForbiddenError,
+            TeamRegistry,
+            TeamRegistryError,
+        )
+
+        reg = registry if registry is not None else TeamRegistry()
+        try:
+            reg.assert_can_write(member_hash, team_id)
+        except ForbiddenError as exc:
+            logger.info("share_graph_to_team denied for %s…: %s", member_hash[:8], exc)
+            return {"status": "forbidden", "code": "FORBIDDEN", "error": str(exc)}
+        except TeamRegistryError as exc:
+            logger.warning("share_graph_to_team registry error: %s", exc)
+            return {"status": "failed", "error": str(exc)}
+
+        result = self.upload_graph(
+            graph_data=graph_data,
+            email="",  # unused on the team path
+            project=project,
+            scorecard_data=scorecard_data,
+            team_id=team_id,
+        )
+        if result.get("status") == "uploaded":
+            result["status"] = "shared"
+            result["team_id"] = team_id
+        return result
 
     def push_delta(self, delta: dict[str, Any], team_id: str) -> dict[str, Any]:
         """Push a delta to the cloud graph.
