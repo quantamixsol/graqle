@@ -35,7 +35,6 @@ async def _load_project_graph(request: Request, project: str):
 
     Uses in-memory cache to avoid re-downloading on every request.
     """
-    import hashlib
     import json
     import os
 
@@ -51,18 +50,21 @@ async def _load_project_graph(request: Request, project: str):
     # unverified base64-decode of a JWT accepts a self-minted ``alg:none`` token
     # — either one previously allowed a forged identity to read ANY tenant's
     # graph (OWASP A01). ``verified_email_from_request`` fails closed.
-    from graqle.studio.auth import verified_email_from_request
+    # V-TRACKB-NATIVE-003: Track B (B2.2) — resolve the S3 OWNER segment via the
+    # central auth trust root. Normally sha256(verified email); when the caller is
+    # an ACTIVE team member AND sent ``x-graph-scope: team`` it becomes
+    # ``team-{team_id}`` (the SHARED team graph). owner is None when unauthenticated.
+    from graqle.studio.auth import resolve_graph_owner_prefix
 
-    email = verified_email_from_request(request)
+    owner = resolve_graph_owner_prefix(request)
 
-    if not email:
-        logger.debug("No verified email for project graph loading")
+    if not owner:
+        logger.debug("No verified identity for project graph loading")
         return None
 
-    # Compute S3 key
-    email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+    # Compute S3 key (owner = sha256(email) for self, or 'team-{id}' for team graph)
     bucket = os.environ.get("GRAQLE_GRAPHS_BUCKET", "graqle-graphs-eu")
-    s3_key = f"graphs/{email_hash}/{project}/graqle.json"
+    s3_key = f"graphs/{owner}/{project}/graqle.json"
 
     try:
         import boto3
