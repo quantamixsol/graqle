@@ -29,7 +29,10 @@
         </div>
         <div class="metric-row">
             <span>Estimated Cost Saved</span>
-            <strong x-text="'$' + ((data.tokens_saved || 0) * 0.000015).toFixed(2)"></strong>
+            <!-- Authentic: the backend computes this at the REAL per-model input
+                 price (graqle.pricing, single source of truth) and returns it as
+                 cost_saved_usd. Do NOT recompute with a hardcoded rate here. -->
+            <strong x-text="'$' + (data.cost_saved_usd != null ? data.cost_saved_usd : 0).toFixed(2)"></strong>
         </div>
     </div>
 
