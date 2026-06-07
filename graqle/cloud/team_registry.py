@@ -60,6 +60,12 @@ _ACTIVE = "active"
 # team_id is interpolated into an S3 key — restrict it hard (same discipline as
 # the studio project-name guard). Lowercase slug only.
 _TEAM_ID_RE = re.compile(r"\A[a-z0-9][a-z0-9-]{1,62}\Z")
+# Project name is ALSO interpolated into the S3 key (graphs/{owner}/{project}/...).
+# Path-traversal guard: allowed charset AND must contain at least one
+# alphanumeric, so an all-dots segment ('.', '..') — which would escape the
+# tenant prefix as a path component — is rejected. Single source of truth for any
+# caller building a graph key (gateway + studio routes).
+_PROJECT_NAME_RE = re.compile(r"\A(?=.*[A-Za-z0-9])[A-Za-z0-9._\- ]{1,128}\Z")
 _EMAIL_RE = re.compile(r"\A[^\s@\x00-\x1f]{1,64}@[^\s@\x00-\x1f]{1,255}\.[^\s@\x00-\x1f]{2,}\Z")
 
 

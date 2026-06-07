@@ -271,8 +271,17 @@ class CloudGateway:
             return {"error": "Not connected to GraQle Cloud", "code": "NOT_CONNECTED"}
 
         import hashlib
+
+        from graqle.cloud.team_registry import _PROJECT_NAME_RE, _TEAM_ID_RE
+
+        # Sentinel SF-TRACKB-1: validate ``project`` HERE (gateway boundary), not
+        # only at the HTTP layer — a path-traversal value like '../../other-tenant'
+        # would otherwise escape the per-tenant S3 prefix (OWASP A01). This is the
+        # single chokepoint both the HTTP endpoint and the CLI funnel through.
+        if not isinstance(project, str) or not _PROJECT_NAME_RE.match(project):
+            return {"error": f"invalid project: {project!r}", "status": "failed"}
+
         if team_id is not None:
-            from graqle.cloud.team_registry import _TEAM_ID_RE
             if not _TEAM_ID_RE.match(team_id):
                 return {"error": f"invalid team_id: {team_id!r}", "status": "failed"}
             s3_prefix = f"graphs/{team_id}/{project}"

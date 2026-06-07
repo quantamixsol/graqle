@@ -128,7 +128,9 @@ async def _load_project_graph(request: Request, project: str):
 # Project name validation: reject path traversal, separators, and control chars.
 # Project names are user-supplied (``x-project-name`` header) and are interpolated
 # into an S3 key in :func:`_load_project_graph` — see SF-07 sentinel MAJOR #1.
-_PROJECT_NAME_RE = re.compile(r"\A[A-Za-z0-9._\- ]{1,128}\Z")
+# SF-TRACKB-1: the (?=.*[A-Za-z0-9]) lookahead also rejects an all-dots segment
+# ('.', '..') which would escape the tenant prefix as a path component.
+_PROJECT_NAME_RE = re.compile(r"\A(?=.*[A-Za-z0-9])[A-Za-z0-9._\- ]{1,128}\Z")
 
 
 async def _resolve_graph_for_request(request: Request):

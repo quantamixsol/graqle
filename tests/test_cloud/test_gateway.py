@@ -163,6 +163,17 @@ class TestTeamAwareUpload:
         res = gw.upload_graph("{}", "a@b.co", "proj", team_id="team-acme")
         assert res.get("code") == "NOT_CONNECTED"
 
+    def test_traversal_project_is_rejected_before_any_write(self):
+        # Sentinel SF-TRACKB-1: a path-traversal project must be rejected at the
+        # gateway boundary (defence-in-depth, not only the HTTP layer).
+        gw = CloudGateway(api_key="grq_test123")
+        mock_s3 = MagicMock()
+        with patch("boto3.client", return_value=mock_s3):
+            for bad in ["../../etc", "a/b", "x\\y", "..", "p\nq"]:
+                res = gw.upload_graph('{"nodes":[]}', "dev@acme.com", bad)
+                assert res["status"] == "failed", bad
+        mock_s3.put_object.assert_not_called()
+
 
 class _FakeReg:
     """Registry double that grants/denies a single member_hash."""
