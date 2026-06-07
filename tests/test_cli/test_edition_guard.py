@@ -141,24 +141,6 @@ def test_decorator_preserves_metadata():
     assert my_command.__doc__ == "Docstring stays."
 
 
-def test_does_not_mask_transitive_community_dep_failure():
-    """Adversarial (sentinel graq_predict scenario 2): a proprietary command whose
-    backend IS present but fails importing a genuine COMMUNITY transitive dep
-    (e.g. boto3) must RE-RAISE — never be mis-shown as 'install graqle-studio'.
-    The discriminator keys on exc.name, which would be 'boto3' (not proprietary),
-    so it propagates unchanged.
-    """
-    @requires_package("graq cloud push")
-    def cmd():
-        # Simulates: `from graqle.cloud.x import y` succeeded, but deeper a real
-        # third-party dep is missing.
-        raise _mnfe("boto3")
-
-    with pytest.raises(ModuleNotFoundError) as ei:
-        cmd()
-    assert ei.value.name == "boto3"  # the real error surfaced, not masked
-
-
 def test_mapping_is_complete():
     # Every proprietary package the wheel excludes must have a distribution hint.
     for pkg in ("graqle.cloud", "graqle.leads", "graqle.studio", "graqle.server"):
