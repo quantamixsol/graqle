@@ -1927,6 +1927,33 @@ def gate_install_command(
         new_pre = new_hook_config.get("hooks", {}).get("PreToolUse", [])
         existing_settings["hooks"]["PreToolUse"].extend(new_pre)
 
+        # Non-destructively merge the governance permission wall.
+        # The template ships permissions.deny (hard block on native
+        # write/exec tools) + permissions.allow (every graq_*/kogni_*).
+        # User entries are preserved; ours are union-added (dedup, order
+        # stable). This makes deny+allow the structural enforcement layer
+        # behind the PreToolUse hook so first-time installs get 100% of
+        # the GraQle governance behaviour, not just hook-level blocking.
+        template_perms = new_hook_config.get("permissions", {})
+        if isinstance(template_perms, dict) and template_perms:
+            existing_perms = existing_settings.setdefault("permissions", {})
+            if not isinstance(existing_perms, dict):
+                existing_perms = {}
+                existing_settings["permissions"] = existing_perms
+            for bucket in ("deny", "allow", "ask"):
+                tmpl_list = template_perms.get(bucket)
+                if not isinstance(tmpl_list, list) or not tmpl_list:
+                    continue
+                cur = existing_perms.get(bucket)
+                if not isinstance(cur, list):
+                    cur = []
+                seen = {x for x in cur if isinstance(x, str)}
+                for item in tmpl_list:
+                    if isinstance(item, str) and item not in seen:
+                        cur.append(item)
+                        seen.add(item)
+                existing_perms[bucket] = cur
+
         # Atomic write via temp file + os.replace
         tmp_path = settings_dst.with_suffix(".json.tmp")
         tmp_path.write_text(
