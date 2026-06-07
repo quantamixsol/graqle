@@ -141,13 +141,20 @@ jobs:
           # pip-install list and doesn't consult the [api] extra.
           # TODO: switch to `pip install -e .[api] --target build/lambda`
           # in a follow-on CR once the manylinux constraints are sorted.
+          # A1b (2026-06-07): pyjwt[crypto] is REQUIRED at runtime —
+          # graqle/studio/auth.py verifies the Cognito ID token (cross-tenant
+          # trust root). Without it the `import jwt` guard makes _verify_bearer
+          # return None for EVERY request → the fix would over-deny and break
+          # valid logins. cryptography (already below) is the RS256 backend.
+          # (Synced from public PR #191 for private/public parity.)
           pip install --target build/lambda \
             --platform manylinux2014_x86_64 --only-binary=:all: \
             --python-version 3.10 --implementation cp \
             mangum fastapi uvicorn jinja2 pydantic pydantic-settings \
             pyyaml typer rich networkx numpy httpx anthropic openai \
             requests \
-            neo4j cryptography jsonschema pyshacl rdflib
+            neo4j cryptography jsonschema pyshacl rdflib \
+            'pyjwt[crypto]'
 
           # Copy graqle source (not pip-installed — use repo version)
           cp -r graqle/ build/lambda/graqle/
