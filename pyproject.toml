@@ -166,6 +166,13 @@ exclude = ["graqle/benchmarks/data/*", "paper/*", "patent/*"]
 artifacts = [
     "graqle/integrations/bridges/*.md",
     "graqle/docs/*.md",  # T09 (v0.51.6): ship MCP tool inventory in wheel
+    # P1 (ADR-222): ship the governance constitution single-source-of-truth so
+    # `graq init` renders the full rulebook into CLAUDE.md/AGENTS.md/etc. Without
+    # this the .md fragments are stripped from the wheel and init silently falls
+    # back to the abridged inline copy. Owner-approved (harish, 2026-06-07).
+    # V-CR-GOV-INSTALL-P1-NATIVE-001: graq_edit G4 + graq_config_audit could not
+    # resolve the worktree path (S-010 class); native edit with recorded approval.
+    "graqle/data/constitution/*.md",
     # ed25519 cutover (ADR-215 §5): the Community trust source — PUBLIC licence
     # signing keys so offline installs can verify v2 licences. Public-key-only
     # (the private signer is server-side; keygen.py is excluded below).

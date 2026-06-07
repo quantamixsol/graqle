@@ -379,15 +379,19 @@ class TestWriteClaudeMd:
         _write_claude_md(tmp_path)
         target = tmp_path / "CLAUDE.md"
         assert target.exists()
-        assert "Graqle" in target.read_text()
+        # Stable section markers (ASCII-safe — avoid em-dash encoding issues).
+        content = target.read_text(encoding="utf-8")
+        assert "GraQle" in content
+        assert "Dev Intelligence Layer" in content
 
     def test_appends_to_existing(self, tmp_path):
         target = tmp_path / "CLAUDE.md"
         target.write_text("# Existing Project\n\nSome rules.\n")
         _write_claude_md(tmp_path)
-        content = target.read_text()
+        content = target.read_text(encoding="utf-8")
         assert "Existing Project" in content
-        assert "Graqle" in content
+        assert "GraQle" in content
+        assert "Dev Intelligence Layer" in content
 
     def test_skips_if_section_exists(self, tmp_path):
         target = tmp_path / "CLAUDE.md"
