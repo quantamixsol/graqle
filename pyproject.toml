@@ -90,6 +90,10 @@ api = [
     "pyshacl>=0.25.0",
     "rdflib>=7.0.0",
     "neo4j>=5.0",
+    # V-A1B-NATIVE-003: native Edit — graq_edit G4 gate demands a CG-14 baseline
+    # accept that inline approved_by does not satisfy (CG-G4-CONFIG gap).
+    # A1b: Cognito ID-token signature verification (cross-tenant trust root).
+    "pyjwt[crypto]>=2.8",
 ]
 server = [
     "fastapi>=0.100",
@@ -145,6 +149,10 @@ dev = [
     "requests>=2.28",
     "rdflib>=7.0.0",
     "pyshacl>=0.25.0",
+    # V-A1B-NATIVE-005: A1b — PyJWT is needed to TEST the Cognito-JWT trust root
+    # (tests/test_studio/test_auth.py). The CI `test` job installs only `.[dev]`,
+    # so without this the test module fails collection (ModuleNotFoundError: jwt).
+    "pyjwt[crypto]>=2.8",
 ]
 
 [project.scripts]
