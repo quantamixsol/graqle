@@ -1,0 +1,5 @@
+# Runtime dependencies bundled into the graqle-dashboard-read Lambda package.
+# PyJWT[crypto] verifies the caller's Cognito ID token (RS256) — the security
+# boundary on the public Function URL (ADR-PHASE5-001 addendum). [crypto] pulls
+# the `cryptography` backend PyJWT needs for RS256.
+PyJWT[crypto]>=2.8,<3.0

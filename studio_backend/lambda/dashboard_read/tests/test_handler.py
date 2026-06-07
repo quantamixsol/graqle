@@ -42,6 +42,10 @@ def _env(monkeypatch):
     monkeypatch.setenv("DASHBOARD_USAGE_TABLE", "usage-tbl")
     monkeypatch.setenv("DASHBOARD_S3_BUCKET", "bkt")
     monkeypatch.setenv("DASHBOARD_REGION", "eu-central-1")
+    # These tests exercise the behind-an-authorizer deployment shape, where the
+    # authorizer-claims path is trusted. On a public Function URL this flag is OFF
+    # (the default) so that path is unreachable — see test_jwt_verification.py.
+    monkeypatch.setenv("DASHBOARD_TRUST_AUTHORIZER", "true")
     # Use the Cognito-style custom claims (the defaults).
     yield
 
