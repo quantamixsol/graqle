@@ -124,13 +124,22 @@ class DebateOrchestrator:
         challenges: list[PanelistResponse] = []
 
         for round_idx in range(1, self._config.max_rounds + 1):
-            # ── budget guard ────────────────────────────────────
+            # ── budget advisory (ADR-222 P4) ────────────────────
+            # Cost is observability, NEVER a quality gate. We do NOT halt a
+            # still-running debate because it went over budget — that would cut
+            # quality for cost. check_round is advisory: it returns False when
+            # over budget (recorded for measurement) but the debate CONTINUES,
+            # bounded only by max_rounds (this loop). The cost of continuing is
+            # surfaced via cost_gate.over_budget_rounds.
             round_estimate = _COST_PER_PANELIST_USD * len(self._pool.panelist_names) * _PHASES_PER_ROUND
-            try:
-                self._cost_gate.check_round(round_estimate)
-            except BudgetExhaustedError:
-                logger.warning("Budget exhausted before round %d.", round_idx)
-                break
+            if not self._cost_gate.check_round(round_estimate):
+                logger.warning(
+                    "Debate round %d is over budget — CONTINUING (quality over "
+                    "cost; bounded by max_rounds, never by cost). Over-budget "
+                    "rounds so far: %d.",
+                    round_idx,
+                    self._cost_gate.over_budget_rounds,
+                )
 
             # ── Phase 1: Propose ────────────────────────────────
             propose_prompt = self._build_propose_prompt(query, context)

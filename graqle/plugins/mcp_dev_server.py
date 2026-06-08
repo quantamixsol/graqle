@@ -3403,6 +3403,12 @@ class KogniDevServer:
         # CG-01/02: Protocol enforcement state
         self._session_started: bool = False  # Set True by graq_lifecycle(session_start)
         self._plan_active: bool = False      # Set True by graq_plan
+        # ADR-222 P4: per-session ADVISORY cost meter. Pure observability — it
+        # NEVER blocks, skips, or alters any tool or governance phase. It only
+        # accumulates estimated spend and surfaces a warning once over budget,
+        # so the cost-savings story is visible without ever gating quality.
+        self._session_cost_usd: float = 0.0
+        self._cost_advisory_emitted: bool = False
         # Per-MCP-session gate bypasses for VS Code extension.
         # Set by the initialize handler when clientInfo.name == "graqle-vscode".
         # Fail-closed default: bypasses are False. Each KogniDevServer instance
@@ -4312,12 +4318,69 @@ class KogniDevServer:
         ],
     }
 
+    def _accumulate_cost_advisory(self, payload: dict) -> None:
+        """ADR-222 P4: advisory per-session cost meter. Observability only.
+
+        Accumulates any estimated spend the tool reported (``cost_usd`` /
+        ``estimated_cost_usd`` / ``total_cost_usd``) into the per-session total
+        and, the first time the session crosses ``cost.budget_per_query``,
+        attaches a one-time ``cost_advisory`` note to the payload.
+
+        Hard contract: this NEVER blocks, skips, or alters a tool result beyond
+        adding observability fields, and NEVER raises — cost is a story to tell,
+        never a governance or quality gate (see ADR-222 P4).
+        """
+        try:
+            import math
+
+            spent = 0.0
+            for key in ("cost_usd", "estimated_cost_usd", "total_cost_usd"):
+                val = payload.get(key)
+                # Reject bool (a subclass of int) and non-finite floats
+                # (NaN/Infinity) so a malformed/hostile tool result cannot
+                # poison the meter. NaN would silently disable the advisory;
+                # Infinity would pin it permanently over budget.
+                if (
+                    isinstance(val, (int, float))
+                    and not isinstance(val, bool)
+                    and math.isfinite(val)
+                    and val >= 0
+                ):
+                    spent += float(val)
+            if spent > 0:
+                self._session_cost_usd += spent
+
+            payload["session_cost_usd"] = round(self._session_cost_usd, 6)
+
+            cost_cfg = getattr(getattr(self, "_config", None), "cost", None)
+            budget = getattr(cost_cfg, "budget_per_query", None)
+            if (
+                isinstance(budget, (int, float))
+                and budget > 0
+                and self._session_cost_usd >= budget
+                and not self._cost_advisory_emitted
+            ):
+                self._cost_advisory_emitted = True
+                payload["cost_advisory"] = (
+                    f"Session spend ${self._session_cost_usd:.4f} has crossed the "
+                    f"${float(budget):.4f} budget. This is ADVISORY only — GraQle "
+                    f"never halts governance or quality work on cost."
+                )
+        except Exception as exc:  # never let the meter affect a tool result
+            logger.debug("_accumulate_cost_advisory: skipped: %s", exc)
+
     def _inject_tool_hints(self, tool_name: str, raw_response: str) -> str:
         """Inject tool_hints into handler response. Purely additive."""
         try:
             payload = json.loads(raw_response)
             if not isinstance(payload, dict):
                 return raw_response
+
+            # ADR-222 P4: advisory cost meter — purely observational, NEVER gates.
+            # Accumulate any estimated spend this tool reported and, once the
+            # session crosses budget, attach a one-time advisory note. This only
+            # ADDS a field; it never blocks, skips, or alters the tool result.
+            self._accumulate_cost_advisory(payload)
 
             # Normalize kogni_* aliases to graq_* for hint lookup
             lookup = tool_name.replace("kogni_", "graq_", 1) if tool_name.startswith("kogni_") else tool_name
@@ -7854,6 +7917,9 @@ class KogniDevServer:
 
         if event == "session_start":
             self._session_started = True  # CG-01: mark session as active
+            # ADR-222 P4: reset the per-session advisory cost meter.
+            self._session_cost_usd = 0.0
+            self._cost_advisory_emitted = False
             # Return graph stats + backend status + recent lessons
             if graph is not None:
                 stats = graph.stats
