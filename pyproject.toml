@@ -4,7 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.72.0"
+# V-AUTH-SAVINGS-NATIVE-003: native version bump (G4 config). #195 ships v0.72.0;
+# this PR (authentic Cost Saved) takes the next patch so it has its own release.
+version = "0.72.1"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}

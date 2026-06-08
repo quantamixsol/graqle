@@ -82,6 +82,20 @@ class MetricsEngine:
         self._s3_email: str | None = None
         self._s3_project: str | None = None
 
+        # The model that produced the savings (for authentic per-model cost
+        # valuation via graqle.pricing). None → graqle.pricing.DEFAULT_MODEL.
+        # Set from the reasoning backend's model id when a query is recorded.
+        self._cost_model: str | None = None
+
+    def set_cost_model(self, model: str | None) -> None:
+        """Record the model behind the savings, for authentic cost valuation.
+
+        Idempotent and cheap; the most-recently-seen non-empty model wins. The
+        dashboard / ROI report value tokens saved at THIS model's input price.
+        """
+        if isinstance(model, str) and model.strip():
+            self._cost_model = model.strip()
+
     # ------------------------------------------------------------------
     # Recording methods
     # ------------------------------------------------------------------
@@ -270,10 +284,17 @@ class MetricsEngine:
 
     def get_summary(self) -> dict[str, Any]:
         """Return a summary dict of all tracked metrics."""
+        from graqle import pricing
+
+        _cost_model = self._cost_model or pricing.DEFAULT_MODEL
         return {
             "context_loads": self.context_loads,
             "queries": self.queries,
             "tokens_saved": self.tokens_saved,
+            # Authentic, model-aware cost of the tokens saved (single source of
+            # truth, graqle.pricing) + the basis so the UI can render it honestly.
+            "cost_saved_usd": round(pricing.cost_saved(self.tokens_saved, _cost_model), 2),
+            "cost_basis": pricing.pricing_basis(_cost_model),
             "mistakes_prevented": self.mistakes_prevented,
             "lessons_applied": self.lessons_applied,
             "safety_checks": self.safety_checks,
@@ -284,16 +305,22 @@ class MetricsEngine:
             "graph_stats": self.graph_stats,
             "graph_stats_current": self.graph_stats_current,
             "caller_stats": getattr(self, "caller_stats", {}),
+            # The model behind the savings, for authentic per-model cost valuation
+            # (graqle.pricing). None → the dashboard uses pricing.DEFAULT_MODEL.
+            "cost_model": self._cost_model,
         }
 
     def get_roi_report(self) -> str:
         """Generate a human-readable ROI report.
 
-        The report estimates cost savings using a rate of $0.015 per 1 000
-        input tokens (a typical mid-tier LLM pricing).
+        Cost savings are valued at the REAL per-model input price via
+        :mod:`graqle.pricing` (single source of truth) — not a hardcoded rate.
         """
-        cost_per_1k = 0.015
-        estimated_savings_usd = (self.tokens_saved / 1000) * cost_per_1k
+        from graqle import pricing
+
+        cost_model = self._cost_model or pricing.DEFAULT_MODEL
+        estimated_savings_usd = pricing.cost_saved(self.tokens_saved, cost_model)
+        basis = pricing.pricing_basis(cost_model)
         avg_tokens_saved_per_load = (
             self.tokens_saved // self.context_loads
             if self.context_loads
@@ -331,7 +358,8 @@ class MetricsEngine:
             f"  Block rate:           {self.safety_blocks / max(self.safety_checks, 1):.0%}",
             "",
             "  --- Estimated Cost Impact ---",
-            "  Token cost rate:      $0.015 / 1K input tokens",
+            f"  Priced at:            {basis['model']} input "
+            f"(${basis['input_per_1m']}/1M, as of {basis['as_of']})",
             f"  Estimated savings:    ${estimated_savings_usd:,.2f}",
             "",
             "=" * 60,
@@ -359,6 +387,9 @@ class MetricsEngine:
             "graph_stats": self.graph_stats,
             "graph_stats_current": self.graph_stats_current,
             "caller_stats": getattr(self, "caller_stats", {}),
+            # The model behind the savings, for authentic per-model cost valuation
+            # (graqle.pricing). None → the dashboard uses pricing.DEFAULT_MODEL.
+            "cost_model": self._cost_model,
         }
         payload = json.dumps(data, indent=2, ensure_ascii=False)
         try:

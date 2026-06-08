@@ -14,9 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from graqle import pricing
 from graqle.metrics.engine import MetricsEngine
-
-_COST_PER_1K_TOKENS = 0.015  # $/1K input tokens (mid-tier LLM)
 
 
 def generate_dashboard(
@@ -194,10 +193,18 @@ def generate_dashboard(
     # Cost impact estimate
     # ------------------------------------------------------------------
     sections.append("## Cost Impact Estimate\n")
-    estimated_savings = (tokens_saved / 1000) * _COST_PER_1K_TOKENS
+    # Authentic: value tokens saved at the REAL per-model INPUT price (single
+    # source of truth, graqle.pricing) — not a hardcoded flat rate. The basis
+    # (model + as-of date) is shown so the figure is auditable.
+    cost_model = getattr(metrics, "_cost_model", None) or pricing.DEFAULT_MODEL
+    estimated_savings = pricing.cost_saved(tokens_saved, cost_model)
+    basis = pricing.pricing_basis(cost_model)
     sections.append("| Parameter | Value |")
     sections.append("|-----------|-------|")
-    sections.append(f"| Token cost rate | ${_COST_PER_1K_TOKENS}/1K input tokens |")
+    sections.append(
+        f"| Priced at | {basis['model']} input "
+        f"(${basis['input_per_1m']}/1M, as of {basis['as_of']}) |"
+    )
     sections.append(f"| Total tokens saved | {tokens_saved:,} |")
     sections.append(f"| **Estimated savings** | **${estimated_savings:,.2f}** |")
 
