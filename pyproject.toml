@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-# V-CR-GOV-INSTALL-P4-NATIVE: native version bump (G4 config). 0.73.0 =
-# ADR-222 P4 — cost is observability, never a quality gate (both cost paths
-# made advisory + measured). 0.72.2 was the tokens-saved-baseline release.
-version = "0.73.0"
+# V-CR-GOV-INSTALL-P5A-NATIVE: native version bump (G4 config). 0.74.0 =
+# ADR-222 P5a — EU AI Act configurable + irreversible-latch core (OFF by
+# default, unwired). 0.73.0 was the cost-is-observability release.
+version = "0.74.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -480,6 +480,33 @@ class NamedModelConfig(BaseModel):
     api_key: str | None = None
 
 
+class EuAiActConfig(BaseModel):
+    """EU AI Act (Reg. (EU) 2024/1689) layer config — OFF by default (ADR-222 P5).
+
+    Stored in graqle.yaml under ``governance.eu_ai_act``. This config is the
+    DECLARED intent; the ENFORCED state is the tamper-evident latch recorded in
+    ``.graqle/eu_ai_act_latch.jsonl`` (see graqle.compliance.eu_ai_act_latch).
+    The gate (P5b) reads the latched state, not this yaml, so a hand-edit back to
+    ``enabled: false`` cannot silently disable an enabled latch.
+
+    Example YAML::
+
+        governance:
+          eu_ai_act:
+            enabled: false              # off by default
+            mode: blocking              # blocking | advisory
+            risk_class: high            # high | limited | minimal
+
+    HONEST FRAMING (ADR-222 D-3): the irreversible latch is a GraQle design that
+    SUPPORTS the Act's record-keeping / traceability expectations. The Act does
+    NOT itself require an un-disableable switch.
+    """
+
+    enabled: bool = False
+    mode: Literal["blocking", "advisory"] = "blocking"
+    risk_class: Literal["high", "limited", "minimal"] = "high"
+
+
 class GovernancePolicyConfig(BaseModel):
     """Governance policy thresholds — stored in graqle.yaml under 'governance:'.
 
@@ -531,6 +558,10 @@ class GovernancePolicyConfig(BaseModel):
     # signal whether the value is calibrated. See
     # graqle.compliance.article_14_gate.
     human_review_required_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
+
+    # —— ADR-222 P5: EU AI Act layer (OFF by default; enforced via tamper-evident
+    # latch, not this yaml). P5a ships config + latch core; P5b wires the gate.
+    eu_ai_act: EuAiActConfig = Field(default_factory=EuAiActConfig)
 
     @model_validator(mode="after")
     def _validate_edit_enforcement_requires_plan(self) -> "GovernancePolicyConfig":
