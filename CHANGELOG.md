@@ -4,6 +4,39 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.74.0 (2026-06-08) — [EU AI Act layer: configurable + irreversible latch (core)]
+
+> The optional **EU AI Act (Reg. (EU) 2024/1689)** governance layer gains its
+> configurable, tamper-evident **irreversible-latch core**. It is **OFF by
+> default** and, in this release, **wired to nothing** — installing 0.74.0
+> changes no runtime behaviour. A later release wires the latched state into the
+> governance gate as an enforced compliance phase. Implements ADR-222 P5a.
+
+**Added**
+
+- **`graqle.compliance.eu_ai_act_latch`** — an ed25519-signed, hash-chained,
+  append-only **one-way latch** (`.graqle/eu_ai_act_latch.jsonl`). Once a project
+  records `enabled: true`, the layer cannot be silently turned off and `mode`
+  cannot be downgraded `blocking → advisory`. Upgrades are allowed; downgrades
+  are refused (`LatchDowngradeRefused`); there is intentionally no disable path.
+  - **Tamper-evident:** content edits, chain breaks, and signing-key swaps are
+    detected; the reader **fails closed** (a tamper attempt can never disable the
+    latch). `read_state()` never raises into a caller.
+  - **Audited override:** a wrongly-blocked action may proceed once via a signed,
+    logged `override` event with a justification — this records, it does not
+    downgrade the latch.
+- **`governance.eu_ai_act`** config (`graqle.yaml`): `enabled` (default `false`),
+  `mode` (`blocking`|`advisory`), `risk_class` (`high`|`limited`|`minimal`). The
+  enforced state is the latch, not this yaml — a hand-edit cannot disable it.
+
+**Framing**
+
+- The irreversible latch is a GraQle design that **supports** the Act's
+  record-keeping / traceability expectations (Art. 12 / 72). The Act does NOT
+  itself require an un-disableable switch — it is never documented as such.
+
+---
+
 ## 0.73.0 (2026-06-08) — [Cost is observability, never a quality gate]
 
 > Governance and reasoning **quality are never cut for cost**. Every cost path
