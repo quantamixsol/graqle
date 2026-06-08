@@ -1,0 +1,30 @@
+{
+  "entries": [
+    {
+      "byte_size": 532455,
+      "fetched_at_iso": "2026-06-08T19:47:18Z",
+      "sha256": "32af4e79f6b4f803df8bd80ff7315c826c2bd033fb2232b64dd4cad347b4a114",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019L0790"
+    },
+    {
+      "byte_size": 1530536,
+      "fetched_at_iso": "2026-06-08T19:47:18Z",
+      "sha256": "b6cbac82b1e3889b1f0bcd298b6307805ec7b82fe6e3acb671c73d0f3e7c0215",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202401689"
+    },
+    {
+      "byte_size": 1264454,
+      "fetched_at_iso": "2026-06-08T19:47:18Z",
+      "sha256": "5356bcd9799e8faa9575683fe3ecb045482a017e472fca85fd62702224cf7128",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ%3AL_202401689"
+    },
+    {
+      "byte_size": 2583319,
+      "fetched_at_iso": "2026-06-08T19:47:18Z",
+      "sha256": "bba630444b3278e881066774002a1d7824308934f49ccfa203e65be43692f55e",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202401689"
+    }
+  ],
+  "generated_at_iso": "2026-06-08T19:47:22Z",
+  "schema_version": "1.0"
+}
