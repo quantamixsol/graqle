@@ -266,6 +266,26 @@ The EU AI Act docs are deliberately open to contribution — **corrections, tran
 
 ---
 
+## What's new in v0.73.0
+
+**Cost is observability, never a quality gate.** GraQle never cuts reasoning or
+debate quality to save money. Every cost path is now **advisory**: it measures
+and surfaces spend (the cost-savings story) but never halts still-valuable work.
+
+- **Reasoning** continues past budget to natural convergence / `max_rounds`; the
+  cost of continuing is measured (`continuation_cost_usd` in result metadata).
+- **Multi-backend debate** no longer stops on budget — it runs to `max_rounds`
+  and reports over-budget rounds instead.
+- **Advisory per-session cost meter** in the MCP server surfaces `session_cost_usd`
+  and a one-time over-budget note — purely observational, never blocks a tool,
+  and hardened against malformed cost values.
+- Runaway protection stays value-based (`max_rounds` + the absolute LLM-call
+  ceiling), never price-based.
+
+→ [Full v0.73.0 changelog](./CHANGELOG.md)
+
+---
+
 ## What's new in v0.72.0
 
 **One constitution, every AI client.** The governance rulebook now renders into

@@ -4,6 +4,42 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.73.0 (2026-06-08) — [Cost is observability, never a quality gate]
+
+> Governance and reasoning **quality are never cut for cost**. Every cost path
+> is now ADVISORY — it measures and surfaces spend (the cost-savings story) but
+> never halts a still-valuable reasoning or debate. The bounds are value-based
+> (convergence + max_rounds), never price-based. Implements ADR-222 P4.
+
+**Changed**
+
+- **Reasoning orchestrator:** the old hard cost-ceiling that halted multi-round
+  reasoning at N× budget is now a one-time **advisory** — reasoning continues to
+  natural convergence / `max_rounds`. The cost of continuing past the advisory
+  is **measured** and surfaced in result metadata (`cost_advisory_triggered`,
+  `cost_at_advisory_usd`, `continuation_cost_usd`).
+- **Multi-backend debate (opt-in):** `DebateCostGate.check_round` no longer
+  raises `BudgetExhaustedError` to stop a debate — it returns an advisory
+  boolean and records over-budget rounds (`over_budget` / `over_budget_rounds`);
+  the debate runs to `max_rounds`. `BudgetExhaustedError` is retained for
+  back-compat.
+
+**Added**
+
+- **Advisory per-session cost meter** in the MCP server: accumulates estimated
+  spend across a session and surfaces it (`session_cost_usd`) plus a one-time
+  over-budget `cost_advisory` note. It is **purely observational** — it never
+  blocks, skips, or alters a tool result, never raises, and rejects malformed
+  cost values (NaN / Infinity / negative / bool). Resets on `session_start`.
+
+**Principle**
+
+- Cost is a story to tell, not a lever to pull. No cost path can halt governance
+  or quality work. Runaway protection remains via `max_rounds` and the absolute
+  `max_llm_calls` ceiling — never via cost.
+
+---
+
 ## 0.72.2 (2026-06-08) — [Measured tokens-saved baseline]
 
 > Completes the authentic-savings story. 0.72.1 made the *dollar rate* real

@@ -119,18 +119,28 @@ class TestDebateCostBudget:
 class TestDebateCostGate:
 
     def test_check_round_passes(self):
+        # ADR-222 P4: within budget -> True, no raise, not over budget.
         gate = DebateCostGate(DebateCostBudget(initial_budget=1.0, decay_factor=_TEST_DECAY))
-        gate.check_round(0.1)  # should not raise
+        assert gate.check_round(0.1) is True
+        assert gate.over_budget is False
+        assert gate.over_budget_rounds == 0
 
-    def test_check_round_raises_when_exhausted(self):
+    def test_check_round_advisory_when_exhausted(self):
+        # ADR-222 P4: cost NEVER halts a debate. Over budget -> returns False,
+        # does NOT raise, and records the over-budget round for measurement.
         gate = DebateCostGate(DebateCostBudget(initial_budget=0.0, decay_factor=_TEST_DECAY))
-        with pytest.raises(BudgetExhaustedError):
-            gate.check_round(0.1)
+        assert gate.check_round(0.1) is False  # advisory, never raises
+        assert gate.over_budget is True
+        assert gate.over_budget_rounds == 1
 
-    def test_check_round_raises_when_over_budget(self):
+    def test_check_round_advisory_when_over_budget(self):
+        # ADR-222 P4: estimate exceeds remaining -> advisory False, no raise.
         gate = DebateCostGate(DebateCostBudget(initial_budget=0.05, decay_factor=_TEST_DECAY))
-        with pytest.raises(BudgetExhaustedError):
-            gate.check_round(0.1)
+        assert gate.check_round(0.1) is False
+        assert gate.over_budget is True
+        # repeated over-budget rounds keep accruing (measured, never gated)
+        assert gate.check_round(0.1) is False
+        assert gate.over_budget_rounds == 2
 
     def test_record_and_decay_returns_remaining(self):
         gate = DebateCostGate(DebateCostBudget(initial_budget=1.0, decay_factor=_TEST_DECAY))
@@ -157,11 +167,12 @@ class TestDebateCostGate:
         assert gate.exhausted is True
 
     def test_budget_exhausted_error_fields(self):
-        gate = DebateCostGate(DebateCostBudget(initial_budget=0.0, decay_factor=_TEST_DECAY))
-        with pytest.raises(BudgetExhaustedError) as exc_info:
-            gate.check_round(0.01)
-        assert exc_info.value.remaining_budget == pytest.approx(0.0)
-        assert exc_info.value.round_number == 0
+        # ADR-222 P4: check_round no longer raises (cost is advisory). The
+        # BudgetExhaustedError class is retained for back-compat (re-exported via
+        # semaphore.py); verify its fields directly when constructed.
+        err = BudgetExhaustedError(remaining_budget=0.0, round_number=0)
+        assert err.remaining_budget == pytest.approx(0.0)
+        assert err.round_number == 0
 
 
 # ---------------------------------------------------------------------------
