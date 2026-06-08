@@ -280,12 +280,19 @@ async def test_no_budget_exceeded_normal_run(sample_graph):
 
 
 @pytest.mark.asyncio
-async def test_dynamic_ceiling_respects_hard_limit(sample_graph):
-    """Dynamic ceiling never exceeds hard_ceiling_multiplier * budget."""
+async def test_cost_never_halts_reasoning(sample_graph):
+    """ADR-222 P4: cost is observability, NEVER a quality gate.
+
+    With P(continue)=1.0 and no decay, the ONLY thing that could stop reasoning
+    early is a cost cut. That cost cut was removed (the old hard_ceiling break is
+    now a loud ADVISORY that continues). So reasoning must run to max_rounds (or
+    natural convergence) and NEVER be halted on cost. When the budget is crossed,
+    the cost of the continuation decision is MEASURED and surfaced in metadata.
+    """
     backend = CountingBackend(fail_count=0, name_str="costed-mock")
     sample_graph.set_default_backend(backend)
 
-    # Tiny budget, dynamic ceiling ON, hard limit at 3x
+    # Tiny budget so the advisory triggers immediately; always-continue settings.
     config = GraqleConfig(cost=CostConfig(
         budget_per_query=0.0000001,
         dynamic_ceiling=True,
@@ -302,14 +309,18 @@ async def test_dynamic_ceiling_respects_hard_limit(sample_graph):
     orchestrator = Orchestrator()
     result = await orchestrator.run(
         graph=sample_graph,
-        query="test dynamic ceiling hard limit",
+        query="test cost never halts reasoning",
         active_node_ids=node_ids,
         max_rounds=10,
     )
 
-    # Even with P=1.0 (always continue), must stop at hard ceiling
-    assert result.rounds_completed < 10
+    # Cost must NOT have cut reasoning short: bounded only by max_rounds /
+    # convergence, never by cost.
     assert result.metadata["budget_exceeded"] is True
+    # The continuation past the cost advisory is measured, not gated.
+    if result.metadata.get("cost_advisory_triggered"):
+        assert "continuation_cost_usd" in result.metadata
+        assert result.metadata["continuation_cost_usd"] >= 0.0
 
 
 @pytest.mark.asyncio

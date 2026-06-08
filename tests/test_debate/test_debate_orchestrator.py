@@ -141,10 +141,13 @@ class TestDebateOrchestrator:
         assert trace.rounds_completed == 5
 
     @pytest.mark.asyncio
-    async def test_budget_exhaustion_stops(self):
+    async def test_budget_does_not_halt_debate(self):
+        # ADR-222 P4: cost is advisory, NEVER a quality gate. Even with a tiny
+        # budget the debate is NOT cut short on cost — it runs to max_rounds
+        # (the value-based bound). Over-budget rounds are measured, not gated.
         orch = _make_orchestrator(max_rounds=10, budget=0.001)
         trace = await orch.run("test")
-        assert trace.rounds_completed < 10
+        assert trace.rounds_completed == 10  # cost did not halt it
 
     @pytest.mark.asyncio
     async def test_confidence_parsed_from_responses(self):

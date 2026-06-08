@@ -155,6 +155,12 @@ class Orchestrator:
         rounds_completed = 0
         per_round_observations: list[list[str]] = []
         budget_exceeded = False
+        # ADR-222 P4: cost is measured, never gated. cost_advisory_emitted ensures
+        # the N x-budget advisory logs once; cost_at_advisory snapshots spend at the
+        # moment reasoning chose to continue, so we can MEASURE the cost of that
+        # decision (the extra spend the continuation incurred) and surface it.
+        cost_advisory_emitted = False
+        cost_at_advisory: float | None = None
 
         # CR-007 Fix 5: absolute LLM-call ceiling. Checked BEFORE each
         # round so the ceiling actually constrains rounds (post-round check
@@ -233,14 +239,26 @@ class Orchestrator:
                     )
                     budget_exceeded = True
 
-                # Hard ceiling — absolute safety net, never exceed this
-                if cumulative_cost >= budget_limit * hard_mult and rounds_completed >= 2:
+                # Cost is observability, NOT a governance/quality gate (ADR-222 P4).
+                # We never halt a still-converging ("brilliant") reasoning purely
+                # because it got expensive — that would cut quality for cost. The
+                # value-based bound is convergence + max_rounds (below): they stop
+                # reasoning when it stops ADDING value, not when it gets pricey.
+                # At N x budget we emit a LOUD advisory (the cost-visibility / sell
+                # story) and CONTINUE. The only true runaway guard is max_rounds.
+                if (
+                    cumulative_cost >= budget_limit * hard_mult
+                    and rounds_completed >= 2
+                    and not cost_advisory_emitted
+                ):
                     logger.warning(
-                        f"Cost hard ceiling ({hard_mult}x budget): "
-                        f"${cumulative_cost:.4f}. "
-                        f"Halting after round {rounds_completed}."
+                        f"Cost advisory ({hard_mult}x budget): "
+                        f"${cumulative_cost:.4f} at round {rounds_completed}. "
+                        f"Reasoning CONTINUES — quality over cost; bounded by "
+                        f"convergence and max_rounds, never by cost."
                     )
-                    break
+                    cost_advisory_emitted = True
+                    cost_at_advisory = cumulative_cost
 
                 # Dynamic probabilistic gate (after minimum 2 rounds)
                 if dynamic_ceiling and rounds_completed >= 2:
@@ -408,6 +426,16 @@ class Orchestrator:
             "cumulative_cost_usd": round(cumulative_cost, 6),
             "governance_stats": dict(self._gov_stats),
         }
+        # ADR-222 P4: when reasoning chose to continue past the cost advisory
+        # (a "brilliant decision" still converging), MEASURE the cost of that
+        # decision — the extra spend the continuation incurred beyond the
+        # advisory point — and surface it. Cost is reported, never gated.
+        if cost_at_advisory is not None:
+            metadata["cost_advisory_triggered"] = True
+            metadata["cost_at_advisory_usd"] = round(cost_at_advisory, 6)
+            metadata["continuation_cost_usd"] = round(
+                max(0.0, cumulative_cost - cost_at_advisory), 6
+            )
         if observer_report:
             metadata["observer_report"] = observer_report.to_dict()
             metadata["observer_summary"] = observer_report.to_summary()
