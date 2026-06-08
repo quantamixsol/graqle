@@ -87,6 +87,13 @@ class MetricsEngine:
         # Set from the reasoning backend's model id when a query is recorded.
         self._cost_model: str | None = None
 
+        # How the tokens-saved BASELINE was derived, counted across context loads:
+        # "measured_file" (the node's real full-file token count) vs
+        # "calibrated_fallback" (no measurable file). Lets the dashboard label the
+        # headline as measurement-backed and report the measured fraction.
+        self._baseline_measured: int = 0
+        self._baseline_fallback: int = 0
+
     def set_cost_model(self, model: str | None) -> None:
         """Record the model behind the savings, for authentic cost valuation.
 
@@ -95,6 +102,13 @@ class MetricsEngine:
         """
         if isinstance(model, str) and model.strip():
             self._cost_model = model.strip()
+
+    def note_baseline_method(self, method: str) -> None:
+        """Count how a per-node tokens-saved baseline was derived (see baseline.py)."""
+        if method == "measured_file":
+            self._baseline_measured += 1
+        else:
+            self._baseline_fallback += 1
 
     # ------------------------------------------------------------------
     # Recording methods
@@ -308,6 +322,17 @@ class MetricsEngine:
             # The model behind the savings, for authentic per-model cost valuation
             # (graqle.pricing). None → the dashboard uses pricing.DEFAULT_MODEL.
             "cost_model": self._cost_model,
+            # Baseline provenance: how the tokens-saved counterfactual was derived.
+            # baseline_measured_pct = the share that is measurement-backed (the
+            # node's REAL file was measured) vs a calibrated fallback.
+            "baseline_measured_loads": self._baseline_measured,
+            "baseline_fallback_loads": self._baseline_fallback,
+            "baseline_measured_pct": round(
+                100.0
+                * self._baseline_measured
+                / max(self._baseline_measured + self._baseline_fallback, 1),
+                1,
+            ),
         }
 
     def get_roi_report(self) -> str:
@@ -390,6 +415,17 @@ class MetricsEngine:
             # The model behind the savings, for authentic per-model cost valuation
             # (graqle.pricing). None → the dashboard uses pricing.DEFAULT_MODEL.
             "cost_model": self._cost_model,
+            # Baseline provenance: how the tokens-saved counterfactual was derived.
+            # baseline_measured_pct = the share that is measurement-backed (the
+            # node's REAL file was measured) vs a calibrated fallback.
+            "baseline_measured_loads": self._baseline_measured,
+            "baseline_fallback_loads": self._baseline_fallback,
+            "baseline_measured_pct": round(
+                100.0
+                * self._baseline_measured
+                / max(self._baseline_measured + self._baseline_fallback, 1),
+                1,
+            ),
         }
         payload = json.dumps(data, indent=2, ensure_ascii=False)
         try:
