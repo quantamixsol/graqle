@@ -4,6 +4,32 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.72.2 (2026-06-08) — [Measured tokens-saved baseline]
+
+> Completes the authentic-savings story. 0.72.1 made the *dollar rate* real
+> (per-model, dated); this makes the *token count* real too — the "without-graph"
+> baseline is now measured from each node's actual source file, not a flat constant.
+
+**Added**
+
+- **`graqle/metrics/baseline.py`** — measures the real "without-graph" token cost
+  of an activated node as the token count of its **full source file** (what a dev
+  would have loaded), cached per path. Fail-safe: any unmeasurable node (no path,
+  unreadable, non-code) uses a documented **calibrated fallback** (logged); a
+  per-node cap prevents one huge vendored file from dominating the headline.
+- `MetricsEngine.get_summary()` reports baseline provenance —
+  `baseline_measured_pct` (share of context loads that are measurement-backed vs
+  calibrated-fallback) — so the dashboard can label the figure honestly.
+
+**Changed**
+
+- `graqle/core/graph.py` records each activated node's measured baseline (via
+  `baseline.baseline_for_node`) instead of the flat `_DEFAULT_TOKENS_WITHOUT`.
+  Behaviour only improves where a real file is found; otherwise it keeps the prior
+  calibrated value (no regression).
+
+---
+
 ## 0.72.1 (2026-06-08) — [Authentic, model-aware "Cost Saved" metric]
 
 > The dashboard's **Cost Saved** figure is now a defensible number: real tokens
@@ -99,148 +125,6 @@ All notable changes to GraQle are documented in this file.
   requires any specific switch.
 
 ---
-
-## 0.68.0 (2026-06-02) — [Ed25519 licence hardening + edition gating]
-
-> The licence layer moves to **ed25519** (asymmetric): the Community wheel
-> verifies licences with a public key it cannot forge with — the private signer
-> stays server-side. Adds offline grace, revocation (CRL + kid), replay
-> protection, and edition/feature entitlement gating. Existing HMAC licences keep
-> working during a deprecation window (see ADR-215).
-
-**Added**
-
-- `graqle.licensing.ed25519_license` — ed25519-signed licences with a `kid`
-  (reuses the ed25519 key manifest; a revoked `kid` invalidates everything it
-  signed). The default verification path is now ed25519 (v2).
-- `graqle.licensing.crl` — ed25519-signed revocation list (per-licence revocation
-  by id) with monotonic-sequence rollback defence; supports air-gapped signed
-  import.
-- `graqle.licensing.nonce_store` — durable accept-once licence-nonce store
-  (replay protection).
-- `graqle.entitlement` — `@requires_edition` / `@requires_feature` gates. The
-  free Community core is never gated.
-- Offline expiry **grace window** (default 60 days, `GRAQLE_LICENSE_GRACE_DAYS`).
-
-**Changed**
-
-- Licence verification is dual-format: ed25519 (v2) preferred, legacy HMAC (v1)
-  accepted during a back-compat window. **v1 HMAC verification now requires a
-  configured `GRAQLE_LICENSE_KEY_SECRET`** — the public dev fallback no longer
-  grants trust (closes a forgery vector for the public wheel).
-
-**Security**
-
-- The Community wheel ships verification keys only — no private signing key, and
-  the HMAC signer (`keygen.py`) is excluded. A public install cannot mint a
-  licence. See ADR-215 for the migration + deprecation posture.
-
-## 0.67.0 (2026-06-01) — [Open-core packaging carve-out + Apache-2.0]
-
-> The Community ``graqle`` wheel is now genuinely Community-only: the proprietary
-> commercial backends are excluded from the published wheel, the CLI degrades
-> gracefully when they are absent, and the licence is **Apache-2.0**. No
-> behavioural change when the backends are present.
-
-**Changed**
-
-- **Licence: Apache-2.0** (aligns ``pyproject.toml`` with the existing
-  Apache-2.0 ``LICENSE``). The ``NOTICE`` makes the open-core patent scope
-  explicit: the Apache-2.0 §3 patent grant covers only the published Community
-  code; patents on algorithms residing solely in the proprietary components are
-  reserved and not licensed via this distribution.
-- The Community wheel **excludes** the proprietary backends (``graqle.cloud`` /
-  ``graqle.leads`` / ``graqle.studio`` / ``graqle.server``). ``scorch`` and
-  ``phantom`` remain in Community.
-
-**Added**
-
-- ``graqle/cli/_edition_guard.py`` — proprietary CLI commands degrade with a
-  clean install hint (``pip install graqle-studio``) + exit code 2 when their
-  backend isn't installed, instead of a traceback. Genuine missing-dependency
-  errors are never masked.
-- Import-direction CI gate (``tests/test_packaging/``) — fails the build if any
-  Community module gains a module-level import of a proprietary package.
-
-## 0.66.0 (2026-06-01) — [Edition detection (`graqle.edition`)]
-
-> The open-core **edition detector** — the install/feature-set axis (Community /
-> Studio / Enterprise), distinct from the licence tier. Additive and reversible:
-> nothing gates on it yet; it composes with the existing licensing module and
-> defaults to Community.
-
-**Added**
-
-- New `graqle/edition.py`:
-  - `Edition` enum — `COMMUNITY` / `STUDIO` / `ENTERPRISE`.
-  - `detect_edition()` — resolves the active edition: a `GRAQLE_EDITION` env
-    override (exact-match only) → otherwise mapped from `LicenseManager`'s tier →
-    otherwise `COMMUNITY`. `lru_cache`d, with `reset_edition_cache()`.
-  - `is_community()` / `is_studio_or_higher()` / `is_enterprise()` helpers.
-- Fail-closed by design: every failure or malformed-input path resolves to
-  `COMMUNITY` — no input yields a paid edition without a valid licence or an
-  exact valid override. The detector only *reports* the edition; it grants no
-  entitlement (feature gating verifies the licence itself).
-- Composes with the existing `graqle.licensing` (no parallel edition stack).
-
-## 0.65.0 (2026-05-31) — [Metering layer: the billable unit for hosted proof anchoring]
-
-> The open-core meter. A billable event (`unit="proof_anchored"`) is recorded
-> only when a proof becomes *hosted* (anchored) — local work stays free — and is
-> deduped to exactly-once on the proof's Merkle `leaf_hash` across both
-> proof-production paths. Composition-only: no governed/anchoring internals are
-> modified beyond one additive, never-raise observer seam.
-
-**Added**
-
-- New `graqle.metering` package (Apache-2.0, Community):
-  - `MeterEvent` — the billable unit (`unit="proof_anchored"`, frozen, validated).
-  - `MeterSink` Protocol — the one-method sink interface (the seam hosted
-    backends implement); `LocalNullMeter` is the Community no-op (local = free).
-  - `MeteredAttestationSink` — count point 1: wraps any runtime `AttestationSink`,
-    meters the attested proof, then always delegates the durable write.
-  - `make_meter_observer()` — count point 2: a never-raise callback for the
-    Layer-5 `Committer`, fired once per leaf on the *anchored* transition.
-  - `MeterDedupeStore` — WAL-backed exactly-once gate keyed on `leaf_hash`
-    (atomic temp→fsync→replace→dir-fsync writes, integrity-checksum + content
-    validation on recovery, DoS size cap). Exactly-once under retry, dual-path,
-    and crash-mid-write.
-
-**Changed**
-
-- `Committer` gains an optional `meter_observer` parameter (additive, defaults
-  to `None` = no metering). Fired only on the anchored transition, guarded so a
-  metering fault can never break the anchoring path. No behavioural change when
-  unset.
-
-## 0.64.0 (2026-05-31) — [Standalone offline proof verifier + `graq attest verify`]
-
-> The canonical, free-forever offline verifier for GraQle-format tamper-evidence
-> proof bundles. Given a proof bundle and the signer's public key(s) — and
-> nothing else: no network, no GraQle service, no proprietary code — anyone can
-> verify a proof. This engineers the "survive-our-disappearance" guarantee: if
-> GraQle vanished, every proof we ever emitted still verifies.
-
-**Added**
-
-- `graqle.governance.tamper_evidence.verifier.verify_bundle(proof_bundle, trusted_keys)`
-  — composes leaf-hash recompute, Merkle inclusion, ed25519 windowed/3-state-lifecycle
-  trust, and an optional **offline** Rekor binding check into one verifier.
-  Returns a typed `VerifyResult` (never raises on a bad proof). Pure standard
-  library + `cryptography`; imports nothing from the server/studio/anchoring
-  surfaces. A runtime import-isolation guard enforces that at import time.
-- `graq attest verify <bundle.json> --key <pub.pem>` CLI (also `--keys <keyring.json>`
-  for explicit per-key validity windows + lifecycle states, `--rekor-sth`, and
-  `--format text|json`), plus the dependency-light `python -m graqle.verify`
-  entrypoint. Exit codes: `0` verified, `1` not verified, `2` usage error.
-- An import-isolation CI gate (AST allowlist) that fails the build if the verifier
-  or its surface ever imports outside the standard library, `cryptography`, and the
-  four tamper-evidence primitives — so the offline-verifiability guarantee cannot
-  silently regress.
-
-110 tests at 100% statement + branch coverage (real signed + Merkle-anchored
-fixtures, fault injection for every failure mode, and a studio-free subprocess
-invariant proving the verifier runs standalone).
 
 ## 0.63.1 (2026-05-31) — [Fix: graq_learn now persists to Neo4j]
 
@@ -561,21 +445,14 @@ Full guide: [`docs/migration_v0623.md`](docs/migration_v0623.md).
 
 ### Notes
 
-- **Production-safety defaults.** Capture failure defaults to **fail-open with loud
-  structured logging** (`on_error="log"`) — an audit side-channel must not turn a healthy
-  response into an error for a real user; set `on_error="raise"` to fail-closed. Capture
-  error logs carry the exception **type + domain only, never the exception message** (no PII
-  leak via logs). A `max_body_bytes` cap (default 1 MiB) bounds the buffered response body
-  (oversize bodies are streamed back unmodified and skipped, logged as
-  `capture_skipped_oversize`). The shared default runtime is built behind a lock.
-- **Streaming caveat.** The middleware buffers `application/json` responses; do not mount it
-  on streaming/SSE decision routes (use the `@governed` decorator there). `text/event-stream`
-  and non-JSON responses pass through untouched.
-- **Opt-in & backward-compatible.** v0.61.0 output is byte-identical to v0.60.0 unless you
-  import and use `graqle.governance.runtime.fastapi`.
-- **Scope (R1).** This release is the framework attachment + mapping surface. The anchoring
-  worker that batches → Merkle-commits → Sigstore-Rekor-anchors the durable trail out of
-  band shipped in v0.62.0.
+- **Production-safety defaults.** Capture failure defaults to fail-open with loud
+  structured logging (`on_error="log"`); set `on_error="raise"` to fail-closed.
+  Capture-error logs carry exception **type + domain only**, never the exception
+  message (no PII via logs). `max_body_bytes` (default 1 MiB) bounds the buffered
+  body (DoS guard). Streaming caveat: the middleware buffers JSON responses; on
+  streaming/SSE routes use the `@governed` decorator instead.
+- **Opt-in & backward-compatible.** Byte-identical to v0.60.0 unless you import
+  `graqle.governance.runtime.fastapi`.
 
 ---
 

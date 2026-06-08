@@ -4,9 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-# V-AUTH-SAVINGS-NATIVE-003: native version bump (G4 config). #195 ships v0.72.0;
-# this PR (authentic Cost Saved) takes the next patch so it has its own release.
-version = "0.72.1"
+# V-SAVINGS-BASELINE-NATIVE-003: native version bump (G4 config). 0.72.2 =
+# measured tokens-saved baseline (graqle/metrics/baseline.py). 0.72.1 was the
+# authentic per-model $-rate; this completes the authenticity story.
+version = "0.72.2"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -129,9 +130,10 @@ all-gpu = [
     "graqle[all,gpu]",
 ]
 security = [
-    # Rekor transport uses sigstore 3.x: RekorClient.production() + the
-    # rekor_types Hashedrekord proposal. 2.x's bundled TUF root has aged out of
-    # the live Sigstore infra; 4.x restructured for Rekor v2.
+    # V-CR-BIZQ-001-NATIVE-S2-010/012: pin sigstore to 3.x — the Rekor transport
+    # (anchors/sigstore_rekor.py) uses RekorClient.production() + the rekor_types
+    # Hashedrekord proposal. 2.x's bundled TUF trust root has aged out of the live
+    # Sigstore infra ("no active Rekor key"); 4.x restructured the Rekor v2 client.
     "sigstore>=3.0,<4.0",
     "cyclonedx-bom>=4.0",
     "pip-audit>=2.6",
