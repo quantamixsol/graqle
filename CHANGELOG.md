@@ -4,6 +4,32 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.72.2 (2026-06-08) — [Measured tokens-saved baseline]
+
+> Completes the authentic-savings story. 0.72.1 made the *dollar rate* real
+> (per-model, dated); this makes the *token count* real too — the "without-graph"
+> baseline is now measured from each node's actual source file, not a flat constant.
+
+**Added**
+
+- **`graqle/metrics/baseline.py`** — measures the real "without-graph" token cost
+  of an activated node as the token count of its **full source file** (what a dev
+  would have loaded), cached per path. Fail-safe: any unmeasurable node (no path,
+  unreadable, non-code) uses a documented **calibrated fallback** (logged); a
+  per-node cap prevents one huge vendored file from dominating the headline.
+- `MetricsEngine.get_summary()` reports baseline provenance —
+  `baseline_measured_pct` (share of context loads that are measurement-backed vs
+  calibrated-fallback) — so the dashboard can label the figure honestly.
+
+**Changed**
+
+- `graqle/core/graph.py` records each activated node's measured baseline (via
+  `baseline.baseline_for_node`) instead of the flat `_DEFAULT_TOKENS_WITHOUT`.
+  Behaviour only improves where a real file is found; otherwise it keeps the prior
+  calibrated value (no regression).
+
+---
+
 ## 0.72.0 (2026-06-07) — [Constitution for every client: OpenAI Codex (AGENTS.md)]
 
 > The governance constitution now renders into **every supported AI client**,

@@ -4,7 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-version = "0.72.0"
+# V-SAVINGS-BASELINE-NATIVE-003: native version bump (G4 config). 0.72.2 =
+# measured tokens-saved baseline (graqle/metrics/baseline.py). 0.72.1 was the
+# authentic per-model $-rate; this completes the authenticity story.
+version = "0.72.2"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
