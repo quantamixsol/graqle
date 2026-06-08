@@ -2143,12 +2143,24 @@ class Graqle:
             result_tokens = len(result.answer) // 4  # ~4 chars per token
             engine.record_query(query, result_tokens)
 
-            # Record node accesses
+            # Record node accesses. Authentic baseline: the "without-graph" cost
+            # is the token count of the node's FULL source file (what a dev/agent
+            # would have loaded), measured per node — not a flat assumption. Falls
+            # back to a calibrated constant (logged) when the file can't be
+            # measured. See graqle.metrics.baseline.
+            from graqle.metrics.baseline import baseline_for_node
             for nid in node_ids:
                 node = self.nodes.get(nid)
                 label = node.label if node else nid
                 tokens_returned = len(node.description) // 4 if node and node.description else 50
-                engine.record_context_load(nid, tokens_returned)
+                if node is not None:
+                    tokens_without, method = baseline_for_node(node)
+                    engine.record_context_load(
+                        nid, tokens_returned, tokens_without=tokens_without
+                    )
+                    engine.note_baseline_method(method)
+                else:
+                    engine.record_context_load(nid, tokens_returned)
 
             # Record graph stats
             from collections import Counter
