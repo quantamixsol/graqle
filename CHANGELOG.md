@@ -4,6 +4,38 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.75.0 (2026-06-09) — [EU AI Act layer: enforced compliance phase (wired)]
+
+> The EU AI Act latch (0.74.0) is now **wired into the governance gate** as an
+> enforced, **narrow-scope, off-by-default** compliance phase (CG-EU-AIA).
+> Implements ADR-222 P5b — completing the EU AI Act layer.
+
+**Added**
+
+- **CG-EU-AIA gate phase** in the MCP server. When the tamper-evident latch
+  reads `enabled`, AIA-relevant **write** tools (`graq_edit` / `graq_write` /
+  `graq_generate` / `graq_apply` + `kogni_` aliases) pass through an Article-14
+  human-oversight check:
+  - **blocking** mode + supplied confidence below the review threshold →
+    **refused** with an envelope explaining the audited-override path;
+  - **advisory** mode → recorded + advised, never blocked;
+  - a signed `eu_aia_override_justification` argument records an audited override
+    (latch stays on) and lets that one action proceed.
+- **`graqle.compliance.eu_ai_act_latch.evaluate_gate`** — a pure, unit-tested
+  decision function (the enforcement logic, testable without the server).
+
+**Scope & safety (deliberate)**
+
+- **Reads, planning, reasoning, and lifecycle tools are never gated** — only
+  AIA-relevant writes, only when the latch is on.
+- The phase is **fail-safe for usability**: if it cannot evaluate, it allows
+  (never blocks routine work); the latch itself remains fail-closed for tamper.
+- It is **light-touch by design** — a compliance *traceability* aid (Art. 12/72
+  support), not a hard wall and not a substitute for human compliance judgement.
+- **Off by default**; no new MCP tool; 0 regression.
+
+---
+
 ## 0.74.0 (2026-06-08) — [EU AI Act layer: configurable + irreversible latch (core)]
 
 > The optional **EU AI Act (Reg. (EU) 2024/1689)** governance layer gains its

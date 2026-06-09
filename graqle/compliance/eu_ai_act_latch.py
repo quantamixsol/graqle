@@ -456,3 +456,117 @@ class EuAiActLatch:
             )
             self._append(record)
             return self.read_state()
+
+
+# ── gate decision helper (ADR-222 P5b) ─────────────────────────────────
+# Pure function so the enforcement logic is unit-testable without the MCP
+# server. The gate (graqle/plugins/mcp_dev_server.py) calls this and acts on
+# the returned decision. Cost/quality are NEVER gated here — only AIA-relevant
+# writes, only when the latch is enabled, and always with the audited override
+# escape valve (D-1).
+
+# AIA-relevant write tools — the ONLY tools the EU AI Act phase may gate. Reads,
+# planning, reasoning, lifecycle, learn, etc. are NEVER gated (narrow scope).
+AIA_GATED_TOOLS: frozenset[str] = frozenset({
+    "graq_edit", "kogni_edit",
+    "graq_write", "kogni_write",
+    "graq_generate", "kogni_generate",
+    "graq_apply", "kogni_apply",
+})
+
+
+@dataclass(frozen=True)
+class GateDecision:
+    """Result of the EU AI Act gate evaluation for one tool call."""
+
+    action: Literal["allow", "block", "advise"]
+    reason: str = ""
+    envelope: dict[str, Any] | None = None  # refusal envelope when action=="block"
+    advisory: str | None = None             # advisory note when action=="advise"
+
+
+def evaluate_gate(
+    *,
+    state: LatchState,
+    tool_name: str,
+    confidence: float | None,
+    threshold: float,
+    override_justification: str | None = None,
+) -> GateDecision:
+    """Decide whether an AIA-relevant write proceeds under the latch.
+
+    Narrow scope + fail-safe-for-usability rules (ADR-222 P5b / research):
+    - Latch not enabled, or tool not AIA-relevant -> ``allow`` (no-op).
+    - Latch enabled but a (non-empty) override justification is present ->
+      ``allow`` (the caller will have recorded the signed override).
+    - ``advisory`` mode -> ``advise`` (warn + caller records), never block.
+    - ``blocking`` mode + confidence below threshold -> ``block`` with a refusal
+      envelope that explains how to override.
+    - ``blocking`` mode + confidence >= threshold (or unknown) -> ``allow``.
+
+    This never gates non-write tools and never blocks for cost/quality — only
+    the Article-14 oversight signal on an AIA-relevant write.
+
+    HONEST SCOPE (what this is / is NOT, per graq_predict P5b forecast): this is
+    a deliberately LIGHT-TOUCH phase. It blocks ONLY when (a) the latch is
+    enabled+blocking, (b) the tool is an AIA-relevant write, AND (c) an explicit
+    confidence below threshold is supplied — and even then a signed override
+    proceeds. In practice it RECORDS and ADVISES far more than it blocks. It is a
+    compliance *traceability* aid (Art. 12/72 support), NOT a hard wall, and NOT
+    a substitute for human compliance judgement. Native (non-graq_) tools bypass
+    it entirely — the client-side wall + constitution address that, not this
+    phase. Treat blocks as a prompt for human oversight, not a guarantee.
+    """
+    if not state.enabled or tool_name not in AIA_GATED_TOOLS:
+        return GateDecision(action="allow")
+
+    # An audited per-action override was supplied -> let this one through.
+    if override_justification and override_justification.strip():
+        return GateDecision(
+            action="allow",
+            reason="eu_ai_act_override_recorded",
+        )
+
+    mode = state.mode or "blocking"  # tampered/unknown -> treat as strictest
+
+    if mode == "advisory":
+        return GateDecision(
+            action="advise",
+            advisory=(
+                f"EU AI Act ({state.risk_class or 'high'}-risk, advisory): "
+                f"Article-14 human-oversight applies to '{tool_name}'. "
+                "Recorded; not blocked."
+            ),
+        )
+
+    # blocking mode — only refuse when oversight confidence is below threshold.
+    if confidence is not None and confidence < threshold:
+        envelope = {
+            "error": "CG-EU-AIA_OVERSIGHT",
+            "tool": tool_name,
+            "message": (
+                f"EU AI Act blocking mode ({state.risk_class or 'high'}-risk): "
+                f"'{tool_name}' needs human oversight (Article 14) — confidence "
+                f"{confidence:.2f} is below the {threshold:.2f} review threshold."
+            ),
+            "remediation": (
+                "Re-run the same tool with an 'eu_aia_override_justification' "
+                "argument to proceed with a signed, audited override. This does "
+                "NOT disable the EU AI Act latch — it records that one action "
+                "proceeded under human oversight."
+            ),
+            "eu_ai_act": {
+                "mode": mode,
+                "risk_class": state.risk_class,
+                "confidence": confidence,
+                "threshold": threshold,
+                "tampered": state.tampered,
+            },
+        }
+        return GateDecision(
+            action="block",
+            reason="article_14_oversight_below_threshold",
+            envelope=envelope,
+        )
+
+    return GateDecision(action="allow")
