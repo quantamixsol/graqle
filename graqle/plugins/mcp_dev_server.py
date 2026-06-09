@@ -4318,6 +4318,91 @@ class KogniDevServer:
         ],
     }
 
+    def _eu_ai_act_gate(self, name: str, arguments: dict):
+        """CG-EU-AIA (ADR-222 P5b): evaluate the EU AI Act phase for a write tool.
+
+        Returns None when the phase is inert (config disabled / latch disabled /
+        any failure -> never blocks legitimate work). Otherwise returns a tuple
+        ``(action, payload)`` where action is "block" (payload = refusal
+        envelope), "override" (a signed override was recorded; allow), or
+        "advise"/"allow" (payload unused). FAIL-SAFE FOR USABILITY: any error in
+        the EU AI Act phase logs and returns None (allow) — the latch's own
+        read_state is internally fail-closed, but a phase that cannot evaluate
+        must never block routine work. Hard blocking only happens on an explicit,
+        verified blocking decision.
+        """
+        try:
+            cfg = getattr(getattr(self, "_config", None), "governance", None)
+            eu_cfg = getattr(cfg, "eu_ai_act", None)
+            if eu_cfg is None or not getattr(eu_cfg, "enabled", False):
+                return None  # config switch off -> phase inert
+
+            from graqle.compliance.eu_ai_act_latch import EuAiActLatch, evaluate_gate
+
+            # Latch lives under the server's OWN project root (not any
+            # caller-supplied path). Normalize to an absolute real path defensively
+            # (Sentinel: avoid any relative/symlink ambiguity in the latch dir).
+            import os as _os  # CG-01: os is not module-scoped here — import locally
+            root = getattr(self, "_project_root", None) or _os.getcwd()
+            root = _os.path.realpath(str(root))
+            latch = EuAiActLatch(root)
+            state = latch.read_state()  # internally fail-closed, never raises
+            if not state.enabled:
+                return None  # no latch recorded -> phase inert
+
+            override = None
+            if isinstance(arguments, dict):
+                override = arguments.get("eu_aia_override_justification")
+
+            # confidence: prefer an explicit arg; else None (unknown -> allow in
+            # blocking mode, since we cannot assert it is BELOW threshold).
+            confidence = None
+            if isinstance(arguments, dict):
+                c = arguments.get("confidence")
+                # finite, non-bool, in-range [0,1] only; anything else -> unknown
+                # (None) which never blocks (Sentinel MINOR: explicit bounds).
+                import math as _math
+                if (
+                    isinstance(c, (int, float))
+                    and not isinstance(c, bool)
+                    and _math.isfinite(c)
+                    and 0.0 <= float(c) <= 1.0
+                ):
+                    confidence = float(c)
+
+            threshold = float(getattr(cfg, "human_review_required_threshold", 0.75))
+
+            decision = evaluate_gate(
+                state=state, tool_name=name, confidence=confidence,
+                threshold=threshold, override_justification=override,
+            )
+
+            if decision.action == "block":
+                return ("block", decision.envelope)
+            if decision.action == "allow" and override and override.strip():
+                # A signed, audited override was supplied — record it (D-1).
+                from datetime import datetime, timezone
+                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                try:
+                    # actor="mcp-client": the MCP protocol does not carry an
+                    # authenticated end-user identity at this layer, so the
+                    # override records the client role + the justification text
+                    # (which SHOULD name the human reviewer). A future increment
+                    # binds a verified identity when the transport provides one.
+                    latch.record_override(
+                        justification=override, actor="mcp-client",
+                        action=name, ts=ts,
+                    )
+                except Exception as exc:  # noqa: BLE001 — override logging must not block
+                    logger.warning("CG-EU-AIA override record failed (%s) — allowing", exc)
+                return ("override", None)
+            if decision.action == "advise":
+                return ("advise", None)
+            return None
+        except Exception as exc:  # noqa: BLE001 — the phase must NEVER crash the gate
+            logger.warning("CG-EU-AIA phase error (%s) — allowing (fail-safe-for-usability)", exc)
+            return None
+
     def _accumulate_cost_advisory(self, payload: dict) -> None:
         """ADR-222 P4: advisory per-session cost meter. Observability only.
 
@@ -4509,6 +4594,25 @@ class KogniDevServer:
                             "remediation": "graq_edit",
                         })
                         return self._inject_tool_hints(name, err)
+
+            # CG-EU-AIA (ADR-222 P5b): EU AI Act enforced compliance phase.
+            # NARROW SCOPE — only AIA-relevant write tools, only when the
+            # tamper-evident latch reads enabled. Reads/plan/reason/lifecycle are
+            # never gated. blocking+below-threshold -> refuse with an override
+            # path; advisory -> attach a note, never block. A signed
+            # eu_aia_override_justification lets one action through (latch stays
+            # on). The latch read is fail-closed and can never crash the gate.
+            from graqle.compliance.eu_ai_act_latch import AIA_GATED_TOOLS as _AIA_TOOLS
+            if name in _AIA_TOOLS:
+                _aia_decision = self._eu_ai_act_gate(name, arguments)
+                if _aia_decision is not None:
+                    action, payload = _aia_decision
+                    if action == "block":
+                        logger.warning("CG-EU-AIA BLOCKED: '%s' below oversight threshold", name)
+                        return self._inject_tool_hints(name, json.dumps(payload))
+                    if action == "override":
+                        logger.info("CG-EU-AIA override recorded for '%s'", name)
+                    # "advise" / "override" / "allow" fall through to dispatch.
 
         # CG-17: Memory-path write gate (v0.52.0 / G1).
         # Force graq_memory for any write/edit to ~/.claude/projects/*/memory/*.md.
