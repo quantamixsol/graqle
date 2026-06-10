@@ -5,7 +5,8 @@
 > *supports* the EU AI Act (Reg. (EU) 2024/1689), especially its logging
 > (Art. 12) and post-market-monitoring (Art. 72) expectations. It is **not a
 > hard compliance wall**, and it is **not a substitute for human compliance
-> judgement or legal advice**. GraQle does not certify your system as compliant.
+> judgement or legal advice**. GraQle does not certify your system, and using it
+> does not by itself make your system conformant with the Act.
 
 ---
 
@@ -26,7 +27,7 @@ not be able to disable their own controls without leaving a record.
 - It does **not** gate reads, planning, reasoning, or lifecycle tools — only
   AIA-relevant writes (`graq_edit`, `graq_write`, `graq_generate`, `graq_apply`).
 - It does **not** block your work to save cost (cost is observability only).
-- It does **not** make your system EU-AI-Act-compliant on its own. It provides
+- It does **not** make your system EU-AI-Act-conformant on its own. It provides
   signals, a switch, and an audit trail you can cite — the compliance
   responsibility remains yours.
 - It cannot govern **native, non-GraQle** tools — those bypass the server phase
