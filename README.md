@@ -287,7 +287,7 @@ through a tamper-evident, irreversible latch.
   compliance judgement. The latch *supports* the Act's expectations; it is **not
   "required by the Act."**
 
-This completes the ADR-222 universal-governance arc (constitution-as-code →
+This completes GraQle's universal-governance arc (constitution-as-code →
 every client → universal server gate → cost-is-observability → EU AI Act layer).
 
 → [Full v0.75.0 changelog](./CHANGELOG.md)
