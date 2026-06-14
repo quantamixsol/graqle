@@ -165,6 +165,80 @@ async def _resolve_graph_for_request(request: Request):
     return state.get("graph")
 
 
+async def _resolve_project_graph_or_error(
+    request: Request, requested_project: str
+) -> "Graqle | JSONResponse":
+    """R2 (ADR-220-A): fail-closed project graph resolution shared by routes.
+
+    Return contract (callers MUST check ``isinstance(result, JSONResponse)``):
+    a loaded graph on success, or a ready-to-return JSONResponse error on failure.
+
+    When the caller explicitly requests a project (body ``project`` field or the
+    ``x-project-name`` header) we must NOT silently fall back to the Lambda's
+    default cold-start graph if that project can't be loaded — doing so served a
+    DIFFERENT project's graph with HTTP 200, which the UI rendered as a confident
+    but wrong ("hallucinated") answer (ADR-220 §0).
+
+    Returns the loaded :class:`Graqle` graph on success, or a :class:`JSONResponse`
+    error the caller must return verbatim:
+
+    - ``401`` when there is no verified identity (caller should sign in).
+    - ``404`` when the caller is authenticated but the project graph is
+      missing/empty (caller should ``graq cloud push``).
+
+    The 401/404 split keys off :func:`resolve_graph_owner_prefix` (the independent
+    auth signal), not off ``_load_project_graph`` returning ``None`` — so an
+    authenticated-but-missing graph cannot be misreported as unauthenticated.
+
+    Info-leak hardening (graq_predict, ADR-220-A R2): the 401 (unauthenticated)
+    path does NOT echo the requested project name — an unauthenticated prober must
+    not be able to use the response to enumerate which projects exist. The 404 path
+    is only reachable by a VERIFIED caller, and ``_load_project_graph`` already
+    scopes S3 to that caller's OWN ``sha256(email)`` prefix, so the caller can only
+    ever probe their own namespace — echoing the name there leaks nothing
+    cross-tenant and is kept for developer experience.
+
+    Input validation (graq_review security, ADR-220-A R2): ``requested_project`` is
+    user-controlled (body field or ``x-project-name`` header) and is interpolated
+    into an S3 key by :func:`_load_project_graph` AND reflected into the 404 body.
+    It MUST match :data:`_PROJECT_NAME_RE` (rejects path traversal like ``..``,
+    separators, control chars) before any downstream use — a malformed name returns
+    400 and never reaches S3 or the response body. This is the single chokepoint for
+    both ``reason_stream`` and ``graph_visualization``.
+    """
+    if not _PROJECT_NAME_RE.match(requested_project):
+        logger.warning(
+            "R2: rejecting malformed project name (%d chars)", len(requested_project)
+        )
+        return JSONResponse(
+            {"error": "Invalid project name."},
+            status_code=400,
+        )
+
+    project_graph = await _load_project_graph(request, requested_project)
+    if project_graph is not None:
+        return project_graph
+
+    from graqle.studio.auth import resolve_graph_owner_prefix
+
+    if not resolve_graph_owner_prefix(request):
+        # Unauthenticated: generic message, NO project name (no enumeration oracle).
+        return JSONResponse(
+            {"error": "Sign in to view your project graph."},
+            status_code=401,
+        )
+    # Authenticated: caller can only reference their own tenant prefix, so naming
+    # the project is safe and actionable.
+    # Defence in depth (graq_review security MINOR): the human-readable `error`
+    # already names the (regex-validated) project; we drop the structured `project`
+    # key to minimise user-controlled reflection surface in the JSON body.
+    return JSONResponse(
+        {"error": f"Project graph '{requested_project}' not found or empty. "
+                  f"Run `graq cloud push` from that project to upload it."},
+        status_code=404,
+    )
+
+
 # ---------- Cross-project federation ----------
 
 
@@ -335,7 +409,21 @@ async def graph_visualization(
     "viewing N of M" hints to the user.
     """
     state = request.app.state.studio_state
-    graph = await _resolve_graph_for_request(request)
+
+    # R2 (ADR-220-A): FAIL-CLOSED on project mismatch. _resolve_graph_for_request
+    # silently falls back to the default graph when a requested project can't load;
+    # that renders a DIFFERENT project's graph as if it were the user's. When the
+    # x-project-name header is present we resolve explicitly and surface 401/404
+    # instead of a wrong-graph 200. No header => default/local mode (unchanged).
+    requested_project = request.headers.get("x-project-name")
+    if requested_project:
+        resolved = await _resolve_project_graph_or_error(request, requested_project)
+        if isinstance(resolved, JSONResponse):
+            return resolved  # 401/404 fail-closed (see ADR-220-A R2)
+        graph = resolved
+    else:
+        graph = await _resolve_graph_for_request(request)
+
     if not graph:
         return {
             "nodes": [],
@@ -747,14 +835,27 @@ async def reason_stream(request: Request):
     project = body.get("project")  # User's selected project
 
     state = request.app.state.studio_state
-    graph = await _resolve_graph_for_request(request)
 
-    # Per-project graph loading: if a project is specified and we have S3 access,
-    # load that project's graph instead of the default Lambda graph.
-    if project:
-        project_graph = await _load_project_graph(request, project)
-        if project_graph is not None:
-            graph = project_graph
+    # R2 (ADR-220-A): FAIL-CLOSED on project mismatch. When a project is
+    # explicitly requested (body['project'] or the x-project-name header) but its
+    # graph cannot be loaded, return an explicit error instead of silently falling
+    # back to the Lambda's default cold-start graph. The silent fallback served a
+    # DIFFERENT project's graph with HTTP 200, which the UI rendered as a confident
+    # but wrong ("hallucinated") answer (ADR-220 §0). The default graph is only
+    # acceptable when NO project was requested at all (genuine local/default mode).
+    # Project precedence: explicit body field, else the x-project-name header.
+    # Use `is not None` (not truthiness) so an empty-string body value is treated
+    # as "explicitly requested" rather than silently deferring to the header.
+    requested_project = project if project is not None else request.headers.get("x-project-name")
+
+    if requested_project:
+        resolved = await _resolve_project_graph_or_error(request, requested_project)
+        if isinstance(resolved, JSONResponse):
+            return resolved  # 401/404 fail-closed (see ADR-220-A R2)
+        graph = resolved
+    else:
+        # No project requested — default/local mode only.
+        graph = await _resolve_graph_for_request(request)
 
     if not graph:
         return JSONResponse({"error": "No graph loaded"}, status_code=400)
