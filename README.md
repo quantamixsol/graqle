@@ -266,6 +266,34 @@ The EU AI Act docs are deliberately open to contribution — **corrections, tran
 
 ---
 
+## What's new in v0.75.0
+
+**The EU AI Act layer is complete.** GraQle now offers an optional, configurable
+EU AI Act (Reg. (EU) 2024/1689) compliance layer — **off by default**, enforced
+through a tamper-evident, irreversible latch.
+
+- **Configurable + irreversible latch** (`governance.eu_ai_act` in `graqle.yaml`):
+  once enabled, the layer cannot be silently disabled and `blocking` cannot be
+  downgraded to `advisory`. The latch is an **ed25519-signed, hash-chained**
+  record (`.graqle/eu_ai_act_latch.jsonl`) — not a hand-editable flag — so a
+  tamper attempt fails closed and can never turn it off.
+- **Enforced compliance phase (CG-EU-AIA)** wired into the gate: when enabled,
+  AIA-relevant **write** tools pass an Article-14 human-oversight check.
+  `blocking` + low confidence → refused with an **audited per-action override**
+  path; `advisory` → recorded + advised, never blocked. **Reads, planning, and
+  reasoning are never gated.**
+- **Light-touch + honest by design** — a record-keeping / traceability **aid**
+  (supports Art. 12 / 72), not a hard wall, and not a substitute for human
+  compliance judgement. The latch *supports* the Act's expectations; it is **not
+  "required by the Act."**
+
+This completes GraQle's universal-governance arc (constitution-as-code →
+every client → universal server gate → cost-is-observability → EU AI Act layer).
+
+→ [Full v0.75.0 changelog](./CHANGELOG.md)
+
+---
+
 ## What's new in v0.73.0
 
 **Cost is observability, never a quality gate.** GraQle never cuts reasoning or
