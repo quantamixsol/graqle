@@ -5,7 +5,7 @@
 > *supports* the EU AI Act (Reg. (EU) 2024/1689), especially its logging
 > (Art. 12) and post-market-monitoring (Art. 72) expectations. It is **not a
 > hard compliance wall**, and it is **not a substitute for human compliance
-> judgement or legal advice**. GraQle does not certify your system as compliant.
+> judgement or legal advice**. GraQle does not certify your system as EU-AI-Act-aligned.
 
 ---
 
