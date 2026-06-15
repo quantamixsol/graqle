@@ -133,6 +133,112 @@ async def _load_project_graph(request: Request, project: str):
 _PROJECT_NAME_RE = re.compile(r"\A(?=.*[A-Za-z0-9])[A-Za-z0-9._\- ]{1,128}\Z")
 
 
+# A2 (ADR-220-A): context-dimension scope filter for reasoning. The Studio UI
+# sends a `dimensions` list (the Architecture / API Surface / Data Model / Testing
+# / Configuration / Security chips). After activation we narrow the node set to the
+# selected dimension(s) so reasoning is scoped, not whole-graph.
+#
+# The entity_type sets below are grounded in the LIVE KG type distribution
+# (graq_inspect stats), NOT assumed names: the graph uses APIEndpoint (not
+# "Route"/"Endpoint"), DatabaseModel (not "DataModel"/"Schema"), Config + EnvVar,
+# TestFile, PythonModule/JavaScriptModule/JSModule/ReactComponent/Dependency.
+# Function/Class are generic (24k/5k nodes) so they are matched ONLY via path/label
+# heuristics, never by type alone — otherwise every dimension would match them.
+#
+# Matching is OR across {type, path-substring, label-substring}. The filter NEVER
+# empties the set: if it would yield zero nodes (e.g. a sparse graph), the original
+# node_ids are returned so reasoning still runs (degrade to unscoped, not to error).
+_DIMENSION_FILTERS: dict[str, dict[str, Any]] = {
+    "architecture": {
+        "types": {"PythonModule", "JavaScriptModule", "JSModule",
+                  "ReactComponent", "Dependency", "Directory"},
+        "path": ("__init__", "setup.py", "requirements", "package.json"),
+        "label": (),
+    },
+    "api": {
+        "types": {"APIEndpoint"},
+        "path": ("/route", "/api/", "/views", "/handler", "/endpoint", "controller"),
+        "label": ("route", "endpoint", "handler", "api"),
+    },
+    "data-model": {
+        "types": {"DatabaseModel"},
+        "path": ("/model", "/schema", "/orm", "/entit", "/migrations"),
+        "label": ("model", "schema", "entity"),
+    },
+    "testing": {
+        "types": {"TestFile"},
+        "path": ("/test", "test_", "_test", "/spec", ".spec.", "conftest"),
+        "label": ("test", "spec"),
+    },
+    "config": {
+        "types": {"Config", "EnvVar"},
+        "path": ("/config", "settings", ".env", "/flags", ".yaml", ".yml", ".toml", ".ini"),
+        "label": ("config", "setting", "flag", "env"),
+    },
+    "security": {
+        # No exclusive type in this graph — security is purely heuristic.
+        "types": set(),
+        "path": ("/auth", "security", "permission", "secret", "token", "/rbac",
+                 "/crypto", "license", "credential"),
+        "label": ("auth", "permission", "secret", "token", "security", "rbac",
+                  "credential", "encrypt", "vuln"),
+    },
+}
+
+
+def _filter_nodes_by_dimension(
+    graph: Any, node_ids: list[str], dimensions: Any
+) -> list[str]:
+    """Narrow ``node_ids`` to the user-selected context dimension(s).
+
+    Returns ``node_ids`` unchanged when ``dimensions`` is missing, not a list, the
+    list is empty, or it contains ``"all"`` (the broadest scope). Unknown dimension
+    ids are ignored. Never returns an empty list: if the filter matches nothing,
+    the original (unscoped) set is returned so reasoning still has nodes to work
+    with — scoping is a relevance hint, not a hard gate (ADR-220-A A2).
+    """
+    if not isinstance(dimensions, list) or not dimensions:
+        return node_ids
+    dims = [d for d in dimensions if isinstance(d, str)]
+    if "all" in dims:
+        return node_ids
+    specs = [_DIMENSION_FILTERS[d] for d in dims if d in _DIMENSION_FILTERS]
+    if not specs:
+        return node_ids
+
+    matched: list[str] = []
+    for nid in node_ids:
+        node = graph.nodes.get(nid)
+        if node is None:
+            continue
+        etype = getattr(node, "entity_type", "") or ""
+        # node id is a path-like string in this KG (e.g. "pkg/mod.py::func");
+        # also consult any explicit path/file_path property and the label.
+        props = getattr(node, "properties", {}) or {}
+        path = str(props.get("path") or props.get("file_path") or nid).lower()
+        label = str(getattr(node, "label", "") or "").lower()
+        for spec in specs:
+            if (
+                etype in spec["types"]
+                or any(s in path for s in spec["path"])
+                or any(s in label for s in spec["label"])
+            ):
+                matched.append(nid)
+                break
+
+    if not matched:
+        # Scoping matched nothing (e.g. sparse graph) — degrade to unscoped so
+        # reasoning still runs, but log it so a misconfigured filter is visible.
+        # Log COUNTS only, never the raw user-controlled dim strings (avoids
+        # log-injection / probe-pattern disclosure — graq_review security MINOR).
+        logger.debug(
+            "A2: dimension filter matched 0/%d nodes for %d dim(s) — using full set",
+            len(node_ids), len(dims),
+        )
+        return node_ids
+    return matched
+
+
 async def _resolve_graph_for_request(request: Request):
     """Resolve the appropriate Graqle graph for an HTTP request (SF-07, v0.57.4).
 
@@ -833,6 +939,12 @@ async def reason_stream(request: Request):
     strategy = body.get("strategy")
     ring_fence = body.get("ring_fence", "read-only")  # Default: graph protected
     project = body.get("project")  # User's selected project
+    # A2: optional context-scope filter (user-controlled). Bound the input here so
+    # a hostile caller can't send a huge list and force O(nodes x dims x substrings)
+    # work (DoS guard, graq_review MAJOR). Studio only ever sends <=7 short ids.
+    dimensions = body.get("dimensions")
+    if isinstance(dimensions, list):
+        dimensions = [d for d in dimensions[:20] if isinstance(d, str) and len(d) <= 64]
 
     state = request.app.state.studio_state
 
@@ -883,6 +995,10 @@ async def reason_stream(request: Request):
             activation_start = time.time()
             node_ids = graph._activate_subgraph(query, strategy)
             node_ids = [nid for nid in node_ids if nid in graph.nodes]
+            # A2 (ADR-220-A): narrow the activated set to the user-selected
+            # context dimension(s) BEFORE the fast-mode cap, so the cap keeps the
+            # most relevant scoped nodes. No-op when dimensions is absent/['all'].
+            node_ids = _filter_nodes_by_dimension(graph, node_ids, dimensions)
             # Fast mode: cap activated nodes for speed (no shared state mutation)
             if fast_max_nodes and len(node_ids) > fast_max_nodes:
                 node_ids = node_ids[:fast_max_nodes]
