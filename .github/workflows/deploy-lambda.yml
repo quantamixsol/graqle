@@ -92,7 +92,7 @@ jobs:
           required = ['/studio/api/health', '/studio/api/intelligence', '/studio/api/governance', '/studio/api/learning']
           missing = [r for r in required if r not in routes]
           for r in required:
-              print(f'  {r}: {"OK" if r not in missing else "MISSING"}')
+              print(f'  {r}: ' + ('OK' if r not in missing else 'MISSING'))
 
           if missing:
               print('FAIL: Required studio routes missing — running direct mount_studio() diagnostic')
