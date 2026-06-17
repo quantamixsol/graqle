@@ -655,20 +655,40 @@ def create_app(
         yield "data: [DONE]\n\n"
 
     # Mount Studio dashboard (optional — only if studio package is available)
+    mount_studio = None  # remains None if graqle[studio] is not installed
     try:
         from graqle.studio.app import mount_studio
-
-        # Load metrics engine
-        metrics = None
-        try:
-            from graqle.metrics.engine import MetricsEngine
-            metrics = MetricsEngine()
-        except Exception:
-            pass
-
-        state["metrics"] = metrics
-        mount_studio(app, state)
     except ImportError:
         logger.debug("Studio not available (install graqle[studio] for dashboard)")
+
+    state["studio_available"] = False
+    state["metrics"] = None  # default; overwritten if studio is available and metrics engine loads
+    if mount_studio is not None:
+        # Load metrics engine
+        try:
+            from graqle.metrics.engine import MetricsEngine
+            state["metrics"] = MetricsEngine()
+        except Exception as exc:
+            logger.warning(
+                "MetricsEngine unavailable — metrics will be disabled: %s",
+                exc,
+                exc_info=True,
+            )
+        try:
+            mount_studio(app, state)
+            state["studio_available"] = True
+        except (AttributeError, RuntimeError) as exc:
+            # AttributeError: missing attribute on state/app during mount
+            # RuntimeError: StaticFiles directory missing or similar config failure
+            # ImportError is intentionally NOT caught here: if it occurs inside mount_studio()
+            # after the top-level import succeeded, it indicates a broken dependency graph
+            # and should propagate so the root cause is immediately visible.
+            # Other exceptions (TypeError, NameError, etc.) are programming errors
+            # and should also propagate.
+            logger.warning(
+                "Studio mount failed — studio routes will be unavailable: %s",
+                exc,
+                exc_info=True,
+            )
 
     return app
