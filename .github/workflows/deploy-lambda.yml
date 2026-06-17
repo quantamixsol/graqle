@@ -85,12 +85,23 @@ jobs:
           print(f'Studio routes: {len(studio_routes)}')
 
           required = ['/studio/api/health', '/studio/api/intelligence', '/studio/api/governance', '/studio/api/learning']
+          missing = [r for r in required if r not in routes]
           for r in required:
-              found = any(r in route for route in routes)
-              status = 'OK' if found else 'MISSING'
-              print(f'  {r}: {status}')
-              if not found:
-                  import sys; sys.exit(1)
+              print(f'  {r}: ' + ('OK' if r not in missing else 'MISSING'))
+
+          if missing:
+              print('FAIL: Required studio routes missing — running direct mount_studio() diagnostic')
+              try:
+                  from fastapi import FastAPI
+                  from graqle.studio.app import mount_studio
+                  _diag_app = FastAPI()
+                  mount_studio(_diag_app, {'metrics': None, 'studio_available': False})
+                  print('Direct mount_studio() succeeded — route count discrepancy is in create_app() context')
+              except Exception as _exc:
+                  print(f'Direct mount_studio() FAILED with {type(_exc).__name__}: {_exc}')
+                  traceback.print_exc()
+                  print('Fix: add the missing dependency above to the pip install line in this workflow')
+              sys.exit(1)
           "
 
       - name: Graqle governance gate (graq verify)
