@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from graqle.core.types import ClearanceLevel
+from graqle.core.tenant import DEFAULT_TENANT
+
+# Defensive: a malformed DEFAULT_TENANT would silently give every entry an invalid
+# partition key. Use an explicit raise (NOT assert — assert is stripped under `python -O`).
+if not (isinstance(DEFAULT_TENANT, str) and DEFAULT_TENANT):
+    raise ValueError("DEFAULT_TENANT must be a non-empty string")
 
 
 @dataclass
@@ -57,11 +63,30 @@ class ProvenanceEntry:
     round_stored: int
     round_verified: int
     node_id: str
+    # G1 (ADR-225): tenant partition key. Defaulted to DEFAULT_TENANT so existing
+    # single-tenant construction and old deserialized payloads remain valid (on-prem
+    # unchanged). Multi-tenant callers MUST set this to a validated tenant_id.
+    # node_id above is the only required field; everything from here has a default,
+    # so any NEW required field must be inserted BEFORE this line (dataclass rule).
+    # default_factory (not a bare default) so runtime/test reassignment of
+    # DEFAULT_TENANT is honoured rather than frozen at class-definition time.
+    tenant_id: str = field(default_factory=lambda: DEFAULT_TENANT)
     clearance: ClearanceLevel = ClearanceLevel.PUBLIC
     trace_scores: TRACEScores = field(default_factory=TRACEScores)
     timestamp: float = field(default_factory=time.time)
     contradiction_count: int = 0
     reasoning_impact: str = "LOW"  # HIGH / MED / LOW
+
+    def __post_init__(self) -> None:
+        # G1 (ADR-225): reject empty/whitespace tenant_id (it would silently bypass
+        # partitioning; '   ' is truthy in Python). Store the canonical stripped form
+        # so '  abc  ' and 'abc' never become two different partitions.
+        if not isinstance(self.tenant_id, str):
+            raise ValueError("tenant_id must be a string")
+        stripped = self.tenant_id.strip()
+        if not stripped:
+            raise ValueError("tenant_id must be a non-empty, non-whitespace string")
+        self.tenant_id = stripped
 
     def decay(
         self,
