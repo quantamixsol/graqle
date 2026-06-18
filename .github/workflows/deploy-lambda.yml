@@ -90,9 +90,10 @@ jobs:
           # If any are missing, run a direct mount_studio() diagnostic to surface the real error
           # (e.g. a broken import inside the studio router chain that create_app swallowed).
           required = ['/studio/api/health', '/studio/api/intelligence', '/studio/api/governance', '/studio/api/learning']
-          missing = [r for r in required if r not in routes]
+          missing = {r for r in required if r not in routes}
           for r in required:
-              print(f'  {r}: {"OK" if r not in missing else "MISSING"}')
+              status = 'OK' if r not in missing else 'MISSING'
+              print(f'  {r}: {status}')
 
           if missing:
               print('FAIL: Required studio routes missing — running direct mount_studio() diagnostic')
@@ -162,6 +163,7 @@ jobs:
           # trust root). Without it the `import jwt` guard makes _verify_bearer
           # return None for EVERY request → the fix would over-deny and break
           # valid logins. cryptography (already below) is the RS256 backend.
+          # (Synced from public PR #191 for private/public parity.)
           pip install --target build/lambda \
             --platform manylinux2014_x86_64 --only-binary=:all: \
             --python-version 3.10 --implementation cp \
