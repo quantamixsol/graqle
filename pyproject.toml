@@ -4,11 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-# V-CR-STUDIO-R2-NATIVE: native version bump (G4 config). 0.75.1 = ADR-220-A R2
-# — Studio /studio/api/reason + /graph/visualization fail-closed on project
-# mismatch (fixes wrong-graph "hallucination"). 0.75.0 = ADR-222 P5b EU AI Act
-# latch wired into the gate (CG-EU-AIA phase); 0.74.0 was the P5a latch core.
-version = "0.75.1"
+# V-CR-G1-NATIVE: native version bump (G4 config). 0.76.0 = ADR-225 G1 multi-tenant
+# memory service — nested per-tenant store + provision() factory (isolation layer 3).
+# 0.75.1 = ADR-220-A R2 Studio fail-closed. 0.75.0 = ADR-222 P5b EU AI Act latch.
+version = "0.76.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
