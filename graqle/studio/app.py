@@ -41,14 +41,13 @@ def mount_studio(app: Any, state: dict) -> None:
     from graqle.studio.routes.traversal import router as traversal_router
     from graqle.studio.routes.auto import router as auto_router
 
-    # Mount static files
-    app.mount("/studio/static", StaticFiles(directory=str(STATIC_DIR)), name="studio-static")
-
     # Store templates and state on app
     app.state.studio_templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.state.studio_state = state
 
-    # Include routers
+    # Include routers BEFORE static mount — FastAPI resolves Mounts before
+    # APIRouters in route lookup, so mounting /studio/static first shadows all
+    # /studio/api/* routes (they never match). Routers must be registered first.
     app.include_router(dashboard_router, prefix="/studio")
     app.include_router(api_router, prefix="/studio/api")
     app.include_router(intelligence_router, prefix="/studio/api/intelligence")
@@ -59,6 +58,9 @@ def mount_studio(app: Any, state: dict) -> None:
     app.include_router(learning_router, prefix="/studio/api/learning")
     app.include_router(compliance_router, prefix="/studio/api/compliance")
     app.include_router(auto_router, prefix="/studio")
+
+    # Static mount goes LAST — after all API routers are registered.
+    app.mount("/studio/static", StaticFiles(directory=str(STATIC_DIR)), name="studio-static")
 
     # Ring-fence guard: Studio routes are read-only on the knowledge graph.
     # No /learn or /reload endpoints are mounted in Studio — this is the
