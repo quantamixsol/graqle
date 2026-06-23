@@ -81,16 +81,23 @@ jobs:
           from graqle.server.app import create_app
           app = create_app(graph_path='nonexistent.json', config_path='nonexistent.yaml')
 
-          routes = [r.path for r in app.routes if hasattr(r, 'path')]
+          # Use OpenAPI schema to enumerate routes — handles FastAPI _IncludedRouter
+          # wrappers (introduced in FastAPI 0.100+) that don't expose .path at the
+          # top level of app.routes. The schema is built from the actual route tree.
+          try:
+              schema_paths = list(app.openapi().get('paths', {}).keys())
+          except Exception:
+              schema_paths = []
+          # Fallback: flat walk for any Route objects still at the top level.
+          flat_paths = [r.path for r in app.routes if hasattr(r, 'path')]
+          routes = list(dict.fromkeys(schema_paths + flat_paths))  # deduplicate, preserve order
           studio_routes = [r for r in routes if '/studio' in r]
           print(f'Total routes: {len(routes)}')
           print(f'Studio routes: {len(studio_routes)}')
 
           # Validate required studio routes are registered.
-          # If any are missing, run a direct mount_studio() diagnostic to surface the real error
-          # (e.g. a broken import inside the studio router chain that create_app swallowed).
           required = ['/studio/api/health', '/studio/api/intelligence', '/studio/api/governance', '/studio/api/learning']
-          missing = [r for r in required if r not in routes]
+          missing = [r for r in required if not any(p.startswith(r) for p in routes)]
           for r in required:
               print(f'  {r}: ' + ('OK' if r not in missing else 'MISSING'))
 
@@ -101,7 +108,12 @@ jobs:
                   from graqle.studio.app import mount_studio
                   _diag_app = FastAPI()
                   mount_studio(_diag_app, {'metrics': None, 'studio_available': False})
-                  print('Direct mount_studio() succeeded — route count discrepancy is in create_app() context')
+                  diag_paths = list(_diag_app.openapi().get('paths', {}).keys())
+                  print(f'Direct mount_studio() paths: {diag_paths[:10]}')
+                  if any('/studio/api' in p for p in diag_paths):
+                      print('Direct mount_studio() succeeded — route count discrepancy is in create_app() context')
+                  else:
+                      print('Direct mount_studio() also missing routes — check router imports')
               except Exception as _exc:
                   print(f'Direct mount_studio() FAILED with {type(_exc).__name__}: {_exc}')
                   traceback.print_exc()
