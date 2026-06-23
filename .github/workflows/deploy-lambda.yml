@@ -86,7 +86,8 @@ jobs:
           # top level of app.routes. The schema is built from the actual route tree.
           try:
               schema_paths = list(app.openapi().get('paths', {}).keys())
-          except Exception:
+          except Exception as _e:
+              print(f'[warn] openapi() failed: {_e}')
               schema_paths = []
           # Fallback: flat walk for any Route objects still at the top level.
           flat_paths = [r.path for r in app.routes if hasattr(r, 'path')]
