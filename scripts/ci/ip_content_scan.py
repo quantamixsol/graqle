@@ -23,7 +23,7 @@ from pathlib import Path
 
 
 # Layer 1: filename patterns. Case-insensitive on the basename.
-# Any match → block.
+# Any match → block (unless the basename is in FILENAME_ALLOWLIST).
 FILENAME_DENY = [
     re.compile(r"-ip-flag", re.IGNORECASE),
     re.compile(r"\bip[-_]review\b", re.IGNORECASE),
@@ -31,6 +31,16 @@ FILENAME_DENY = [
     re.compile(r"\btrade[-_]secret", re.IGNORECASE),
     re.compile(r"\bts[-_]\d+\b", re.IGNORECASE),
 ]
+
+# Basenames (case-sensitive) that are explicitly permitted despite matching a
+# FILENAME_DENY pattern. These are CI enforcement tools, not IP documents.
+# WS-F (ADR-BIZ-001, 2026-06-25): the wheel gate and its workflow contain
+# "trade_secret" / "trade-secret" in their names because they ARE the gate —
+# they enforce the boundary, they do not disclose internals.
+FILENAME_ALLOWLIST: frozenset[str] = frozenset([
+    "trade_secret_wheel_gate.py",
+    "trade-secret-wheel-gate.yml",
+])
 
 
 # Layer 2: content patterns. Scanned against the first 100 lines of any
@@ -94,6 +104,8 @@ def iter_paths(nul_file: Path) -> list[str]:
 def check_filename(path: str) -> list[str]:
     """Return list of FILENAME_DENY pattern descriptions that match this path."""
     name = Path(path).name
+    if name in FILENAME_ALLOWLIST:
+        return []
     return [pat.pattern for pat in FILENAME_DENY if pat.search(name)]
 
 
