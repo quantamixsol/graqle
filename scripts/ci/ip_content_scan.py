@@ -40,7 +40,7 @@ FILENAME_DENY = [
 FILENAME_ALLOWLIST: frozenset[str] = frozenset([
     "trade_secret_wheel_gate.py",
     "trade-secret-wheel-gate.yml",
-])
+])  # entries must be lowercase; check normalises via .lower() to match FILENAME_DENY re.IGNORECASE semantics
 
 
 # Layer 2: content patterns. Scanned against the first 100 lines of any
@@ -104,7 +104,7 @@ def iter_paths(nul_file: Path) -> list[str]:
 def check_filename(path: str) -> list[str]:
     """Return list of FILENAME_DENY pattern descriptions that match this path."""
     name = Path(path).name
-    if name in FILENAME_ALLOWLIST:
+    if name.lower() in FILENAME_ALLOWLIST:
         return []
     return [pat.pattern for pat in FILENAME_DENY if pat.search(name)]
 
