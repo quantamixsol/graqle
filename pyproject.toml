@@ -217,6 +217,14 @@ exclude = [
     # cannot forge, but excluding the signer is belt-and-suspenders — the public
     # artifact carries verification, never issuance.
     "graqle/licensing/keygen.py",
+    # WS-F (ADR-BIZ-001): trade-secret calibration internals — TS-1..TS-4
+    # implementation details (weights, AGREEMENT_THRESHOLD, J̄ formula, θ_fold
+    # derivation, STG production rules). The Community wheel ships the public
+    # interface (output scores, status enums) but never the computation internals.
+    # The trade-secret wheel gate (scripts/ci/trade_secret_wheel_gate.py) enforces
+    # this mechanically on every PR and release build.
+    "graqle/governance/calibration.py",
+    "graqle/governance/calibration_store.py",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
