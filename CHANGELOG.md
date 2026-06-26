@@ -4,6 +4,132 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.76.0 (2026-06-26) — [G1 multi-tenant memory isolation + WS-F trade-secret wheel gate]
+
+> ADR-225 G1 isolation layer 3: per-tenant `ReasoningMemory` registry with
+> canonical double-checked locking. ADR-BIZ-001 WS-F: Layer 3 IP protection
+> gate mechanically enforces trade-secret exclusion from the Community wheel on
+> every PR and release build. All changes are backwards-compatible — on-prem
+> single-tenant behaviour is byte-for-byte unchanged.
+>
+> Sentinel chain (ADR-209): `graq_safety_check` MEDIUM/no-blockers →
+> `graq_review(all)` ×2 APPROVED (12 agents, 91% confidence, 0 contradictions)
+> → `graq_predict` → `graq_review(security)` all 5 OWASP vectors CLEAR.
+> 884 tests passing (501 new + 383 existing). Sole approver: Harish Kumar.
+
+**Added**
+
+- **`graqle.reasoning.memory_service`** — sole factory for `ReasoningMemory`
+  in multi-tenant mode (ADR-225 G1 T7). `provision(tenant_id, config)` is
+  idempotent and thread-safe via canonical double-checked locking (global lock
+  creates per-tenant lock; per-tenant lock guards the mandatory inner re-check
+  and construction). `clear_registry()` is test-only, guarded by
+  `GRAQLE_TEST_MODE=1`. On-prem `provision(DEFAULT_TENANT, config)` is
+  behaviourally identical to direct `ReasoningMemory(config)` construction.
+
+- **`graqle.core.tenant`** — single source of truth for tenant-id validation
+  (ADR-225 G1). `validate_tenant_id()` applies a fixed-order normalisation
+  pipeline before any acceptance decision, blocking: raw NUL bytes, URL-encoded
+  NUL (`%00`), double/residual percent-encoding (`%252F`), unicode homographs
+  (fullwidth slash, division slash, ellipsis variants), path-traversal sequences
+  (`/`, `\\`, `..`), control characters, and the reserved `__` prefix.
+  Allowlist: `DEFAULT_TENANT` (`__local__`), 64-char lowercase SHA-256 hex, or
+  `team-<slug>`. `DEFAULT_TENANT` sentinel is grep-distinctive and cannot
+  collide with any caller-supplied id.
+
+- **`graqle.core.memory_types.ProvenanceEntry.tenant_id`** — partition key
+  field added with `default_factory=lambda: DEFAULT_TENANT` (not a bare default,
+  so runtime reassignment of `DEFAULT_TENANT` in tests is honoured).
+  `__post_init__` strips and validates — whitespace-only tenant ids are rejected
+  so `'   '` cannot silently alias a real partition.
+
+- **`scripts/ci/trade_secret_wheel_gate.py`** + workflow
+  **`.github/workflows/trade-secret-wheel-gate.yml`** — WS-F ADR-BIZ-001 Layer
+  3 IP protection. Builds the Community wheel in CI and inspects the `.dist-info
+  /RECORD` manifest; fails the build if `graqle/governance/calibration.py` or
+  `graqle/governance/calibration_store.py` appear. Stem matching catches compiled
+  variants (`.cpython-311.pyc`, `.so`, `.pyd`). Runs on every PR and tag push.
+
+- **501 new tests** across three suites:
+  - `tests/test_reasoning/test_tenant_isolation.py` — 22 isolation property
+    tests (two-tenant isolation, decay, snapshot/rollback, `merge_concurrent`
+    rejection, bypass vectors, concurrent `provision()`, `clear_registry` guard).
+  - `tests/test_packaging/test_trade_secret_wheel_gate.py` — 398 tests for the
+    WS-F wheel gate (RECORD parsing, stem matching, exact/compiled variants).
+  - `tests/test_packaging/test_ip_content_scan.py` — 81 tests for the IP
+    content gate including case-insensitive allowlist behaviour.
+
+**Changed**
+
+- **`graqle.reasoning.memory.ReasoningMemory`** — multi-tenant isolation layer
+  (ADR-225 G1 T2). `__init__` gains optional `tenant_id: str | None = None`
+  parameter (defaults to `DEFAULT_TENANT` — zero breaking change for existing
+  call sites). `_store` and `_epochs` become properties over `_tenants` /
+  `_epochs_by_tenant` nested dicts — isolation by construction, not filtering.
+  `_SCOPING_ON` is read at import-time (intentional TOCTOU guard — per-call
+  `os.environ` lookup would reintroduce a bypass vector). `merge_concurrent()`
+  validates every scratch-space entry's `tenant_id` via `validate_tenant_id()`
+  and raises `TenantMismatchError` on any cross-tenant mismatch. `rollback()`
+  checks every restored entry's `tenant_id` before committing the restore.
+
+- **`scripts/ci/ip_content_scan.py`** — `FILENAME_ALLOWLIST` check is now
+  case-insensitive (`name.lower() in FILENAME_ALLOWLIST`) to match the
+  `re.IGNORECASE` flag on all `FILENAME_DENY` patterns. Allowlist entries are
+  documented as requiring lowercase. Fixes a Sentinel-found gap (PR #218) where
+  `Trade_Secret_Wheel_Gate.py` would have hit the deny list instead of the
+  allowlist.
+
+**Fixed**
+
+- **`graqle/studio/app.py`** — static mount (`/studio/static`) moved after all
+  `include_router` calls. Prevents the static mount from shadowing API routes
+  registered after it in Starlette/FastAPI's route resolution order.
+
+- **`graqle/server/app.py`** — same static-mount-after-routers ordering fix
+  applied to the standalone API server.
+
+- **`.github/workflows/deploy-lambda.yml`** — restored file emptied by a
+  cherry-pick conflict resolution (PR #215). CI Lambda deploy gate was silently
+  no-op'd between 2026-06-09 and 2026-06-23.
+
+- **`fix(ci)`** — YAML shell-quoting bug in the "Verify Studio routes register"
+  CI step (PR #211) that caused the step to fail on branch names containing
+  slashes.
+
+**Upgrade notes (0.75.1 → 0.76.0)**
+
+- No breaking changes. All new parameters have defaults. Existing
+  `ReasoningMemory(config)` construction is unchanged.
+- `GRAQLE_TENANT_SCOPING=1` env var is required to use any non-`DEFAULT_TENANT`
+  `tenant_id` — this is a fail-closed misconfiguration guard for on-prem
+  deployments that have not opted into multi-tenancy.
+- `clear_registry()` in `memory_service` raises `RuntimeError` unless
+  `GRAQLE_TEST_MODE=1` is set — test suites must set this env var in their
+  fixtures (see `tests/test_reasoning/test_tenant_isolation.py` for the
+  recommended `autouse` pattern).
+
+---
+
+## 0.75.1 (2026-06-15) — [Studio reasoning fail-closed fix (ADR-220-A R2)]
+
+> `graq_reason` called from Studio now fails closed (400/401/404) on project
+> mismatch instead of silently falling back to a different tenant's graph.
+> Fixes the split-brain fetch hallucination root cause (ADR-220-A R2).
+> Sentinel: `graq_review(all)` APPROVED, `graq_review(security)` CLEAR.
+
+**Fixed**
+
+- **`graqle/studio/routes/`** — reasoning endpoint now verifies workspace
+  identity before forwarding to the graph backend; returns HTTP 400 on project
+  mismatch, 401 on auth failure, 404 on missing workspace. Previously a mismatch
+  caused a silent fallback that could return another tenant's reasoning output.
+
+- **`graqle/studio/routes/`** — context-dimension filter wired (`A2`): the
+  `focus` parameter from the Studio UI is now forwarded to `graq_reason` so
+  users see dimension-filtered results rather than the full unfiltered graph.
+
+---
+
 ## 0.75.0 (2026-06-09) — [EU AI Act layer: enforced compliance phase (wired)]
 
 > The EU AI Act latch (0.74.0) is now **wired into the governance gate** as an
