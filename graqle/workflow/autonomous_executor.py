@@ -26,6 +26,7 @@ from graqle.workflow.action_agent_protocol import ActionAgentProtocol, Execution
 from graqle.workflow.diff_applicator import DiffApplicator
 from graqle.workflow.execution_memory import ExecutionMemory
 from graqle.workflow.loop_controller import LoopContext, LoopController, LoopState
+from graqle.workflow.protocols import CheckpointProtocol
 from graqle.workflow.test_result_parser import ParsedTestResult, TestResultParser
 
 logger = logging.getLogger("graqle.workflow.autonomous_executor")
@@ -43,6 +44,18 @@ class ExecutorConfig:
     working_dir: str = "."
     dry_run: bool = False
     timeout_seconds: int = 300
+    # ADR-239: pluggable checkpoint/rollback (default None → DiffApplicator).
+    # A cloud consumer injects a non-git checkpoint (e.g. object-store file sink).
+    checkpoint: "CheckpointProtocol | None" = None
+    # ADR-239: skip the pytest TEST stage entirely (greenfield builds with
+    # nothing to test yet). Default True preserves the existing git/pytest path.
+    run_tests: bool = True
+    # ADR-239 Stage 2.1: route the TEST stage through the agent instead of a
+    # subprocess. When True, _on_test delegates to agent.run_tests() (which may
+    # run any validation the consumer defines) so the native LoopController
+    # RED_FIX loop drives repair on a failing result. Default False preserves
+    # the existing subprocess(test_command) path exactly.
+    test_via_agent: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,6 +65,9 @@ class ExecutorConfig:
             "working_dir": self.working_dir,
             "dry_run": self.dry_run,
             "timeout_seconds": self.timeout_seconds,
+            "run_tests": self.run_tests,
+            # `checkpoint` intentionally omitted — it is an injected object, not
+            # a serialisable value; its presence is captured by run-time wiring.
         }
 
 
@@ -98,7 +114,14 @@ class AutonomousExecutor:
         self._agent = agent
         self._loop = LoopController(max_retries=self._config.max_retries)
         self._memory = ExecutionMemory(self._config.working_dir)
-        self._diff = DiffApplicator(self._config.working_dir)
+        # ADR-239: checkpoint/rollback is pluggable. Default (None) constructs
+        # DiffApplicator exactly as before — byte-identical for every existing
+        # caller. A cloud consumer injects a non-git CheckpointProtocol.
+        self._diff: CheckpointProtocol = (
+            self._config.checkpoint
+            if self._config.checkpoint is not None
+            else DiffApplicator(self._config.working_dir)
+        )
         self._parser = TestResultParser()
 
     @property
@@ -158,6 +181,63 @@ class AutonomousExecutor:
 
     async def _on_test(self, ctx: LoopContext) -> ParsedTestResult:
         """Run tests and parse results."""
+        # ADR-239: consumers with nothing to test (e.g. greenfield builds) set
+        # run_tests=False. Short-circuit to a passing result — never spawn the
+        # test subprocess — while still recording to memory so the loop's state
+        # machine and retry/convergence tracking stay consistent. Snapshots are
+        # skipped: they capture file state at TEST time, meaningless with no test.
+        if not self._config.run_tests:
+            parsed = ParsedTestResult(passed=True, raw_output="tests skipped (run_tests=False)")
+            self._memory.record(
+                attempt=ctx.attempt,
+                diff_applied=ctx.generated_diff[:2000],
+                result_exit_code=0,
+                test_output="tests skipped (run_tests=False)",
+                modified_files=ctx.modified_files,
+            )
+            return parsed
+
+        # ADR-239 Stage 2.1: route TEST through the agent instead of a
+        # subprocess. The agent's run_tests() returns an ExecutionResult; its
+        # .success maps to ParsedTestResult.passed, so a failing result drives
+        # the native RED_FIX loop (agent regenerates with error_context). The
+        # consumer decides what "testing" means (e.g. static validation of
+        # generated files) — the SDK just wires the result into the FSM.
+        if self._config.test_via_agent:
+            agent_result = await self._agent.run_tests(self._config.test_paths or None)
+            # Sentinel BLOCKER 1: use the protocol's SEMANTIC pass signal, not
+            # exit_code — a harness can exit 0 while swallowing test failures.
+            passed = bool(agent_result.test_passed)
+            # Sentinel BLOCKER 2: None-guard stdout/stderr before slicing.
+            stdout = agent_result.stdout or ""
+            stderr = agent_result.stderr or ""
+            output = stdout + (("\n" + stderr) if stderr else "")
+            # Sentinel advisory: on failure, never leave error_messages empty —
+            # the FIX loop's error_context would be blank and repair would run
+            # blind. Fall back to output, then a generic marker.
+            if passed:
+                error_messages: list[str] = []
+            elif stderr:
+                error_messages = [stderr[:2000]]
+            elif output:
+                error_messages = [output[:2000]]
+            else:
+                error_messages = ["test_via_agent: validation failed, no output captured"]
+            parsed = ParsedTestResult(
+                passed=passed,
+                raw_output=output,
+                error_messages=error_messages,
+            )
+            self._memory.record(
+                attempt=ctx.attempt,
+                diff_applied=ctx.generated_diff[:2000],
+                result_exit_code=agent_result.exit_code,
+                test_output=output[:4000],
+                modified_files=ctx.modified_files,
+                error_message=("" if passed else (error_messages[0][:500] if error_messages else "")),
+            )
+            return parsed
+
         # Take before-snapshot
         if ctx.modified_files:
             before = self._memory.snapshot(ctx.modified_files)
