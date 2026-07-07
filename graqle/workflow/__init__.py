@@ -24,9 +24,11 @@ from graqle.workflow.loop_observer import (
     Violation,
     ViolationType,
 )
+from graqle.workflow.protocols import CheckpointProtocol
 
 __all__ = [
     "ActionAgentProtocol",
+    "CheckpointProtocol",
     "ExecutionResult",
     "InvalidTransitionError",
     "LoopContext",
