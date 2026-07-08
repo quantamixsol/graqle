@@ -22,6 +22,12 @@ def __getattr__(name: str):
     if name == "GeminiBackend":
         from graqle.backends.gemini import GeminiBackend
         return GeminiBackend
+    if name == "BackendFallbackChain":
+        from graqle.backends.fallback import BackendFallbackChain
+        return BackendFallbackChain
+    if name == "BackendRaceChain":  # ADR-240 D1
+        from graqle.backends.race import BackendRaceChain
+        return BackendRaceChain
     if name in ("create_provider_backend", "PROVIDER_PRESETS",
                 "get_provider_names"):
         from graqle.backends import providers

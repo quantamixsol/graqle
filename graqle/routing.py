@@ -35,6 +35,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger("graqle.routing")
@@ -489,3 +490,94 @@ class TaskRouter:
         if self.default_model:
             config["default_model"] = self.default_model
         return config
+
+
+# ---------------------------------------------------------------------------
+# ADR-240 D2 — CostAwareRouter: automatic cost/latency selection over a
+# candidate set given a task-difficulty signal. TaskRouter (above) stays
+# ADVISORY/opt-in and is UNTOUCHED — this is a separate, additive runtime
+# selector. Provider-agnostic: it ranks candidates by their RELATIVE
+# cost_per_1k_tokens (the one capability signal every BaseBackend exposes),
+# so no per-model capability database is needed. The CALLER supplies the
+# difficulty (from task length, plan-vs-code step type, CR-B09 retry flags).
+# ---------------------------------------------------------------------------
+
+class Difficulty(str, Enum):
+    """Task difficulty tier the caller passes to CostAwareRouter.select()."""
+
+    SIMPLE = "simple"      # cheap/fast tier is enough
+    MODERATE = "moderate"
+    HARD = "hard"          # force a strong (pricier) candidate
+
+
+_DIFFICULTY_MIN_TIER = {
+    Difficulty.SIMPLE: 0,
+    Difficulty.MODERATE: 1,
+    Difficulty.HARD: 2,
+}
+
+
+def _assign_tiers(ranked: list) -> dict[str, int]:
+    """Assign 0..2 capability tiers by terciles of the cost-ascending order.
+
+    Cheapest third → tier 0 (weakest), dearest third → tier 2 (strongest).
+    Deterministic given the candidate list.
+    """
+    n = len(ranked)
+    tiers: dict[str, int] = {}
+    for i, b in enumerate(ranked):
+        if n <= 1:
+            tiers[b.name] = 0
+        else:
+            # position 0..n-1 → tier 0/1/2 by thirds
+            frac = i / (n - 1)
+            tiers[b.name] = 0 if frac < 1 / 3 else (1 if frac < 2 / 3 else 2)
+    return tiers
+
+
+@dataclass
+class CostAwareRouter:
+    """Auto-select the cheapest backend that meets a task's difficulty.
+
+    select() never returns None: HARD with only cheap candidates still returns
+    the strongest available, and ceilings never eliminate the last option.
+    Tie-break is deterministic (cost, latency_hint, name) so it is unit-testable
+    with MockBackend.
+    """
+
+    max_cost_per_1k: float | None = None
+    max_latency_ms: float | None = None
+
+    def select(
+        self,
+        candidates: list,
+        difficulty: Difficulty,
+        *,
+        latency_hint: dict[str, float] | None = None,
+    ) -> Any:
+        if not candidates:
+            raise ValueError("CostAwareRouter.select requires at least one candidate")
+
+        # 1. rank by cost ascending (stable on name) → assign capability tiers
+        ranked = sorted(candidates, key=lambda b: (b.cost_per_1k_tokens, b.name))
+        tier_of = _assign_tiers(ranked)
+        min_tier = _DIFFICULTY_MIN_TIER[difficulty]
+
+        # 2. eligible = candidates whose tier meets the difficulty; if none
+        #    qualifies, take the strongest (dearest) available.
+        eligible = [b for b in ranked if tier_of[b.name] >= min_tier]
+        if not eligible:
+            eligible = [ranked[-1]]
+
+        # 3. apply optional cost ceiling, but never empty the set
+        if self.max_cost_per_1k is not None:
+            filtered = [b for b in eligible if b.cost_per_1k_tokens <= self.max_cost_per_1k]
+            eligible = filtered or eligible
+
+        # 4. pick cheapest meeting difficulty; deterministic tie-break
+        hints = latency_hint or {}
+
+        def _key(b: Any) -> tuple:
+            return (b.cost_per_1k_tokens, hints.get(b.name, float("inf")), b.name)
+
+        return min(eligible, key=_key)

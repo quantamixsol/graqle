@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graqle"
-# V-ADR239-STAGE2: native version bump (G4 config, CG-14 gate can't resolve cross-repo
-# relative path — established native-edit precedent per prior V-CR-G1-NATIVE bump).
-# 0.77.0 = ADR-239 Stage 2: AutonomousExecutor CheckpointProtocol + run_tests (one
-# engine for git AND cloud consumers; backward-compatible). 0.76.0 = ADR-225 G1
-# multi-tenant memory service. 0.75.1 = ADR-220-A R2 Studio fail-closed.
-version = "0.77.0"
+# V-ADR240-DELTA: native version bump (G4 config, CG-14 native-edit precedent).
+# 0.78.0 = ADR-240 D1+D2: BackendRaceChain (first-to-finish/best-of-N) +
+# CostAwareRouter (auto cost/latency selection) — dual-provider autonomy;
+# additive, backward-compatible, no IP concern. 0.77.0 = ADR-239 Stage 2
+# (CheckpointProtocol + run_tests). 0.76.0 = ADR-225 G1 multi-tenant memory.
+version = "0.78.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
