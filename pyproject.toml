@@ -5,11 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "graqle"
 # V-ADR240-DELTA: native version bump (G4 config, CG-14 native-edit precedent).
-# 0.78.0 = ADR-240 D1+D2: BackendRaceChain (first-to-finish/best-of-N) +
-# CostAwareRouter (auto cost/latency selection) — dual-provider autonomy;
-# additive, backward-compatible, no IP concern. 0.77.0 = ADR-239 Stage 2
+# 0.79.0 = ADR-242-A1 CR-SEED-02: graqle.workflow.seed — seed a project graph
+# from goal + build profile + source chunks before any code exists, and the
+# flat-scanner-shape serializer for raw-dict graph consumers; additive,
+# backward-compatible, no IP concern. 0.78.0 = ADR-240 D1+D2: BackendRaceChain
+# (first-to-finish/best-of-N) + CostAwareRouter (auto cost/latency selection) —
+# dual-provider autonomy. 0.77.0 = ADR-239 Stage 2
 # (CheckpointProtocol + run_tests). 0.76.0 = ADR-225 G1 multi-tenant memory.
-version = "0.78.0"
+version = "0.79.0"
 description = "Give your AI tools architecture-aware reasoning. Build a knowledge graph from any codebase — dependency analysis, impact analysis, governed AI answers with confidence scores. Works with Claude Code, Cursor, VS Code Copilot. 14 LLM backends, fully offline capable."
 readme = "README.md"
 license = {text = "Apache-2.0"}
