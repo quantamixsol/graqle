@@ -2,17 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.quantamixsol/graqle",
   "title": "Graqle",
-  "description": "Dev intelligence layer: 7 MCP tools for graph-powered codebase reasoning.",
+  "description": "Dev intelligence layer: graph-powered codebase reasoning, impact analysis, and governance tools over MCP. Scan a repo into a knowledge graph, then query your architecture, not your files.",
+  "websiteUrl": "https://graqle.com",
   "repository": {
     "url": "https://github.com/quantamixsol/graqle",
     "source": "github"
   },
-  "version": "0.36.3",
+  "version": "0.79.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "graqle",
-      "version": "0.36.3",
+      "version": "0.79.0",
       "transport": {
         "type": "stdio"
       }
