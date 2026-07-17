@@ -1,0 +1,11 @@
+{
+  "name": "graqle",
+  "version": "0.79.0",
+  "description": "GraQle dev intelligence layer: graph-powered codebase reasoning, impact analysis, and governed edits via MCP, plus governed-workflow skills.",
+  "interface": {
+    "displayName": "GraQle",
+    "logo": "assets/graqle-logo-256.png",
+    "screenshots": [],
+    "category": "developer-tools"
+  }
+}
