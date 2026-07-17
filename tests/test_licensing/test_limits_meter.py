@@ -151,6 +151,30 @@ def test_unlimited_license_always_ok(tmp_path):
     assert reading.percent_used is None
 
 
+def test_meter_skips_rewrite_when_hwm_unchanged(tmp_path):
+    # Shared-repo diff churn guard: a scan that doesn't advance the HWM must
+    # not touch the file (pre-merge debate point 3).
+    meter = UsageMeter(tmp_path)
+    meter.record(400, _anon())
+    before = (tmp_path / METER_FILENAME).read_bytes()
+    meter.record(400, _anon())
+    meter.record(120, _anon())
+    assert (tmp_path / METER_FILENAME).read_bytes() == before
+
+
+def test_meter_self_gitignores(tmp_path):
+    UsageMeter(tmp_path).record(10, _anon())
+    gi = tmp_path / ".gitignore"
+    assert gi.exists()
+    assert "meter.json" in gi.read_text(encoding="utf-8")
+
+
+def test_meter_leaves_existing_gitignore_alone(tmp_path):
+    (tmp_path / ".gitignore").write_text("custom\n", encoding="utf-8")
+    UsageMeter(tmp_path).record(10, _anon())
+    assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "custom\n"
+
+
 def test_meter_tolerates_bad_node_count(tmp_path):
     reading = UsageMeter(tmp_path).record("garbage", _anon())  # type: ignore[arg-type]
     assert reading.status is MeterStatus.OK

@@ -103,6 +103,19 @@ class UsageMeter:
         except OSError as exc:
             logger.debug("meter persistence skipped: %s", exc)
 
+    def _ensure_gitignore(self) -> None:
+        """Self-ignore the meter file so it never lands in shared-repo diffs.
+
+        Only creates ``.gitignore`` when the directory has none — an existing
+        file (user-managed) is never touched.
+        """
+        try:
+            gi = self._path.parent / ".gitignore"
+            if not gi.exists():
+                gi.write_text("meter.json\n", encoding="utf-8")
+        except OSError as exc:
+            logger.debug("meter gitignore skipped: %s", exc)
+
     # -- public API --------------------------------------------------------
 
     @property
@@ -121,16 +134,22 @@ class UsageMeter:
         except (TypeError, ValueError):
             count = 0
 
-        hwm = max(self.high_water_mark, count)
-        self._store(
-            {
-                "schema_version": _SCHEMA_VERSION,
-                "high_water_mark": hwm,
-                "last_node_count": count,
-                "limit_source": limits.source,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
+        prev_hwm = self.high_water_mark
+        hwm = max(prev_hwm, count)
+        # Write only when the high-water mark advances (or on first record):
+        # a scan that changes nothing must not dirty a committed working tree
+        # (shared-repo diff churn — CR-LIC-01 pre-merge debate, point 3).
+        if hwm > prev_hwm or not self._path.exists():
+            self._store(
+                {
+                    "schema_version": _SCHEMA_VERSION,
+                    "high_water_mark": hwm,
+                    "last_node_count": count,
+                    "limit_source": limits.source,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            self._ensure_gitignore()
 
         if limits.unlimited:
             status = MeterStatus.OK

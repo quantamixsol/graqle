@@ -1900,14 +1900,10 @@ def _show_cloud_onboarding_nudge(graph_data: dict, graqle_dir: Path) -> None:
             title="[dim]One-time tip[/dim]",
             border_style="dim",
         ))
-    elif creds.plan == "free" and node_count > 400:
-        # Free user near the 500-node limit — show upgrade CTA
-        pct = int(node_count / 500 * 100)
-        console.print(
-            f"\n[dim]You're at [yellow]{pct}%[/yellow] of the Free plan node limit "
-            f"({node_count:,}/500). Team plan: unlimited nodes + Neptune cloud sync. "
-            "[cyan]graqle.com/pricing[/cyan][/dim]"
-        )
+    # NOTE (CR-LIC-01): the legacy free-plan node-limit CTA that lived here was
+    # superseded by _record_usage_meter — one meter, one message, one CTA.
+    # Keeping two thresholds with two different upgrade paths (cloud plan vs
+    # licence) double-messaged users at the exact conversion moment.
 
     try:
         graqle_dir.mkdir(parents=True, exist_ok=True)
