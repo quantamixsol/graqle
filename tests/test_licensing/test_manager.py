@@ -126,10 +126,20 @@ class TestTierFeatures:
         assert "ontology_generator" in free
         assert "mcp_learn" in free
 
-    def test_pro_tier_is_empty(self):
-        """PRO tier reserved for future team-adjacent features (v0.7.5)."""
+    def test_pro_tier_governance_surface(self):
+        """PRO tier carries the professional governance surface (ADR-244, CR-LIC-01).
+
+        Replaces test_pro_tier_is_empty: the v0.7.5 'PRO is reserved/empty'
+        policy is deliberately reversed — PRO is the paid professional tier.
+        These are feature constants only; gating call sites land in CR-LIC-03.
+        """
         pro = TIER_FEATURES[LicenseTier.PRO]
-        assert len(pro) == 0
+        assert "governance_suite" in pro
+        assert "ci_mode" in pro
+        assert "multi_backend_debate" in pro
+        assert "unlimited_learn" in pro
+        # Solo features stay FREE — PRO must not claw back the v0.7.5 grants.
+        assert not (pro & TIER_FEATURES[LicenseTier.FREE])
 
     def test_team_tier_features(self):
         team = TIER_FEATURES[LicenseTier.TEAM]
