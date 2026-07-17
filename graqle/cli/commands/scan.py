@@ -1916,6 +1916,46 @@ def _show_cloud_onboarding_nudge(graph_data: dict, graqle_dir: Path) -> None:
         pass
 
 
+def _record_usage_meter(graph_data: dict, graqle_dir: Path) -> None:
+    """Record scan size against tier-derived limits — warn-only (CR-LIC-01).
+
+    Prints one line at WARN/AT_CAP (suppressed in non-TTY). Never raises:
+    metering failure must never break a scan. Enforcement is CR-LIC-03.
+    """
+    try:
+        from graqle.licensing.limits import resolve_limits
+        from graqle.licensing.manager import _get_manager
+        from graqle.licensing.meter import MeterStatus, UsageMeter
+
+        limits = resolve_limits(_get_manager().license)
+        reading = UsageMeter(graqle_dir).record(
+            len(graph_data.get("nodes", [])), limits
+        )
+
+        import sys
+
+        if not sys.stdout.isatty():
+            return
+        if reading.status is MeterStatus.WARN:
+            console.print(
+                f"\n[yellow]Graph at {reading.node_count:,}/{reading.max_nodes:,} "
+                f"nodes ({reading.percent_used}%) on the current plan.[/yellow] "
+                "[dim]Register free for more headroom: "
+                "[cyan]https://graqle.com/signup[/cyan][/dim]"
+            )
+        elif reading.status is MeterStatus.AT_CAP:
+            console.print(
+                f"\n[yellow]Graph reached the current plan's node cap "
+                f"({reading.node_count:,}/{reading.max_nodes:,}).[/yellow] "
+                "[dim]Nothing is blocked or deleted. Plans: "
+                "[cyan]https://graqle.com/pricing[/cyan][/dim]"
+            )
+    except Exception as exc:
+        import logging
+
+        logging.getLogger("graqle.cli.scan").debug("usage meter skipped: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # Summary Formatting
 # ---------------------------------------------------------------------------
@@ -2186,7 +2226,8 @@ def _scan_repo_impl(
         except Exception:
             pass
 
-    # Cloud onboarding nudge — show once if user isn't connected to cloud yet
+    # Usage meter (CR-LIC-01) — warn-only high-water mark, then onboarding nudge
+    _record_usage_meter(data, Path(".graqle"))
     _show_cloud_onboarding_nudge(data, Path(".graqle"))
 
 

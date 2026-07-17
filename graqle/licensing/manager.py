@@ -92,9 +92,15 @@ TIER_FEATURES: dict[LicenseTier, set[str]] = {
         "auto_grow_hook",
         "metrics_dashboard",
     },
-    # PRO tier is now reserved for future team-adjacent features.
-    # All solo developer features have been moved to FREE (v0.7.5).
-    LicenseTier.PRO: set(),
+    # PRO tier (ADR-244 composite triggers): the professional governance
+    # surface. Feature constants only in CR-LIC-01 — no gating call sites yet;
+    # enforcement lands in CR-LIC-03.
+    LicenseTier.PRO: {
+        "governance_suite",  # preflight, impact, review, predict, release_gate
+        "ci_mode",  # headless/CI execution
+        "multi_backend_debate",  # R15 debate + task routing
+        "unlimited_learn",  # lessons beyond the free-tier cap
+    },
     LicenseTier.TEAM: {
         "shared_kg_sync",
         "multi_instance_coordination",
