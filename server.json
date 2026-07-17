@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.quantamixsol/graqle",
   "title": "Graqle",
-  "description": "Dev intelligence layer: graph-powered codebase reasoning, impact analysis, and governance tools over MCP. Scan a repo into a knowledge graph, then query your architecture, not your files.",
+  "description": "Graph-powered codebase reasoning, impact analysis, and governance tools over MCP.",
   "websiteUrl": "https://graqle.com",
   "repository": {
     "url": "https://github.com/quantamixsol/graqle",
