@@ -4,6 +4,33 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.80.0 (2026-07-18) — [Plugin bundles + node-limit visibility (warn-only)]
+
+> Distribution: repo-scoped plugin bundles for Claude Code
+> (`/plugin marketplace add quantamixsol/graqle`) and the Codex CLI, plus a
+> refreshed MCP Registry manifest. Licensing: tier-derived node limits and a
+> local warn-only usage meter — **nothing is enforced or blocked**; reads are
+> never gated.
+
+- **Claude Code plugin bundle** — `.claude-plugin/marketplace.json` +
+  `plugins/claude-code/graqle/` (stdio MCP server, `governed-bug-fix` +
+  `graph-onboard` skills, optional governance gate hook — advisory by default,
+  `GRAQLE_GATE_MODE=enforce` opts into fail-closed).
+- **Codex plugin bundle** — `.agents/plugins/marketplace.json` +
+  `plugins/codex/graqle/` (interface manifest, same skills).
+- **MCP Registry** — `server.json` refreshed (0.80.0, description, websiteUrl).
+- **`graqle.licensing.limits`** — tier-derived node caps (anonymous 500 /
+  registered-free 1,000 / paid uncapped) with signed `max_nodes:<int>` licence
+  feature overrides; unknown tiers fail closed. Informational in this release.
+- **`graqle.licensing.meter`** — local, tamper-evident high-water-mark usage
+  meter; writes only when the high-water mark advances; self-gitignores; never
+  blocks any operation.
+- **`graq scan`** — single advisory line when a graph exceeds the tier cap.
+- PRO feature-set definition restored (governance suite, CI mode,
+  multi-backend debate, unlimited learn).
+
+---
+
 ## 0.76.0 (2026-06-26) — [G1 multi-tenant memory isolation + WS-F trade-secret wheel gate]
 
 > ADR-225 G1 isolation layer 3: per-tenant `ReasoningMemory` registry with
