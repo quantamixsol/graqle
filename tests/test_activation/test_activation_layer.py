@@ -59,7 +59,7 @@ def test_advisory_blocked_worthy_shows_upgrade_chip():
     chip = v.advisory_chip
     assert chip is not None
     assert chip["kind"] == "upgrade_to_enforce"
-    assert "graqle.dev/pricing" in chip["message"]
+    assert "graqle.com/pricing" in chip["message"]
     assert chip["drace_score"] == 0.2
 
 

@@ -181,7 +181,7 @@ class ActivationVerdict:
             "message": (
                 f"This turn scored {self.safety.score:.2f} (DRACE). Pro mode "
                 "would block this automatically. Upgrade to enforce "
-                "governance in your workflow: https://graqle.dev/pricing"
+                "governance in your workflow: https://graqle.com/pricing"
             ),
         }
 
