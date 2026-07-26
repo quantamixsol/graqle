@@ -49,6 +49,39 @@ _DENY_STEMS: frozenset[str] = frozenset(
 )
 
 # ---------------------------------------------------------------------------
+# MONETISATION WHEEL BOUNDARY (owner rule, 2026-07-26)
+# ---------------------------------------------------------------------------
+# The Community wheel that ships to PyPI must be able to VERIFY entitlements and
+# ENFORCE caps, but must NEVER carry the licence signer or the server-side plan/
+# issuer logic. This is a MONETISATION-integrity check, distinct from the TS
+# calibration check above — it runs in the same release gate so a boundary
+# regression fails the PyPI build. (Module-path strings only; no TS values.)
+
+# MUST be present in the Community wheel — the client-side monetisation enforcers
+# + offline verifier. If any goes missing, the shipped SDK cannot meter/gate/verify
+# entitlements → silent revenue loss.
+_MONETISATION_MUST_SHIP: frozenset[str] = frozenset([
+    "graqle/licensing/limits.py",           # node-cap ladder (Free 1,000, Pro/Team unlimited)
+    "graqle/licensing/meter.py",            # usage meter
+    "graqle/licensing/manager.py",          # licence load + verify
+    "graqle/licensing/ed25519_license.py",  # ed25519 offline verify
+    "graqle/licensing/trusted_keys.json",   # PUBLIC verification key
+    "graqle/guardian/tier.py",              # PR-Guardian HARD wall (W2)
+])
+
+# MUST NOT ship — server-side commercial code + the licence SIGNER. A leak here
+# means the public wheel could forge licences or expose the proprietary plan/issuer.
+_MONETISATION_MUST_NOT_SHIP_PREFIXES: tuple[str, ...] = (
+    "graqle/cloud/",    # cloud/plans.py etc — server-side plan logic (B0's file)
+    "graqle/server/",   # stripe_webhook issuer, register routes
+    "graqle/leads/",
+    "graqle/studio/",
+)
+_MONETISATION_MUST_NOT_SHIP_EXACT: frozenset[str] = frozenset([
+    "graqle/licensing/keygen.py",   # the SIGNER — verify-only wheel, never issue
+])
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -125,6 +158,72 @@ def _scan_wheel(whl_path: Path) -> list[str]:
     return violations
 
 
+def _wheel_record_paths(whl_path: Path) -> set[str]:
+    """Return the set of posix-normalised package paths in the wheel RECORD."""
+    with zipfile.ZipFile(whl_path, "r") as zf:
+        record_name = next(
+            (n for n in zf.namelist() if n.endswith(".dist-info/RECORD")), None
+        )
+        if record_name is None:
+            print("[wsf-gate] ERROR: RECORD file not found in wheel")
+            sys.exit(2)
+        record_text = zf.read(record_name).decode("utf-8", errors="replace")
+    paths: set[str] = set()
+    for line in record_text.splitlines():
+        p = line.split(",")[0].strip()
+        if p:
+            paths.add(p.replace("\\", "/"))
+    return paths
+
+
+def _scan_monetisation_boundary(whl_path: Path) -> list[str]:
+    """Return monetisation-boundary violations in the wheel.
+
+    Two failure classes (owner rule):
+      - a client-side ENFORCER is MISSING (silent revenue loss), or
+      - a server-side/signer module LEAKED into the public wheel.
+    """
+    paths = _wheel_record_paths(whl_path)
+    violations: list[str] = []
+
+    for must in sorted(_MONETISATION_MUST_SHIP):
+        if must not in paths:
+            violations.append(f"MISSING ENFORCER: {must}")
+
+    for p in sorted(paths):
+        if any(p.startswith(pre) for pre in _MONETISATION_MUST_NOT_SHIP_PREFIXES):
+            violations.append(f"LEAKED SERVER-SIDE: {p}")
+
+    for exact in sorted(_MONETISATION_MUST_NOT_SHIP_EXACT):
+        stem = exact.rsplit(".", 1)[0]
+        for p in sorted(paths):
+            if p == exact or p.startswith(stem + "."):
+                violations.append(f"LEAKED SIGNER: {p}")
+
+    return violations
+
+
+def _report_monetisation(violations: list[str], *, dry_run: bool = False) -> None:
+    """Print monetisation-boundary results; exit 1 on violations (unless dry-run)."""
+    if violations:
+        print()
+        print("[mon-gate] FAIL -- monetisation wheel boundary violated:")
+        for v in violations:
+            print(f"  {v}")
+            print(f"  {v}", file=sys.stderr)
+        print()
+        print(
+            "[mon-gate] Fix: enforcers must ship; server-side/signer modules must be "
+            "excluded in [tool.hatch.build.targets.wheel] exclude in pyproject.toml"
+        )
+        if dry_run:
+            print("[mon-gate] (dry-run: exit 0 despite violations)")
+            return
+        sys.exit(1)
+    print("[mon-gate] PASS -- monetisation boundary intact "
+          f"({len(_MONETISATION_MUST_SHIP)} enforcers present; server-side/signer absent)")
+
+
 def _report(violations: list[str], *, dry_run: bool = False) -> None:
     """Print results and exit.
 
@@ -172,10 +271,30 @@ def main() -> None:
         action="store_true",
         help="Inspect violations but exit 0 — does not fail the build. Requires --wheel PATH.",
     )
+    parser.add_argument(
+        "--check-monetisation",
+        action="store_true",
+        help="Also assert the monetisation wheel boundary (enforcers present + no "
+             "server-side/signer leak). Enabled in release CI on a real full build; "
+             "off by default so isolated TS-gate tests on synthetic wheels are unaffected.",
+    )
     args = parser.parse_args()
 
     if args.dry_run and not args.wheel:
         parser.error("--dry-run requires --wheel PATH")
+
+    def _run_gates(whl_path: Path) -> None:
+        # Monetisation boundary (owner rule): enforcers present + no server-side/signer
+        # leak. Opt-in via --check-monetisation (release CI on a REAL full build) so the
+        # TS gate's isolated unit tests on synthetic partial wheels are unaffected. Runs
+        # in the same release gate so a boundary regression fails the PyPI build. In
+        # non-dry-run it exits 1 on failure; otherwise prints and returns.
+        if args.check_monetisation:
+            mon = _scan_monetisation_boundary(whl_path)
+            _report_monetisation(mon, dry_run=args.dry_run)
+        # Trade-secret calibration gate (existing behaviour, unchanged).
+        violations = _scan_wheel(whl_path)
+        _report(violations, dry_run=args.dry_run)
 
     if args.wheel:
         whl_path = Path(args.wheel).resolve()
@@ -183,13 +302,11 @@ def main() -> None:
             print(f"[wsf-gate] ERROR: wheel not found: {whl_path!r}")
             sys.exit(2)
         print(f"[wsf-gate] Using pre-built wheel: {whl_path}")
-        violations = _scan_wheel(whl_path)
-        _report(violations, dry_run=args.dry_run)
+        _run_gates(whl_path)
     else:
         with tempfile.TemporaryDirectory(prefix="wsf_wheel_") as tmp:
             whl_path = _build_wheel(Path(tmp))
-            violations = _scan_wheel(whl_path)
-        _report(violations, dry_run=args.dry_run)
+            _run_gates(whl_path)
 
 
 if __name__ == "__main__":

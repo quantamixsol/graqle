@@ -292,6 +292,84 @@ def test_cli_wheel_path_violation(tmp_path):
     assert "calibration.py" in result.stdout
 
 
+def test_monetisation_gate_off_by_default_on_clean_partial_wheel(tmp_path):
+    # A synthetic wheel with only a couple of paths (no enforcers) must NOT trip the
+    # monetisation gate unless --check-monetisation is passed. Guards the collision
+    # that would otherwise break the TS gate's own isolated CLI tests.
+    lines = _record_lines(["graqle/__init__.py", "graqle/core/engine.py"])
+    whl = _make_wheel(lines, tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(_GATE_PATH), "--wheel", str(whl)],  # no --check-monetisation
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_monetisation_gate_fails_on_leaked_serverside(tmp_path):
+    # With --check-monetisation, a wheel carrying server-side code (cloud/*) fails.
+    lines = _record_lines([
+        "graqle/licensing/limits.py",
+        "graqle/licensing/meter.py",
+        "graqle/licensing/manager.py",
+        "graqle/licensing/ed25519_license.py",
+        "graqle/licensing/trusted_keys.json",
+        "graqle/guardian/tier.py",
+        "graqle/cloud/plans.py",   # <-- server-side leak
+    ])
+    whl = _make_wheel(lines, tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(_GATE_PATH), "--wheel", str(whl), "--check-monetisation"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "LEAKED SERVER-SIDE" in result.stdout
+    assert "cloud/plans.py" in result.stdout
+
+
+def test_monetisation_gate_fails_on_missing_enforcer(tmp_path):
+    # With --check-monetisation, a wheel missing an enforcer (e.g. limits.py) fails.
+    lines = _record_lines([
+        "graqle/licensing/meter.py",
+        "graqle/licensing/manager.py",
+        "graqle/licensing/ed25519_license.py",
+        "graqle/licensing/trusted_keys.json",
+        "graqle/guardian/tier.py",
+        # graqle/licensing/limits.py deliberately ABSENT
+    ])
+    whl = _make_wheel(lines, tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(_GATE_PATH), "--wheel", str(whl), "--check-monetisation"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "MISSING ENFORCER" in result.stdout
+    assert "limits.py" in result.stdout
+
+
+def test_monetisation_gate_passes_on_correct_boundary(tmp_path):
+    # A wheel with all enforcers present and no server-side/signer leak passes.
+    lines = _record_lines([
+        "graqle/licensing/limits.py",
+        "graqle/licensing/meter.py",
+        "graqle/licensing/manager.py",
+        "graqle/licensing/ed25519_license.py",
+        "graqle/licensing/trusted_keys.json",
+        "graqle/guardian/tier.py",
+        "graqle/core/engine.py",
+    ])
+    whl = _make_wheel(lines, tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(_GATE_PATH), "--wheel", str(whl), "--check-monetisation"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "mon-gate] PASS" in result.stdout
+
+
 def test_cli_dry_run_requires_wheel(tmp_path):
     result = subprocess.run(
         [sys.executable, str(_GATE_PATH), "--dry-run"],
