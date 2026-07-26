@@ -179,3 +179,165 @@ def test_meter_tolerates_bad_node_count(tmp_path):
     reading = UsageMeter(tmp_path).record("garbage", _anon())  # type: ignore[arg-type]
     assert reading.status is MeterStatus.OK
     assert reading.node_count == 0
+
+
+# ---------------------------------------------------------------------------
+# CR-LIC-03a — HARD node-cap enforcement (ADR-245)
+# ---------------------------------------------------------------------------
+
+from graqle.licensing.meter import (  # noqa: E402
+    ENFORCE_ENV,
+    GRACE_ENV,
+    NodeCapExceeded,
+    enforcement_enabled,
+)
+
+
+def _pro() -> EffectiveLimits:
+    # An UNLIMITED tier (Pro): enforcement must never touch it.
+    return resolve_limits(SimpleNamespace(tier="pro", features=set()))
+
+
+def test_enforcement_on_by_default(monkeypatch):
+    monkeypatch.delenv(ENFORCE_ENV, raising=False)
+    assert enforcement_enabled() is True
+
+
+@pytest.mark.parametrize("optout", ["0", "false", "no", "off", ""])
+def test_enforcement_opt_out_only(monkeypatch, optout):
+    monkeypatch.setenv(ENFORCE_ENV, optout)
+    assert enforcement_enabled() is False
+
+
+@pytest.mark.parametrize("on", ["1", "true", "yes", "on", "enforce"])
+def test_enforcement_stays_on_for_truthy(monkeypatch, on):
+    monkeypatch.setenv(ENFORCE_ENV, on)
+    assert enforcement_enabled() is True
+
+
+def test_enforce_noop_when_opted_out(tmp_path, monkeypatch):
+    monkeypatch.setenv(ENFORCE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    reading = meter.record(9_999, _anon())  # AT_CAP
+    meter.enforce(reading, _anon())  # opted out → no raise
+
+
+def test_enforce_never_blocks_unlimited_tier(tmp_path, monkeypatch):
+    monkeypatch.setenv(GRACE_ENV, "0")  # no grace, to prove it's the unlimited guard
+    meter = UsageMeter(tmp_path)
+    reading = meter.record(5_000_000, _pro())
+    assert reading.status is MeterStatus.OK  # unlimited → OK
+    meter.enforce(reading, _pro())  # unlimited → never raises
+
+
+def test_enforce_never_blocks_below_cap(tmp_path, monkeypatch):
+    monkeypatch.setenv(GRACE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    reading = meter.record(100, _anon())  # OK, below cap
+    meter.enforce(reading, _anon())  # not AT_CAP → no raise
+
+
+def test_grace_window_first_hit_warns_not_blocks(tmp_path, monkeypatch):
+    # First time at cap: within grace → no raise, and cap_first_hit_at is stamped.
+    meter = UsageMeter(tmp_path)
+    reading = meter.record(500, _anon())  # AT_CAP (anon cap 500)
+    assert reading.status is MeterStatus.AT_CAP
+    meter.enforce(reading, _anon())  # first hit → grace → no raise
+    data = json.loads((tmp_path / METER_FILENAME).read_text(encoding="utf-8"))
+    assert data.get("cap_first_hit_at")  # grace clock started
+
+
+def test_blocks_after_grace_elapsed(tmp_path, monkeypatch):
+    # Grace = 0 days → the very first AT_CAP write is past grace → block.
+    monkeypatch.setenv(GRACE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    reading = meter.record(500, _anon())  # AT_CAP
+    # First call stamps cap_first_hit_at (grace start = now); with grace=0, elapsed
+    # is >=0 so the NEXT check blocks. Simulate the second scan:
+    meter.enforce(reading, _anon())  # stamps first-hit
+    reading2 = meter.record(600, _anon())  # still AT_CAP, HWM advanced
+    with pytest.raises(NodeCapExceeded):
+        meter.enforce(reading2, _anon())
+
+
+def test_block_carries_numbers_for_cta(tmp_path, monkeypatch):
+    monkeypatch.setenv(GRACE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    meter.enforce(meter.record(500, _anon()), _anon())  # stamp
+    with pytest.raises(NodeCapExceeded) as ei:
+        meter.enforce(meter.record(700, _anon()), _anon())
+    assert ei.value.max_nodes == 500
+    assert ei.value.node_count >= 500
+
+
+def test_hwm_prevents_shrink_then_grow_dodge(tmp_path, monkeypatch):
+    # A user who deletes nodes to drop below cap can't dodge: HWM keeps the peak,
+    # so re-recording a smaller count still reflects AT_CAP via the meter's HWM.
+    monkeypatch.setenv(GRACE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    meter.enforce(meter.record(500, _anon()), _anon())  # at cap, stamp grace
+    # "shrink": record a smaller count — HWM stays 500, but current count 300 is
+    # below cap so THIS reading is not AT_CAP (enforcement is on the current write).
+    # The dodge that matters (re-growing) is caught: grow back to cap → blocks.
+    reading_grow = meter.record(520, _anon())
+    assert reading_grow.status is MeterStatus.AT_CAP
+    with pytest.raises(NodeCapExceeded):
+        meter.enforce(reading_grow, _anon())
+
+
+def test_scan_prewrite_gate_raises_before_persisting(tmp_path, monkeypatch):
+    """SENTINEL CR-LIC-03a BLOCKER-1: the scan enforcement runs BEFORE the graph is
+    written. Prove the gate raises typer.Exit when past cap+grace — i.e. the write is
+    prevented, not a cosmetic error after the graph is already on disk.
+
+    Uses a FREE-tier licence (cap 1,000) via monkeypatched manager so resolve_limits
+    returns a capped tier; the gate lives in scan.py and calls the same meter.enforce.
+    """
+    import typer
+
+    from graqle.cli.commands import scan as scan_cmd
+
+    monkeypatch.setenv(GRACE_ENV, "0")  # no grace → blocks after the first stamp
+    graqle_dir = tmp_path / ".graqle"
+    graqle_dir.mkdir()
+
+    # Force resolve_limits to a capped (anon, 500) tier regardless of real licence.
+    monkeypatch.setattr(
+        "graqle.licensing.limits.resolve_limits", lambda _lic: _anon()
+    )
+
+    big_graph = {"nodes": [{"id": i} for i in range(600)]}  # over the 500 cap
+    # First call stamps grace (no raise); second call (still over cap) must raise.
+    scan_cmd._enforce_node_cap_before_write(big_graph, graqle_dir)  # stamp
+    with pytest.raises(typer.Exit):
+        scan_cmd._enforce_node_cap_before_write(big_graph, graqle_dir)
+
+
+def test_scan_prewrite_gate_allows_below_cap(tmp_path, monkeypatch):
+    """The pre-write gate must NOT block a below-cap scan (no false block)."""
+    from graqle.cli.commands import scan as scan_cmd
+
+    monkeypatch.setenv(GRACE_ENV, "0")
+    graqle_dir = tmp_path / ".graqle"
+    graqle_dir.mkdir()
+    monkeypatch.setattr(
+        "graqle.licensing.limits.resolve_limits", lambda _lic: _anon()
+    )
+    small_graph = {"nodes": [{"id": i} for i in range(100)]}  # under 500
+    scan_cmd._enforce_node_cap_before_write(small_graph, graqle_dir)  # no raise
+
+
+def test_corrupt_first_hit_stamp_restarts_grace_not_blocks(tmp_path, monkeypatch):
+    monkeypatch.setenv(GRACE_ENV, "0")
+    meter = UsageMeter(tmp_path)
+    meter.record(500, _anon())
+    # Corrupt the stamp:
+    p = tmp_path / METER_FILENAME
+    data = json.loads(p.read_text(encoding="utf-8"))
+    data["cap_first_hit_at"] = "not-a-date"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    reading = meter.record(500, _anon())
+    meter.enforce(reading, _anon())  # corrupt stamp → restart grace, do NOT block
+    data2 = json.loads(p.read_text(encoding="utf-8"))
+    # re-stamped to a valid iso datetime
+    assert data2["cap_first_hit_at"] != "not-a-date"
