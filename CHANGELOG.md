@@ -4,6 +4,31 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.81.0 (2026-07-26) — [Enterprise: secrets providers + gateway backend]
+
+> First two P0 requirements of the Enterprise Enhancement Program (CR-010). Both are additive and
+> backward-compatible — existing configs and credential handling are unchanged.
+
+### Enterprise (CR-010 Enterprise Enhancement Program)
+
+- **Secrets provider abstraction (R5)** — new `secrets:` config resolution supporting
+  `env | file | keychain | command` providers via `graqle.config.secrets.resolve_secret`. The `file`
+  provider natively reads `$SECRETS_PATH/<name>`-style mounted secret stores, so moving from a developer
+  laptop (keychain) to a hosted environment (mounted file) is a one-line config change. Resolved values
+  are wrapped in `SecretStr` (never logged, printed, or embedded in errors); resolution is fail-closed
+  (a present-but-empty mounted secret file raises rather than silently returning empty). Behind
+  `GRAQLE_USE_SECRETS_RESOLVER` (default off) — no change to existing environment-variable behaviour.
+- **Enterprise-gateway LLM backend (R4)** — new `GatewayBackend` for any corporate OpenAI-compatible
+  gateway: an `organization` header, custom RPC `extra_headers` (the `Authorization` header is reserved
+  and cannot be overridden by config), a localhost sidecar `base_url`, a client-side `model_allowlist`
+  (disallowed models are refused before any network call), and an `on_auth_error` hook that on a 401
+  refreshes the token once via the R5 `command` provider and retries exactly once. `CustomBackend` gains
+  extracted `_build_headers()` / `_build_payload()` (behaviour unchanged for existing callers). New
+  `graqle.backends.providers.create_gateway_backend()` factory for the
+  `backend: {type: openai-compatible, ...}` config stanza.
+
+---
+
 ## 0.80.0 (2026-07-18) — [Plugin bundles + node-limit visibility (warn-only)]
 
 > Distribution: repo-scoped plugin bundles for Claude Code
