@@ -91,3 +91,45 @@ class ConfigSchemeError(GraqleConfigError):
     closes the case-/encoding-/Unicode-bypass class that an explicit deny-list
     would leave open (security review found 5 such bypasses on v1 of the spec).
     """
+
+
+# ─────────────── CR-010.R5 — secrets provider abstraction ────────────────────
+# These extend the config-error hierarchy for the secrets resolver
+# (graqle/config/secrets.py). Both are fail-closed by contract: the resolver
+# raises rather than returning an empty credential, and NEITHER exception ever
+# embeds the resolved credential value in its message — only the credential
+# *name*, the provider, and a redacted reference are ever surfaced.
+
+
+class SecretResolutionError(GraqleConfigError):
+    """Raised when a required credential could not be resolved by any provider.
+
+    Carries the logical credential ``name``, the ``provider`` that was tried,
+    and a short human ``reason``. The underlying secret value is NEVER included
+    — only metadata safe to log. Fail-closed: the resolver raises this instead
+    of silently returning an empty string when a required secret is absent.
+    """
+
+    def __init__(self, *, name: str, provider: str, reason: str) -> None:
+        self.name = name
+        self.provider = provider
+        self.reason = reason
+        super().__init__(
+            f"Could not resolve secret {name!r} via provider {provider!r}: {reason}"
+        )
+
+
+class SecretProviderUnsupportedError(GraqleConfigError):
+    """Raised when a secrets provider is requested but not available here.
+
+    The canonical case is ``keychain`` on a non-macOS host. ``platform`` records
+    the running platform so the message is actionable without leaking anything.
+    """
+
+    def __init__(self, *, provider: str, platform: str) -> None:
+        self.provider = provider
+        self.platform = platform
+        super().__init__(
+            f"Secrets provider {provider!r} is not supported on platform "
+            f"{platform!r}. Use provider 'file', 'env', or 'command' instead."
+        )
