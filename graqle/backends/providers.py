@@ -195,3 +195,51 @@ def create_provider_backend(
         api_key=resolved_key,
         cost=cost,
     )
+
+
+def create_gateway_backend(
+    base_url: str,
+    model: str,
+    *,
+    api_key: str | None = None,
+    organization: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+    model_allowlist: list[str] | None = None,
+    on_auth_error: str | None = None,
+    cost: float = 0.001,
+    timeout: float = 120.0,
+) -> "GatewayBackend":
+    """Build a :class:`GatewayBackend` from an ``openai-compatible`` config stanza (CR-010.R4).
+
+    This is the factory the config layer calls when ``backend.type == "openai-compatible"``.
+    It is deliberately separate from :func:`create_provider_backend` (which is keyed on named
+    presets) so the preset path stays untouched — a gateway is config-driven, not a preset.
+
+    Args:
+        base_url: Gateway endpoint. May be a localhost sidecar-proxy URL.
+        model: Model / deployment name (may be namespaced, e.g. ``namespace/deployment-prod``).
+        api_key: Bearer token. The config layer resolves this via R5 ``resolve_secret`` and
+            passes the raw string here; ``None`` sends no ``Authorization`` header.
+        organization: Sent as the ``OpenAI-Organization`` header.
+        extra_headers: Custom RPC/project headers; these win on collision.
+        model_allowlist: Client-side allowlist (``None`` = unrestricted; ``[]`` = lockdown).
+        on_auth_error: Refresh command run once on a 401, or ``"fail"``/``None`` to disable.
+        cost: Cost per 1k tokens (for accounting).
+        timeout: Per-request timeout (seconds).
+
+    Returns:
+        A configured :class:`GatewayBackend`.
+    """
+    from graqle.backends.api import GatewayBackend
+
+    return GatewayBackend(
+        base_url,
+        model=model,
+        api_key=api_key,
+        cost=cost,
+        timeout=timeout,
+        organization=organization,
+        extra_headers=extra_headers,
+        model_allowlist=model_allowlist,
+        on_auth_error=on_auth_error,
+    )

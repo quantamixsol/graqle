@@ -86,6 +86,12 @@ async def _retry_with_backoff(
             return await func()
         except ImportError:
             raise  # Don't retry import errors
+        except GatewayAuthError:
+            # A 401 is an auth failure, not a transient network error. The
+            # gateway's own refresh-once retry (GatewayBackend.generate) is the
+            # only 401 retry; re-running the generic backoff would re-invoke the
+            # refresh command on every attempt. Surface it immediately. (CR-010.R4)
+            raise
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
@@ -712,6 +718,37 @@ class CustomBackend(BaseBackend):
         self._timeout = timeout
         self._max_retries = max_retries
 
+    def _build_headers(self) -> dict[str, str]:
+        """Request headers for an OpenAI-compatible call.
+
+        Extracted from ``generate()`` (CR-010.R4) so subclasses — notably
+        ``GatewayBackend`` — can add organization / RPC / project headers by
+        overriding this one method. Behaviour is byte-identical to the prior
+        inline construction: ``Content-Type`` always, ``Authorization: Bearer``
+        only when an api_key is present.
+        """
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
+
+    def _build_payload(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int,
+        temperature: float,
+        stop: list[str] | None,
+    ) -> dict[str, Any]:
+        """OpenAI-compatible chat-completions request body (extracted CR-010.R4)."""
+        return {
+            "model": self._model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stop": stop,
+        }
+
     async def generate(
         self,
         prompt: str,
@@ -727,20 +764,15 @@ class CustomBackend(BaseBackend):
                 raise ImportError(
                     "Custom backend requires 'httpx'. Install with: pip install httpx"
                 )
-            headers = {"Content-Type": "application/json"}
-            if self._api_key:
-                headers["Authorization"] = f"Bearer {self._api_key}"
+            headers = self._build_headers()
+            payload = self._build_payload(
+                prompt, max_tokens=max_tokens, temperature=temperature, stop=stop
+            )
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.post(
                     self._endpoint,
                     headers=headers,
-                    json={
-                        "model": self._model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "stop": stop,
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -773,3 +805,189 @@ class CustomBackend(BaseBackend):
     @property
     def cost_per_1k_tokens(self) -> float:
         return self._cost
+
+
+class GatewayAuthError(Exception):
+    """Raised on an HTTP 401 from a gateway endpoint (CR-010.R4).
+
+    A typed exception so ``GatewayBackend`` can catch *only* auth failures for
+    its refresh-once retry, without swallowing unrelated ``httpx`` status
+    errors. Never carries the token or response body.
+    """
+
+
+class GatewayBackend(CustomBackend):
+    """Enterprise OpenAI-compatible **gateway** backend (CR-010.R4).
+
+    Extends ``CustomBackend`` with the things real corporate gateways need — and
+    that previously required wrapper scripts:
+
+    - ``organization`` — sent as the ``OpenAI-Organization`` header (project/org routing).
+    - ``extra_headers`` — arbitrary custom RPC headers (e.g. ``Rpc-Caller``); these win
+      on key collision so a gateway can rename/override the org or auth header.
+    - ``model_allowlist`` — client-side refusal (``None`` = no restriction; ``[]`` =
+      lockdown, all models refused) enforced **before any network call**.
+    - ``on_auth_error`` — a refresh **command** (for short-lived SSO tokens): on a 401 the
+      command is run once via the R5 secrets ``command`` provider, the token is refreshed,
+      and the request is retried **exactly once**. ``"fail"`` or ``None`` disables refresh.
+
+    All new parameters are keyword-only and default ``None`` — ``CustomBackend``'s own
+    signature and behaviour are untouched, so existing callers are unaffected.
+    The gateway ``endpoint`` (``base_url``) may be a localhost sidecar-proxy URL.
+    The token is resolved via R5 ``SecretStr`` and never appears in logs or headers-repr.
+    """
+
+    def __init__(
+        self,
+        endpoint: str,
+        model: str = "default",
+        api_key: str | None = None,
+        cost: float = 0.001,
+        timeout: float = 120.0,
+        max_retries: int = MAX_RETRIES,
+        *,
+        organization: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+        model_allowlist: list[str] | None = None,
+        on_auth_error: str | None = None,
+    ) -> None:
+        super().__init__(endpoint, model, api_key, cost, timeout, max_retries)
+        self._organization = organization
+        self._extra_headers = dict(extra_headers or {})
+        self._model_allowlist = model_allowlist
+        self._on_auth_error = on_auth_error
+
+    def _build_headers(self) -> dict[str, str]:
+        """Base headers + ``OpenAI-Organization`` + ``extra_headers``.
+
+        ``extra_headers`` may override most headers (a gateway can legitimately
+        rename ``OpenAI-Organization`` or add RPC headers), but ``Authorization``
+        is **reserved** (CR-010.R4 sentinel B-1): silently nulling or replacing
+        the bearer token via config is a credential-substitution vector, so a
+        case-insensitive ``Authorization`` key in ``extra_headers`` is dropped and
+        the resolved token is applied last. To send *no* auth, pass ``api_key=None``.
+        """
+        headers = super()._build_headers()
+        if self._organization:
+            headers["OpenAI-Organization"] = self._organization
+        # Reserved: never let extra_headers clobber Authorization (case-insensitive).
+        safe_extra = {
+            k: v for k, v in self._extra_headers.items()
+            if k.lower() != "authorization"
+        }
+        headers.update(safe_extra)
+        # Re-assert Authorization last so it survives any extra_headers ordering.
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
+
+    def _check_model_allowed(self) -> None:
+        """Refuse a disallowed model client-side (pre-HTTP). ``None`` = unrestricted."""
+        if self._model_allowlist is not None and self._model not in self._model_allowlist:
+            raise ValueError(
+                f"Model {self._model!r} is not in the configured model_allowlist "
+                f"{sorted(self._model_allowlist)}. Request refused client-side "
+                f"(no call made to {self._endpoint})."
+            )
+
+    def _try_refresh(self) -> bool:
+        """Run the ``on_auth_error`` refresh command once; update the token in place.
+
+        Returns True iff a fresh non-empty token was obtained. **Never raises** —
+        any failure (disabled, command error, empty token) returns False so the
+        original ``GatewayAuthError`` is what surfaces to the caller. Uses the R5
+        ``command`` secrets provider (argv, no shell) so there is no injection surface.
+        """
+        if not self._on_auth_error or self._on_auth_error.strip().lower() == "fail":
+            return False
+        try:
+            from graqle.config.secrets import resolve_secret
+
+            resolved = resolve_secret(
+                "gateway_token_refresh",
+                provider="command",
+                ref=self._on_auth_error,
+            )
+            new_token = resolved.value.get_secret_value()
+        except Exception as exc:
+            # A refresh failure must never mask the original auth error, and must
+            # never surface the refresh command's stderr/secret material. But a
+            # broken refresh pipeline must not be *invisible* (CR-010.R4 sentinel
+            # M-1) — log the exception TYPE only (never the secret/stderr).
+            logger.warning(
+                "[%s] token refresh via on_auth_error failed: %s",
+                self.name,
+                type(exc).__name__,
+            )
+            return False
+        if not new_token:
+            logger.warning(
+                "[%s] token refresh via on_auth_error returned an empty token", self.name
+            )
+            return False
+        self._api_key = new_token
+        return True
+
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.3,
+        stop: list[str] | None = None,
+    ) -> GenerateResult:
+        # 1. Client-side allowlist — zero network cost on a misconfigured model.
+        self._check_model_allowed()
+
+        async def _call(*, refreshed: bool = False):
+            try:
+                import httpx
+            except ImportError:
+                raise ImportError(
+                    "Gateway backend requires 'httpx'. Install with: pip install httpx"
+                )
+            headers = self._build_headers()
+            payload = self._build_payload(
+                prompt, max_tokens=max_tokens, temperature=temperature, stop=stop
+            )
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(
+                    self._endpoint, headers=headers, json=payload
+                )
+                if response.status_code == 401:
+                    # Refresh-once: on the first 401, run the refresh command and
+                    # retry exactly once. A second 401 (or no refresh) propagates.
+                    if not refreshed and self._try_refresh():
+                        return await _call(refreshed=True)
+                    raise GatewayAuthError(
+                        f"401 Unauthorized from {self._endpoint} "
+                        f"(refresh {'exhausted' if refreshed else 'unavailable'})"
+                    )
+                response.raise_for_status()
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    logger.warning(f"[{self.name}] No choices in response")
+                    return GenerateResult(text="", model=self._model)
+                choice = choices[0]
+                message = choice.get("message", {})
+                finish_reason = choice.get("finish_reason", "") or ""
+                truncated = finish_reason == "length"
+                return GenerateResult(
+                    text=message.get("content", ""),
+                    truncated=truncated,
+                    stop_reason=finish_reason,
+                    tokens_used=None,
+                    model=self._model,
+                )
+
+        # GatewayAuthError must NOT be retried by the generic backoff (it is an
+        # auth failure, not a transient network error) — the refresh-once logic
+        # above is the only retry for 401s.
+        return await _retry_with_backoff(
+            _call, backend_name=self.name, max_retries=self._max_retries
+        )
+
+    @property
+    def name(self) -> str:
+        return f"gateway:{self._endpoint}"
