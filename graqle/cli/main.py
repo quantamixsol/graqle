@@ -147,6 +147,34 @@ app.command(name="upgrade")(upgrade_command)
 console = create_console()
 
 
+def _enforce_reasoning_quota() -> None:
+    """W3 (ADR-245): enforce the free monthly reasoning quota on ``run``/``reason``.
+
+    Records one reasoning invocation against the local monthly quota; on a FREE tier
+    that is over the cap, prints an upgrade CTA and stops with exit 1. Paid tiers are
+    unlimited (no-op). A metering hiccup never breaks reasoning (fail-open in the meter).
+    """
+    from pathlib import Path
+
+    try:
+        from graqle.licensing.reasoning_quota import (
+            ReasoningQuota,
+            ReasoningQuotaExceeded,
+        )
+
+        ReasoningQuota(Path(".graqle")).check_and_record()
+    except ReasoningQuotaExceeded as exc:
+        console.print(
+            f"\n[bold red]Reasoning quota reached.[/bold red] {exc}\n"
+            "[dim]The free tier includes a monthly reasoning allowance; your graph and "
+            "all reads still work.[/dim]\n"
+            "  Upgrade for unlimited reasoning: "
+            "[bold cyan]https://graqle.com/pricing[/bold cyan]  "
+            "(or register free: https://graqle.com/signup)"
+        )
+        raise typer.Exit(1) from None
+
+
 # CR-004 PR-004c (sentinel 1C dedup + regex correction):
 # ANSI CSI / OSC strip helpers used by the degraded-reasoning warning
 # in run() and reason(). Extracted to module scope so the regexes are
@@ -441,6 +469,9 @@ def run(
     # S9: Enable coordinator if --coordinator flag is set
     if coordinator:
         graph.config.coordinator.enabled = True
+
+    # W3 (ADR-245): enforce the free monthly reasoning quota BEFORE reasoning runs.
+    _enforce_reasoning_quota()
 
     # Run reasoning with selected protocol
     result = asyncio.run(
@@ -965,6 +996,9 @@ def bench(
     ]
 
     console.print(f"[cyan]Benchmarking {queries} queries, {max_rounds} max rounds...[/cyan]")
+
+    # W3 (ADR-245): one quota unit gates a benchmark run (a bench is one user action).
+    _enforce_reasoning_quota()
 
     # Run queries sequentially with fail-fast: stop on first backend error
     start = time.perf_counter()
@@ -2663,6 +2697,8 @@ def reason(
             raise typer.Exit(1)
 
         console.print(f"Batch: [green]{len(queries)} queries[/green] (max_concurrent={max_concurrent})")
+        # W3 (ADR-245): one quota unit gates the batch (a batch is one user action).
+        _enforce_reasoning_quota()
         results = asyncio.run(
             graph.areason_batch(
                 queries, max_rounds=max_rounds, strategy=strategy,
@@ -2712,6 +2748,9 @@ def reason(
 
     # ── Single query mode ─────────────────────────────────────────────
     console.print(f"Query: [green]{query}[/green]")
+
+    # W3 (ADR-245): enforce the free monthly reasoning quota before reasoning.
+    _enforce_reasoning_quota()
 
     result = asyncio.run(
         graph.areason(query, max_rounds=max_rounds, strategy=strategy)
