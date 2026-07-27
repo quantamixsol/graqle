@@ -33,13 +33,71 @@ from graqle.licensing.limits import EffectiveLimits
 
 logger = logging.getLogger("graqle.licensing.meter")
 
-__all__ = ["ENFORCE_ENV", "METER_FILENAME", "MeterStatus", "MeterReading", "UsageMeter"]
+__all__ = [
+    "ENFORCE_ENV",
+    "GRACE_ENV",
+    "METER_FILENAME",
+    "MeterStatus",
+    "MeterReading",
+    "NodeCapExceeded",
+    "UsageMeter",
+    "enforcement_enabled",
+]
 
-# Reserved for CR-LIC-03 enforcement. This module never reads it.
+# CR-LIC-03a hard enforcement (ADR-245). Enforcement is ON BY DEFAULT — this env
+# var is an OPT-OUT for our own CI/tests only (set to a falsy value). "User must
+# set a flag to be enforced" would be a trivial bypass and is deliberately rejected.
 ENFORCE_ENV = "GRAQLE_ENFORCE_CAPS"
+# Grace window (days) after a project FIRST hits the cap: the meter warns during
+# grace, then blocks. Gives an existing user time to upgrade instead of a scan
+# breaking on the day enforcement lands. Overridable for tests.
+GRACE_ENV = "GRAQLE_ENFORCE_GRACE_DAYS"
+_DEFAULT_GRACE_DAYS = 7
+
+_FALSY = frozenset({"0", "false", "no", "off", ""})
 
 METER_FILENAME = "meter.json"
 _SCHEMA_VERSION = 1
+
+
+class NodeCapExceeded(Exception):
+    """Raised when a WRITE would push the graph past the plan's node cap.
+
+    Carries the numbers so the CLI can render a clean upgrade message. Reads are
+    NEVER blocked — only operations that would GROW the graph past the cap.
+    """
+
+    def __init__(self, node_count: int, max_nodes: int, plan_source: str) -> None:
+        super().__init__(
+            f"graph would reach {node_count:,} nodes, over the "
+            f"{max_nodes:,}-node cap on the current plan ({plan_source})"
+        )
+        self.node_count = node_count
+        self.max_nodes = max_nodes
+        self.plan_source = plan_source
+
+
+def enforcement_enabled() -> bool:
+    """True unless explicitly opted out via GRACE_ENV=falsy. Default: ON.
+
+    ADR-245: enforcement is on by default; the env var only DISABLES it (for CI).
+    """
+    raw = os.environ.get(ENFORCE_ENV)
+    if raw is None:
+        return True  # default ON
+    return raw.strip().lower() not in _FALSY
+
+
+def _grace_days() -> int:
+    raw = os.environ.get(GRACE_ENV)
+    if raw:
+        try:
+            v = int(raw)
+            if v >= 0:
+                return v
+        except (TypeError, ValueError):
+            pass
+    return _DEFAULT_GRACE_DAYS
 
 
 class MeterStatus(str, Enum):
@@ -140,15 +198,20 @@ class UsageMeter:
         # a scan that changes nothing must not dirty a committed working tree
         # (shared-repo diff churn — CR-LIC-01 pre-merge debate, point 3).
         if hwm > prev_hwm or not self._path.exists():
-            self._store(
-                {
-                    "schema_version": _SCHEMA_VERSION,
-                    "high_water_mark": hwm,
-                    "last_node_count": count,
-                    "limit_source": limits.source,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            )
+            payload = {
+                "schema_version": _SCHEMA_VERSION,
+                "high_water_mark": hwm,
+                "last_node_count": count,
+                "limit_source": limits.source,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            # CR-LIC-03a: preserve the enforcement grace stamp across HWM writes —
+            # a scan that advances the HWM must NOT reset the grace clock, or a user
+            # could dodge the block forever by growing the graph one node at a time.
+            existing = self._load()
+            if existing.get("cap_first_hit_at"):
+                payload["cap_first_hit_at"] = existing["cap_first_hit_at"]
+            self._store(payload)
             self._ensure_gitignore()
 
         if limits.unlimited:
@@ -167,4 +230,69 @@ class UsageMeter:
             node_count=count,
             high_water_mark=hwm,
             max_nodes=limits.max_nodes,
+        )
+
+    def enforce(self, reading: MeterReading, limits: EffectiveLimits) -> None:
+        """Hard-enforce the node cap on a WRITE (CR-LIC-03a, ADR-245). May raise.
+
+        Contract:
+          - Enforcement is ON BY DEFAULT (``enforcement_enabled()``); ``record`` itself
+            still never raises — callers opt into hard-block by calling this.
+          - Never blocks reads or uncapped tiers (unlimited → no-op).
+          - Grace window: the FIRST time a project is AT_CAP we stamp
+            ``cap_first_hit_at`` and WARN (do not raise); once the grace window has
+            elapsed, subsequent AT_CAP writes raise :class:`NodeCapExceeded`.
+          - High-water-mark based (via ``reading``): deleting nodes cannot dodge it.
+
+        Raises
+        ------
+        NodeCapExceeded
+            when enforcement is on, the tier is capped, the graph is AT_CAP, and the
+            grace window has elapsed.
+        """
+        if not enforcement_enabled():
+            return
+        if limits.unlimited or limits.max_nodes is None:
+            return
+        if reading.status is not MeterStatus.AT_CAP:
+            return
+
+        now = datetime.now(timezone.utc)
+        data = self._load()
+        first_hit_raw = data.get("cap_first_hit_at")
+
+        if not first_hit_raw:
+            # First time at cap → start the grace window, warn (no raise this scan).
+            data["cap_first_hit_at"] = now.isoformat()
+            self._store(data)
+            self._ensure_gitignore()
+            return
+
+        try:
+            first_hit = datetime.fromisoformat(str(first_hit_raw))
+            if first_hit.tzinfo is None:
+                first_hit = first_hit.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            # Corrupt stamp → treat NOW as the start of grace (fail-open on grace,
+            # not on the block: we never harden retroactively off a bad timestamp).
+            # WARN so a surgical "reset only the grace clock" tamper leaves an audit
+            # trail (MAJOR-1) — the accepted local-bypass class; server-side later.
+            logger.warning(
+                "meter: cap_first_hit_at was unparseable (%r) — restarting the grace "
+                "window. If this recurs, the local meter may be being tampered with.",
+                first_hit_raw,
+            )
+            data["cap_first_hit_at"] = now.isoformat()
+            self._store(data)
+            return
+
+        grace_days = _grace_days()
+        elapsed_days = (now - first_hit).total_seconds() / 86400.0
+        if elapsed_days < grace_days:
+            return  # still within grace — warn-only handled by the caller
+
+        raise NodeCapExceeded(
+            node_count=reading.node_count,
+            max_nodes=limits.max_nodes,
+            plan_source=limits.source,
         )

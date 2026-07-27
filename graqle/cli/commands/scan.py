@@ -1912,11 +1912,52 @@ def _show_cloud_onboarding_nudge(graph_data: dict, graqle_dir: Path) -> None:
         pass
 
 
-def _record_usage_meter(graph_data: dict, graqle_dir: Path) -> None:
-    """Record scan size against tier-derived limits — warn-only (CR-LIC-01).
+def _enforce_node_cap_before_write(graph_data: dict, graqle_dir: Path) -> None:
+    """HARD-enforce the node cap BEFORE the graph is persisted (CR-LIC-03a, ADR-245).
 
-    Prints one line at WARN/AT_CAP (suppressed in non-TTY). Never raises:
-    metering failure must never break a scan. Enforcement is CR-LIC-03.
+    Called immediately BEFORE the graph file is written, so a genuine block PREVENTS
+    the graph from growing past the cap (not a cosmetic error after the write — that
+    was the sentinel BLOCKER-1). Enforcement is ON by default with a grace window.
+
+    Only a real NodeCapExceeded stops the write; any metering FAILURE (bad file, etc.)
+    is swallowed so a metering hiccup never breaks a legitimate scan. Reads are never
+    on this path. Unlimited tiers / below-cap / within-grace never raise.
+    """
+    import typer
+
+    from graqle.licensing.meter import NodeCapExceeded
+
+    try:
+        from graqle.licensing.limits import resolve_limits
+        from graqle.licensing.manager import _get_manager
+        from graqle.licensing.meter import UsageMeter
+
+        limits = resolve_limits(_get_manager().license)
+        meter = UsageMeter(graqle_dir)
+        # record() advances the HWM + grace stamp (never raises); enforce() decides.
+        reading = meter.record(len(graph_data.get("nodes", [])), limits)
+        meter.enforce(reading, limits)  # raises NodeCapExceeded once grace elapses
+    except NodeCapExceeded as exc:
+        console.print(
+            f"\n[bold red]Node cap reached.[/bold red] {exc}\n"
+            "[dim]Your existing graph still works — this only blocks growing it "
+            "further on the current plan.[/dim]\n"
+            "  Upgrade: [bold cyan]https://graqle.com/pricing[/bold cyan]  "
+            "(or register free for 1,000 nodes: https://graqle.com/signup)"
+        )
+        raise typer.Exit(1) from None
+    except Exception as exc:
+        import logging
+
+        logging.getLogger("graqle.cli.scan").debug("cap enforcement skipped: %s", exc)
+
+
+def _record_usage_meter(graph_data: dict, graqle_dir: Path) -> None:
+    """Print the WARN/AT_CAP usage line after a scan (telemetry/messaging only).
+
+    Never raises — the HARD block is done separately by
+    :func:`_enforce_node_cap_before_write` BEFORE the graph is persisted. This runs
+    AFTER the write purely to show the status line + upgrade nudge.
     """
     try:
         from graqle.licensing.limits import resolve_limits
@@ -1943,8 +1984,7 @@ def _record_usage_meter(graph_data: dict, graqle_dir: Path) -> None:
             console.print(
                 f"\n[yellow]Graph reached the current plan's node cap "
                 f"({reading.node_count:,}/{reading.max_nodes:,}).[/yellow] "
-                "[dim]Nothing is blocked or deleted. Plans: "
-                "[cyan]https://graqle.com/pricing[/cyan][/dim]"
+                "[dim]Plans: [cyan]https://graqle.com/pricing[/cyan][/dim]"
             )
     except Exception as exc:
         import logging
@@ -2158,6 +2198,10 @@ def _scan_repo_impl(
                     shutil.copy2(str(src), str(dst))
         except Exception:
             pass  # Non-blocking — never fail a scan for backup
+
+    # CR-LIC-03a: hard-enforce the node cap BEFORE persisting the graph, so a real
+    # block PREVENTS growth past the cap (not a cosmetic post-write error).
+    _enforce_node_cap_before_write(data, Path(".graqle"))
 
     _write_with_lock(str(out_path), json.dumps(data, indent=2, default=str))
 
@@ -2716,6 +2760,8 @@ def _save_graph_data(graph_path: Path, nodes: dict, edges: dict) -> None:
 
     content = json.dumps(data, indent=2, default=str)
     graph_path.parent.mkdir(parents=True, exist_ok=True)
+    # CR-LIC-03a: enforce the node cap BEFORE writing (prevents growth past cap).
+    _enforce_node_cap_before_write(data, Path(".graqle"))
     _write_with_lock(str(graph_path), content)
     console.print(f"[dim]Saved graph:[/dim] {graph_path} ({len(nodes)} nodes, {len(edges)} edges)")
 
