@@ -223,3 +223,84 @@ def test_default_factory_always_returns_layer(monkeypatch):
     # Should be runnable end-to-end without raising
     v = asyncio.run(layer.run("test msg", {}))
     assert isinstance(v, ActivationVerdict)
+
+
+# ── CR-LIC-03b (ADR-245) — tier-trust security invariants ────────────────────
+# resolve_tier_mode resolves the governance MODE only; it must NEVER confer a paid
+# entitlement, and a VERIFIED paid licence must win over an unverified env/config hint.
+
+def test_verified_paid_licence_wins_over_env(monkeypatch):
+    """A real verified PRO licence resolves ENFORCED even if the env says 'free'."""
+    from types import SimpleNamespace
+
+    import graqle.activation.tier_gate as tg
+    from graqle.licensing.manager import LicenseTier
+
+    monkeypatch.setenv("GRAQLE_LICENSE_TIER", "free")  # unverified hint says free
+    fake_mgr = SimpleNamespace(current_tier=LicenseTier.PRO)  # verified = PRO
+    monkeypatch.setattr(
+        "graqle.licensing.manager._get_manager", lambda: fake_mgr
+    )
+    assert tg.resolve_tier_mode() is TierMode.ENFORCED
+
+
+def test_env_tier_confers_mode_not_entitlement(monkeypatch):
+    """GRAQLE_LICENSE_TIER=enterprise (unverified) yields ENFORCED *mode* only — it
+    does not touch manager.current_tier, which stays FREE (the real entitlement)."""
+    from types import SimpleNamespace
+
+    import graqle.activation.tier_gate as tg
+    from graqle.licensing.manager import LicenseTier
+
+    monkeypatch.setenv("GRAQLE_LICENSE_TIER", "enterprise")  # unverified
+    fake_mgr = SimpleNamespace(current_tier=LicenseTier.FREE)  # verified stays FREE
+    monkeypatch.setattr(
+        "graqle.licensing.manager._get_manager", lambda: fake_mgr
+    )
+    # Mode is ENFORCED (stricter governance — grants nothing)...
+    assert tg.resolve_tier_mode() is TierMode.ENFORCED
+    # ...but the ENTITLEMENT (what paid features consult) is unchanged: still FREE.
+    assert fake_mgr.current_tier is LicenseTier.FREE
+
+
+def test_verified_free_still_advisory_without_hints(monkeypatch):
+    """No env/config hints + verified FREE → ADVISORY (no false enforcement)."""
+    from types import SimpleNamespace
+
+    import graqle.activation.tier_gate as tg
+    from graqle.licensing.manager import LicenseTier
+
+    monkeypatch.delenv("GRAQLE_LICENSE_TIER", raising=False)
+    monkeypatch.delenv("GRAQLE_LICENSE_KEY", raising=False)
+    fake_mgr = SimpleNamespace(current_tier=LicenseTier.FREE)
+    monkeypatch.setattr(
+        "graqle.licensing.manager._get_manager", lambda: fake_mgr
+    )
+    assert tg.resolve_tier_mode() is TierMode.ADVISORY
+
+
+def test_manager_error_falls_through_safely(monkeypatch):
+    """If the verified-tier lookup raises, resolve_tier_mode must not crash — it falls
+    through to the mode-only hints (fail-safe), never blocking mode detection."""
+    import graqle.activation.tier_gate as tg
+
+    def _boom():
+        raise RuntimeError("licence subsystem unavailable")
+
+    monkeypatch.setattr("graqle.licensing.manager._get_manager", _boom)
+    monkeypatch.delenv("GRAQLE_LICENSE_TIER", raising=False)
+    monkeypatch.delenv("GRAQLE_LICENSE_KEY", raising=False)
+    # No hints + manager error → default ADVISORY (fail-safe, least-strict).
+    assert tg.resolve_tier_mode() is TierMode.ADVISORY
+
+
+def test_no_import_cycle_tier_gate_and_manager():
+    """CR-LIC-03b MINOR: tier_gate lazy-imports manager to avoid a cycle. Importing
+    both in either order must not deadlock or ImportError (guards the cycle boundary)."""
+    import importlib
+
+    importlib.import_module("graqle.activation.tier_gate")
+    importlib.import_module("graqle.licensing.manager")
+    # Reverse order too.
+    importlib.reload(importlib.import_module("graqle.licensing.manager"))
+    importlib.reload(importlib.import_module("graqle.activation.tier_gate"))
