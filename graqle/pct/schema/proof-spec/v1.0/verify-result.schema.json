@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graqle.com/spec/proof-spec/v1.0/verify-result.schema.json",
+  "title": "GraQle Verify Result",
+  "description": "The JSON a conformant verifier emits on stdout under --format json. This is the interop surface the conformance corpus asserts against: a third-party implementation reproduces this shape and needs no GraQle code to be checked.",
+  "type": "object",
+  "required": ["ok", "failure", "checks", "rekor_checked"],
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "True iff every ATTEMPTED check passed. A bundle with no rekor receipt still reports ok=true: the optional Rekor check not being attempted is not a failure."
+    },
+    "failure": {
+      "type": "string",
+      "enum": [
+        "OK",
+        "MALFORMED_BUNDLE",
+        "TAMPERED_LEAF",
+        "WRONG_ROOT",
+        "UNKNOWN_KID",
+        "UNTRUSTED_KID",
+        "REKOR_MISMATCH"
+      ],
+      "description": "The single typed reason verification failed, or OK when ok is true. Exactly one failure is reported: checks run in order leaf -> merkle -> signature -> rekor and the first failure short-circuits, because a later check is not meaningful once an earlier invariant is broken. This enum is CLOSED at spec v1.0 - adding a member is a spec version change."
+    },
+    "checks": {
+      "type": "object",
+      "description": "Per-step outcomes for the checks that RAN. A step that did not run is ABSENT from this object rather than recorded false, so the mapping distinguishes 'ran and passed', 'ran and failed', and 'not attempted'. Treating an absent key as false is a conformance failure.",
+      "additionalProperties": false,
+      "properties": {
+        "leaf": { "type": "boolean" },
+        "merkle": { "type": "boolean" },
+        "signature": { "type": "boolean" },
+        "rekor": { "type": "boolean" }
+      }
+    },
+    "rekor_checked": {
+      "type": "boolean",
+      "description": "Whether an offline Rekor inclusion check was performed and validated. False means no receipt was present OR a present receipt did not validate - it does NOT by itself indicate a failure. A receipt that was present and mismatched is reported as ok=false with failure=REKOR_MISMATCH."
+    }
+  }
+}

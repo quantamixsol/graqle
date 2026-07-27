@@ -1,0 +1,1 @@
+this file is deliberately not JSON - exit code 2
