@@ -1,0 +1,147 @@
+{
+  "corpus_version": "1.0",
+  "spec_version": "1.0",
+  "description": "CR-010.R1 conformance corpus. Every case below MUST be classified identically by any conformant GraQle proof-bundle verifier. Expectations are empirically derived from the reference implementation, not hand-authored. A verifier that reproduces all cases is conformant at spec v1.0.",
+  "runner_contract": {
+    "invocation": "<verifier> verify <bundle> --keys <keyring> --format json",
+    "assert_order": [
+      "process exit_code",
+      "stdout parses as JSON and validates against ../proof-spec/v1.0/verify-result.schema.json",
+      "failure equals expect.failure",
+      "every key in expect.checks_present is present in checks",
+      "every key in expect.checks_absent is ABSENT from checks (absent, NOT false)"
+    ],
+    "exit_codes": {
+      "0": "bundle verified",
+      "1": "bundle did not verify (a typed failure)",
+      "2": "usage error - unreadable or malformed input, distinct from a failed proof"
+    },
+    "absent_vs_false": "A check that did not run is ABSENT from the checks object. A check that ran and failed is present with value false (see TC-007 rekor). Treating absent as false is a conformance failure.",
+    "short_circuit": "Checks run in order leaf -> merkle -> signature -> rekor and the FIRST failure stops evaluation, because a later check is not meaningful once an earlier invariant is broken."
+  },
+  "cases": [
+    {
+      "id": "TC-001",
+      "description": "Valid bundle, trusted ACTIVE key. The happy path.",
+      "bundle": "fixtures/tc001_valid.json",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "ok": true,
+        "failure": "OK",
+        "exit_code": 0,
+        "checks_present": ["leaf", "merkle", "signature"],
+        "checks_absent": ["rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-002",
+      "description": "Malformed bundle - the required merkle block is missing. Shape validation runs before any cryptographic check, so no check key is recorded.",
+      "bundle": "fixtures/tc002_malformed.json",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "ok": false,
+        "failure": "MALFORMED_BUNDLE",
+        "exit_code": 1,
+        "checks_present": [],
+        "checks_absent": ["leaf", "merkle", "signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-003",
+      "description": "Tampered leaf - a leaf-committed record field (content_hash) was mutated while leaf/merkle/signature were left as signed. Leaf recompute disagrees with the stated leaf_hash.",
+      "bundle": "fixtures/tc003_tampered_leaf.json",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "ok": false,
+        "failure": "TAMPERED_LEAF",
+        "exit_code": 1,
+        "checks_present": [],
+        "checks_absent": ["leaf", "merkle", "signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-004",
+      "description": "Wrong root - the stated merkle_root was altered, so inclusion recompute does not reproduce it. Leaf recompute still passes and is recorded.",
+      "bundle": "fixtures/tc004_wrong_root.json",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "ok": false,
+        "failure": "WRONG_ROOT",
+        "exit_code": 1,
+        "checks_present": ["leaf"],
+        "checks_absent": ["merkle", "signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-005",
+      "description": "Rotated key - the bundle is untouched and internally valid, but the keyring knows only a DIFFERENT kid, so the signing kid is unknown to the trust store.",
+      "bundle": "fixtures/tc001_valid.json",
+      "keyring": "fixtures/keyring_rotated.json",
+      "expect": {
+        "ok": false,
+        "failure": "UNKNOWN_KID",
+        "exit_code": 1,
+        "checks_present": ["leaf", "merkle"],
+        "checks_absent": ["signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-006",
+      "description": "Revoked key - same valid bundle, but the kid is present in the keyring with lifecycle state REVOKED. Trust state alone decides the outcome.",
+      "bundle": "fixtures/tc001_valid.json",
+      "keyring": "fixtures/keyring_revoked.json",
+      "expect": {
+        "ok": false,
+        "failure": "UNTRUSTED_KID",
+        "exit_code": 1,
+        "checks_present": ["leaf", "merkle"],
+        "checks_absent": ["signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-006b",
+      "description": "Key outside its validity window - same valid bundle and an ACTIVE kid, but signed_at falls outside valid_from/valid_until. Distinct code path from TC-006 that must reach the same classification.",
+      "bundle": "fixtures/tc001_valid.json",
+      "keyring": "fixtures/keyring_expired.json",
+      "expect": {
+        "ok": false,
+        "failure": "UNTRUSTED_KID",
+        "exit_code": 1,
+        "checks_present": ["leaf", "merkle"],
+        "checks_absent": ["signature", "rekor"],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-007",
+      "description": "Receipt mismatch - an offline Rekor receipt is present but its signed_tree_head does not bind the bundle's merkle_root. This is the only case where a check key is present with value false rather than absent.",
+      "bundle": "fixtures/tc007_rekor_mismatch.json",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "ok": false,
+        "failure": "REKOR_MISMATCH",
+        "exit_code": 1,
+        "checks_present": ["leaf", "merkle", "signature", "rekor"],
+        "checks_absent": [],
+        "rekor_checked": false
+      }
+    },
+    {
+      "id": "TC-008",
+      "description": "Usage error - the input file is not JSON at all. The verifier cannot even attempt verification, which is distinct from a proof that fails to verify. No VerifyResult is produced: the payload is {ok:false, error:...} with no failure/checks keys, and it deliberately does NOT validate against verify-result.schema.json. The exit code is the contract here; the error message text is not normative.",
+      "bundle": "fixtures/tc008_not_json.txt",
+      "keyring": "fixtures/keyring_default.json",
+      "expect": {
+        "usage_error": true,
+        "exit_code": 2,
+        "payload_shape": { "ok": false, "has_error_field": true, "has_failure_field": false }
+      }
+    }
+  ]
+}

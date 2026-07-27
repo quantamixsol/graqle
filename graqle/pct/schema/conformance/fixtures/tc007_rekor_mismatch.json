@@ -1,0 +1,41 @@
+{
+  "leaf": {
+    "leaf_hash": "7980bb39c78cbf14f82b8c816b0854778d331ab65821a8d6db5dba5731b5eb75",
+    "leaf_index": 1,
+    "tree_size": 4
+  },
+  "merkle": {
+    "merkle_path": [
+      "f22a101587baa042702e5d7166d5db85c271479f49027495e3556c61a32f650c",
+      "1a8c1704c341b9cabcc21898de4a22f353e030af49f8fe6a80c74986a57a940c"
+    ],
+    "merkle_path_directions": [
+      0,
+      1
+    ],
+    "merkle_root": "1ea1b958ad15d8d0511e0312feab351cd14fa839c6dbeab96f30f5b806f62e2f"
+  },
+  "proof_format_version": "1",
+  "record": {
+    "content_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+    "governance_metadata": {
+      "decision": "DENY"
+    },
+    "proof_format_version": "1",
+    "record_id": "conformance-record-1",
+    "timestamp_unix": 1767225601
+  },
+  "rekor": {
+    "inclusion_cert": "conformance-test-cert",
+    "integrated_time": 1767225600,
+    "log_id": "conformance-test-log",
+    "log_index": 42,
+    "signed_tree_head": "1ea1b958ad15d8d0511e0312feab351cd14fa839c6dbeab96f30f5b806f62e21"
+  },
+  "signature": {
+    "alg": "ed25519",
+    "kid": "graqle-conformance-test-key",
+    "sig": "be8e60a0e9ebb7ccacae83e067f0096b855f3ec9c2f5f85ce82f5c0ac143f51b11d3afc8b9b4e9ae0cf85e7f3b234f8ed120132732f70b9f09689a21f184ca05",
+    "signed_at": "2026-01-01T00:00:00Z"
+  }
+}

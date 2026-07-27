@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graqle.com/spec/proof-spec/v1.0/bundle.schema.json",
+  "title": "GraQle Proof Bundle",
+  "description": "A tamper-evidence proof bundle: a governed-trace record, its RFC 6962 inclusion proof, and an ed25519 signature over the batch root. Spec version 1.0, versioned independently of the GraQle SDK release train.",
+  "type": "object",
+  "required": ["proof_format_version", "record", "leaf", "merkle", "signature"],
+  "additionalProperties": true,
+  "properties": {
+    "proof_format_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Wire-format version of this bundle. TYPE-constrained but deliberately NOT value-constrained at spec v1.0: this field is covered by the signature (it is part of the signed preimage), so a verifier must treat it as opaque bytes and MUST NOT rewrite or normalize it. Doing so would change the signed preimage and invalidate an otherwise-valid signature. It must equal the value carried inside the record."
+    },
+    "record": {
+      "type": "object",
+      "description": "The governed-trace record this proof attests. It MUST itself carry proof_format_version. Only a frozen allowlist of record fields contributes to the leaf hash; fields outside that allowlist provably cannot alter the leaf.",
+      "required": ["proof_format_version"],
+      "additionalProperties": true,
+      "properties": {
+        "proof_format_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "leaf": {
+      "type": "object",
+      "description": "Position and hash of this record's leaf within the batch tree.",
+      "required": ["leaf_index", "tree_size", "leaf_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "leaf_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based position of the leaf in the tree."
+        },
+        "tree_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of leaves in the tree."
+        },
+        "leaf_hash": {
+          "$ref": "#/$defs/hex32",
+          "description": "The record's RFC 6962 domain-separated leaf hash."
+        }
+      }
+    },
+    "merkle": {
+      "type": "object",
+      "description": "The RFC 6962 inclusion (audit) proof binding the leaf to the batch root.",
+      "required": ["merkle_root", "merkle_path", "merkle_path_directions"],
+      "additionalProperties": false,
+      "properties": {
+        "merkle_root": {
+          "$ref": "#/$defs/hex32",
+          "description": "The batch root the signature commits to."
+        },
+        "merkle_path": {
+          "type": "array",
+          "description": "Sibling hashes, bottom-up. Same length as merkle_path_directions.",
+          "items": { "$ref": "#/$defs/hex32" }
+        },
+        "merkle_path_directions": {
+          "type": "array",
+          "description": "Per sibling: 0 = sibling on the left, 1 = sibling on the right. Integers, never booleans (JCS interop).",
+          "items": { "type": "integer", "enum": [0, 1] }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "description": "An ed25519 signature over the canonicalized root-commitment message.",
+      "required": ["alg", "kid", "sig", "signed_at"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": {
+          "type": "string",
+          "const": "ed25519",
+          "description": "Only ed25519 is accepted at spec v1.0."
+        },
+        "kid": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key identifier, resolved against the verifier's trusted keyring."
+        },
+        "sig": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$",
+          "description": "Lowercase-hex ed25519 signature."
+        },
+        "signed_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "RFC 3339 UTC instant the signature was made. This is the instant a verifier evaluates key trust against."
+        }
+      }
+    },
+    "rekor": {
+      "type": "object",
+      "description": "OPTIONAL offline transparency-log receipt. Treated strictly as DATA and never fetched. Its absence does not make a bundle invalid: a locally-anchored proof is valid without a public-log receipt.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "hex32": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "A 32-byte hash as 64 lowercase hex characters."
+    }
+  }
+}

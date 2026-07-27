@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graqle.com/spec/proof-spec/v1.0/keyring.schema.json",
+  "title": "GraQle Verifier Keyring",
+  "description": "The trusted-key manifest a verifier evaluates a bundle's signature against. Explicit per-kid validity windows and lifecycle states let an auditor verify a historical proof under the trust state that applied when it was signed.",
+  "type": "object",
+  "required": ["keys"],
+  "additionalProperties": false,
+  "properties": {
+    "_test_only": {
+      "type": "boolean",
+      "description": "OPTIONAL. When true, this keyring is test/conformance data whose private key is reproducible from a published seed. A conformant deployment MUST NOT load a keyring carrying this marker into a real trust store."
+    },
+    "_warning": {
+      "type": "string",
+      "description": "OPTIONAL human-readable companion to _test_only."
+    },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Trusted signing keys. A bundle's kid is resolved against this list; a kid that is absent is UNKNOWN_KID, and a kid that is present but not trusted at signed_at is UNTRUSTED_KID.",
+      "items": {
+        "type": "object",
+        "required": ["kid", "public_key_pem"],
+        "additionalProperties": true,
+        "properties": {
+          "kid": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key identifier matched against the bundle's signature.kid."
+          },
+          "public_key_pem": {
+            "type": "string",
+            "description": "PEM-encoded ed25519 PUBLIC key. Only ed25519 keys are accepted; a non-ed25519 key is a usage error, not a verification failure."
+          },
+          "valid_from": {
+            "type": "string",
+            "description": "OPTIONAL RFC 3339 start of the trust window. Omitted means open-ended."
+          },
+          "valid_until": {
+            "type": "string",
+            "description": "OPTIONAL RFC 3339 end of the trust window. Omitted means open-ended. A bundle whose signed_at falls outside the window is UNTRUSTED_KID."
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "RETIRED", "REVOKED"],
+            "description": "Key lifecycle state. Omitted defaults to ACTIVE. REVOKED withdraws trust. RETIRED means the key signs nothing new, but proofs it made earlier still verify - retirement is not revocation."
+          }
+        }
+      }
+    }
+  }
+}

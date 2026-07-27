@@ -1,0 +1,13 @@
+{
+  "_test_only": true,
+  "_warning": "CONFORMANCE TEST DATA \u2014 NOT FOR PRODUCTION. The matching private key is derived from a fixed, publicly-known seed and can be reproduced by anyone. Never add this key to a real trust store.",
+  "keys": [
+    {
+      "kid": "graqle-conformance-test-key",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n-----END PUBLIC KEY-----\n",
+      "state": "ACTIVE",
+      "valid_from": "2020-01-01T00:00:00Z",
+      "valid_until": "2020-12-31T23:59:59Z"
+    }
+  ]
+}

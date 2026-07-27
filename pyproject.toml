@@ -193,6 +193,15 @@ artifacts = [
     # signing keys so offline installs can verify v2 licences. Public-key-only
     # (the private signer is server-side; keygen.py is excluded below).
     "graqle/licensing/trusted_keys.json",
+    # CR-010.R1: the frozen proof spec + its conformance corpus. These MUST ship
+    # in the wheel — the whole point is that a third party can implement a
+    # conformant verifier from the published schemas + golden vectors alone.
+    # Loaded via importlib.resources (never __file__), so they resolve from a
+    # zip-imported wheel. Spec version is decoupled from the SDK version.
+    "graqle/pct/schema/proof-spec/**/*.json",
+    "graqle/pct/schema/proof-spec/**/*.md",
+    "graqle/pct/schema/conformance/*.json",
+    "graqle/pct/schema/conformance/fixtures/*",
 ]
 
 [tool.hatch.build.targets.wheel]
