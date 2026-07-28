@@ -24,9 +24,20 @@ import json
 import logging
 import os
 import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:  # POSIX advisory locking
+    import fcntl
+except ImportError:  # pragma: no cover — Windows
+    fcntl = None  # type: ignore[assignment]
+
+try:  # Windows mandatory locking
+    import msvcrt
+except ImportError:  # pragma: no cover — POSIX
+    msvcrt = None  # type: ignore[assignment]
 
 logger = logging.getLogger("graqle.licensing.reasoning_quota")
 
@@ -135,6 +146,42 @@ class ReasoningQuota:
             allowed=used < FREE_REASONS_PER_MONTH,
         )
 
+    @contextmanager
+    def _locked(self):
+        """Hold an exclusive cross-process lock on the quota file.
+
+        Concurrent reasoning runs otherwise race the read-modify-write below: two
+        processes both read ``used=29``, both write ``30``, and the free cap leaks an
+        extra call per racing process. The lock is advisory and best-effort — if the
+        platform lock is unavailable we still proceed (fail-open), because a metering
+        hiccup must never break reasoning.
+        """
+        lock_path = self._path.with_suffix(".lock")
+        handle = None
+        try:
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            handle = open(lock_path, "a+b")  # noqa: SIM115 — released in finally
+            if msvcrt is not None:  # Windows
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            elif fcntl is not None:  # POSIX
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        except Exception as exc:  # noqa: BLE001 — lock unavailable → proceed unlocked
+            logger.debug("reasoning quota lock unavailable: %s", exc)
+        try:
+            yield
+        finally:
+            if handle is not None:
+                try:
+                    if msvcrt is not None:
+                        handle.seek(0)
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    elif fcntl is not None:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                except Exception:  # noqa: BLE001 — closing releases it regardless
+                    logger.debug("reasoning quota lock release failed")
+                handle.close()
+
     def check_and_record(self, *, internal: bool = False) -> QuotaReading:
         """Enforce + record ONE reasoning invocation.
 
@@ -157,13 +204,17 @@ class ReasoningQuota:
             return self.peek()
         try:
             month = self._month()
-            data = self._load()
-            used = int(data.get(month, 0) or 0)
-            if used >= FREE_REASONS_PER_MONTH:
-                raise ReasoningQuotaExceeded(used, FREE_REASONS_PER_MONTH, month)
-            data[month] = used + 1
-            data["schema_version"] = _SCHEMA_VERSION
-            self._store(data)
+            # Read-modify-write must be atomic across processes: without the lock two
+            # concurrent runs both read the same `used` and both write used+1, leaking
+            # one extra free call per racing process.
+            with self._locked():
+                data = self._load()
+                used = int(data.get(month, 0) or 0)
+                if used >= FREE_REASONS_PER_MONTH:
+                    raise ReasoningQuotaExceeded(used, FREE_REASONS_PER_MONTH, month)
+                data[month] = used + 1
+                data["schema_version"] = _SCHEMA_VERSION
+                self._store(data)
             return QuotaReading(
                 used=used + 1,
                 limit=FREE_REASONS_PER_MONTH,

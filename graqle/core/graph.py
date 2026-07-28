@@ -1853,6 +1853,11 @@ class Graqle:
                      (Claude Code, Cursor, Codex) for query enhancement.
             task_type: Optional task type for routing (e.g. "reason", "context").
         """
+        # NOT internal: this wrapper delegates to areason(), which is the single
+        # billing wall and charges exactly once for this call. Passing internal=True
+        # here would EXEMPT the call outright (internal means "never metered", not
+        # "already metered") — making the whole synchronous reason() API free and
+        # recreating the PR #316 bypass in mirror image. Delegation charges once.
         return asyncio.run(
             self.areason(
                 query,
@@ -1873,6 +1878,7 @@ class Graqle:
         node_ids: list[str] | None = None,
         context: Any = None,
         task_type: str | None = None,
+        internal: bool = False,
     ) -> ReasoningResult:
         """Run async reasoning query — the core entry point.
 
@@ -1881,7 +1887,19 @@ class Graqle:
                      (Claude Code, Cursor, Codex) for query enhancement
                      before PCST activation .
             task_type: Optional task type for task-based model routing (v0.22).
+            internal: True when this reasoning is invoked *by* another metered
+                      action (a governance scan, a benchmark runner). Exempt from
+                      the W3 reasoning quota so one user action is never charged
+                      twice. See ADR-245 Decision 8.
         """
+        # W3 (ADR-245): the reasoning-quota wall. This is the SDK primitive every
+        # surface funnels through — CLI, MCP `graq_reason`, chat agent, api.py — so
+        # gating here covers all of them. Raises ReasoningQuotaExceeded for a FREE
+        # user over the monthly cap; fail-open on any metering fault.
+        from graqle.licensing.reasoning_gate import check_reasoning_quota
+
+        check_reasoning_quota(internal=internal)
+
         from graqle.orchestration.orchestrator import Orchestrator
 
         max_rounds = max_rounds or self.config.orchestration.max_rounds
@@ -2081,13 +2099,25 @@ class Graqle:
         strategy: str | None = None,
         node_ids: list[str] | None = None,
         context: Any = None,
+        internal: bool = False,
     ) -> AsyncIterator:
         """Stream reasoning results as they become available.
 
         Usage:
             async for chunk in graph.areason_stream("query"):
                 print(chunk.content)
+
+        Args:
+            internal: True when invoked by another metered action — exempt from
+                      the W3 reasoning quota (ADR-245 Decision 8).
         """
+        # W3 (ADR-245): streaming builds its own StreamingOrchestrator and never
+        # reaches areason(), so it needs the wall explicitly — without this it is a
+        # free unlimited-reasoning surface (the PR #316 failure mode).
+        from graqle.licensing.reasoning_gate import check_reasoning_quota
+
+        check_reasoning_quota(internal=internal)
+
         from graqle.orchestration.streaming import StreamingOrchestrator
 
         max_rounds = max_rounds or self.config.orchestration.max_rounds
