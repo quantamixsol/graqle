@@ -4,6 +4,8 @@
 
 # GraQle — query your architecture, prove your AI's decisions
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.quantamixsol%2Fgraqle.svg)](https://mcptoplist.com/server/io.github.quantamixsol%2Fgraqle)
+
 > Index any codebase as a knowledge graph so AI agents reason about **architecture** instead of grepping files. Every decision they make — at build-time or in production — gets a cryptographic receipt anchored to a public transparency log. One Python package, two surfaces: **dev intelligence** for engineers, **runtime governance** for regulators.
 
 [![PyPI](https://img.shields.io/pypi/v/graqle?color=%2306b6d4&label=PyPI)](https://pypi.org/project/graqle/)
