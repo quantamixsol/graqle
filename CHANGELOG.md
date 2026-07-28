@@ -4,6 +4,41 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.82.0 (2026-07-28) — [Enterprise: frozen proof spec + conformance suite]
+
+> Publishes GraQle's tamper-evidence proof format as an independently versioned, third-party-implementable
+> specification. Purely additive: no signing or verification logic changed, and every previously-issued
+> proof bundle continues to verify unchanged.
+
+### Enterprise (CR-010 Enterprise Enhancement Program)
+
+- **Frozen proof spec + conformance suite (R1)** — the proof-bundle envelope, the trusted-key manifest and
+  the verify-result contract are now published as versioned JSON Schemas plus prose at
+  `graqle/pct/schema/proof-spec/v1.0/` (`bundle`, `keyring`, `verify-result`, and `SPEC.md`). The spec
+  version (`graqle.pct.schema.SPEC_VERSION`) is **decoupled from the SDK version**: pinning to
+  `proof-spec/v1.0` does not pin you to a release. Schemas ship in the wheel and load through
+  `importlib.resources` via the new `load_proof_schema()` / `proof_schema_text()` helpers.
+- **Conformance corpus** — a declarative corpus at `graqle/pct/schema/conformance/` (manifest plus static,
+  reproducible golden vectors) covering every `VerifyFailure` classification plus the usage-error path.
+  Each case pins the typed failure, the process exit code, and the distinction between a check that did
+  not run (absent) and one that ran and failed (present and `false`). The corpus is consumed over a
+  subprocess/JSON boundary, so a third-party verifier can self-certify without importing GraQle — verified
+  by running the full corpus from an installed wheel.
+- **`graq attest verify` exit codes are now normative**: `0` verified, `1` did not verify, `2` usage error.
+  A usage error emits `{"ok": false, "error": ...}` and deliberately does not conform to the
+  verify-result schema, since no verification was attempted.
+- **Note for integrators** — `proof_format_version` is published as an **opaque, signature-covered**
+  string. It is covered by the signature and by the leaf hash, so a verifier must never rewrite or
+  normalize it; doing so invalidates an otherwise-valid signature. See `SPEC.md` §3.1 and §8.2.
+
+### Monetisation
+
+- **Tier-trust hardening (CR-LIC-03b)** — an unverified tier hint no longer grants entitlement. Tier
+  resolution consults the verified licence state first; the environment variable selects governance mode
+  only and is not an entitlement source.
+
+---
+
 ## 0.81.0 (2026-07-26) — [Enterprise: secrets providers + gateway backend]
 
 > First two P0 requirements of the Enterprise Enhancement Program (CR-010). Both are additive and
