@@ -95,6 +95,43 @@ class TestOnce:
         worker.run.assert_not_called()
         assert "once: committed=3" in res.output
 
+    def test_once_json_emits_a_run_report(self, tmp_path, monkeypatch):
+        """CR-010.R6: --once --json speaks the scheduler contract."""
+        import json as _json
+
+        monkeypatch.chdir(tmp_path)
+        cfg = _disabled_config_yaml(tmp_path)
+        worker = _fake_worker(committed=3)
+
+        with patch(
+            "graqle.cli.commands.govern_serve._build_worker", return_value=worker
+        ):
+            res = _invoke(["--config", str(cfg), "--once", "--json"])
+
+        assert res.exit_code == 0, res.output
+        payload = _json.loads(res.stdout)
+        assert payload["command"] == "govern serve --once"
+        assert payload["status"] == "success"
+        assert payload["counters"]["committed"] == 3
+
+    def test_once_json_reports_empty_delta_when_nothing_committed(
+        self, tmp_path, monkeypatch
+    ):
+        """An empty queue is a successful catch-up, not a failure — exit 3, not 1."""
+        import json as _json
+
+        monkeypatch.chdir(tmp_path)
+        cfg = _disabled_config_yaml(tmp_path)
+        worker = _fake_worker(committed=0)
+
+        with patch(
+            "graqle.cli.commands.govern_serve._build_worker", return_value=worker
+        ):
+            res = _invoke(["--config", str(cfg), "--once", "--json"])
+
+        assert res.exit_code == 3, res.output
+        assert _json.loads(res.stdout)["status"] == "empty_delta"
+
 
 # -- fail-closed / misconfig surfaces ---------------------------------------
 
