@@ -33,6 +33,28 @@ from graqle.core.types import (
 logger = logging.getLogger("graqle")
 
 
+# ── CR-010.R6: change-based chunk rebuild ────────────────────
+#: Node property holding the SHA-256 of the source content at the last chunk
+#: rebuild. Leading underscore marks it SDK-internal. Additive — graphs written
+#: by earlier releases simply lack it and fall back to presence-based selection.
+_CHUNK_HASH_PROPERTY = "_chunk_content_hash"
+
+
+def _content_hash(content: str) -> str:
+    """SHA-256 of *content*, hex-encoded.
+
+    Content-based rather than mtime-based on purpose: git checkouts, CI clones
+    and Docker layer caching all rewrite mtime, so mtime is unreliable in
+    exactly the environments a scheduler runs in.
+    """
+    import hashlib
+
+    # errors="replace", not "ignore": dropping undecodable bytes would let two
+    # files that differ only in those bytes hash identically, so a genuinely
+    # modified file would be skipped as unchanged.
+    return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()
+
+
 # ── (v0.47.3): batch error fallback helper ───────────────────
 #
 # graqle.core.graph.areason_batch() previously constructed a ReasoningResult
@@ -588,6 +610,12 @@ class Graqle:
     provides reasoning capabilities through distributed model agents.
     """
 
+    #: Nodes that raised during the most recent :meth:`rebuild_chunks` call.
+    #: Class-level default so the attribute is always readable, even before a
+    #: rebuild has run (CR-010.R6 — the scheduler contract reads this to tell an
+    #: empty delta apart from a run in which every node failed).
+    last_rebuild_failed_nodes: int = 0
+
     def __init__(
         self,
         nodes: dict[str, CogniNode] | None = None,
@@ -1082,20 +1110,50 @@ class Graqle:
 
     # --- Public chunk management ---
 
-    def rebuild_chunks(self, force: bool = False) -> int:
+    def rebuild_chunks(self, force: bool = False, incremental: bool = False) -> int:
         """Rebuild chunks for all nodes from their source files.
 
         Use this after ``graq init`` or when source files have changed.
         By default only fills in missing chunks; set *force=True* to
         re-read even nodes that already have chunks.
 
-        Returns the number of nodes updated.
+        Selection modes (CR-010.R6):
+
+        ``force=False, incremental=False`` (default, unchanged)
+            *Presence*-based: skip any node that already has chunks. Cannot
+            notice that a source file changed — a node whose file was edited
+            keeps its stale chunks.
+        ``incremental=True``
+            *Change*-based: rebuild a node when its source content hash differs
+            from the hash recorded at the last rebuild. A node with no recorded
+            hash (any graph built before this release) falls back to the
+            presence-based rule, so an existing graph degrades gracefully rather
+            than triggering a full rebuild.
+        ``force=True``
+            Rebuild everything. Wins over *incremental*.
+
+        The hash is content-based (SHA-256), not mtime-based: git checkouts, CI
+        clones and Docker layer caching all rewrite mtime, and those are exactly
+        the environments a scheduler runs in.
+
+        Returns the number of nodes updated. The count of nodes that raised while
+        being processed is recorded on :attr:`last_rebuild_failed_nodes` — a node
+        failing is not fatal to the run (one unreadable file should not abort a
+        10,000-node rebuild), but a caller reporting to a scheduler MUST be able
+        to tell "nothing needed doing" from "every node failed". Both look like
+        ``updated == 0`` otherwise.
         """
         from pathlib import Path as _P
 
         updated = 0
+        failed = 0
         for node in self.nodes.values():
-            if not force and node.properties.get("chunks"):
+            has_chunks = bool(node.properties.get("chunks"))
+            stored_hash = node.properties.get(_CHUNK_HASH_PROPERTY)
+
+            # Cheap skip first: only `incremental` needs to read the file to
+            # decide, and only when a prior hash exists to compare against.
+            if not force and has_chunks and not (incremental and stored_hash):
                 continue
 
             file_path = (
@@ -1113,6 +1171,12 @@ class Graqle:
                 if not content.strip():
                     continue
 
+                content_hash = _content_hash(content)
+
+                # Change-based skip: content is byte-identical to last rebuild.
+                if not force and incremental and stored_hash == content_hash and has_chunks:
+                    continue
+
                 suffix = fp.suffix.lower()
                 if suffix in (".py", ".js", ".ts", ".tsx", ".jsx"):
                     chunks = self._chunk_source_code(content)
@@ -1121,11 +1185,26 @@ class Graqle:
 
                 if chunks:
                     node.properties["chunks"] = chunks
+                    # Record the hash on every successful rebuild — including
+                    # non-incremental ones — so the first `--incremental` run
+                    # after an ordinary rebuild already has a baseline.
+                    node.properties[_CHUNK_HASH_PROPERTY] = content_hash
                     updated += 1
             except Exception:
+                # One bad file must not abort the whole rebuild, but it must not
+                # vanish either — see last_rebuild_failed_nodes.
+                failed += 1
                 continue
 
-        logger.info("rebuild_chunks: updated %d nodes (force=%s)", updated, force)
+        self.last_rebuild_failed_nodes = failed
+
+        logger.info(
+            "rebuild_chunks: updated %d nodes, %d failed (force=%s, incremental=%s)",
+            updated,
+            failed,
+            force,
+            incremental,
+        )
         return updated
 
     # --- Node Enrichment & Validation ---

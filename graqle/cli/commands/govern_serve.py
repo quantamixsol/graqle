@@ -26,6 +26,7 @@ import logging
 import os
 import signal
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -273,6 +274,15 @@ def govern_serve(
         None, "--tick-seconds",
         help="Override the loop interval (default: attestation.batch_max_seconds).",
     ),
+    json_out: bool = typer.Option(
+        False, "--json",
+        help="With --once: emit a machine-readable JSON run report on stdout "
+             "(CR-010.R6 scheduler contract).",
+    ),
+    report_json: str | None = typer.Option(
+        None, "--report-json",
+        help="With --once: write the JSON run report to this path (atomic).",
+    ),
 ) -> None:
     """Run the AnchoringWorker as a long-lived service.
 
@@ -310,8 +320,38 @@ def govern_serve(
     if once:
         # One-shot mode: run a single tick. No signal handlers (the process exits
         # immediately after) and no run-loop lifecycle.
+        from graqle.cli.headless import (
+            RunReport,
+            RunStatus,
+            emit_and_exit,
+            utc_now_iso,
+        )
+
+        started_at = utc_now_iso()
+        t_start = time.monotonic()
         committed = worker.tick()
         h = worker.health()
+
+        if json_out or report_json:
+            # CR-010.R6: nothing committed is an EMPTY_DELTA (exit 3), not a
+            # failure — a cron catch-up that finds an empty queue succeeded.
+            emit_and_exit(
+                RunReport(
+                    command="govern serve --once",
+                    status=RunStatus.SUCCESS if committed else RunStatus.EMPTY_DELTA,
+                    started_at=started_at,
+                    duration_s=time.monotonic() - t_start,
+                    counters={
+                        "committed": int(committed),
+                        "backfill_count": int(h.backfill_count),
+                        "replay_queue_depth": int(h.replay_queue_depth),
+                    },
+                ),
+                json_out=json_out,
+                report_path=report_json,
+            )
+
+        # Legacy path: unchanged human output, still exits 0.
         console.print(
             f"[green]✓ once: committed={committed} backfill={h.backfill_count} "
             f"queue_depth={h.replay_queue_depth}[/green]"

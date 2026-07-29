@@ -12,6 +12,14 @@ Usage:
     graq rebuild --graph my.json          # specify a different graph
     graq rebuild --re-embed               # dry-run: show what re-embed would do (safe)
     graq rebuild --re-embed --force       # actually re-embed all nodes (writes to disk)
+
+Scheduler use (CR-010.R6):
+    graq rebuild --headless --json                 # machine contract: JSON report + exit code
+    graq rebuild --headless --json --incremental   # rebuild only nodes whose source CHANGED
+    graq rebuild --json --report-json run.json     # also archive the report
+
+Exit codes apply when any of --headless/--json/--report-json is passed:
+    0 success (work done) · 1 failure · 2 usage error · 3 empty delta (nothing to do)
 """
 
 # ── graqle:intelligence ──
@@ -29,7 +37,20 @@ import logging
 import time
 from pathlib import Path
 
+import typer
+
 logger = logging.getLogger("graqle.cli.rebuild")
+
+
+def _flag(value: object) -> bool:
+    """Coerce a possibly-unfilled Typer option to a plain bool.
+
+    Typer fills these in when the command is invoked from the CLI, but a direct
+    Python call (``graq init`` auto-rebuilds this way) leaves the ``OptionInfo``
+    sentinel in place. ``OptionInfo`` is truthy, so a naive ``bool()`` would read
+    an unsupplied flag as enabled.
+    """
+    return value is True
 
 
 def rebuild_command(
@@ -37,6 +58,30 @@ def rebuild_command(
     config_path: str = "graqle.yaml",
     force: bool = False,
     re_embed: bool = False,
+    incremental: bool = typer.Option(
+        False,
+        "--incremental",
+        help="Rebuild only nodes whose source content CHANGED (hash-based), "
+             "not merely those missing chunks.",
+    ),
+    headless: bool = typer.Option(
+        False,
+        "--headless",
+        help="Non-interactive: never prompt, no colour/progress output. "
+             "Enables the scheduler exit-code contract.",
+    ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit a machine-readable JSON run report on stdout. "
+             "Enables the scheduler exit-code contract.",
+    ),
+    report_json: str | None = typer.Option(
+        None,
+        "--report-json",
+        help="Write the JSON run report to this path (atomic). "
+             "Enables the scheduler exit-code contract.",
+    ),
 ) -> int:
     """Rebuild chunks for all nodes in the KG.
 
@@ -44,34 +89,123 @@ def rebuild_command(
     would happen without writing anything to disk. Pass force=True to commit.
 
     Returns the number of nodes updated.
+
+    Machine contract (CR-010.R6)
+    ----------------------------
+    Passing any of *headless*, *json_out* or *report_json* opts this invocation
+    into the scheduler contract: a :class:`RunReport` is produced and the process
+    exits 0/1/2/3 (see :mod:`graqle.cli.headless`).
+
+    Why opt-in: Typer discards a command's return value, so today **every**
+    ``graq rebuild`` exits 0 — including the "graph file not found" path. Fixing
+    that unconditionally would change the exit code of a published CLI under
+    anyone's existing cron entry. Callers who pass a machine flag are new by
+    definition and have no legacy expectation, so they get the corrected codes
+    immediately; bare invocations keep exiting 0 and get a DeprecationWarning
+    naming the release that changes it.
     """
+    from graqle.cli.headless import (
+        RunReport,
+        RunStatus,
+        emit_and_exit,
+        utc_now_iso,
+    )
+
+    # `rebuild_command` is also called PROGRAMMATICALLY (graq init's auto-rebuild,
+    # init.py). Such a caller does not go through Typer, so the unfilled
+    # ``typer.Option(...)`` defaults arrive as OptionInfo objects — which are
+    # truthy, and would wrongly select machine mode and then blow up on
+    # Path(OptionInfo). Normalise first: an OptionInfo means "not supplied".
+    headless = _flag(headless)
+    json_out = _flag(json_out)
+    incremental = _flag(incremental)
+    report_json = report_json if isinstance(report_json, (str, Path)) else None
+
+    # Any machine flag selects the scheduler contract.
+    machine_mode = bool(headless or json_out or report_json)
+    started_at = utc_now_iso()
+    t_start = time.monotonic()
+
+    def _finish(
+        status: RunStatus,
+        counters: dict[str, int],
+        errors: tuple[str, ...] = (),
+    ) -> None:
+        """Emit the run report and exit. Only called in machine mode."""
+        emit_and_exit(
+            RunReport(
+                command="rebuild",
+                status=status,
+                started_at=started_at,
+                duration_s=time.monotonic() - t_start,
+                counters=counters,
+                errors=errors,
+            ),
+            json_out=json_out,
+            report_path=report_json,
+        )
+
     try:
         from rich.console import Console
         console = Console()
     except ImportError:
         console = None
 
+    # Under --headless: no colour, no progress rendering, and stdout stays clean
+    # so a scheduler parsing --json output is never fed decorative text.
     def _print(msg: str) -> None:
+        if headless:
+            return
         if console:
             console.print(msg)
         else:
             print(msg)
 
+    if not machine_mode:
+        # Advance notice: this path is scheduled to start exiting non-zero.
+        # stderr, so it can never contaminate stdout that a script is parsing.
+        import warnings
+
+        warnings.warn(
+            "graq rebuild currently exits 0 even when it fails (e.g. a missing "
+            "graph file). A future release will return a meaningful exit code "
+            "for bare invocations. Pass --headless/--json today to opt into the "
+            "scheduler contract (0 success, 1 failure, 2 usage, 3 empty delta).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     gp = Path(graph_path)
     if not gp.exists():
         _print(f"[red]Graph file not found: {graph_path}[/red]")
         _print("Run [cyan]graq init[/cyan] first to create a graph.")
+        if machine_mode:
+            _finish(
+                RunStatus.FAILURE,
+                {"nodes_total": 0, "nodes_updated": 0},
+                errors=("GraphFileNotFound",),
+            )
         return 0
 
     from graqle.config.settings import GraqleConfig
     from graqle.core.graph import Graqle
 
-    # Load config
-    cp = Path(config_path)
-    config = GraqleConfig.from_yaml(str(cp)) if cp.exists() else GraqleConfig.default()
-
-    # Load graph
-    graph = Graqle.from_json(str(gp), config=config)
+    # Load config + graph. A corrupt or unreadable graph is a hard failure: in
+    # machine mode it must surface as exit 1, never as an unhandled traceback a
+    # scheduler would record as a crash with no report.
+    try:
+        cp = Path(config_path)
+        config = GraqleConfig.from_yaml(str(cp)) if cp.exists() else GraqleConfig.default()
+        graph = Graqle.from_json(str(gp), config=config)
+    except Exception as exc:
+        _print(f"[red]Could not load graph: {type(exc).__name__}[/red]")
+        if machine_mode:
+            _finish(
+                RunStatus.FAILURE,
+                {"nodes_total": 0, "nodes_updated": 0},
+                errors=(type(exc).__name__,),
+            )
+        raise
 
     _print(f"[bold cyan]Rebuilding chunks[/bold cyan] for {len(graph.nodes)} nodes...")
     if force:
@@ -86,7 +220,7 @@ def rebuild_command(
     )
 
     # Rebuild
-    updated = graph.rebuild_chunks(force=force)
+    updated = graph.rebuild_chunks(force=force, incremental=incremental)
 
     # Count after
     after_count = sum(
@@ -147,6 +281,42 @@ def rebuild_command(
 
     total_time = time.monotonic() - t0
     _print(f"\n  [bold]Total rebuild time: {total_time:.1f}s[/bold]")
+
+    if machine_mode:
+        # EMPTY_DELTA is the whole point of the contract: "ran fine, nothing to
+        # do" must be distinguishable from "failed" by exit code alone, and also
+        # from "did work" — so a scheduler can gate a downstream step on whether
+        # the graph actually changed.
+        #
+        # Critically, a run in which every node raised also produces updated == 0.
+        # Reporting that as EMPTY_DELTA would tell the scheduler "all healthy,
+        # nothing to do" while nothing worked at all, so nodes_failed decides:
+        # any failure with no successful update is a FAILURE, not an empty delta.
+        # Any failure at all is a FAILURE, whether or not other nodes succeeded.
+        # A partial failure reported as exit 0 would be the same silent-success
+        # bug in a smaller costume: a scheduler routes on the exit code, so
+        # "most of the graph rebuilt, some of it is broken" must not read as
+        # healthy. nodes_failed/nodes_updated in the report tell the operator
+        # how much got through.
+        failed = int(getattr(graph, "last_rebuild_failed_nodes", 0))
+        if failed:
+            status = RunStatus.FAILURE
+        elif updated:
+            status = RunStatus.SUCCESS
+        else:
+            status = RunStatus.EMPTY_DELTA
+
+        _finish(
+            status,
+            {
+                "nodes_total": len(graph.nodes),
+                "nodes_updated": updated,
+                "nodes_failed": failed,
+                "nodes_with_chunks_before": before_count,
+                "nodes_with_chunks_after": after_count,
+            },
+            errors=("ChunkRebuildFailed",) if failed else (),
+        )
 
     return updated
 
