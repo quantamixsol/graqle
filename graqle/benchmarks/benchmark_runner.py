@@ -559,7 +559,8 @@ class BenchmarkRunner:
         graph.set_default_backend(self.backend)
 
         start = time.perf_counter()
-        result: ReasoningResult = await graph.areason(question)
+        # internal=True (W3, ADR-245): benchmarking is tooling, not user reasoning.
+        result: ReasoningResult = await graph.areason(question, internal=True)
         latency = (time.perf_counter() - start) * 1000
 
         # Extract governance stats from metadata

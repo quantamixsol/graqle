@@ -14,6 +14,13 @@ import os
 import sys
 
 import typer
+from contextlib import contextmanager
+
+# W3 (ADR-245): the wall itself lives at the SDK primitive; the CLI only needs the
+# exception type so it can render an upgrade CTA instead of a traceback.
+from graqle.licensing.reasoning_quota import (
+    ReasoningQuotaExceeded as _ReasoningQuotaExceeded,
+)
 
 from graqle.cli.commands.activate import activate_command
 from graqle.cli.commands.audit import audit_command
@@ -145,6 +152,30 @@ from graqle.cli.commands.plugins import app as plugins_app
 app.add_typer(plugins_app, name="plugins")
 app.command(name="upgrade")(upgrade_command)
 console = create_console()
+
+
+@contextmanager
+def _reasoning_quota_cta():
+    """W3 (ADR-245): render the upgrade CTA when the reasoning wall fires.
+
+    This does NOT meter — the wall lives at the SDK primitive (``graph.areason``) so
+    that CLI, MCP, chat and api are all covered by one gate (ADR-245 Decision 8; the
+    CLI-only placement was the PR #316 bypass). Metering here too would double-charge
+    every CLI reasoning call. This wrapper only turns the primitive's exception into a
+    friendly CTA + clean exit instead of a traceback.
+    """
+    try:
+        yield
+    except _ReasoningQuotaExceeded as exc:
+        console.print(
+            f"\n[bold red]Reasoning quota reached.[/bold red] {exc}\n"
+            "[dim]The free tier includes a monthly reasoning allowance; your graph and "
+            "all reads still work.[/dim]\n"
+            "  Upgrade for unlimited reasoning: "
+            "[bold cyan]https://graqle.com/pricing[/bold cyan]  "
+            "(or register free: https://graqle.com/signup)"
+        )
+        raise typer.Exit(1) from None
 
 
 # CR-004 PR-004c (sentinel 1C dedup + regex correction):
@@ -442,10 +473,13 @@ def run(
     if coordinator:
         graph.config.coordinator.enabled = True
 
-    # Run reasoning with selected protocol
-    result = asyncio.run(
-        graph.areason(query, max_rounds=max_rounds, strategy=strategy)
-    )
+    # W3 (ADR-245): the quota wall fires inside graph.areason(); this only turns it
+    # into an upgrade CTA + clean exit instead of a traceback.
+    with _reasoning_quota_cta():
+        # Run reasoning with selected protocol
+        result = asyncio.run(
+            graph.areason(query, max_rounds=max_rounds, strategy=strategy)
+        )
 
     # CR-004 PR-004c: probe + degraded-reasoning yellow warning.
     # The probe never raises (PR-004a 3-deep defence); outer try is
@@ -966,12 +1000,14 @@ def bench(
 
     console.print(f"[cyan]Benchmarking {queries} queries, {max_rounds} max rounds...[/cyan]")
 
+    # W3 (ADR-245): benchmarking is tooling, not user reasoning — internal=True so a
+    # 50-query bench never burns (or hard-blocks on) a free contributor's quota.
     # Run queries sequentially with fail-fast: stop on first backend error
     start = time.perf_counter()
     results = []
     for i, q in enumerate(test_queries):
         try:
-            r = asyncio.run(graph.areason(q, max_rounds=max_rounds))
+            r = asyncio.run(graph.areason(q, max_rounds=max_rounds, internal=True))
             results.append(r)
         except Exception as e:
             console.print(f"\n[red]Query {i + 1}/{queries} failed: {e}[/red]")
@@ -2663,12 +2699,16 @@ def reason(
             raise typer.Exit(1)
 
         console.print(f"Batch: [green]{len(queries)} queries[/green] (max_concurrent={max_concurrent})")
-        results = asyncio.run(
-            graph.areason_batch(
-                queries, max_rounds=max_rounds, strategy=strategy,
-                max_concurrent=max_concurrent,
+        # W3 (ADR-245): areason_batch fans out to areason once per query, so an
+        # N-query batch costs N quota units — it consumes N LLM invocations, exactly
+        # like N separate calls. The CTA wrapper renders the wall if it fires mid-batch.
+        with _reasoning_quota_cta():
+            results = asyncio.run(
+                graph.areason_batch(
+                    queries, max_rounds=max_rounds, strategy=strategy,
+                    max_concurrent=max_concurrent,
+                )
             )
-        )
 
         total_cost = sum(r.cost_usd for r in results)
         total_latency = sum(r.latency_ms for r in results)
@@ -2713,9 +2753,12 @@ def reason(
     # ── Single query mode ─────────────────────────────────────────────
     console.print(f"Query: [green]{query}[/green]")
 
-    result = asyncio.run(
-        graph.areason(query, max_rounds=max_rounds, strategy=strategy)
-    )
+    # W3 (ADR-245): the quota wall fires inside graph.areason(); this only turns it
+    # into an upgrade CTA + clean exit instead of a traceback.
+    with _reasoning_quota_cta():
+        result = asyncio.run(
+            graph.areason(query, max_rounds=max_rounds, strategy=strategy)
+        )
 
     # CR-004 PR-004c: probe + degraded-reasoning yellow warning. Same
     # pattern as the run() command above. Skipped silently in JSON

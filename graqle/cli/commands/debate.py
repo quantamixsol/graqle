@@ -111,6 +111,22 @@ def debate(
     )
     orchestrator = DebateOrchestrator(debate_config, pool, cost_gate)
 
+    # W3 (ADR-245): a debate is real (multi-panelist) reasoning that never reaches
+    # graph.areason(), so the wall must be applied here explicitly — otherwise
+    # `graq debate` is a free unlimited-reasoning surface.
+    from graqle.licensing.reasoning_gate import check_reasoning_quota
+    from graqle.licensing.reasoning_quota import ReasoningQuotaExceeded
+
+    try:
+        check_reasoning_quota()
+    except ReasoningQuotaExceeded as exc:
+        console.print(
+            f"\n[bold red]Reasoning quota reached.[/bold red] {exc}\n"
+            "  Upgrade for unlimited reasoning: "
+            "[bold cyan]https://graqle.com/pricing[/bold cyan]"
+        )
+        raise typer.Exit(1) from None
+
     trace = asyncio.run(orchestrator.run(query))
 
     # Display debate results

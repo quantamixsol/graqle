@@ -318,7 +318,8 @@ async def run_v2_benchmark(
             graph._orchestrator = orchestrator
 
             cg_start = time.perf_counter()
-            result: ReasoningResult = await graph.areason(q.question)
+            # internal=True (W3, ADR-245): benchmarking is tooling, not user reasoning.
+            result: ReasoningResult = await graph.areason(q.question, internal=True)
             cg_latency = (time.perf_counter() - cg_start) * 1000
 
             cg_f1 = f1_score(result.answer, q.expected_answer)

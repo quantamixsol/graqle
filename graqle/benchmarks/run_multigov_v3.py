@@ -389,7 +389,8 @@ async def run_v3_benchmark(
             graph._orchestrator = orchestrator
 
             cg_start = time.perf_counter()
-            result: ReasoningResult = await graph.areason(q.question)
+            # internal=True (W3, ADR-245): benchmarking is tooling, not user reasoning.
+            result: ReasoningResult = await graph.areason(q.question, internal=True)
             cg_latency = (time.perf_counter() - cg_start) * 1000
 
             # Get actual cost delta
