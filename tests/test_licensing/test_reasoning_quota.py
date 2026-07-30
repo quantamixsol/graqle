@@ -159,3 +159,50 @@ def test_uses_verified_tier_not_raw_env(tmp_path, monkeypatch):
         q.check_and_record()
     with pytest.raises(ReasoningQuotaExceeded):
         q.check_and_record()  # unverified env did NOT buy unlimited
+
+
+# ── Pre-merge review findings (F2, F3), pinned as regression tests ──────────
+
+def test_peek_matches_check_and_record_when_enforcement_disabled(monkeypatch, tmp_path):
+    """F3: peek() checked only the tier, so it disagreed with check_and_record.
+
+    With enforcement opted out at the cap, check_and_record ALLOWS the call; peek()
+    reported allowed=False. Any status surface reading peek would have shown a user
+    'blocked' while their calls were succeeding.
+    """
+    import datetime
+
+    from graqle.licensing.reasoning_quota import (
+        FREE_REASONS_PER_MONTH,
+        ReasoningQuota,
+    )
+
+    monkeypatch.setenv("GRAQLE_ENFORCE_CAPS", "0")
+    month = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
+    (tmp_path / "reasoning_quota.json").write_text(
+        json.dumps({month: FREE_REASONS_PER_MONTH}), encoding="utf-8"
+    )
+    quota = ReasoningQuota(tmp_path)
+
+    assert quota.peek().allowed is True
+    assert quota.check_and_record().allowed is True  # the two must agree
+
+
+def test_old_months_are_pruned(monkeypatch, tmp_path):
+    """F2: month keys accumulated forever — nothing trimmed the file."""
+    import datetime
+
+    from graqle.licensing.reasoning_quota import ReasoningQuota
+
+    monkeypatch.delenv("GRAQLE_ENFORCE_CAPS", raising=False)
+    seed = {f"{y}-{m:02d}": 1 for y in (2020, 2021, 2022) for m in range(1, 13)}
+    seed["schema_version"] = 1
+    (tmp_path / "reasoning_quota.json").write_text(json.dumps(seed), encoding="utf-8")
+
+    ReasoningQuota(tmp_path).check_and_record()
+    after = json.loads((tmp_path / "reasoning_quota.json").read_text(encoding="utf-8"))
+
+    stale = [k for k in after if k.startswith(("2020-", "2021-", "2022-"))]
+    assert not stale, f"old months not pruned: {stale}"
+    assert after["schema_version"] == 1, "pruning must not eat non-month keys"
+    assert datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m") in after

@@ -749,3 +749,38 @@ def test_chat_package_has_no_ungated_reasoning():
         "chat package dispatches reasoning outside the gated entrypoints:\n"
         + "\n".join(offenders)
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Pre-merge review findings, pinned as regression tests.
+#
+# F1 (BLOCKER): GRAQLE_QUOTA_DIR was honoured unconditionally, so a free user at
+# the cap got a fresh counter from `export GRAQLE_QUOTA_DIR=$(mktemp -d)` —
+# unlimited free reasoning, persistent via shell profile, non-destructive, no
+# repeat action. It contradicted this module's own refusal to honour CI=true
+# (ADR-245 Decision 8 rule 3: no self-attested env exemptions).
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_quota_dir_override_is_inert_outside_pytest(monkeypatch, tmp_path):
+    """The override must NOT relocate the meter in a normal (non-pytest) run."""
+    from graqle.licensing.reasoning_gate import QUOTA_DIR_ENV, resolve_quota_dir
+
+    monkeypatch.setenv(QUOTA_DIR_ENV, str(tmp_path / "escape"))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)  # simulate production
+
+    resolved = resolve_quota_dir()
+    assert resolved != tmp_path / "escape", (
+        "GRAQLE_QUOTA_DIR relocated the quota file outside pytest — that is a "
+        "one-line unlimited-reasoning bypass of the W3 wall"
+    )
+    assert resolved == Path(".graqle")
+
+
+def test_quota_dir_override_still_works_under_pytest(monkeypatch, tmp_path):
+    """...but tests must still be able to redirect the meter."""
+    from graqle.licensing.reasoning_gate import QUOTA_DIR_ENV, resolve_quota_dir
+
+    monkeypatch.setenv(QUOTA_DIR_ENV, str(tmp_path / "sandbox"))
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_x (call)")
+
+    assert resolve_quota_dir() == tmp_path / "sandbox"

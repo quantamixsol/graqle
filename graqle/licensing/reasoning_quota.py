@@ -96,6 +96,36 @@ def _paid_tier() -> bool:
         return False
 
 
+# Months of history to keep. One year plus the current month, so a year-on-year
+# comparison still has data while the file stays bounded. Without pruning the JSON
+# gains a key every month forever — slow, but unbounded, and nothing else trims it.
+_RETAIN_MONTHS = 13
+
+
+def _prune_old_months(data: dict, current: str) -> dict:
+    """Drop month keys older than ``_RETAIN_MONTHS`` before ``current``.
+
+    Non-month keys (``schema_version``) are preserved untouched, and anything that
+    does not parse as ``YYYY-MM`` is left alone rather than silently discarded — a
+    pruner that eats keys it does not understand is a data-loss bug waiting to happen.
+    """
+    try:
+        cy, cm = (int(p) for p in current.split("-"))
+    except (ValueError, AttributeError):
+        return data
+    cutoff = cy * 12 + cm - _RETAIN_MONTHS
+    out = {}
+    for key, value in data.items():
+        try:
+            y, m = (int(p) for p in str(key).split("-"))
+        except ValueError:
+            out[key] = value  # not a month key (e.g. schema_version) — keep
+            continue
+        if y * 12 + m > cutoff:
+            out[key] = value
+    return out
+
+
 @dataclass
 class QuotaReading:
     used: int
@@ -134,9 +164,17 @@ class ReasoningQuota:
         return datetime.now(timezone.utc).strftime("%Y-%m")
 
     def peek(self) -> QuotaReading:
-        """Current usage without recording. Paid → unlimited/allowed."""
+        """Current usage without recording. Paid (or enforcement off) → allowed.
+
+        Mirrors ``check_and_record``'s short-circuit exactly. Checking only the tier
+        here made the two disagree: with ``GRAQLE_ENFORCE_CAPS=0`` at 30/30, ``peek()``
+        reported ``allowed=False`` while ``check_and_record`` let the call through, so
+        any status surface reading ``peek`` would tell a user they were blocked when
+        they were not. Nothing user-facing consumes ``peek`` today — its only caller is
+        the exempt-path short-circuit below — but the two must not be allowed to drift.
+        """
         month = self._month()
-        if _paid_tier():
+        if _paid_tier() or not quota_enforcement_enabled():
             return QuotaReading(used=0, limit=-1, month=month, allowed=True)
         used = int(self._load().get(month, 0) or 0)
         return QuotaReading(
@@ -214,7 +252,7 @@ class ReasoningQuota:
                     raise ReasoningQuotaExceeded(used, FREE_REASONS_PER_MONTH, month)
                 data[month] = used + 1
                 data["schema_version"] = _SCHEMA_VERSION
-                self._store(data)
+                self._store(_prune_old_months(data, month))
             return QuotaReading(
                 used=used + 1,
                 limit=FREE_REASONS_PER_MONTH,

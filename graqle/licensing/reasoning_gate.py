@@ -42,14 +42,38 @@ QUOTA_DIR_ENV = "GRAQLE_QUOTA_DIR"
 
 _DEFAULT_QUOTA_DIR = ".graqle"
 
+def _under_pytest() -> bool:
+    """True only while a pytest process is actually running.
+
+    ``PYTEST_CURRENT_TEST`` is set by pytest itself for the duration of each test.
+    A user can of course export it by hand — but doing so is no longer a *quiet*
+    bypass: it is an explicit act of forging a test-harness marker, and it is the
+    single chokepoint we can audit, rather than an officially-documented override.
+    """
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+
+
 def resolve_quota_dir() -> Path:
     """Project-local ``.graqle`` directory holding the quota file.
 
-    Overridable via ``GRAQLE_QUOTA_DIR`` so tests (and sandboxed runs) can point the
-    meter at a temp dir instead of the real project.
+    ``GRAQLE_QUOTA_DIR`` relocates the meter, but ONLY under pytest.
+
+    ⚠️ It is deliberately INERT in normal runs. Honouring it unconditionally made it a
+    one-line unlimited-reasoning bypass of this very wall: a free user at the cap who
+    exported ``GRAQLE_QUOTA_DIR=$(mktemp -d)`` got a fresh empty counter on every
+    invocation. That is categorically worse than the local-bypass class ADR-245 already
+    accepts (deleting ``.graqle/reasoning_quota.json``), on three counts — it persists
+    via a shell profile so it is set once and never repeated, it is non-destructive so
+    nothing looks tampered with, and it needs no repeat action.
+
+    It also contradicted this module's own rule: :func:`quota_exempt` refuses to honour
+    ``CI=true`` precisely because "self-attested env exemption" is banned by ADR-245
+    Decision 8 rule 3. An env var that relocates the counter is the same bypass wearing
+    a different hat. Tests still need to redirect the meter, so the override survives —
+    scoped to a real pytest process, which a production run is not.
     """
     override = os.environ.get(QUOTA_DIR_ENV)
-    if override and override.strip():
+    if override and override.strip() and _under_pytest():
         return Path(override)
     return Path(_DEFAULT_QUOTA_DIR)
 
