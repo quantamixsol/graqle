@@ -761,26 +761,51 @@ def test_chat_package_has_no_ungated_reasoning():
 # (ADR-245 Decision 8 rule 3: no self-attested env exemptions).
 # ═══════════════════════════════════════════════════════════════════════════
 
-def test_quota_dir_override_is_inert_outside_pytest(monkeypatch, tmp_path):
-    """The override must NOT relocate the meter in a normal (non-pytest) run."""
-    from graqle.licensing.reasoning_gate import QUOTA_DIR_ENV, resolve_quota_dir
+def test_quota_dir_override_is_inert_outside_pytest(tmp_path):
+    """The override must NOT relocate the meter in a real (non-pytest) process.
 
-    monkeypatch.setenv(QUOTA_DIR_ENV, str(tmp_path / "escape"))
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)  # simulate production
+    Checked in a SUBPROCESS: inside this test pytest is necessarily in sys.modules,
+    so the production path is unreachable in-process. The subprocess also FORGES
+    PYTEST_CURRENT_TEST, pinning the sentinel's refutation — an env marker must not
+    be enough to unlock the override, because the first version of this guard used
+    exactly that var and was proven bypassable.
+    """
+    import subprocess
+    import sys as _sys
 
-    resolved = resolve_quota_dir()
-    assert resolved != tmp_path / "escape", (
-        "GRAQLE_QUOTA_DIR relocated the quota file outside pytest — that is a "
-        "one-line unlimited-reasoning bypass of the W3 wall"
+    probe = (
+        "import os, sys\n"
+        "os.environ['GRAQLE_QUOTA_DIR'] = r'{esc}'\n"
+        "os.environ['PYTEST_CURRENT_TEST'] = 'forged::call'\n"  # the attack
+        "from graqle.licensing.reasoning_gate import resolve_quota_dir\n"
+        "print(resolve_quota_dir())\n"
+    ).format(esc=str(tmp_path / "escape"))
+    out = subprocess.run(
+        [_sys.executable, "-c", probe], capture_output=True, text=True
     )
-    assert resolved == Path(".graqle")
+
+    assert out.returncode == 0, out.stderr
+    resolved = out.stdout.strip()
+    assert resolved != str(tmp_path / "escape"), (
+        "GRAQLE_QUOTA_DIR relocated the quota file in a production process — that is "
+        "a one-line unlimited-reasoning bypass of the W3 wall. Forging "
+        "PYTEST_CURRENT_TEST must not unlock it."
+    )
+    assert resolved == str(Path(".graqle"))
 
 
 def test_quota_dir_override_still_works_under_pytest(monkeypatch, tmp_path):
-    """...but tests must still be able to redirect the meter."""
+    """...but tests must still be able to redirect the meter.
+
+    Note this passes with PYTEST_CURRENT_TEST *deleted*: the guard keys off pytest
+    being in sys.modules, which is also true during import, collection and
+    session-scoped fixtures — phases where PYTEST_CURRENT_TEST is unset. With the
+    old env-based guard, a test resolving the dir in those phases would have silently
+    written to the developer's real ./.graqle.
+    """
     from graqle.licensing.reasoning_gate import QUOTA_DIR_ENV, resolve_quota_dir
 
     monkeypatch.setenv(QUOTA_DIR_ENV, str(tmp_path / "sandbox"))
-    monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_x (call)")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_quota_dir() == tmp_path / "sandbox"

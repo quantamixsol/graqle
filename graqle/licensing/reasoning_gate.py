@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 logger = logging.getLogger("graqle.licensing.reasoning_gate")
@@ -43,14 +44,23 @@ QUOTA_DIR_ENV = "GRAQLE_QUOTA_DIR"
 _DEFAULT_QUOTA_DIR = ".graqle"
 
 def _under_pytest() -> bool:
-    """True only while a pytest process is actually running.
+    """True only when pytest is genuinely loaded in THIS process.
 
-    ``PYTEST_CURRENT_TEST`` is set by pytest itself for the duration of each test.
-    A user can of course export it by hand — but doing so is no longer a *quiet*
-    bypass: it is an explicit act of forging a test-harness marker, and it is the
-    single chokepoint we can audit, rather than an officially-documented override.
+    Deliberately ``sys.modules``, not an environment variable. The first attempt at
+    this guard used ``PYTEST_CURRENT_TEST``, which is itself a self-attested env var —
+    it merely replaced one bypass with another, and was proven forgeable:
+    ``PYTEST_CURRENT_TEST=fake::call GRAQLE_QUOTA_DIR=/tmp/x`` resolved to ``/tmp/x``.
+    An attacker cannot import pytest into a process that never imported it, so
+    ``sys.modules`` closes what an env check cannot.
+
+    It is also the only correct answer for TIMING. ``PYTEST_CURRENT_TEST`` is set
+    per-test (setup/call/teardown) and is absent during module import, collection, and
+    session-scoped fixtures — measured: at import time it is ``False`` while
+    ``"pytest" in sys.modules`` is already ``True``. With the env check, a test that
+    resolved the quota dir at import or in a session fixture would have silently fallen
+    through to the developer's REAL ``./.graqle`` and mutated their actual quota count.
     """
-    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+    return "pytest" in sys.modules or "_pytest" in sys.modules
 
 
 def resolve_quota_dir() -> Path:
