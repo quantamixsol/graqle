@@ -578,13 +578,67 @@ def test_server_request_model_cannot_set_internal():
 
     The server passes explicit named fields to areason(); `internal` is not one of
     them and is not a field on the request model, so a caller cannot inject it.
-    """
-    try:
-        from graqle.server.app import ReasonRequest
-    except Exception:
-        pytest.skip("server extra not installed")
 
-    assert "internal" not in ReasonRequest.model_fields
+    Run in a SUBPROCESS, deliberately. Importing a ``graqle.server`` module in-process
+    leaves it in ``sys.modules`` for the rest of the session, and
+    ``graqle.governance.tamper_evidence.verifier`` refuses to import when a
+    server/studio module is already loaded (the moat-M2 ``_assert_isolated`` guard,
+    WS-A3). That turned this one import into a cross-file failure for every later
+    test that touches the verifier — it surfaced as 11 unrelated failures in
+    ``tests/test_cli/test_headless_contract.py`` when the suites ran together, while
+    each file passed alone. A subprocess keeps the assertion and contains the import.
+
+    The models live in ``graqle.server.models``, NOT ``graqle.server.app``. The
+    original form of this test imported ``ReasonRequest`` from ``app`` — which does
+    not define it — under a bare ``except Exception: pytest.skip(...)``, so the
+    ImportError was swallowed and this security assertion NEVER ran on any machine.
+    A skip-on-any-exception guard around an import is indistinguishable from a pass.
+    Only ModuleNotFoundError for the genuinely-optional extra may skip.
+    """
+    import subprocess
+    import sys
+
+    # Guard the interpreter FIRST. CI runs the bare `pytest` shim (.github/
+    # workflows/ci.yml:42), not `python -m pytest`, so sys.executable is not
+    # guaranteed to be the venv that has graqle installed. If it is not, the probe
+    # below would exit 3 and SKIP — silently losing this assertion again, which is
+    # the exact defect this rewrite exists to fix. Fail LOUD instead of skipping:
+    # a wrong interpreter is an environment bug, never a reason to drop coverage.
+    base = subprocess.run(
+        [sys.executable, "-c", "import graqle"], capture_output=True, text=True
+    )
+    assert base.returncode == 0, (
+        f"probe interpreter {sys.executable!r} cannot import graqle, so a skip here "
+        "would be indistinguishable from a pass. Fix the environment (or run pytest "
+        f"as `python -m pytest`). stderr: {base.stderr.strip()}"
+    )
+
+    # ImportError, not ModuleNotFoundError: a genuinely-absent optional extra can
+    # surface as a plain ImportError rather than the subclass — e.g. a transitive
+    # C-extension wheel that fails to load, or a broken re-export in __init__.
+    # Narrowing to ModuleNotFoundError would hard-fail CI on a machine where the
+    # extra is simply not installed. graqle itself is proven importable above, so
+    # this cannot mask a broken core install.
+    probe = (
+        "import sys\n"
+        "try:\n"
+        "    from graqle.server.models import BatchReasonRequest, ReasonRequest\n"
+        "except ImportError:\n"
+        "    sys.exit(3)\n"  # optional server extra genuinely absent → skip
+        "bad = [m.__name__ for m in (ReasonRequest, BatchReasonRequest)\n"
+        "       if 'internal' in m.model_fields]\n"
+        "print(','.join(bad))\n"
+        "sys.exit(1 if bad else 0)\n"
+    )
+    result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True)
+
+    if result.returncode == 3:
+        pytest.skip("server extra not installed")
+    assert result.returncode == 0, (
+        "an HTTP request model exposes an 'internal' field, so a caller could set "
+        f"internal=True and get unmetered reasoning: {result.stdout.strip()} "
+        f"(stderr: {result.stderr.strip()})"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
