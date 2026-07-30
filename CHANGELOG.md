@@ -4,6 +4,52 @@ All notable changes to GraQle are documented in this file.
 
 ---
 
+## 0.83.0 (2026-07-30) — [Enterprise: scheduler contract + free-tier reasoning cap]
+
+> ### ⚠️ BREAKING CHANGE — free tier only
+>
+> **Graph reasoning on the FREE tier is now capped per calendar month.** Once the cap is reached,
+> calls that previously succeeded raise **`ReasoningQuotaExceeded`**
+> (`from graqle.licensing.reasoning_quota import ReasoningQuotaExceeded`). This affects
+> `graph.reason()` / `areason()` and every CLI path built on them.
+> **Paid tiers are unaffected and see no behaviour change.**
+>
+> **If you are on the free tier, before upgrading:** either handle the exception at your reasoning
+> call sites, or move to a paid tier. To inspect usage without consuming quota,
+> `ReasoningQuota(graqle_dir).peek()` returns a `QuotaReading(used, limit, month, allowed)`
+> (`limit == -1` means unlimited). Unattended jobs are the exposed case — an uncaught
+> `ReasoningQuotaExceeded` will fail the run rather than degrade quietly.
+
+> The other half of this release is additive: it makes the CLI drivable by a scheduler rather than
+> only by a human. That part is **opt-in** — bare `graq rebuild` is unchanged from 0.82.0.
+
+### Enterprise (CR-010 Enterprise Enhancement Program)
+
+- **Scheduler-grade pipeline contract (R6)** — `graq rebuild` and `graq govern serve --once` can now be
+  driven unattended by cron, Airflow or GitHub Actions. New `--headless`, `--json`, `--report-json` and
+  `--incremental` flags on `graq rebuild`, and `--json` / `--report-json` on `govern serve --once`.
+  Runs are idempotent, non-interactive and exit-coded: `0` success, `1` failure, `2` usage error,
+  `3` empty delta (nothing to rebuild). `--report-json` writes a frozen `RunReport` atomically, so a
+  scheduler never observes a half-written report. Incremental rebuilds skip unchanged content by hash.
+- **Root defect fixed (opt-in)** — `graq rebuild` previously exited `0` even when the graph file was not
+  found, because Typer discards command return values. The corrected exit codes apply on the **machine
+  paths only** (`--headless` / `--json` / `--report-json`). Bare `graq rebuild` keeps its existing exit
+  behaviour and emits a stderr `DeprecationWarning`; whether it adopts the corrected codes is deferred
+  to a future release.
+
+### Monetisation
+
+- **⚠️ Reasoning-quota wall (ADR-245 Decision 8)** — the **free tier now has a monthly cap on graph
+  reasoning**. Existing free-tier users who exceed the cap will see `ReasoningQuotaExceeded` where calls
+  previously succeeded. Paid tiers are unaffected. The counter is per-month and self-pruning (13 months
+  retained).
+- The quota meter is deliberately **not** relocatable from the environment. `GRAQLE_QUOTA_DIR` is honoured
+  only inside a real pytest process (detected via `sys.modules`, not a self-attested environment
+  variable), so it cannot be used as a paywall bypass. This follows the same rule that makes
+  `quota_exempt()` refuse `CI=true`: self-attested environment exemptions are not entitlement.
+
+---
+
 ## 0.82.0 (2026-07-28) — [Enterprise: frozen proof spec + conformance suite]
 
 > Publishes GraQle's tamper-evidence proof format as an independently versioned, third-party-implementable
