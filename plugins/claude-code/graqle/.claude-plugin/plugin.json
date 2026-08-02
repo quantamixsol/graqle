@@ -1,6 +1,6 @@
 {
   "name": "graqle",
-  "version": "0.80.0",
+  "version": "0.83.0",
   "description": "GraQle dev intelligence layer: graph-powered codebase reasoning, impact analysis, and governed edits via MCP, plus governed-workflow skills and an optional governance gate hook.",
   "author": {
     "name": "Quantamix Solutions",

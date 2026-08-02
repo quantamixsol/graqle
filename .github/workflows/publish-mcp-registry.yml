@@ -18,27 +18,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      # CR-DIST-06: 'write' (was 'read') so the manifest sync below can commit the
+      # version back to master. Without the commit the repo copy stays stale forever
+      # — which is exactly how the plugin manifests reached 0.80.0 while PyPI served
+      # 0.83.0. The published artifact was always right; the file people READ was not.
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          # CR-DIST-06: full history, not the default shallow single-branch fetch.
+          # Without this the checkout holds ONLY the tag SHA in detached HEAD and no
+          # local `master` ref exists, so the commit-back step below dies with
+          # "pathspec 'master' did not match any file(s) known to git" — AFTER the
+          # registry publish has already succeeded. Verified by reproducing the exact
+          # shallow clone locally.
+          fetch-depth: 0
 
-      - name: Update server.json version from tag
+      # CR-DIST-06: sync EVERY distribution manifest, not just server.json.
+      # server.json was already rewritten here before publishing, so the registry
+      # entry was correct — but plugins/claude-code and plugins/codex were never
+      # touched by anything, and users read those straight from the repo.
+      - name: Sync all distribution manifests to the released version
         run: |
           TAG="${{ github.event.workflow_run.head_branch }}"
           VERSION="${TAG#v}"
-          echo "Updating server.json to version ${VERSION}"
-          # Use Python with env var to avoid shell/Python quoting conflicts
-          VERSION="${VERSION}" python3 - <<'PYEOF'
-          import json, os, pathlib
-          version = os.environ["VERSION"]
-          s = json.loads(pathlib.Path('server.json').read_text())
-          s['version'] = version
-          s['packages'][0]['version'] = version
-          pathlib.Path('server.json').write_text(json.dumps(s, indent=2) + '\n')
-          print(f'Updated server.json to version {version}')
-          PYEOF
+          python3 scripts/ci/sync_manifest_versions.py "${VERSION}"
 
       - name: Wait for PyPI to index the new version
         run: sleep 60
@@ -58,3 +63,62 @@ jobs:
         run: |
           sleep 5
           curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.quantamixsol/graqle" | python3 -m json.tool
+
+      # CR-DIST-06: commit the synced manifests back to master.
+      #
+      # Deliberately LAST — after the registry publish has succeeded. Committing a
+      # version we then failed to publish would leave the repo advertising a release
+      # that does not exist, which is worse than the drift this fixes.
+      #
+      # Runs on the default branch, not the tag: a tag is a fixed point and a commit
+      # on it would be unreachable. `git checkout master` picks up any commits that
+      # landed since the tag, so this never force-moves anything.
+      - name: Commit synced manifests back to master
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          VERSION="${TAG#v}"
+
+          git checkout master
+
+          # Retry, do NOT --ff-only. Any commit landing on master between the start
+          # of this job and now (a hotfix, a concurrent release, a docs push) makes a
+          # fast-forward impossible, and --ff-only would kill the job AFTER a
+          # successful publish — leaving the manifests stale, the exact defect this
+          # fixes. The sync is idempotent, so replaying it on newer master is safe.
+          for attempt in 1 2 3; do
+            git fetch origin master
+            git reset --hard origin/master
+
+            python3 scripts/ci/sync_manifest_versions.py "${VERSION}"
+
+            if git diff --quiet; then
+              echo "Manifests already at ${VERSION} on master — nothing to commit."
+              exit 0
+            fi
+
+            git add server.json \
+                    plugins/claude-code/graqle/.claude-plugin/plugin.json \
+                    plugins/codex/graqle/.codex-plugin/plugin.json
+            # [skip ci] guards the push-triggered workflows. This workflow itself is
+            # workflow_run-triggered on CI completion, so it cannot self-retrigger.
+            git commit -m "chore(dist): sync distribution manifests to ${VERSION} [skip ci]"
+
+            if git push origin master; then
+              echo "Synced manifests to ${VERSION} on attempt ${attempt}."
+              exit 0
+            fi
+
+            echo "push rejected (master moved) — retrying (${attempt}/3)"
+            sleep 10
+          done
+
+          # Never fail the release over a listing sync: the package is already
+          # published and the registry entry is already correct. Warn loudly so the
+          # drift guard in tests/test_packaging/test_manifest_version_sync.py catches
+          # it on the next PR rather than letting it rot silently for three releases.
+          echo "::warning::Could not commit synced manifests after 3 attempts. \
+          Run: python scripts/ci/sync_manifest_versions.py ${VERSION}"
