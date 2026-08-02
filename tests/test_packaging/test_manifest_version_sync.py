@@ -26,6 +26,8 @@ MANIFESTS = [
     ("server.json", ["version", "packages.0.version"]),
     ("plugins/claude-code/graqle/.claude-plugin/plugin.json", ["version"]),
     ("plugins/codex/graqle/.codex-plugin/plugin.json", ["version"]),
+    (".claude-plugin/marketplace.json", ["plugins.0.version"]),
+    (".agents/plugins/marketplace.json", ["plugins.0.version"]),
 ]
 
 

@@ -100,9 +100,11 @@ jobs:
               exit 0
             fi
 
-            git add server.json \
-                    plugins/claude-code/graqle/.claude-plugin/plugin.json \
-                    plugins/codex/graqle/.codex-plugin/plugin.json
+            # -A over an explicit list: the script owns which files are targets, and
+            # an explicit list here silently drops any target added later — which is
+            # exactly how the two marketplace manifests were missed the first time.
+            # Nothing else can be dirty; the loop resets to origin/master first.
+            git add -A
             # [skip ci] guards the push-triggered workflows. This workflow itself is
             # workflow_run-triggered on CI completion, so it cannot self-retrigger.
             git commit -m "chore(dist): sync distribution manifests to ${VERSION} [skip ci]"

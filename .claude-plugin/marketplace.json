@@ -13,7 +13,7 @@
       "name": "graqle",
       "source": "./plugins/claude-code/graqle",
       "description": "Graph-powered codebase reasoning, impact analysis, and governed edits via the GraQle MCP server, plus governed-workflow skills and an optional governance gate hook.",
-      "version": "0.80.0",
+      "version": "0.83.0",
       "author": {
         "name": "Quantamix Solutions",
         "url": "https://graqle.com"

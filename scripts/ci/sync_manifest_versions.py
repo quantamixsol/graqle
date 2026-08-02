@@ -39,6 +39,15 @@ TARGETS: list[tuple[str, list[str]]] = [
     ("server.json", ["version", "packages.0.version"]),
     ("plugins/claude-code/graqle/.claude-plugin/plugin.json", ["version"]),
     ("plugins/codex/graqle/.codex-plugin/plugin.json", ["version"]),
+    # The marketplace manifests are what a directory reviewer fetches. Their version
+    # is NESTED under plugins[0] — a top-level grep for '"version"' finds only
+    # metadata.version and misses it, which is exactly how these two were left out
+    # of the first pass of this CR.
+    #
+    # metadata.version is deliberately NOT synced: it is the marketplace *schema*
+    # version (1.0.0), not the SDK release. Syncing it would corrupt the manifest.
+    (".claude-plugin/marketplace.json", ["plugins.0.version"]),
+    (".agents/plugins/marketplace.json", ["plugins.0.version"]),
 ]
 
 # PEP 440 core release + optional pre/post/dev suffix. Deliberately strict: a
@@ -116,7 +125,13 @@ def main() -> int:
         else:
             # Trailing newline + 2-space indent matches how these files are stored,
             # so a sync produces a one-line diff rather than reformatting the file.
-            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            # ensure_ascii=False: these manifests contain real UTF-8 (an em-dash in
+            # the marketplace description). Default json.dumps would rewrite it as
+            # —, turning a one-line version bump into a mojibake diff on a file
+            # that directory reviewers read.
+            path.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
             print(f"  synced  {rel}  -> {version}")
 
     for rel in missing:
