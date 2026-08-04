@@ -204,6 +204,13 @@ artifacts = [
     "graqle/pct/schema/proof-spec/**/*.md",
     "graqle/pct/schema/conformance/*.json",
     "graqle/pct/schema/conformance/fixtures/*",
+    # CR-010.R3: compliance packs are DATA — a framework is a pack.yaml plus a
+    # schema.json, so adding NIST AI RMF / ISO 42001 needs no Python. These MUST
+    # ship in the wheel or the packs silently vanish from an installed SDK and
+    # only first-party imports keep working. Loaded via importlib.resources
+    # (never Path(__file__).parents[N], which resolves elsewhere once installed).
+    "graqle/compliance/packs/**/*.yaml",
+    "graqle/compliance/packs/**/*.json",
 ]
 
 [tool.hatch.build.targets.wheel]

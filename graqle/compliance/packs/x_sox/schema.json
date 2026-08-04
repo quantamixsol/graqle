@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graqle.com/schema/compliance-pack/x-sox/1.0/pack.schema.json",
+  "title": "GraQle compliance pack — x-sox (SOX / COSO)",
+  "description": "Schema for the x-sox compliance pack manifest. Proof-spec v1.0 permits unknown members and therefore cannot validate an extension namespace (SPEC.md section 8.1); this schema closes that gap for x-sox and MUST be applied in addition to v1.0.",
+  "type": "object",
+  "required": ["namespace", "pack_version", "framework", "fields"],
+  "properties": {
+    "namespace": {
+      "type": "string",
+      "const": "x-sox",
+      "description": "Fixed for this pack. The loader independently re-checks it against the taxonomy extension regex."
+    },
+    "pack_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Pack version, independent of both the SDK version and the proof-spec version."
+    },
+    "framework": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "references": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "claim_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^x-[a-z0-9_-]{1,64}$",
+        "description": "Must match the operator-extension namespace regex in graqle/compliance/claim_limits/taxonomy.py."
+      },
+      "uniqueItems": true
+    },
+    "fields": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Field vocabulary, keyed by field name.",
+      "required": [
+        "control_id",
+        "assertion",
+        "reporting_period_start",
+        "reporting_period_end",
+        "management_review_status"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "required"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "enum",
+              "date",
+              "uri",
+              "boolean",
+              "pseudonym"
+            ]
+          },
+          "required": { "type": "boolean" },
+          "description": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "default": {},
+          "pii_classification": {
+            "type": "string",
+            "enum": ["none", "pseudonymous", "personal"],
+            "description": "Declared so an offline auditor knows the field semantics without holding the operator's identity mapping."
+          },
+          "required_when": {
+            "type": "object",
+            "required": ["field", "in"],
+            "properties": {
+              "field": { "type": "string", "minLength": 1 },
+              "in": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
+            "then": { "required": ["values"] }
+          },
+          {
+            "if": { "properties": { "type": { "const": "pseudonym" } }, "required": ["type"] },
+            "then": {
+              "required": ["pii_classification"],
+              "properties": {
+                "pii_classification": { "const": "pseudonymous" }
+              },
+              "description": "A pseudonym field must declare itself pseudonymous, so a pack cannot quietly carry raw identifiers."
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}
