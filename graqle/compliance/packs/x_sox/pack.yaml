@@ -1,0 +1,166 @@
+# Compliance pack — Sarbanes-Oxley / COSO internal controls (CR-010.R3)
+#
+# This file is DATA. Adding the next framework (NIST AI RMF, ISO/IEC 42001,
+# SOC 2, HIPAA) means writing a sibling directory with a pack.yaml and a
+# schema.json — no Python and no engine change.
+#
+# The loader validates this file against the schema.json beside it, because
+# proof-spec v1.0 permits unknown members and therefore cannot check an
+# extension namespace itself (proof-spec/v1.0/SPEC.md § 8.1).
+
+namespace: x-sox
+pack_version: "1.0"
+framework: Sarbanes-Oxley Act / COSO Internal Control — Integrated Framework
+
+description: >-
+  Binds an AI-assisted decision to a named internal control, a
+  financial-statement assertion, and a reporting period, so that a decision
+  taken during a financial close is auditable offline. The
+  management-review fields are the SOX-vocabulary counterpart of the EU AI
+  Act Article 14 human-oversight gate: same mechanics, different words.
+
+references:
+  - Sarbanes-Oxley Act § 302 (corporate responsibility for financial reports)
+  - Sarbanes-Oxley Act § 404 (management assessment of internal controls)
+  - COSO Internal Control — Integrated Framework (2013)
+  - COSO Enterprise Risk Management (2017)
+
+# Claim limits this pack contributes. Each matches the operator-extension
+# regex in graqle/compliance/claim_limits/taxonomy.py, so they are accepted
+# by is_valid_claim_limit() with no taxonomy edit — that is precisely what
+# makes a pack authorable as data.
+claim_limits:
+  - x-sox-not-an-audit-opinion
+  - x-sox-management-review-required
+  - x-sox-icfr-scope
+  - x-sox-preliminary-unreviewed
+
+# Field vocabulary. Mirrors graqle/pct/extensions/x_sox.py, which is the
+# typed bootstrap for this pack.
+fields:
+  control_id:
+    type: string
+    required: true
+    description: >-
+      The operator's named internal control (e.g. FCC-1042). Free-form,
+      because control catalogues are operator-specific, but never empty.
+
+  assertion:
+    type: enum
+    required: true
+    values:
+      - existence
+      - completeness
+      - accuracy
+      - cutoff
+      - valuation
+      - rights_and_obligations
+      - presentation_and_disclosure
+    description: The financial-statement assertion the control supports.
+
+  reporting_period_start:
+    type: date
+    required: true
+    description: ISO-8601 YYYY-MM-DD. Date-only — a reporting period is a
+      calendar concept, and timestamps would invite timezone ambiguity at a
+      period boundary.
+
+  reporting_period_end:
+    type: date
+    required: true
+    description: ISO-8601 YYYY-MM-DD. Must not precede reporting_period_start.
+
+  management_review_status:
+    type: enum
+    required: true
+    values:
+      - not_required
+      - pending
+      - completed
+      - waived_with_reason
+    description: >-
+      Management-review-control status. The SOX counterpart of the Article 14
+      human-oversight mode.
+
+  control_framework:
+    type: enum
+    required: false
+    values:
+      - coso_2013
+      - coso_erm_2017
+      - custom
+    description: COSO framework revision the control is expressed under.
+
+  fiscal_period_label:
+    type: string
+    required: false
+    description: >-
+      Operator's own label, e.g. FY2026-Q3. Carried verbatim and never
+      parsed, because fiscal calendars are not uniform across filers.
+
+  preparer_token:
+    type: pseudonym
+    required: false
+    default: omit
+    pii_classification: pseudonymous
+    description: >-
+      HMAC-SHA256 hex token (64 lowercase hex chars) or the sentinel "omit".
+      Raw identifiers are rejected at construction. The identity-to-token
+      mapping stays with the operator and is never written to a pack, a
+      token, or an evidence artifact.
+
+  reviewer_token:
+    type: pseudonym
+    required: false
+    default: omit
+    pii_classification: pseudonymous
+    description: >-
+      As preparer_token. An auditor can check that preparer and reviewer
+      tokens differ (segregation of duties) without learning either identity.
+
+  management_review_ref:
+    type: uri
+    required: false
+    required_when:
+      field: management_review_status
+      in: [completed, waived_with_reason]
+    description: >-
+      Evidence pointer for the review. Required when review is asserted as
+      completed or waived — a review claimed without evidence is
+      unverifiable.
+
+  control_operating_effectiveness:
+    type: enum
+    required: false
+    values:
+      - effective
+      - deficiency
+      - significant_deficiency
+      - material_weakness
+    description: SOX 404 operating-effectiveness conclusion, escalating.
+
+  icfr_scope:
+    type: boolean
+    required: false
+    description: Whether the control is in scope for internal control over
+      financial reporting.
+
+  policy_version:
+    type: string
+    required: false
+    description: >-
+      Content-addressed SHA-256 of the active baseline-doc at issuance.
+      Mirrors x-ai-eu:policy_version so drift between an issued token and the
+      baseline it was signed against is detectable.
+
+# Notes for auditors and pack authors.
+notes:
+  leaf_hash: >-
+    x-sox fields are carried, not signed. The Merkle leaf is computed over a
+    frozen 5-field allowlist (LEAF_HASH_FIELDS) and every other key is
+    projected away, so no field in this pack can alter a leaf hash or a
+    signed preimage. Adding a field here is additive and cannot invalidate a
+    previously-issued bundle.
+  validation: >-
+    Validating a bundle against proof-spec v1.0 does NOT validate this
+    namespace. Validate against this pack's schema.json in addition.
