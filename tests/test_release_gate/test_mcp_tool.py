@@ -61,8 +61,9 @@ def test_release_gate_handler_rejects_missing_diff(server):
         "target": "pypi",
     }))
     data = json.loads(result)
-    # Missing diff triggers engine fallback → WARN verdict with invalid_diff
-    assert data["verdict"] == "WARN"
+    # Missing diff triggers the engine fallback. CR-B: the gate fails CLOSED,
+    # so an unevaluatable input BLOCKS rather than advising.
+    assert data["verdict"] == "BLOCK"
     assert "invalid_diff" in data["prediction_reasons"]
 
 
@@ -81,7 +82,7 @@ def test_release_gate_handler_rejects_invalid_target(server):
         "target": "npm",
     }))
     data = json.loads(result)
-    assert data["verdict"] == "WARN"
+    assert data["verdict"] == "BLOCK"
     assert "invalid_target" in data["prediction_reasons"]
 
 

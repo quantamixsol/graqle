@@ -16,6 +16,27 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _disable_r22_shacl_gate(monkeypatch):
+    """Disable the R22 SHACL output gate for these single-tool unit tests.
+
+    The gate requires a governance trace conforming to the ADR-209 chain --
+    at least one graq_inspect, graq_context and graq_impact step. These tests
+    invoke ONE tool in isolation, so the trace legitimately has a single step
+    and the gate blocks the output, replacing the tool's response with an
+    error dict. The KeyError these tests raised was that substitution, not a
+    missing field.
+
+    The module reads GRAQLE_SHACL_GATE once at import time into a constant, so
+    setting the env var here would have no effect; the constant is patched
+    directly. Scoped to this file -- the gate stays enabled everywhere else.
+    """
+    monkeypatch.setattr(
+        "graqle.plugins.mcp_dev_server._SHACL_GATE_ENABLED", False, raising=False
+    )
+
+
 # ===========================================================================
 # 1. SMOKE TESTS — Plugin loads without errors
 # ===========================================================================

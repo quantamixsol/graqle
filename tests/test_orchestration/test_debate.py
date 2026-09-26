@@ -18,7 +18,9 @@ try:
     from graqle.orchestration.debate import DebateProtocol
 except ImportError:
     pytest.skip(
-        "IP-protected module not yet implemented in this build - skipping.",
+        "patent stub: graqle.orchestration.debate ships as a patent notice only "
+        "(EP26162901.8 / EP26166054.2). Not missing infrastructure - "
+        "these tests run when the IP-protected implementation ships.",
         allow_module_level=True,
     )
 

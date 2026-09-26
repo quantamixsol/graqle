@@ -21,7 +21,9 @@ try:
         raise ImportError("stub only")
 except (ImportError, AttributeError):
     pytest.skip(
-        "IP-protected module not yet implemented in this build - skipping.",
+        "patent stub: graqle.ontology.semantic_shacl_gate ships as a patent notice only "
+        "(EP26162901.8 / EP26166054.2). Not missing infrastructure - "
+        "these tests run when the IP-protected implementation ships.",
         allow_module_level=True,
     )
 

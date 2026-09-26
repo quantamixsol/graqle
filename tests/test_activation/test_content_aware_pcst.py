@@ -7,6 +7,7 @@ Layer 1: Content richness multiplier in RelevanceScorer.score()
 Layer 2: Post-PCST content filter in PCSTActivation._content_filter()
 Layer 3: Direct file lookup bypass in GraQle._direct_file_lookup()
 """
+from __future__ import annotations
 
 # ── graqle:intelligence ──
 # module: tests.test_activation.test_content_aware_pcst
@@ -29,14 +30,14 @@ try:
         raise ImportError("stub only")
 except (ImportError, AttributeError):
     pytest.skip(
-        "IP-protected module not yet implemented in this build - skipping.",
+        "patent stub: graqle.activation.pcst ships as a patent notice only "
+        "(EP26162901.8 / EP26166054.2). Not missing infrastructure - "
+        "these tests run when the IP-protected implementation ships.",
         allow_module_level=True,
     )
 
 
 
-
-from __future__ import annotations
 
 import math
 

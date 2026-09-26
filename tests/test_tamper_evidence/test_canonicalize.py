@@ -20,7 +20,7 @@ from graqle.governance.tamper_evidence.leaf_input_schema import (
 )
 
 try:
-    from hypothesis import given
+    from hypothesis import HealthCheck, given, settings
     from hypothesis import strategies as st
 
     _HAS_HYPOTHESIS = True
@@ -74,6 +74,12 @@ if _HAS_HYPOTHESIS:
         max_leaves=12,
     )
 
+    # `too_slow` is a timing health check on INPUT GENERATION, not a
+    # correctness signal. Under a loaded parallel run the generator can
+    # miss the threshold and fail a test that is not broken. Suppressed
+    # here for the same reason, and in the same way, as the sibling
+    # property tests in test_merkle.py.
+    @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(st.dictionaries(st.text(min_size=1, max_size=12), _json_values, max_size=5))
     def test_canon_property_deepcopy_invariant(record):
         """Property: canonicalization is stable under deep copy (no float NaN/Inf

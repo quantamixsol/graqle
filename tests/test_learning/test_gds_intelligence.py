@@ -3,6 +3,7 @@
 Tests both the NetworkX fallback mode (no Neo4j required) and the data structures.
 Neo4j GDS tests are skipped unless a live Neo4j instance with GDS plugin is available.
 """
+from __future__ import annotations
 
 # ── graqle:intelligence ──
 # module: tests.test_learning.test_gds_intelligence
@@ -25,14 +26,14 @@ try:
         raise ImportError("stub only")
 except (ImportError, AttributeError):
     pytest.skip(
-        "IP-protected module not yet implemented in this build - skipping.",
+        "patent stub: graqle.learning.gds_intelligence ships as a patent notice only "
+        "(EP26162901.8 / EP26166054.2). Not missing infrastructure - "
+        "these tests run when the IP-protected implementation ships.",
         allow_module_level=True,
     )
 
 
 
-
-from __future__ import annotations
 
 from graqle.core.graph import Graqle
 from graqle.learning.gds_intelligence import (
