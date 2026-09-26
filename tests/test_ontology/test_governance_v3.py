@@ -15,13 +15,22 @@ import pytest
 try:
     import importlib as _importlib
     _importlib.import_module("graqle.ontology.domains.governance_v3")
+    # This module also needs semantic_shacl_gate, a separate patent stub:
+    # guard BOTH or the import below still raises at collection.
     # Verify the key class exists in the stub
     import graqle.ontology.domains.governance_v3 as _stub_mod
+    from graqle.ontology.semantic_shacl_gate import (  # noqa: F401
+        SemanticConstraint,
+        SemanticSHACLGate,
+    )
     if not any(hasattr(_stub_mod, a) for a in dir(_stub_mod) if not a.startswith("_")):
         raise ImportError("stub only")
 except (ImportError, AttributeError):
     pytest.skip(
-        "IP-protected module not yet implemented in this build - skipping.",
+        "patent stub: graqle.ontology.domains.governance_v3 + "
+        "graqle.ontology.semantic_shacl_gate ship as patent notices only "
+        "(EP26162901.8 / EP26166054.2). Not missing infrastructure - "
+        "these tests run when the IP-protected implementation ships.",
         allow_module_level=True,
     )
 

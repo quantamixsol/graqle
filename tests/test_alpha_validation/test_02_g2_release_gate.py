@@ -56,7 +56,9 @@ async def test_g2_release_gate(server_with_plan, record):
     bad = json.loads(bad_raw) if isinstance(bad_raw, str) else bad_raw
     # Either a structured error or an engine response that flags the empty diff
     bad_signals_problem = (bad.get("ok") is False) or ("error" in bad) or (
-        bad.get("verdict") in ("FLAG", "WARN", "INSUFFICIENT_GRAPH")
+        # CR-B: an unevaluatable input now BLOCKs. WARN is kept for older
+        # engines; BLOCK is what a fail-closed gate actually returns.
+        bad.get("verdict") in ("BLOCK", "FLAG", "WARN", "INSUFFICIENT_GRAPH")
     )
     assert bad_signals_problem, bad
     assertions += 1

@@ -35,59 +35,64 @@ def pkg_data() -> Path:
 # ── CLI --target flag (5) ────────────────────────────────────────────
 
 
-def test_cli_target_default_is_claude():
+# `CliRunner.isolated_filesystem()` was removed in newer click/typer
+# (present in click 8.3, gone by 8.5). `typer[all]>=0.9` is unpinned, so CI
+# resolves the newest and these tests broke there while passing locally.
+# pytest's `tmp_path` gives the same isolation and does not depend on the
+# runner's API surface.
+def test_cli_target_default_is_claude(tmp_path):
     """Default --target (no flag) should NOT create .vscode/ dir."""
-    with runner.isolated_filesystem() as fs:
-        result = runner.invoke(
-            app,
-            ["gate-install", fs, "--dry-run"],
-        )
-        # Command may fail due to interpreter probe, but we only care
-        # that no vscode-extension scaffolding appears in output
-        assert "G5 vscode-extension" not in (result.output or "")
+    fs = str(tmp_path)
+    result = runner.invoke(
+        app,
+        ["gate-install", fs, "--dry-run"],
+    )
+    # Command may fail due to interpreter probe, but we only care
+    # that no vscode-extension scaffolding appears in output
+    assert "G5 vscode-extension" not in (result.output or "")
 
 
-def test_cli_target_vscode_extension_creates_vscode_dir():
-    with runner.isolated_filesystem() as fs:
-        root = Path(fs)
-        result = runner.invoke(
-            app,
-            ["gate-install", str(root), "--target=vscode-extension"],
-        )
-        assert (root / ".vscode").exists()
-        assert (root / ".vscode" / "settings.json").exists()
-        assert (root / ".vscode" / "tasks.json").exists()
-        assert (root / ".vscode" / "extensions.json").exists()
-        assert (root / ".mcp.json").exists()
+def test_cli_target_vscode_extension_creates_vscode_dir(tmp_path):
+    fs = str(tmp_path)
+    root = Path(fs)
+    result = runner.invoke(
+        app,
+        ["gate-install", str(root), "--target=vscode-extension"],
+    )
+    assert (root / ".vscode").exists()
+    assert (root / ".vscode" / "settings.json").exists()
+    assert (root / ".vscode" / "tasks.json").exists()
+    assert (root / ".vscode" / "extensions.json").exists()
+    assert (root / ".mcp.json").exists()
 
 
-def test_cli_target_invalid_exits_1():
-    with runner.isolated_filesystem() as fs:
-        result = runner.invoke(
-            app, ["gate-install", fs, "--target=invalid_target"],
-        )
-        assert result.exit_code == 1
-        assert "Invalid --target" in (result.output or "")
+def test_cli_target_invalid_exits_1(tmp_path):
+    fs = str(tmp_path)
+    result = runner.invoke(
+        app, ["gate-install", fs, "--target=invalid_target"],
+    )
+    assert result.exit_code == 1
+    assert "Invalid --target" in (result.output or "")
 
 
-def test_cli_target_vscode_dry_run_does_not_write(pkg_data):
-    with runner.isolated_filesystem() as fs:
-        root = Path(fs)
-        result = runner.invoke(
-            app,
-            ["gate-install", str(root), "--target=vscode-extension", "--dry-run"],
-        )
-        assert not (root / ".vscode").exists()
-        assert not (root / ".mcp.json").exists()
+def test_cli_target_vscode_dry_run_does_not_write(pkg_data, tmp_path):
+    fs = str(tmp_path)
+    root = Path(fs)
+    result = runner.invoke(
+        app,
+        ["gate-install", str(root), "--target=vscode-extension", "--dry-run"],
+    )
+    assert not (root / ".vscode").exists()
+    assert not (root / ".mcp.json").exists()
 
 
-def test_cli_target_vscode_shows_would_write_in_dry_run():
-    with runner.isolated_filesystem() as fs:
-        result = runner.invoke(
-            app,
-            ["gate-install", fs, "--target=vscode-extension", "--dry-run"],
-        )
-        assert "would-write" in (result.output or "")
+def test_cli_target_vscode_shows_would_write_in_dry_run(tmp_path):
+    fs = str(tmp_path)
+    result = runner.invoke(
+        app,
+        ["gate-install", fs, "--target=vscode-extension", "--dry-run"],
+    )
+    assert "would-write" in (result.output or "")
 
 
 # ── VS Code file creation (6) ────────────────────────────────────────
@@ -240,6 +245,13 @@ async def test_mcp_handler_vscode_target_routes_to_helper(tmp_path: Path, pkg_da
 
     class _Srv:
         _graph_file = None
+
+        # `_handle_gate_install` resolves the project root through this method.
+        # Bind the real implementation rather than faking it, so the test
+        # exercises production resolution instead of a stub that can drift.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
 
     result = json.loads(await mcp.KogniDevServer._handle_gate_install(
         _Srv(), {"target": "vscode-extension", "dry_run": False},

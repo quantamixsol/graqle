@@ -469,6 +469,14 @@ async def test_handler_invalid_action_returns_error_envelope():
     # Minimal fake server — we only need the _handle_config_audit method bound
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
     result_json = await mcp.KogniDevServer._handle_config_audit(
         server, {"action": "delete"},
@@ -483,6 +491,14 @@ async def test_handler_accept_missing_file_returns_validation_error():
 
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
     result = json.loads(await mcp.KogniDevServer._handle_config_audit(
         server, {"action": "accept", "approver": "alice"},
@@ -497,6 +513,14 @@ async def test_handler_accept_missing_approver_returns_validation_error():
 
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
     result = json.loads(await mcp.KogniDevServer._handle_config_audit(
         server, {"action": "accept", "file": "graqle.yaml"},
@@ -514,6 +538,14 @@ async def test_handler_audit_returns_drift_response(tmp_repo, monkeypatch):
 
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
     result = json.loads(await mcp.KogniDevServer._handle_config_audit(
         server, {"action": "audit"},
@@ -532,6 +564,14 @@ async def test_handler_accept_rejects_path_traversal():
 
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
 
     for bad in ("../../../etc/passwd", "foo/../../bar", "/etc/passwd", "C:\\Windows\\hosts"):
@@ -549,6 +589,14 @@ async def test_handler_accept_unknown_file_returns_unknown_file_envelope(tmp_rep
 
     class _FakeServer:
         _graph_file = None
+        # CR-012 PR-012c added `_project_root_from_graph_file` and routed the
+        # handler through it (mcp_dev_server.py:5058). The double must expose
+        # the same surface or the handler raises AttributeError before it ever
+        # reaches the behaviour under test. Delegating to the real helper keeps
+        # the double honest if that helper's semantics change.
+        _project_root_from_graph_file = (
+            mcp.KogniDevServer._project_root_from_graph_file
+        )
     server = _FakeServer()
     result = json.loads(await mcp.KogniDevServer._handle_config_audit(
         server, {"action": "accept", "file": "random.txt", "approver": "alice"},

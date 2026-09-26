@@ -6,8 +6,9 @@ fakes and production can wrap graq_review / graq_predict.
 
 Error handling contract (non-leaky):
   - Provider exceptions, timeouts, None, or malformed payloads never crash.
-  - They resolve to a fallback WARN verdict with a caller-safe reason string
-    that NEVER reveals internal thresholds, weights, or compose logic.
+  - They resolve to a fallback BLOCK verdict (CR-B: the gate fails CLOSED)
+    with a caller-safe reason string that NEVER reveals internal thresholds,
+    weights, or compose logic.
   - NaN / inf / non-string / None fields are normalized to neutral defaults.
 
 Public-surface IP redaction:
@@ -99,9 +100,10 @@ class ReleaseGateEngine:
 
         Returns
         -------
-        ReleaseGateVerdict — never raises; failure paths return WARN.
+        ReleaseGateVerdict — never raises; failure paths return BLOCK (CR-B: fail closed).
         """
-        # ── Input validation (returns WARN fallback on bad input — never raises).
+        # ── Input validation (returns BLOCK fallback on bad input — never raises).
+# CR-B: a gate that cannot parse its own input must not pass a release.
         # Normalize target FIRST so every subsequent fallback uses the same value.
         # If target is malformed, fall back to "pypi" and surface invalid_target once.
         effective_target = target if target in SUPPORTED_TARGETS else "pypi"
@@ -287,15 +289,34 @@ class ReleaseGateEngine:
         reason: str,
         review_summary: str = "internal governance error",
     ) -> ReleaseGateVerdict:
-        """Return a safe WARN verdict on provider failure or bad input.
+        """Return a BLOCK verdict on provider failure or bad input.
 
-        The `reason` is a short machine-readable tag (e.g. "review_timeout")
-        that callers can surface to operators. It never contains internal
-        threshold values, weights, or compose logic.
+        CR-B (Research Team ruling): the gate FAILS CLOSED. A provider timeout
+        and an internal error both block. A gate that returns WARN when it
+        could not evaluate is not a gate -- it reports low confidence and lets
+        the release through, which is the failure mode this exists to prevent.
+
+        Both halves of the ruling are satisfied without a context flag here,
+        because BLOCK is mapped differently by target at the consumer:
+
+          * publish targets run `graq release-gate` and exit 1 on BLOCK, so
+            the publish is stopped uniformly across every target;
+          * pull requests get a red report -- the same BLOCK verdict rendered
+            as a failing check, which informs without gating a merge.
+
+        The engine keeps its never-crash and no-leak contract unchanged: it
+        still never raises, and `reason` is a short machine-readable tag
+        (e.g. "review_timeout") that never contains internal threshold values,
+        weights, or compose logic.
+
+        An override exists at the workflow level: role-gated, requiring a
+        written justification, and written to the audit trail BEFORE anything
+        publishes. It is deliberately not a parameter of this function -- an
+        engine that can be asked to not-block is not fail-closed.
         """
         safe_target = target if target in SUPPORTED_TARGETS else "pypi"
         return ReleaseGateVerdict(
-            verdict=Verdict.WARN,
+            verdict=Verdict.BLOCK,
             target=safe_target,
             blockers=(),
             majors=(),

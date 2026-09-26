@@ -39,6 +39,37 @@ jobs:
       - name: Import-linter contracts
         run: lint-imports
 
+      # CR-CI-001 (issue #350) — suppression ceiling.
+      #
+      # CI green is maintained in part by pytest suppression flags that hide
+      # whole test files. Those are tracked for removal; this guard stops the
+      # count growing in the meantime.
+      #
+      # MAX is a CEILING, not a floor, and it RATCHETS DOWN: whenever a phase
+      # removes flags, MAX drops to the new count in the same commit. Leaving
+      # MAX high would open a silent gap for the suppressions to regrow into.
+      # Any PR that raises the count fails here and needs explicit Research
+      # Team sign-off. When CR-CI-001 closes, MAX becomes 0 and this guard
+      # stays.
+      #
+      # History on this repo: 37 until this change, which brings public level
+      # with the private line in one step — Phase 2 removed 14 stale flags,
+      # Phase 3 converted 11 files to named skips (10 patent stubs + 1 Ollama),
+      # and Phase 4 fixed 7 genuinely-failing files.
+      #
+      # Counts only indented flag lines, never prose: this step's own comments
+      # would otherwise be counted and the guard would fail itself.
+      - name: Suppression ceiling (CR-CI-001)
+        run: |
+          MAX=5
+          COUNT=$(grep -cE '^[[:space:]]+--ignore=' .github/workflows/ci.yml)
+          echo "pytest --ignore suppressions: $COUNT (ceiling: $MAX)"
+          if [ "$COUNT" -gt "$MAX" ]; then
+            echo "::error::Suppression count $COUNT exceeds ceiling $MAX. See issue #350 (CR-CI-001)."
+            echo "Adding --ignore flags requires explicit Research Team sign-off."
+            exit 1
+          fi
+
       - name: Run tests with coverage
         run: |
           # 26 test files reference classes from stub files emptied in a prior
@@ -47,43 +78,11 @@ jobs:
           # test_shacl.py requires rdflib which is not in the CI dev extras.
           # Tracked as tech debt — fix target: v0.36.0.
           pytest --cov=graqle --cov-report=xml --cov-report=term -q \
-            --ignore=tests/test_activation/test_pcst.py \
-            --ignore=tests/test_activation/test_content_aware_pcst.py \
-            --ignore=tests/test_activation/test_relevance_chunks.py \
-            --ignore=tests/test_activation/test_adaptive.py \
-            --ignore=tests/test_activation/test_chunk_scorer.py \
-            --ignore=tests/test_activation/test_cypher_activation.py \
-            --ignore=tests/test_benchmarks/test_metrics.py \
-            --ignore=tests/test_connectors/test_neo4j_enhanced.py \
-            --ignore=tests/test_connectors/test_tamr.py \
             --ignore=tests/test_integration/test_phase3.py \
-            --ignore=tests/test_integration/test_ollama_e2e.py \
-            --ignore=tests/test_intelligence/test_governance_middleware.py \
-            --ignore=tests/test_intelligence/test_models.py \
-            --ignore=tests/test_learning/test_activation_memory.py \
-            --ignore=tests/test_learning/test_gds_intelligence.py \
             --ignore=tests/test_licensing/test_manager.py \
-            --ignore=tests/test_ontology/test_constraint_graph.py \
-            --ignore=tests/test_ontology/test_governance_v3.py \
-            --ignore=tests/test_ontology/test_ontology_generator.py \
-            --ignore=tests/test_ontology/test_semantic_shacl_gate.py \
-            --ignore=tests/test_ontology/test_shacl_gate.py \
-            --ignore=tests/test_orchestration/test_confidence_calibration.py \
-            --ignore=tests/test_orchestration/test_debate.py \
             --ignore=tests/test_plugins/test_mcp_server.py \
-            --ignore=tests/test_server/test_middleware.py \
-            --ignore=tests/test_server/test_models.py \
-            --ignore=tests/test_governance/test_shacl.py \
-            --ignore=tests/test_cli/test_g5_vscode_gate_install.py \
             --ignore=tests/test_distribution/test_no_internal_strings.py \
-            --ignore=tests/test_plugins/test_cg_14_config_drift.py \
             --ignore=tests/test_plugins/test_chat_02_intent_hint.py \
-            --ignore=tests/test_generation/test_phase4_tools.py \
-            --ignore=tests/test_generation/test_phase10_layer1.py \
-            --ignore=tests/test_plugins/test_hfci018_tool_hints.py \
-            --ignore=tests/test_plugins/test_lesson_hit_count.py \
-            --ignore=tests/test_plugins/test_mcp_dev_server_v015.py \
-            --ignore=tests/test_plugins/test_phantom.py
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'

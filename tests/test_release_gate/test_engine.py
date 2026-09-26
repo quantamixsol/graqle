@@ -143,41 +143,41 @@ def test_gate_clear_with_single_major():
 
 # ── 7. WARN on empty diff input ───────────────────────────────────────────
 
-def test_gate_warn_on_empty_diff():
+def test_gate_blocks_on_empty_diff():
     eng = _engine()
     result = asyncio.run(eng.gate("", "pypi"))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "invalid_diff" in result.prediction_reasons
 
 
 # ── 8. WARN on non-string diff ────────────────────────────────────────────
 
-def test_gate_warn_on_non_string_diff():
+def test_gate_blocks_on_non_string_diff():
     eng = _engine()
     result = asyncio.run(eng.gate(None, "pypi"))  # type: ignore[arg-type]
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "invalid_diff" in result.prediction_reasons
 
 
 # ── 9. WARN on invalid target ─────────────────────────────────────────────
 
-def test_gate_warn_on_invalid_target():
+def test_gate_blocks_on_invalid_target():
     eng = _engine()
     result = asyncio.run(eng.gate(SAMPLE_DIFF, "npm"))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "invalid_target" in result.prediction_reasons
 
 
 # ── 10. WARN on invalid min_confidence ────────────────────────────────────
 
-def test_gate_warn_on_invalid_min_confidence():
+def test_gate_blocks_on_invalid_min_confidence():
     eng = _engine()
     result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi", min_confidence=2.0))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "invalid_min_confidence" in result.prediction_reasons
 
     result2 = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi", min_confidence=float("nan")))
-    assert result2.verdict is Verdict.WARN
+    assert result2.verdict is Verdict.BLOCK
 
 
 # ── 11. Verdict dataclass is frozen ───────────────────────────────────────
@@ -217,14 +217,14 @@ def test_gate_target_vscode_marketplace():
     assert result.target == "vscode-marketplace"
 
 
-# ── 15. Review provider exception → WARN ─────────────────────────────────
+# ── 15. Review provider exception → BLOCK (CR-B: fail closed) ─────────────────────────────────
 
 def test_gate_handles_review_provider_exception():
     eng = _engine(
         review=FakeReviewProvider(raise_exc=RuntimeError("provider down")),
     )
     result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "review_error" in result.prediction_reasons
 
 
@@ -262,14 +262,81 @@ def test_provider_exception_text_reaches_the_operator_log(caplog):
     assert "RuntimeError" not in blob
 
 
-# ── 16. Prediction provider exception → WARN ─────────────────────────────
+# ── CR-B: the fail-closed contract itself ────────────────────────────────
+
+def test_every_unevaluatable_path_blocks_never_warns():
+    """CR-B (Research ruling): a gate that could not evaluate must BLOCK.
+
+    The defect this pins: the fallback returned WARN at confidence 0.0 with
+    zero findings, so an internal crash read as "low confidence, proceed" and
+    the release went out ungated. `Release Gate (PyPI)` was red on every PR
+    for exactly this reason and blocked nothing.
+
+    A timeout and an internal error are treated identically -- neither is
+    evidence the release is safe, only that the gate could not say.
+
+    Asserted over EVERY fallback entry point at once, so adding a new failure
+    path that returns WARN fails here rather than silently reopening the gate.
+    """
+    # Exceptions.
+    for reason, eng in {
+        "review_error": _engine(review=FakeReviewProvider(raise_exc=RuntimeError("x"))),
+        "prediction_error": _engine(predict=FakePredictionProvider(raise_exc=RuntimeError("x"))),
+    }.items():
+        result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
+        assert result.verdict is Verdict.BLOCK, (
+            f"{reason} returned {result.verdict}; the gate must fail CLOSED"
+        )
+        assert reason in result.prediction_reasons
+
+    # Timeouts. The real timeout is 60s, so it is shortened here rather than
+    # slept through -- the assertion is about the VERDICT, not the duration.
+    import graqle.release_gate.engine as _eng_mod
+
+    original = _eng_mod._PROVIDER_TIMEOUT_SECONDS
+    try:
+        _eng_mod._PROVIDER_TIMEOUT_SECONDS = 0.01
+        for reason, eng in {
+            "review_timeout": _engine(review=FakeReviewProvider(sleep=0.2)),
+            "prediction_timeout": _engine(predict=FakePredictionProvider(sleep=0.2)),
+        }.items():
+            result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
+            assert result.verdict is Verdict.BLOCK, (
+                f"{reason} returned {result.verdict}; the gate must fail CLOSED"
+            )
+            assert reason in result.prediction_reasons
+    finally:
+        _eng_mod._PROVIDER_TIMEOUT_SECONDS = original
+
+    # Bad input is equally unevaluatable: a gate that cannot parse its own
+    # input has no basis to pass a release.
+    eng = _engine()
+    for bad in (
+        lambda: eng.gate(SAMPLE_DIFF, "not-a-target"),
+        lambda: eng.gate("", "pypi"),
+        lambda: eng.gate(SAMPLE_DIFF, "pypi", min_confidence=2.0),
+    ):
+        assert asyncio.run(bad()).verdict is Verdict.BLOCK
+
+
+def test_block_still_leaks_nothing(caplog):
+    """Failing closed must not become an excuse to leak internals."""
+    eng = _engine(review=FakeReviewProvider(raise_exc=RuntimeError("secret-internal-detail")))
+    result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
+    assert result.verdict is Verdict.BLOCK
+    blob = json.dumps(result.to_dict())
+    assert "secret-internal-detail" not in blob
+    assert "RuntimeError" not in blob
+
+
+# ── 16. Prediction provider exception → BLOCK (CR-B: fail closed) ─────────────────────────────
 
 def test_gate_handles_prediction_provider_exception():
     eng = _engine(
         predict=FakePredictionProvider(raise_exc=ValueError("predict fail")),
     )
     result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     assert "prediction_error" in result.prediction_reasons
 
 
@@ -319,7 +386,7 @@ def test_gate_handles_none_prediction():
 def test_gate_fallback_verdict_serializes_safely():
     eng = _engine(review=FakeReviewProvider(raise_exc=OSError("io")))
     result = asyncio.run(eng.gate(SAMPLE_DIFF, "pypi"))
-    assert result.verdict is Verdict.WARN
+    assert result.verdict is Verdict.BLOCK
     d = result.to_dict()
     j = json.dumps(d)
     assert "review_error" in j
