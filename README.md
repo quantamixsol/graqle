@@ -155,6 +155,15 @@ Report vulnerabilities to **security@quantamixsolutions.com** · [SECURITY.md](.
 
 ---
 
+## Used in CrawlQ Ledger
+
+[CrawlQ Ledger](https://crawlq.ai/ledger) is a desktop app for Windows and Mac built on GraQle. On your own computer it reads the mail, Slack, Drive and folders you connect, links people, promises and messages in a GraQle graph, and runs agents that act only where you have approved them, with a signed receipt for every action. Your AI tools (Claude, ChatGPT, Cursor, Claude Code) can query that graph through the Ledger's MCP server, so they answer from your records instead of guessing.
+
+- Ledger Solo includes GraQle Community (graph up to 1,000 entries).
+- Ledger Pro includes a lifetime GraQle Pro licence, Business a lifetime GraQle Pro licence for 3 seats, and Team a lifetime GraQle Team licence for 5 seats.
+
+---
+
 ## Editions
 
 | | What you get |
