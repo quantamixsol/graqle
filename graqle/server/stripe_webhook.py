@@ -248,8 +248,8 @@ def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
     name = session.get("customer_details", {}).get("name", "")
 
     # Extract tier from metadata (set on Stripe Product/Price or checkout session)
-    metadata = session.get("metadata", {})
-    tier_key = metadata.get("graqle_tier", "team")
+    metadata = session.get("metadata") or {}
+    tier_key = str(metadata.get("graqle_tier") or "team").strip().lower()   # the same normalisation as the guard in handle_webhook_event
     tier = STRIPE_TIER_MAP.get(tier_key, "team")
 
     # Duration
@@ -323,6 +323,16 @@ def handle_webhook_event(event_type: str, data: dict[str, Any]) -> dict[str, Any
         if payment_status != "paid":
             logger.info(f"Skipping unpaid session: {session.get('id')}")
             return {"status": "skipped", "reason": "payment_status != paid"}
+
+        # Only GraQle purchases get a GraQle licence. This endpoint receives every
+        # checkout.session.completed in the Stripe account (CrawlQ, the Ledger, ...);
+        # GraQle's own checkout (cognigraph-studio /api/checkout) always sets
+        # metadata.graqle_tier. Without it the session is someone else's purchase:
+        # skip it rather than default it to a Team licence.
+        tier_key = str((session.get("metadata") or {}).get("graqle_tier") or "").strip().lower()
+        if tier_key not in STRIPE_TIER_MAP:
+            logger.info(f"Skipping non-GraQle session: {session.get('id')}")
+            return {"status": "skipped", "reason": "not a GraQle purchase (no graqle_tier)"}
 
         license_info = generate_license_from_checkout(session)
 
