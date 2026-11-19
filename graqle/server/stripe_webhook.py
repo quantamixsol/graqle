@@ -248,8 +248,8 @@ def generate_license_from_checkout(session: dict[str, Any]) -> dict[str, Any]:
     name = session.get("customer_details", {}).get("name", "")
 
     # Extract tier from metadata (set on Stripe Product/Price or checkout session)
-    metadata = session.get("metadata", {})
-    tier_key = metadata.get("graqle_tier", "team")
+    metadata = session.get("metadata") or {}
+    tier_key = str(metadata.get("graqle_tier") or "team").strip().lower()   # the same normalisation as the guard in handle_webhook_event
     tier = STRIPE_TIER_MAP.get(tier_key, "team")
 
     # Duration

@@ -232,6 +232,17 @@ class TestWebhookEventHandler:
             assert result["status"] == "skipped", meta
             assert "license_key" not in result
 
+    def test_tier_case_and_spaces_issue_that_tier(self, monkeypatch) -> None:
+        """'Pro' or ' pro ' passes the guard and must issue Pro, never fall back to Team (review on #282)."""
+        from graqle.server.stripe_webhook import handle_webhook_event
+
+        for raw in ("Pro", " pro ", "PRO_MONTHLY"):
+            data = {"object": {"id": "cs_case", "customer_email": "dev@test.com", "customer_details": {"name": "Dev"},
+                               "customer": "cus_case", "metadata": {"graqle_tier": raw}, "payment_status": "paid"}}
+            result = handle_webhook_event("checkout.session.completed", data)
+            assert result["status"] == "ok", raw
+            assert result["tier"] == "pro", raw
+
     def test_unpaid_session_skipped(self) -> None:
         from graqle.server.stripe_webhook import handle_webhook_event
 
