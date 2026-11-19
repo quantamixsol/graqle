@@ -212,6 +212,26 @@ class TestWebhookEventHandler:
         assert result["license_generated"] is True
         assert result["license_key"]
 
+    def test_non_graqle_purchase_gets_no_licence(self) -> None:
+        """Every paid checkout in the account reaches this endpoint (CrawlQ, the Ledger):
+        only sessions GraQle's own checkout marked with graqle_tier issue a licence."""
+        from graqle.server.stripe_webhook import handle_webhook_event
+
+        for meta in ({}, None, {"product": "ledger"}, {"graqle_tier": "gold"}, {"graqle_tier": ""}):
+            data = {
+                "object": {
+                    "id": "cs_other",
+                    "customer_email": "buyer@test.com",
+                    "customer_details": {"name": "Buyer"},
+                    "customer": "cus_other",
+                    "metadata": meta,
+                    "payment_status": "paid",
+                }
+            }
+            result = handle_webhook_event("checkout.session.completed", data)
+            assert result["status"] == "skipped", meta
+            assert "license_key" not in result
+
     def test_unpaid_session_skipped(self) -> None:
         from graqle.server.stripe_webhook import handle_webhook_event
 
